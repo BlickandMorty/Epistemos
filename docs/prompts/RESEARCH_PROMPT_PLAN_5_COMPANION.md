@@ -80,6 +80,17 @@ with an agent side-chat that edits your document) actually does, then design som
 **all of it plus much more** — richer presence, honest provenance, multi-surface identity, and the
 "a companion is editing my doc" feeling — inside a Tiptap WebView driven by a real agent loop.
 
+**Profundity mandate — this is the bar, weight it above everything.** The owner does not want a
+cute overlay; the owner wants companions that feel *genuinely alive and embodied* — a small
+creature that **lives in the app, does real work, and you form an attachment to.** Optimize
+aggressively for what is *possible*, then justify it. Concretely, the owner's spark: **as a
+companion edits a document, you can literally see it there — its gaze/body following the words it
+is writing and revising, moving along the caret, reacting as text appears.** Treat "how alive,
+embodied, and emotionally resonant can this be while staying honest to real agent state?" as the
+central research question, not a garnish. A merely-functional answer is a failed dossier. Push the
+envelope on liveliness, motion-with-meaning, presence, memory, and attachment — then ground every
+flourish in a real mechanism (real caret coordinates, real run-state, real provenance), never fake.
+
 ## 3. Hard constraints (non-negotiable — a design that violates these is wrong)
 
 1. **1Code-only.** No companion surface may appear on MAS/June. Design the gate.
@@ -186,10 +197,36 @@ This is where "feels like a real companion editing" is won or lost. Research and
   read as "alive" and earn attachment without wandering/animation gimmicks? (Tamagotchi, Finch,
   Pou, Dofus/creature companions, Clippy's failures, Cursor's tab presence, character.ai attachment
   research.) Extract principles, cited.
-- The **consistent tamagotchi look** across all four surfaces (native glyph + WebView render) — how
-  to keep one visual identity across a SwiftUI glyph and a WebView sprite. Feeds Plan 4 (Icons).
+- **Liveliness through motion-with-meaning:** the owner wants the mascot to feel *animated and
+  alive*, not a static sticker — but every motion must mean something real (breathing/idle micro-
+  motion, a genuine reaction to a tool result, gaze toward the surface it's acting on). Research the
+  vocabulary of "alive but not annoying" micro-animation (idle loops, anticipation, secondary
+  motion, easing/springs) and where each maps to a real state vs. must be forbidden as fake.
+- **The consistent tamagotchi look** across all four surfaces (native SwiftUI glyph + WebView
+  sprite) — how to keep ONE visual identity across both render paths. Feeds Plan 4 (Icons).
+
+### D4b — Mascot art & rendering quality (fix the "looks like a demo" problem)
+The current landing mascots read as a **demo**: the owner loves the tamagotchi *style* but the
+**body parts and accessories have weird artifacts, glitches, and bugs** (mis-registered layers,
+seams, clipping, jaggy edges, inconsistent scale/anchor). Research and specify a **production-grade
+mascot rendering system**:
+- The right **art pipeline** for a composable creature: layered body-parts + swappable accessories
+  (hats/eyes/held-items/etc.) with correct anchoring, z-order, and scale — vector (SVG/PDF/SF Symbols
+  composite) vs sprite-sheet vs Lottie/Rive vs Canvas/WebGL. Verdict per render path (native vs
+  WebView), and how to keep them visually identical.
+- **Root-cause the artifact classes** a layered-avatar system hits (anti-aliasing seams, sub-pixel
+  misalignment, transform origin drift, accessory occlusion, HiDPI scaling) and the concrete fixes.
+- **Rive / Lottie** feasibility for a lively, riggable creature that can *emote and move with
+  meaning* (bind rig states to real agent states) — cost, MAS-sandbox safety, WebView vs native.
+  Give a real recommendation, not a survey.
+- An **accessory/customization system** worthy of the creation flow (D5): what body parts +
+  accessories exist, how they combine without artifacts, how identity stays recognizable.
 
 ### D5 — Creation & management (in 1Code) + the landing handoff
+- **Robustness mandate:** creation today is demo-grade. The new flow must be *robust and complete*:
+  durable persistence, safe re-editing of every attribute after creation, sensible defaults +
+  templates/presets so a good companion is one click away, validation, duplication, and graceful
+  handling of missing model/provider/keys. Design it as a shippable feature, not a stub.
 - Design the **new "Create Companion" flow** in the 1Code main agent (the old
   `CompanionCreationFlow.swift` is deleted). What defines a companion: persona/voice, base model
   + provider, tool/MCP allowances (gated), obligation profile (job/scope), tamagotchi appearance,
@@ -240,6 +277,33 @@ This is where "feels like a real companion editing" is won or lost. Research and
   "feels alive," honest gating. End with what Epistemos should copy, what to avoid, and the 3–5
   ideas that make Companions genuinely novel.
 
+### D10 — Embodied editing presence (the companion follows the words) ★ owner-spark, go deep
+This is the owner's signature idea and the emotional core — research it hardest.
+- **The vision:** when a companion edits a note, you *see it inhabiting the document* — its gaze/
+  body/hands tracking the exact words it is writing and revising, gliding along the ProseMirror
+  caret/edit range, reacting (leaning in, a small flourish) as text appears, resting when idle.
+  It should feel like a tiny writer physically working on your page — not a cursor, a *creature.*
+- **Feasibility & technique (this is why Epdoc-is-a-WebView matters):** research how to anchor and
+  animate a sprite to live editor coordinates. ProseMirror exposes `view.coordsAtPos(pos)` /
+  `posAtCoords` and DOM node positions; you can place an absolutely-positioned/portal'd mascot at
+  the current edit position and animate it along the change range as edits stream. Detail: caret/
+  range → screen coords, smoothing/easing the path between successive edit positions, scroll
+  following, line-wrap and multi-range edits, performance (rAF, transform-only animation, avoiding
+  layout thrash), and degradation when the doc scrolls fast or edits jump far. Cite the real APIs.
+- **Behavioral grammar of embodied editing:** approach → settle at the edit site → "write" (synced
+  to streamed insertion) → step to the next change → on finish, retreat to the sidebar/bubble and
+  emote "done"; on user-takeover, yield gracefully. Map each beat to a REAL event (token stream,
+  transaction applied, turn end) — nothing faked.
+- **Restraint & honesty:** when is embodied following delightful vs. distracting? Opt-in/auto rules,
+  reduced-motion accessibility, "quiet edit" mode. It must never obscure the text it's editing or
+  fight the user's cursor.
+- **Cross-surface handoff of the body:** how the *same* creature moves from the Epdoc sidebar
+  minichat into the document body to edit, and back — one continuous embodied identity (ties D3+D2).
+- Prior art to mine: multiplayer cursors/avatars (Figma, Google Docs live cursors, Yjs awareness),
+  game "companion follows you" AI, typewriter/word-by-word reveal UIs, Rive/Lottie rigs bound to
+  runtime data. Extract the transferable mechanics, cited; give a build-real recommendation with a
+  graceful fallback (e.g. sidebar-bubble presence) if full word-following proves too costly.
+
 ## 6. Primary-source discipline
 - Cite every external claim (product docs, library docs/source, papers, credible analyses). Prefer
   official docs and source over blog hearsay. For ProseMirror/Tiptap/Yjs, cite the actual API.
@@ -256,16 +320,21 @@ Produce ONE structured dossier with:
    streaming model, provenance mapping, WebView diff UX. This is the longest section.
 4. **Presence protocol** (D3) — the one-identity-four-surfaces architecture + event bus + seam
    ownership (native / agent_core / 1Code React / Tiptap JS).
-5. **Emote state machine** (D4) — states → poses, bound to real events; the "alive" design rules.
-6. **Creation & management UX** (D5) — the new 1Code flow + the landing handoff options + recommendation.
-7. **Alive/attachment design + anti-uncanny guardrails** (D6).
-8. **Honest gating + edit-safety + injection model** (D7).
-9. **Performance budgets + robustness/failure table** (D8).
-10. **Competitive table + the novel 3–5** (D9).
-11. **Phased build order** — a sequenced plan (foundation → presence → edit engine → provenance →
+5. **Emote state machine + mascot-art system** (D4/D4b) — states → poses bound to real events; the
+   "alive"/motion-with-meaning rules; the production art pipeline that kills the demo-grade artifacts
+   (layered body-parts + accessories, native↔WebView parity, Rive/Lottie verdict).
+6. **Embodied editing presence** (D10) ★ — the companion-follows-the-words design: coords anchoring,
+   motion grammar, honesty/restraint, and a real recommendation + graceful fallback. Treat as a
+   headline section, not an appendix.
+7. **Creation & management UX** (D5) — the robust new 1Code flow + the landing handoff options + recommendation.
+8. **Alive/attachment design + anti-uncanny guardrails** (D6).
+9. **Honest gating + edit-safety + injection model** (D7).
+10. **Performance budgets + robustness/failure table** (D8).
+11. **Competitive table + the novel 3–5** (D9).
+12. **Phased build order** — a sequenced plan (foundation → presence → edit engine → provenance →
     creation → gating → polish), each phase with a *proven-done* bar (a witnessable behavior, not
     "build green"). Flag what depends on Plan 2 (Editor) and Plan 4 (Icons).
-12. **Open questions** — preserved, not auto-resolved (esp. the landing-vs-1Code creation boundary).
+13. **Open questions** — preserved, not auto-resolved (esp. the landing-vs-1Code creation boundary).
 
 ## 8. Anti-patterns (do NOT do)
 - Do not produce generic "AI assistant" boilerplate. Every section must be specific to *this*
