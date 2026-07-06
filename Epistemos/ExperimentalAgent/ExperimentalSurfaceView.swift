@@ -16,9 +16,6 @@ struct ExperimentalSurfaceView: View {
     @Environment(UIState.self) private var ui
     // Task 2 (DoD-2): the LIVE Epistemos theme projected onto the SPA.
     var theme: EpistemosTheme = .nativeDefault
-    // Task 3 (DoD-3): the native chat-list sidebar.
-    @State private var nativeSidebarShown = false
-
     init(theme: EpistemosTheme = .nativeDefault) {
         self.theme = theme
     }
@@ -41,34 +38,22 @@ struct ExperimentalSurfaceView: View {
                 statusCard(title: "Starting the Experimental agent…", detail: supervisor.lastDiagnostic, retry: false)
             }
 
-            // Task 3 (DoD-3): native sidebar over the web transcript — chat list
-            // + New Chat, tRPC-driven; selection rides the atom bridge.
-            if nativeSidebarShown, case .running(let connection) = supervisor.status {
-                ExperimentalNativeSidebar(baseURL: connection.uiBaseURL)
-                    .transition(.move(edge: .leading))
-                    .zIndex(9)
-            }
-
-            // Native chrome strip — floats in the empty hidden-inset title-bar area,
-            // right of the macOS traffic lights, above the SPA chrome (always
-            // reachable, even while the surface is starting or failed).
-            HStack(spacing: 8) {
-                backToEpistemosPill
-                if case .running(let connection) = supervisor.status {
-                    ExperimentalChromeBar(
-                        baseURL: connection.uiBaseURL,
-                        sidebarShown: $nativeSidebarShown
-                    )
+            // Owner directive 2026-07-05: the 1Code web UI stays as-is (sidebar,
+            // recents, model picker — all web). EXACTLY ONE SwiftUI element on
+            // this surface: the Home pill, June-MAS style, in the TRUE title-bar
+            // strip (ignoresSafeArea) right of the traffic lights — not overlapping
+            // the web sidebar's wordmark below.
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    backToEpistemosPill
+                    Spacer(minLength: 0)
                 }
+                .padding(.top, 8)
+                .padding(.leading, 92)
+                Spacer(minLength: 0)
             }
-            .padding(.top, 10)
-            .padding(.leading, 92)
+            .ignoresSafeArea()
             .zIndex(10)
-        }
-        .onChange(of: nativeSidebarShown) { _, shown in
-            // Yield the strip to the native sidebar: collapse the donor's web
-            // sidebar while ours is open (same atom its own toggle writes).
-            ExperimentalStateBridge.shared.setAtom("agentsSidebarOpenAtom", value: !shown)
         }
         .task {
             if case .idle = supervisor.status { supervisor.start() }
@@ -82,18 +67,33 @@ struct ExperimentalSurfaceView: View {
         }
     }
 
-    private var backToEpistemosPill: some View {
-        ToolbarCapsuleButton(
-            title: "Epistemos",
-            systemImage: "house",
-            role: .secondaryGhost,
-            helpText: "Back to Epistemos",
-            accessibilityLabel: "Back to Epistemos"
-        ) {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                ui.homeContent = .greeting
-            }
+    private func returnHome() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+            ui.homeContent = .greeting
         }
+    }
+
+    /// The ONE SwiftUI element on this surface (owner directive): a "Home"
+    /// pill — June-MAS pill metrics (30pt slot, ChonkyPixels 12pt semibold,
+    /// chevron.left) on a Liquid Glass capsule.
+    private var backToEpistemosPill: some View {
+        Button(action: returnHome) {
+            HStack(spacing: 5) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("Home")
+                    .font(Font.custom("ChonkyPixels", size: 12).weight(.semibold))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 11)
+            .frame(height: 30)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(theme.textPrimary.opacity(0.92))
+        .glassEffect(.regular.interactive(), in: Capsule())
+        .help("Back to Epistemos")
+        .accessibilityLabel("Back to Epistemos home")
     }
 
     @ViewBuilder
@@ -139,6 +139,14 @@ private struct ExperimentalWebView: NSViewRepresentable {
             source: ExperimentalThemeBridge.userScript(for: theme),
             injectionTime: .atDocumentStart, forMainFrameOnly: true
         ))
+        // Epistemos read-aloud fusion (app-wide TTS canon): the donor transcript's
+        // speaker button routes through the app's on-device voice when available
+        // (honest gate — false keeps the donor path; June/ProAgent precedent).
+        controller.addUserScript(WKUserScript(
+            source: "window.__EPISTEMOS_TTS_AVAILABLE__ = \(EpistemosSpeechSynthesizer.isTextToSpeechAvailable() ? "true" : "false");",
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
+        controller.add(context.coordinator, name: "epistemosSpeak")
         // Reply-capable handler for the native desktopApi bucket (callId round-trip).
         controller.addScriptMessageHandler(
             context.coordinator, contentWorld: .page, name: "epistemos"
@@ -169,7 +177,8 @@ private struct ExperimentalWebView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandlerWithReply {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandlerWithReply,
+                             WKScriptMessageHandler {
         private let uiBaseURL: URL
         weak var webView: WKWebView?
         /// Monotonic instant the SPA load began — for the §16 spa-ready measurement.
@@ -243,6 +252,27 @@ private struct ExperimentalWebView: NSViewRepresentable {
                 return await handleSaveFile(payload: body["payload"])
             }
             return reply(to: kind, payload: body["payload"])
+        }
+
+        // Read-aloud (fire-and-forget, non-reply channel): {action:"speak"|"stop",
+        // text} → the shared on-device voice. Mirrors JuneAgentBridge's shape
+        // validation + length cap; speak() itself refuses when Kokoro isn't ready.
+        func userContentController(
+            _ userContentController: WKUserContentController,
+            didReceive message: WKScriptMessage
+        ) {
+            guard message.name == "epistemosSpeak",
+                  let body = message.body as? [String: Any],
+                  let action = body["action"] as? String else { return }
+            let synth = EpistemosSpeechSynthesizer.shared
+            if action == "stop" {
+                synth.stop()
+                return
+            }
+            guard action == "speak",
+                  let text = body["text"] as? String,
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            _ = synth.speak(String(text.prefix(EpistemosSpeechSynthesizer.maxTextToSpeechInputCharacters)))
         }
 
         @MainActor
