@@ -1,0 +1,73 @@
+# ⚠️ KEELSTONE-REVIEW: PATTERN REFERENCE ONLY — DO NOT REPLACE THE REAL project.yml.
+# The live project.yml is ~23KB (macOS 26.0, 3 configs, Rust preBuild chain, packages,
+# widgets/tests, signing). Apply the PRINCIPLE below as a 3-line edit to the real file:
+# add EPISTEMOS_EXPERIMENTAL to the Epistemos target's Debug+Release configs (preserving
+# DEBUG + EPISTEMOS_LINK_SUBSTRATE_RT); never put surface macros in shared base.
+
+# project.yml — Epistemos KEELSTONE two-config schema
+#
+# THE ONE RULE THAT KEEPS THE GHOST SURFACE DEAD:
+# Surface macros (EPISTEMOS_EXPERIMENTAL / EPISTEMOS_APP_STORE) live ONLY in each
+# target's SWIFT_ACTIVE_COMPILATION_CONDITIONS. They must NEVER appear in the
+# top-level `settings:` block below, because Xcode propagates project-level
+# settings to every target via $(inherited) — and the moment EXPERIMENTAL leaks
+# into base, the App Store target inherits it and trips the #error in
+# AppSurface.swift (or worse, ships a confused surface).
+#
+# xcodegen merges settings in order: groups -> base -> configs -> target. Keep
+# the surface macro at the target layer and it can't drift.
+
+name: Epistemos
+options:
+  bundleIdPrefix: com.epistemos
+  deploymentTarget:
+    macOS: "14.0"
+
+# Shared, surface-NEUTRAL settings only. No surface macros here. Ever.
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+    # NOTE: intentionally NO SWIFT_ACTIVE_COMPILATION_CONDITIONS at base level.
+
+configs:
+  Debug: debug
+  Release: release
+
+targets:
+
+  # ---- Developer ID / 1Code — the base default dev target ----
+  Epistemos:
+    type: application
+    platform: macOS
+    sources:
+      - Epistemos
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.app
+        # Surface macro scoped to THIS target only:
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: EPISTEMOS_EXPERIMENTAL
+        CODE_SIGN_ENTITLEMENTS: Entitlements/Experimental.entitlements
+        CODE_SIGN_IDENTITY: "Developer ID Application"
+    # (No App Sandbox on this lane. Hardened runtime + notarization in the
+    #  distribution pipeline. Subprocess capabilities allowed + supervised.)
+
+  # ---- Mac App Store / June ----
+  Epistemos-AppStore:
+    type: application
+    platform: macOS
+    sources:
+      - Epistemos
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.appstore
+        # Surface macro scoped to THIS target only:
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: EPISTEMOS_APP_STORE
+        CODE_SIGN_ENTITLEMENTS: Entitlements/AppStore.entitlements
+    # (App Sandbox ON. user-selected.read-write + bookmarks.app-scope. No
+    #  arbitrary subprocesses — capability registry gates them off on this lane.)
+
+# There is deliberately NO third target and NO flag-less configuration.
+# CI guardrail (see gate): assert exactly two app targets, assert each defines
+# exactly one surface macro, assert neither inherits the other's macro.

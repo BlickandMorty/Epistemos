@@ -1,0 +1,52 @@
+# ⚠️ KEELSTONE-REVIEW: MERGE these as [keelstone.*] sections into the EXISTING
+# docs/perf-budgets.toml (which already has [binary]/[appstore]/[runtime]/
+# [agent_surface]/[experimental_surface]/[meta]). Do NOT replace that file.
+
+# perf-budgets.toml — Epistemos KEELSTONE performance floor
+#
+# Treated like API tests: source-controlled, diff-reviewed, release-BLOCKING.
+# Any unbudgeted regression fails CI. A v1 can ship modest numbers; it cannot
+# ship UNKNOWN numbers. Every budgeted path emits an os_signpost span; CI
+# computes p50/p95 from Instruments/MetricKit traces and compares to these.
+#
+# Reference hardware: Apple silicon (M2 Pro class). Reference vault: 10k notes.
+# Enterprise soak vault: 100k notes (separate, looser envelope below).
+
+[reference]
+hardware = "M2 Pro"
+vault_notes = 10000
+
+[budgets.launch]
+cold_to_interactive_p50_ms = 1500
+cold_to_interactive_p95_ms = 2500
+warm_to_interactive_p50_ms = 800
+
+[budgets.editor]
+first_open_p50_ms = 150
+first_open_p95_ms = 400
+
+[budgets.search]
+first_search_ready_p50_ms = 2000
+first_search_ready_p95_ms = 5000
+
+[budgets.reconcile]
+# Incremental reconcile after an external change burst, no UI stall.
+after_1000_changes_max_ms = 10000
+main_thread_fs_ops = 0            # hard zero — any main-thread vault IO fails
+
+[budgets.memory]
+idle_resident_mb_max = 500
+
+[budgets.thermal]
+no_escalation_under_soak_minutes = 15
+
+# ---- Enterprise envelope (100k notes) — looser, but still bounded ----
+[enterprise]
+vault_notes = 100000
+
+[enterprise.budgets]
+cold_to_interactive_p95_ms = 6000     # lazy index load; UI shell must not wait on it
+first_search_ready_p95_ms = 20000     # FTS warm-up acceptable; embeddings may lag
+reconcile_20k_change_burst_max_ms = 60000
+idle_resident_mb_max = 1200
+wal_file_mb_max = 512                 # bound WAL growth; TRUNCATE checkpoint after bulk
