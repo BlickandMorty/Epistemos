@@ -156,7 +156,7 @@ for m in re.finditer(r'(?:require(?:\.resolve)?|import)\(\s*"((?:@[\w.-]+/)?[\w.
         names.add(root)
 # FORCE-INCLUDE the engine SDKs regardless of scan — they are load-bearing and dynamically
 # resolved. If a future refactor stops referencing them literally, chat must still work.
-FORCE = {"@anthropic-ai/claude-agent-sdk", "@zed-industries/codex-acp", "@mcpc-tech/acp-ai-provider"}
+FORCE = {"@anthropic-ai/claude-agent-sdk", "@zed-industries/codex-acp", "@mcpc-tech/acp-ai-provider", "@agentclientprotocol/codex-acp"}
 names |= FORCE
 deps = json.load(open(fork_pkg))["dependencies"]
 subset = {k: v for k, v in sorted(deps.items()) if k in names}
