@@ -1235,3 +1235,14 @@ only because my test cwd resolved the migrations path wrong — the app supervis
 the running 02:53 app.) CONCLUSION: the staged deploy is COMPLETE + PROVEN-GOOD end-to-end; a normal owner
 relaunch will deliver all Cycles 24-35 features working. Honest state: bundled + backend-proven + verified
 on the real artifact; LIVE-in-app pending the owner's relaunch (which I won't force).
+
+---
+
+**Cycle 38 (2026-07-06) — cite-check CAP honesty (aligned with the honesty rail).** With the owner active
+(no app interaction), did a safe headless honesty fix: cite-check caps at 40 citations but reported `total`
+as the checked count, so a 45-citation reply with 40 verified showed "All 40 verified" — implying full
+coverage when 5 were silently skipped. Now returns `capped`+`citationsFound`; the manual toast appends
+"(checked first 40 of 45)" and the VRM chip shows "40+ cited". Small, rare-trigger, but it closes a real
+"implied full coverage" gap — exactly the kind of quiet over-claim the rail forbids. Deployed to the staged
+bundle alongside the Cycle-37 trustCache bound (both confirmed in tarball); running app untouched. Posture
+stays conservative after the Cycle-36/37 relaunch misstep: headless-verified fixes only, app left to the owner.
