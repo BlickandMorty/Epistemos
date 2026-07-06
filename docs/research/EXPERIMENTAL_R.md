@@ -1016,3 +1016,18 @@ the agent_core FFI (`provenance/replay.rs::to_epbundle_bytes` → Swift @_silgen
 web "Export .epbundle" button + a full app checkpoint build). That is a sanctioned NATIVE checkpoint,
 deferred until owner green-light per the pacing rule — NOT skipped, and NOT to be faked in TS.
 **RAISED BAR:** on owner "do the epbundle FFI", the path is now fully scouted end-to-end.
+
+---
+
+**Cycle 23 (2026-07-06) — DEFINITIVE: run.export-bundle / RunEventLog are N/A to this surface (not a gap).**
+Verified (grep, not assumption): the Experimental fork backend NEVER references agent_core / ReplayBundle /
+ClaimLedger — it drives EXTERNAL CLI agents (@anthropic-ai/claude-agent-sdk, @agentclientprotocol/codex-acp,
+opencode acp). Those agents do not populate agent_core's in-process provenance ledger, so a real ReplayBundle
+`.epbundle` has NO source data for a CLI run; constructing one would FABRICATE claims (forbidden). Conclusion:
+`run.export-bundle` and `RunEventLog capture` are agent_core-RUNTIME features (Pro/MAS in-process lanes),
+**not applicable** to the external-CLI Experimental surface. The HONEST equivalent — an auditable, hash-chained
+run provenance written to the vault — is ALREADY SHIPPED + PROVEN LIVE (whole-run provenance, Cycle 8/11/19).
+This RESOLVES the Finalization-Mandate #2 provenance items for THIS surface (done via the web-side abstraction,
+not the native ReplayBundle). Net: the surface has no remaining clean high-value pure-web frontier; the
+knowledge-substrate moat (retrieve/verify/write-back over vault+graph+provenance) is complete, reviewed,
+double-witnessed, and live-proven. Posture: verify-and-harden; only net-new on explicit owner direction.
