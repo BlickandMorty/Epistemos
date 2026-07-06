@@ -978,3 +978,15 @@ correct/honest behavior:
 - **vault MCP + cloud default (Opus 4.8) + Vault·Forge·Persona composer — all confirmed live.**
 **RAISED BAR:** the live-verification debt is now largely cleared; remaining is the native ReplayBundle FFI
 (.epbundle, owner-gated) and Persona-for-ACP. The surface is proven live end-to-end on its headline moat.
+
+---
+
+**Cycle 20 (2026-07-06) — LIVE: thinking toggle + model picker confirmed (owner-away window, ended when
+owner returned).** Opened the live model picker: the **"Thinking" toggle is present and ON** at the top
+for the Claude family — directly confirming the owner's thinking ask (the control exists + defaults on,
+live, not just wired). Picker shows Claude (Opus/Fable/Sonnet/Haiku), Codex 5.5/5.4/5.4-Mini, **Kimi
+K2.7 Code**, **GLM 4.7** live — the owner's requested engines present. The 24 free Zen models sit under
+the picker's model list (proven headless: catalog returns 24; witness-guarded); a fiddly UI filter to
+enumerate all 24 live was aborted when the owner returned (idle→0s) — stopped UI automation immediately,
+cleared a stray composer keystroke first. Combined with Cycle-19 (provenance+cite-check+vaultMCP live),
+the surface's DoD-Foundation is now live-confirmed except the exhaustive 24-Zen enumeration (headless-proven).
