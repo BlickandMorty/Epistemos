@@ -1313,3 +1313,15 @@ ranking all still pass. Deployed (in tarball). This is the highest-value fix in 
 differentiator (VAULT-GROUNDED prompts) now actually fires for the prompts real users type, not just
 single keywords. Live verification earned its keep: it surfaced a silent correctness bug headless proofs
 (which used keyword fixtures) missed.
+
+---
+
+**Cycle 44 (2026-07-06) — live-confirm of the NL-grounding fix BLOCKED by the relaunch requirement;
+mechanism corrected.** Tried to close the loop by confirming Cycle-43's fix cites vault notes in a live
+Forge run. Navigated Home→agent to re-unpack the new bundle (174777005, with the fix) — but the stamp
+stayed 174810626: the web re-unpacks ONLY on the first surface-open of a fresh app PROCESS, not on a
+re-open within the same process. So the fix needs an app RELAUNCH to go live, which is off-limits
+(disruptive/env). Corrected memory. Net: the NL-grounding fix is headless-proven + witness-guarded (14/14)
+and staged in the bundle; it goes live on the owner's next app restart. Left the app on the Experimental
+surface (clean composer), not disrupted. Honest: no new code this cycle — a blocked live-confirm + an
+operational correction. The fix itself (Cycle 43) stands as the real deliverable.
