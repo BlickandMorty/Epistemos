@@ -1377,3 +1377,16 @@ unicode cite-check `[[Café Notes]]` → verifies; unicode NL search "notes abou
 "Café Notes". Both robust — a valid verification result (not every probe is a bug; confirming robustness
 is the point). No code change → no deploy. The vault-title layer is now realistic-input-hardened AND the
 methodology is captured for any future substrate-matching code.
+
+---
+
+**Cycle 49 (2026-07-06) — cite-check honors YAML front-matter title + aliases (5th realistic-input bug,
+1st found by the forged skill's checklist).** Ran the Cycle-48 checklist's "titles that differ from the
+filename" item against the biggest real case: Obsidian's YAML front-matter `title:` + `aliases:` — the
+canonical way notes are titled in the dominant PKB tool. cite-check missed BOTH `[[Grand Strategy]]`
+(front-matter title) and `[[The Master Plan]]` (alias). Added a dependency-free front-matter parser
+(`parseNoteTitles`, first 1024 bytes); the title index now keys filename + prefix-stripped + H1 +
+front-matter title + every alias, and the grounding display title prefers front-matter title > H1 >
+filename. EXACT keys → guard intact (partial `[[Grand]]`/`[[Master Plan]]` still False, H1-superset still
+rejected). Witness 21/21, deployed. The vault-title layer now speaks EVERY way a real note is titled:
+filename, ordinal, slug, H1, front-matter title, alias. The forged skill paid for itself in one cycle.
