@@ -1114,3 +1114,20 @@ workflow library the user builds from their own runs — honestly NOT agent-auto
 native skills registry). Composes editor-handle + submission-enhance + cross-run-discovery + provenance.
 **State:** four-axis moat complete + live-verified; Skills library end-to-end; all overlays reviewed;
 witness 9/9. Remaining genuinely-open: opencode-reasoning-renders live spot-check + native-only items.
+
+---
+
+**Cycle 30 (2026-07-06) — definitive resolutions: Persona-for-ACP + existing-chat auto-ground are NOT
+cleanly doable (recorded so they stop being re-attempted).**
+Re-scouted both remaining "open features" to a firm answer:
+- **Persona-for-ACP (Codex/OpenCode):** ACP `session/new` (zNewSessionRequest) has NO system-prompt /
+  instructions field, and codex/opencode read their OWN config (~/.codex, opencode config) — so there is
+  no clean per-session injection. The only option is prepending the persona to the user MESSAGE, which
+  pollutes the visible transcript on every turn. Declined (not clean; persona already works for the
+  Claude-family engines via claude.ts append). N/A-clean, like the ReplayBundle.
+- **Existing-chat auto-ground:** chat-input-area has TWO send paths — Enter (`handleEditorSubmit`→`onSend`)
+  and the send button (`onSend()` DIRECT, line 1755). A clean intercept would need the PARENT's `onSend`
+  (the risky core send path). Declined; auto-ground stays scoped to the new-chat composer (where a session
+  opens, the highest-value point).
+Net: the clean pure-web moat is genuinely COMPLETE. Remaining truly-open = only the opencode-reasoning-
+renders live spot-check (live-only, possibly inconclusive) + native-only substrate. Posture: verify/harden.
