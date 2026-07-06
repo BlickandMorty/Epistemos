@@ -112,6 +112,14 @@ final class JuneSessionStore {
         sessions.first { $0.id == sessionID }?.model
     }
 
+    @discardableResult
+    func setModel(sessionID: String, model: String?) -> Bool {
+        guard let idx = sessions.firstIndex(where: { $0.id == sessionID }) else { return false }
+        sessions[idx].model = model
+        persistIndex()
+        return true
+    }
+
     func renameSession(id: String, title: String) {
         guard let idx = sessions.firstIndex(where: { $0.id == id }) else { return }
         sessions[idx].title = Self.boundedTitle(title)
@@ -122,12 +130,12 @@ final class JuneSessionStore {
     /// still a placeholder. June backfills its OWN title in local React state
     /// (sessionTitleOverridesRef) without a bridge round-trip, so the store —
     /// which the native all-chats reads and which survives relaunch — would
-    /// otherwise keep "New session". This keeps the persisted title connected
+    /// otherwise keep "New chat". This keeps the persisted title connected
     /// to the actual conversation, matching June's derivation.
     func autoTitleIfPlaceholder(sessionID: String, from prompt: String) {
         guard let idx = sessions.firstIndex(where: { $0.id == sessionID }) else { return }
         let current = sessions[idx].title.trimmingCharacters(in: .whitespaces)
-        guard current.isEmpty || current == "New session" else { return }
+        guard current.isEmpty || current == "New session" || current == "New chat" else { return }
         let derived = Self.deriveTitle(from: prompt)
         guard !derived.isEmpty else { return }
         sessions[idx].title = derived
@@ -178,7 +186,7 @@ final class JuneSessionStore {
     /// JSON shape for the `hermes_bridge_sessions` invoke.
     func sessionsPayload() -> [String: Any] {
         let rows: [[String: Any]] = sessions.map { s in
-            [
+            var row: [String: Any] = [
                 "id": s.id,
                 "title": s.title,
                 "started_at": s.startedAt,
@@ -188,6 +196,10 @@ final class JuneSessionStore {
                 "status": "idle",
                 "source": "epistemos",
             ]
+            if let model = s.model, !model.isEmpty {
+                row["model"] = model
+            }
+            return row
         }
         return ["sessions": rows]
     }
@@ -227,7 +239,7 @@ nonisolated enum JuneGatewayError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .cloudNotConfigured:
-            return "Epistemos Cloud isn't available yet in this build. Pick an on-device model to continue."
+            return "Cloud access is not configured. Connect this provider or Epistemos Cloud in Settings, or pick an on-device model."
         case .modelPreparing(let detail):
             return detail
         }
@@ -256,10 +268,19 @@ final class JuneAgentGateway {
     // tab churn (warm invariant, mas_model_retained_on_switch). A private
     // instance here would double-load the model.
     private let localGGUF = LocalGGUFQuickChatBackend.shared
+    private let agentCoreRunner = GooseMASAgentCoreRunner()
+    private let approvalGate = AgentApprovalGate()
     /// Drives download-on-select from June's model picker: the catalog's GGUF
     /// models are shown even when not installed, and picking one downloads it.
     let downloads = QuickChatModelDownloadManager()
     private var runningTurns: [String: Task<Void, Never>] = [:]
+    private struct PendingApproval {
+        let id: String
+        let sessionID: String
+        let toolName: String
+    }
+    private var pendingApprovals: [String: PendingApproval] = [:]
+    private var pendingApprovalIDsBySession: [String: [String]] = [:]
     /// The session June is currently showing (set on resume/create/submit) so
     /// "read latest" speaks the reply the user is looking at, not merely the
     /// most-recently-messaged session. Exposed read-only so the native
@@ -271,12 +292,27 @@ final class JuneAgentGateway {
     /// Runaway-response ceiling (very generous for a chat reply): bounds memory
     /// if a local model loops or a cloud stream misbehaves.
     private static let maxResponseBytes = 512 * 1024
+    /// Bounds pending permission prompts if a page/agent tries to flood the UI.
+    private static let maxPendingApprovals = 16
+    private static let maxToolPayloadCharacters = 12_000
+    private static let maxApprovalChoiceCharacters = 64
     private static let defaultModelKey = "epistemos.june.generationModel"
 
     // Local-lane instructions: honest capability tier per Plan 1-MAS §0.5.
     private static let instructions =
-        "You are June, a helpful on-device assistant inside Epistemos. " +
+        "You are Workspace, a helpful on-device assistant inside Epistemos. " +
         "Answer concisely. You cannot browse the web or use tools in this local mode."
+    private static let agentCloudInstructions =
+        "You are Workspace, a helpful assistant inside Epistemos. " +
+        "Use MAS-approved tools only when they help, ask for approval before reading or writing vault data, " +
+        "and cite vault-derived facts in the final answer."
+    private static let directCloudProviders: [CloudModelProvider] = [
+        .openAI,
+        .anthropic,
+        .google,
+        .zai,
+        .kimi,
+    ]
 
     func handleFrame(_ raw: String) {
         guard raw.utf8.count <= 1_000_000 else {
@@ -299,9 +335,10 @@ final class JuneAgentGateway {
             reply(id: id, result: [String: Any]())
         case "session.create":
             let sessionID = UUID().uuidString
-            let title = (params["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "New session"
+            let rawTitle = (params["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "New chat"
+            let title = rawTitle == "New session" ? "New chat" : rawTitle
             var chosenModel: String?
-            if let model = params["model"] as? String, availableModelIDs().contains(model) {
+            if let model = params["model"] as? String, selectableModelIDs().contains(model) {
                 chosenModel = model
             }
             store.createSession(id: sessionID, title: title, model: chosenModel)
@@ -323,6 +360,7 @@ final class JuneAgentGateway {
                 replyError(id: id, code: -32602, message: "session_id and bounded text required")
                 return
             }
+            let requestedModel = (params["model"] as? String).flatMap(validModelID)
             guard runningTurns[sessionID] == nil else {
                 // 4009 = "session busy", the code June's UI branches on.
                 replyError(id: id, code: 4009, message: "session busy")
@@ -336,13 +374,51 @@ final class JuneAgentGateway {
                 return
             }
             reply(id: id, result: [String: Any]())
-            startTurn(sessionID: sessionID, prompt: text)
+            startTurn(sessionID: sessionID, prompt: text, requestedModelID: requestedModel)
         case "session.interrupt":
             if let sessionID = params["session_id"] as? String {
                 runningTurns[sessionID]?.cancel()
                 runningTurns[sessionID] = nil
+                denyPendingApprovals(sessionID: sessionID)
             }
             reply(id: id, result: [String: Any]())
+        case "approval.respond":
+            guard
+                let sessionID = params["session_id"] as? String,
+                let choice = params["choice"] as? String,
+                choice.utf8.count <= Self.maxApprovalChoiceCharacters
+            else {
+                replyError(id: id, code: -32602, message: "session_id and bounded choice required")
+                return
+            }
+            guard let approved = Self.approvalDecision(from: choice) else {
+                replyError(id: id, code: -32602, message: "unknown approval choice")
+                return
+            }
+            let requestedID = (params["request_id"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            guard let requestID = popPendingApprovalID(sessionID: sessionID, requestedID: requestedID) else {
+                replyError(id: id, code: 4040, message: "no pending approval")
+                return
+            }
+            approvalGate.deliver(id: requestID, approved: approved)
+            reply(id: id, result: ["accepted": true, "request_id": requestID])
+        case "command.dispatch":
+            guard
+                let sessionID = params["session_id"] as? String,
+                let command = params["command"] as? String
+            else {
+                replyError(id: id, code: -32602, message: "session_id and command required")
+                return
+            }
+            guard let modelID = Self.modelID(fromModelCommand: command) else {
+                reply(id: id, result: nil)
+                return
+            }
+            guard setSessionModel(modelID, for: sessionID) else {
+                replyError(id: id, code: -32602, message: "unknown model: \(modelID)")
+                return
+            }
+            reply(id: id, result: ["accepted": true, "model": modelID])
         default:
             // Matches the proven Phase-0 spike behavior: unknown control-plane
             // methods resolve null (June's panels tolerate it); honest
@@ -352,8 +428,11 @@ final class JuneAgentGateway {
         }
     }
 
-    private func startTurn(sessionID: String, prompt: String) {
+    private func startTurn(sessionID: String, prompt: String, requestedModelID: String? = nil) {
         currentSessionID = sessionID
+        if let requestedModelID {
+            _ = setSessionModel(requestedModelID, for: sessionID)
+        }
         store.appendMessage(sessionID: sessionID, role: "user", content: prompt)
         // Keep the persisted title connected to the conversation (see
         // JuneSessionStore.autoTitleIfPlaceholder) — the native all-chats +
@@ -382,21 +461,89 @@ final class JuneAgentGateway {
             guard let self else { return }
             var full = ""
             do {
-                var stream = try self.makeStream(prompt: prompt, history: history, modelID: modelID)
+                var completedByStream = false
+                var stream = try self.makeStream(sessionID: sessionID, prompt: prompt, history: history, modelID: modelID)
                 do {
-                    for try await delta in stream {
+                    eventLoop: for try await event in stream {
                         if Task.isCancelled { break }
-                        if full.isEmpty {
-                            // Budget contract [agent_surface].first_token_ms_max.
-                            JuneAgentPerfMetrics.shared.recordFirstToken(
-                                milliseconds: Date().timeIntervalSince(submittedAt) * 1000
+                        switch event {
+                        case .textDelta(let delta):
+                            if full.isEmpty {
+                                // Budget contract [agent_surface].first_token_ms_max.
+                                JuneAgentPerfMetrics.shared.recordFirstToken(
+                                    milliseconds: Date().timeIntervalSince(submittedAt) * 1000
+                                )
+                            }
+                            full += delta
+                            self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta, "delta": delta])
+                            // Runaway guard: a stuck local loop or a broken/hostile
+                            // cloud stream can't grow the response without bound.
+                            if full.utf8.count > Self.maxResponseBytes { break eventLoop }
+                        case .thinkingDelta(let delta):
+                            self.emit(type: "thinking.delta", sessionID: sessionID, payload: ["text": delta, "delta": delta])
+                        case .toolStarted(let id, let name, let inputJson):
+                            self.emit(
+                                type: "tool.start", sessionID: sessionID,
+                                payload: [
+                                    "tool_call_id": id,
+                                    "id": id,
+                                    "tool_name": name,
+                                    "name": name,
+                                    "input_json": Self.boundedToolPayload(inputJson),
+                                ]
                             )
+                        case .toolCompleted(let id, let name, let result, let isError):
+                            self.emit(
+                                type: "tool.complete", sessionID: sessionID,
+                                payload: [
+                                    "tool_call_id": id,
+                                    "id": id,
+                                    "tool_name": name,
+                                    "name": name,
+                                    "result": Self.boundedToolPayload(result),
+                                    "is_error": isError,
+                                    "status": isError ? "error" : "ok",
+                                ]
+                            )
+                        case .permissionRequired(let id, let toolName, let inputJson, let riskLevel):
+                            guard self.recordPendingApproval(
+                                id: id,
+                                sessionID: sessionID,
+                                toolName: toolName
+                            ) else { break }
+                            self.emit(
+                                type: "approval.request", sessionID: sessionID,
+                                payload: [
+                                    "request_id": id,
+                                    "id": id,
+                                    "tool_name": toolName,
+                                    "description": Self.approvalDescription(
+                                        toolName: toolName,
+                                        riskLevel: riskLevel,
+                                        inputJson: inputJson
+                                    ),
+                                    "command": toolName,
+                                    "risk_level": riskLevel,
+                                    "input_json": Self.boundedToolPayload(inputJson),
+                                    "allow_permanent": false,
+                                ]
+                            )
+                        case .complete(let stopReason, let inputTokens, let outputTokens):
+                            completedByStream = true
+                            self.emit(
+                                type: "message.complete", sessionID: sessionID,
+                                payload: [
+                                    "text": full,
+                                    "status": Task.isCancelled ? "cancelled" : "ok",
+                                    "stop_reason": stopReason,
+                                    "input_tokens": inputTokens,
+                                    "output_tokens": outputTokens,
+                                ]
+                            )
+                            break eventLoop
+                        case .error(let message):
+                            throw JuneGatewayError.modelPreparing(message)
                         }
-                        full += delta
-                        self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta])
-                        // Runaway guard: a stuck local loop or a broken/hostile
-                        // cloud stream can't grow the response without bound.
-                        if full.utf8.count > Self.maxResponseBytes { break }
                     }
                 } catch let error as QuickChatError {
                     // Plan 1-MAS §2: an Apple FM guardrail trip falls back to the
@@ -412,59 +559,102 @@ final class JuneAgentGateway {
                         type: "status.update", sessionID: sessionID,
                         payload: ["text": "Switched to the on-device model for this reply."]
                     )
-                    stream = self.localGGUF.stream(
+                    stream = Self.textEventStream(self.localGGUF.stream(
                         prompt: prompt,
                         instructions: Self.localInstructions(withHistory: history),
                         maxNewTokens: 1024
-                    )
-                    for try await delta in stream {
+                    ))
+                    fallbackLoop: for try await event in stream {
                         if Task.isCancelled { break }
-                        full += delta
-                        self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta])
-                        if full.utf8.count > Self.maxResponseBytes { break }
+                        switch event {
+                        case .textDelta(let delta):
+                            full += delta
+                            self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta, "delta": delta])
+                            if full.utf8.count > Self.maxResponseBytes { break fallbackLoop }
+                        default:
+                            break
+                        }
                     }
                 }
                 let status = Task.isCancelled ? "cancelled" : "ok"
-                self.emit(
-                    type: "message.complete", sessionID: sessionID,
-                    payload: ["text": full, "status": status]
-                )
+                if !completedByStream {
+                    self.emit(
+                        type: "message.complete", sessionID: sessionID,
+                        payload: ["text": full, "status": status]
+                    )
+                }
                 if !full.isEmpty {
                     self.store.appendMessage(sessionID: sessionID, role: "assistant", content: full)
                 }
             } catch {
                 let described = Self.describeEngineError(error)
-                Self.log.error("local turn failed: \(described, privacy: .public)")
+                Self.log.error("June turn failed: \(described, privacy: .public)")
                 self.emit(
                     type: "message.complete", sessionID: sessionID,
                     payload: ["text": full.isEmpty ? "Error: \(described)" : full, "status": "error"]
                 )
             }
+            self.denyPendingApprovals(sessionID: sessionID)
             self.runningTurns[sessionID] = nil
         }
         runningTurns[sessionID] = turn
     }
 
-    /// Engine routing (Plan 1-MAS §2): the session's chosen lane, defaulting
-    /// to the best available local engine. `history` is the bounded recent
-    /// conversation (including the current user message); local lanes fold it
-    /// into the system context (the QuickChat backends take a single prompt —
-    /// composed at the adapter, never modifying the engine), cloud sends it as
-    /// a real role-tagged message array.
+    private func makeAgentCoreCloudStream(
+        sessionID: String,
+        prompt: String,
+        history: [JuneSessionStore.Message],
+        modelID: String,
+        cloudModel: CloudTextModelID?
+    ) throws -> AsyncThrowingStream<GooseMASAgentCoreRunEvent, Error> {
+        let providerName = try agentCoreProviderName(modelID: modelID, cloudModel: cloudModel)
+        let approvalGate = approvalGate
+        return agentCoreRunner.streamGooseMASAgentCoreRun(
+            sessionID: sessionID,
+            prompt: prompt,
+            systemPrompt: Self.agentCloudInstructions(withHistory: history),
+            maxTokens: 4096,
+            providerName: providerName,
+            vaultPath: Self.vaultPathForAgentCore(),
+            permissionHandler: { request in
+                approvalGate.awaitDecision(id: request.id)
+            }
+        )
+    }
+
+    /// Engine routing (Plan 1-MAS §2/§3): local lanes stream chat-only text
+    /// deltas; cloud lanes stream the full in-process agent_core event feed.
+    /// `history` is the bounded recent conversation (including the current
+    /// user message); local lanes fold it into the system context because the
+    /// QuickChat backends take a single prompt.
     private func makeStream(
-        prompt: String, history: [JuneSessionStore.Message], modelID: String
-    ) throws -> AsyncThrowingStream<String, Error> {
+        sessionID: String,
+        prompt: String,
+        history: [JuneSessionStore.Message],
+        modelID: String
+    ) throws -> AsyncThrowingStream<GooseMASAgentCoreRunEvent, Error> {
+        if let cloudModel = CloudTextModelID(rawValue: modelID) {
+            return try makeAgentCoreCloudStream(
+                sessionID: sessionID,
+                prompt: prompt,
+                history: history,
+                modelID: modelID,
+                cloudModel: cloudModel
+            )
+        }
+
         switch modelID {
         case JuneModelID.appleFM:
-            return appleFM.stream(prompt: prompt, instructions: Self.localInstructions(withHistory: history))
+            return Self.textEventStream(
+                appleFM.stream(prompt: prompt, instructions: Self.localInstructions(withHistory: history))
+            )
         case JuneModelID.cloud:
-            // Honest gate (Plan 1-MAS §0.5/§5): a real Keychain session token
-            // (minted by the Phase-4 StoreKit receipt exchange) is required —
-            // never fake a cloud turn. With a session, this streams from the
-            // receipt-gated proxy; without one, JuneCloudEngine throws
-            // .notSubscribed and June shows the honest error.
-            return JuneCloudEngine.shared.stream(
-                messages: Self.cloudMessages(instructions: Self.instructions, history: history)
+            return try makeAgentCoreCloudStream(
+                sessionID: sessionID,
+                prompt: prompt,
+                history: history,
+                modelID: modelID,
+                cloudModel: nil
             )
         default:
             let instructions = Self.localInstructions(withHistory: history)
@@ -475,7 +665,9 @@ final class JuneAgentGateway {
                 localGGUF.setPreferredModel(modelID)
                 switch downloads.state(for: entry) {
                 case .installed:
-                    return localGGUF.stream(prompt: prompt, instructions: instructions, maxNewTokens: 1024)
+                    return Self.textEventStream(
+                        localGGUF.stream(prompt: prompt, instructions: instructions, maxNewTokens: 1024)
+                    )
                 case .downloading(let p):
                     throw JuneGatewayError.modelPreparing("\(entry.displayName) is downloading (\(Int(p * 100))%). Try again in a moment.")
                 case .verifying:
@@ -490,9 +682,217 @@ final class JuneAgentGateway {
             // Legacy/unknown local id (e.g. the old single local-gguf lane):
             // best available on-device lane.
             if AppleFMQuickChatBackend.unavailability() == nil {
-                return appleFM.stream(prompt: prompt, instructions: instructions)
+                return Self.textEventStream(appleFM.stream(prompt: prompt, instructions: instructions))
             }
-            return localGGUF.stream(prompt: prompt, instructions: instructions, maxNewTokens: 1024)
+            return Self.textEventStream(localGGUF.stream(prompt: prompt, instructions: instructions, maxNewTokens: 1024))
+        }
+    }
+
+    private static func textEventStream(
+        _ stream: AsyncThrowingStream<String, Error>
+    ) -> AsyncThrowingStream<GooseMASAgentCoreRunEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await delta in stream {
+                        continuation.yield(.textDelta(delta))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private func agentCoreProviderName(modelID: String, cloudModel: CloudTextModelID?) throws -> String {
+        if let cloudModel {
+            guard cloudModel.provider.supportsAgentTier else {
+                throw JuneGatewayError.modelPreparing(
+                    "\(cloudModel.provider.displayName) is not enabled for Workspace agent tools in the App Store build yet. Pick OpenAI, Anthropic, or an on-device chat model."
+                )
+            }
+            guard AppBootstrap.shared?.inferenceState.hasConfiguredCloudAccess(for: cloudModel.provider) == true else {
+                throw JuneGatewayError.cloudNotConfigured
+            }
+            return Self.agentCoreSlug(selectedModel: cloudModel.rawValue, provider: cloudModel.provider)
+        }
+
+        guard modelID == JuneModelID.cloud,
+              let inference = AppBootstrap.shared?.inferenceState else {
+            throw JuneGatewayError.cloudNotConfigured
+        }
+        var candidates: [CloudModelProvider] = []
+        if let active = inference.activeAIProvider.cloudProvider {
+            candidates.append(active)
+        }
+        candidates.append(contentsOf: CloudModelProvider.preferredOrder)
+        var seen: Set<CloudModelProvider> = []
+        for provider in candidates where seen.insert(provider).inserted {
+            guard provider.supportsAgentTier,
+                  inference.hasConfiguredCloudAccess(for: provider) else { continue }
+            let selected = inference.preferredCloudModel(for: provider)
+            return Self.agentCoreSlug(selectedModel: selected.rawValue, provider: provider)
+        }
+        throw JuneGatewayError.cloudNotConfigured
+    }
+
+    private static func agentCoreSlug(selectedModel: String, provider: CloudModelProvider) -> String {
+        GooseInProcessACPServer.agentCoreSlug(
+            forSelectedModel: selectedModel,
+            providerID: provider.rawValue
+        ) ?? defaultAgentCoreProviderSlug(for: provider)
+    }
+
+    private static func defaultAgentCoreProviderSlug(for provider: CloudModelProvider) -> String {
+        switch provider {
+        case .openAI:
+            return "openai"
+        case .anthropic:
+            return "claude_sonnet"
+        case .google:
+            return "gemini_pro"
+        case .zai:
+            return "zai"
+        case .kimi:
+            return "kimi"
+        case .minimax:
+            return "minimax"
+        case .deepseek:
+            return "deepseek"
+        }
+    }
+
+    private static func vaultPathForAgentCore() -> String {
+        if let selectedVaultPath = watchedVaultPathForAgentCore() {
+            return selectedVaultPath
+        }
+
+        let environment = ProcessInfo.processInfo.environment
+        for key in ["EPISTEMOS_VAULT_PATH", "VAULT_PATH"] {
+            if let raw = environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !raw.isEmpty {
+                return raw
+            }
+        }
+        let base = (try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )) ?? FileManager.default.temporaryDirectory
+        let scratch = base
+            .appendingPathComponent("Epistemos/JuneAgent/agent-core-scratch", isDirectory: true)
+        try? FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        return scratch.path
+    }
+
+    private static func watchedVaultPathForAgentCore() -> String? {
+        guard let vaultSync = AppBootstrap.shared?.vaultSync,
+              vaultSync.isWatching,
+              let vaultURL = vaultSync.vaultURL?.standardizedFileURL else {
+            return nil
+        }
+        return vaultURL.path
+    }
+
+    private static func boundedToolPayload(_ value: String) -> String {
+        let bounded = value.count > maxToolPayloadCharacters
+            ? String(value.prefix(maxToolPayloadCharacters)) + "\n[truncated]"
+            : value
+        return redactKnownVaultRoots(in: bounded)
+    }
+
+    private static func redactKnownVaultRoots(in value: String) -> String {
+        var redacted = value
+        for path in redactedVaultRootCandidates() where !path.isEmpty {
+            redacted = redacted.replacingOccurrences(of: path, with: "[vault]")
+        }
+        return redacted
+    }
+
+    private static func redactedVaultRootCandidates() -> [String] {
+        var paths: [String] = []
+        if let watched = watchedVaultPathForAgentCore() {
+            paths.append(watched)
+        }
+        let environment = ProcessInfo.processInfo.environment
+        for key in ["EPISTEMOS_VAULT_PATH", "VAULT_PATH"] {
+            if let raw = environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !raw.isEmpty {
+                paths.append(URL(fileURLWithPath: raw).standardizedFileURL.path)
+            }
+        }
+        return Array(Set(paths))
+    }
+
+    private static func approvalDescription(
+        toolName: String,
+        riskLevel: String,
+        inputJson: String
+    ) -> String {
+        let bounded = boundedToolPayload(inputJson)
+        if bounded.isEmpty || bounded == "{}" {
+            return "\(toolName) requests \(riskLevel) access."
+        }
+        return "\(toolName) requests \(riskLevel) access:\n\(bounded)"
+    }
+
+    private static func approvalDecision(from choice: String) -> Bool? {
+        let normalized = choice.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized.contains("allow") || normalized.contains("approve") || normalized == "yes" {
+            return true
+        }
+        if normalized.contains("deny") || normalized.contains("reject") || normalized == "no" {
+            return false
+        }
+        return nil
+    }
+
+    @discardableResult
+    private func recordPendingApproval(id: String, sessionID: String, toolName: String) -> Bool {
+        guard !id.isEmpty, !sessionID.isEmpty, !toolName.isEmpty else {
+            approvalGate.deliver(id: id, approved: false)
+            return false
+        }
+        if pendingApprovals[id] == nil, pendingApprovals.count >= Self.maxPendingApprovals {
+            approvalGate.deliver(id: id, approved: false)
+            return false
+        }
+        pendingApprovals[id] = PendingApproval(id: id, sessionID: sessionID, toolName: toolName)
+        var ids = pendingApprovalIDsBySession[sessionID] ?? []
+        if !ids.contains(id) {
+            ids.append(id)
+        }
+        pendingApprovalIDsBySession[sessionID] = ids
+        return true
+    }
+
+    private func popPendingApprovalID(sessionID: String, requestedID: String? = nil) -> String? {
+        if let requestedID, let pending = pendingApprovals[requestedID],
+           pending.sessionID == sessionID {
+            pendingApprovals.removeValue(forKey: requestedID)
+            pendingApprovalIDsBySession[sessionID]?.removeAll { $0 == requestedID }
+            return requestedID
+        }
+        guard var ids = pendingApprovalIDsBySession[sessionID] else { return nil }
+        while !ids.isEmpty {
+            let id = ids.removeFirst()
+            if pendingApprovals.removeValue(forKey: id) != nil {
+                pendingApprovalIDsBySession[sessionID] = ids.isEmpty ? nil : ids
+                return id
+            }
+        }
+        pendingApprovalIDsBySession[sessionID] = nil
+        return nil
+    }
+
+    private func denyPendingApprovals(sessionID: String) {
+        guard let ids = pendingApprovalIDsBySession.removeValue(forKey: sessionID) else { return }
+        for id in ids {
+            pendingApprovals.removeValue(forKey: id)
+            approvalGate.deliver(id: id, approved: false)
         }
     }
 
@@ -510,27 +910,23 @@ final class JuneAgentGateway {
     /// but the just-appended current message) is folded into the system
     /// instructions as plain text so the on-device model has context.
     private static func localInstructions(withHistory history: [JuneSessionStore.Message]) -> String {
+        instructions(withHistory: history, base: instructions)
+    }
+
+    private static func agentCloudInstructions(withHistory history: [JuneSessionStore.Message]) -> String {
+        instructions(withHistory: history, base: agentCloudInstructions)
+    }
+
+    private static func instructions(withHistory history: [JuneSessionStore.Message], base: String) -> String {
         let prior = history.dropLast() // the current user message is the live prompt
-        guard !prior.isEmpty else { return instructions }
+        guard !prior.isEmpty else { return base }
         let transcript = prior.map { msg -> String in
-            let who = msg.role == "assistant" ? "June" : "User"
+            let who = msg.role == "assistant" ? "Workspace" : "User"
             return "\(who): \(msg.content)"
         }.joined(separator: "\n")
         // Interpolation (not `+`) to avoid a String/SQL operator-overload
         // ambiguity from GRDB's SQL type being in scope.
-        return "\(instructions)\n\nConversation so far:\n\(transcript)"
-    }
-
-    /// OpenAI-compatible role-tagged messages for the cloud proxy: a system
-    /// turn plus the real conversation.
-    static func cloudMessages(
-        instructions: String, history: [JuneSessionStore.Message]
-    ) -> [[String: String]] {
-        var out: [[String: String]] = [["role": "system", "content": instructions]]
-        for msg in history {
-            out.append(["role": msg.role == "assistant" ? "assistant" : "user", "content": msg.content])
-        }
-        return out
+        return "\(base)\n\nConversation so far:\n\(transcript)"
     }
 
     // MARK: - Model catalog (drives June's composer model chip)
@@ -552,6 +948,7 @@ final class JuneAgentGateway {
     func forgetSession(_ sessionID: String) {
         runningTurns[sessionID]?.cancel()
         runningTurns[sessionID] = nil
+        denyPendingApprovals(sessionID: sessionID)
         // Deleting the shown session: drop the pointer so "read latest" falls
         // back to the most-recently-active session rather than a dead one.
         if currentSessionID == sessionID { currentSessionID = nil }
@@ -565,6 +962,7 @@ final class JuneAgentGateway {
         if localGGUF.isAvailableInThisBuild {
             ids.append(contentsOf: GGUFModelCatalog.installedEntries().map(\.id))
         }
+        ids.append(contentsOf: directCloudModelIDs(configuredOnly: true))
         ids.append(JuneModelID.cloud)
         return ids
     }
@@ -578,6 +976,7 @@ final class JuneAgentGateway {
         if localGGUF.isAvailableInThisBuild {
             ids.append(contentsOf: GGUFModelCatalog.entries.map(\.id))
         }
+        ids.append(contentsOf: directCloudModelIDs(configuredOnly: false))
         ids.append(JuneModelID.cloud)
         return ids
     }
@@ -596,6 +995,36 @@ final class JuneAgentGateway {
     func setDefaultModel(_ id: String) -> Bool {
         guard selectableModelIDs().contains(id) else { return false }
         UserDefaults.standard.set(id, forKey: Self.defaultModelKey)
+        if let currentSessionID {
+            _ = store.setModel(sessionID: currentSessionID, model: id)
+        }
+        prepareSelectedModel(id)
+        return true
+    }
+
+    @discardableResult
+    func setSessionModel(_ id: String, for sessionID: String) -> Bool {
+        guard selectableModelIDs().contains(id) else { return false }
+        currentSessionID = sessionID
+        guard store.setModel(sessionID: sessionID, model: id) else { return false }
+        prepareSelectedModel(id)
+        return true
+    }
+
+    private func validModelID(_ id: String) -> String? {
+        selectableModelIDs().contains(id) ? id : nil
+    }
+
+    private static func modelID(fromModelCommand command: String) -> String? {
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("/model") else { return nil }
+        let rest = trimmed.dropFirst("/model".count)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = rest.split(separator: " ").first else { return nil }
+        return String(first)
+    }
+
+    private func prepareSelectedModel(_ id: String) {
         // A GGUF pick steers the local lane and, if it isn't downloaded yet,
         // starts the download so the next turn can run it.
         if let entry = GGUFModelCatalog.entry(id: id) {
@@ -604,27 +1033,21 @@ final class JuneAgentGateway {
                 downloads.beginDownload(entry)
             }
         }
-        return true
+        if let cloudModel = CloudTextModelID(rawValue: id) {
+            AppBootstrap.shared?.inferenceState.setActiveAIProvider(
+                AIProviderSelection(cloudProvider: cloudModel.provider)
+            )
+            AppBootstrap.shared?.inferenceState.setPreferredChatModelSelection(.cloud(cloudModel))
+        }
     }
 
-    /// VeniceModelDto-shaped rows for `list_venice_models`. Capability truth:
-    /// no `supportsFunctionCalling` on local entries (chat tier); the cloud
-    /// entry carries it because the cloud lane is the full agentic tier.
+    /// VeniceModelDto-shaped rows for `list_venice_models`.
     ///
     /// PROVIDER FIELD — local rows carry `provider: ""` DELIBERATELY (not
-    /// "epistemos"). June gates its model pickers on provider+tools: the
-    /// composer quick-switch DROPS any `provider`-backed no-tools model
-    /// (AgentWorkspace `selectable = options.filter(o => !o.provider ||
-    /// modelSupportsTools(o))`), and the Settings dialog DISABLES it
-    /// (`noTools = generation && Boolean(provider) && !tools`). With a
-    /// provider set, our honest chat-tier local models (apple-fm + GGUF)
-    /// would be invisible in the composer and un-pickable in Settings — the
-    /// user could never switch to a local model even though it IS a valid MAS
-    /// answer lane. Empty provider bypasses BOTH gates so locals are
-    /// listable/selectable, WITHOUT faking `supportsFunctionCalling` (that
-    /// would violate honest-capability gating). The "Chat only — no agent
-    /// tools" copy keeps the tool truth visible. The CLOUD row keeps
-    /// `provider: "epistemos"` + the tool capability (full agentic tier).
+    /// "epistemos"). June's own `modelSupportsTools` predicate is the truth
+    /// boundary for function-calling; local Apple/GGUF rows therefore expose
+    /// an explicit `epistemos-local-chat` trait and an empty capability list.
+    /// Cloud rows may advertise tools only when routed through agent_core.
     func modelsPayload() -> [[String: Any]] {
         var rows: [[String: Any]] = []
         if AppleFMQuickChatBackend.unavailability() == nil {
@@ -632,7 +1055,7 @@ final class JuneAgentGateway {
                 "provider": "", "id": JuneModelID.appleFM,
                 "name": "Apple Intelligence (on-device)", "modelType": "text",
                 "description": "Apple's on-device foundation model. Fast, free, fully private. Chat only — no agent tools.",
-                "privacy": "private", "traits": ["on-device"], "capabilities": [String](),
+                "privacy": "private", "traits": ["on-device", "epistemos-local-chat"], "capabilities": [String](),
             ])
         }
         // Every catalog GGUF model, installed or not — picking a not-yet-
@@ -661,7 +1084,7 @@ final class JuneAgentGateway {
                     "provider": "", "id": entry.id,
                     "name": "\(entry.displayName) (on-device)", "modelType": "text",
                     "description": detail,
-                    "privacy": "private", "traits": ["on-device"], "capabilities": [String](),
+                    "privacy": "private", "traits": ["on-device", "epistemos-local-chat"], "capabilities": [String](),
                     "contextTokens": entry.defaultContextTokens,
                 ])
             }
@@ -673,7 +1096,33 @@ final class JuneAgentGateway {
             "privacy": "anonymous", "traits": ["cloud"],
             "capabilities": ["supportsFunctionCalling"],
         ])
+        for provider in Self.directCloudProviders {
+            let configured = AppBootstrap.shared?.inferenceState.hasConfiguredCloudAccess(for: provider) == true
+            for model in CloudTextModelID.models(for: provider) {
+                let toolCapabilities = provider.supportsAgentTier ? ["supportsFunctionCalling"] : [String]()
+                rows.append([
+                    "provider": provider.rawValue, "id": model.rawValue,
+                    "name": "\(provider.displayName) · \(model.displayName)", "modelType": "text",
+                    "description": configured
+                        ? "\(model.aboutSheetPurposeSummary) Uses your saved \(provider.manualCredentialTitleLowercase) or account connection."
+                        : "\(model.aboutSheetPurposeSummary) Configure \(provider.displayName) in Settings to use this model.",
+                    "privacy": "provider-cloud", "traits": ["cloud", provider.rawValue],
+                    "capabilities": toolCapabilities,
+                    "contextTokens": model.maxContextTokens,
+                ])
+            }
+        }
         return rows
+    }
+
+    private func directCloudModelIDs(configuredOnly: Bool) -> [String] {
+        let inference = AppBootstrap.shared?.inferenceState
+        return Self.directCloudProviders.flatMap { provider in
+            if configuredOnly, inference?.hasConfiguredCloudAccess(for: provider) != true {
+                return [String]()
+            }
+            return CloudTextModelID.models(for: provider).map(\.rawValue)
+        }
     }
 
     private static func sizeText(_ bytes: Int64) -> String {
@@ -692,7 +1141,7 @@ final class JuneAgentGateway {
             case .guardrailBlocked:
                 return "The on-device model declined this request."
             case .exceededContextWindow:
-                return "This conversation is too long for the on-device model. Start a new session."
+                return "This conversation is too long for the on-device model. Start a new chat."
             case .engineUnavailable(let reason):
                 return reason.userCopy
             case .generationFailed(let detail):
