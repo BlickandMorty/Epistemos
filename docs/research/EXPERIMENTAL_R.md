@@ -1060,3 +1060,18 @@ the native agent_core skills registry — honestly out of scope for the CLI-agen
 named, described workflow library the user builds from their own runs — cross-session learning no
 standalone app has. **RAISED BAR:** live-verify the discover→keep flow once real provenance notes
 accumulate; otherwise the four-axis moat (retrieve/verify/write-back/learn) is complete + deployed.
+
+---
+
+**Cycle 26 (2026-07-06) — whole-vault search RELEVANCE ranking (the EML-rerank essence, applicable).**
+Found + fixed a real quality gap in the retrieval foundation: the whole-vault `searchVaultNotes` returned
+the first N files in arbitrary WALK ORDER, not by relevance — so grounding + auto-ground on whole-vault-
+fallback vaults got arbitrary notes. Now it collects candidates (bounded 300 / 24MB), RANKS by a relevance
+key (title match ×1000 > term frequency > early match position), and returns the top N. This is the
+"EML-reranked vault:search-ranked" essence from Finalization #2 done at the fs layer (the native shadow
+EML path — EmlRecallRerank on SearchResult — doesn't cover this fs path). PROVEN headless + witness (now
+9/9): "authentication" → "Authentication Design" (title+freq) ranks above an incidental mention. Improves
+EVERY whole-vault-dependent feature (grounding, auto-ground). Committed fork + main-repo witness separately
+(two git repos). **RAISED BAR:** the retrieval foundation is now ranked end-to-end (shadow RRF native +
+whole-vault relevance-ranked + graph). Moat: retrieve(ranked)/verify/write-back/learn — all four axes
+proven + regression-guarded.
