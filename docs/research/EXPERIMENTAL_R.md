@@ -990,3 +990,14 @@ the picker's model list (proven headless: catalog returns 24; witness-guarded); 
 enumerate all 24 live was aborted when the owner returned (idle→0s) — stopped UI automation immediately,
 cleared a stray composer keystroke first. Combined with Cycle-19 (provenance+cite-check+vaultMCP live),
 the surface's DoD-Foundation is now live-confirmed except the exhaustive 24-Zen enumeration (headless-proven).
+
+---
+
+**Cycle 21 (2026-07-06) — full end-to-end backend regression verify (owner active → no UI, non-interfering).**
+Ran the witness with WITNESS_FORGE=1 + EPISTEMOS_CLAUDE_BINARY: ALL 7 checks pass INCLUDING the live
+Prompt Forge small-model enhance ("promptForge: upgraded the prompt"). So after 21 cycles the entire
+backend surface — vault noteExists (exact + H1 guard), fabricated-reject, whole-vault search, graph
+outlink+backlink, AND the flagship LLM enhance — is regression-clean end-to-end. No new feature this
+cycle by choice: the pure-web moat is complete + live-verified (Cycles 19-20), and the two real remaining
+frontiers are owner-gated (native ReplayBundle FFI for .epbundle; Persona-for-ACP preamble). Verification
+over padding.
