@@ -1,3 +1,8 @@
+> ⚠️ PARTIALLY SUPERSEDED (2026-07-06): the "SQLite/GRDB = single source of truth" adjudication
+> is superseded by the accepted RECKONER truth-flip (vault artifact = truth, GRDB = derived cache)
+> — see PROMPT_PLAN_9_DATA_TABLES.md TRUTH-FLIP SUPERSESSION + docs/plans/reckoner/. Engine-keystone
+> verifications (silent-Univer, IronCalc surfaces, licensing) remain valid history.
+
 # Plan 9 — Research Adjudication (CLOSED 2026-07-03)
 
 **Status: CLOSED — superseded by the canonical plan

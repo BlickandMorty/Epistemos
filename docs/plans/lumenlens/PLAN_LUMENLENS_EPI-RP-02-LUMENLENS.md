@@ -207,3 +207,10 @@ depth 4 · Depth/novelty 4. No axis < 4.
      reference survives a full edit/save/reload cycle byte-exact with a tombstone; a
      manifest-in-frontmatter edit (if that fork is chosen) leaves all other frontmatter keys
      byte-identical.
+13. **TRUTH-FLIP CORRECTION (2026-07-06, RECKONER audit #4).** P-AMEND 9's "own truth model (GRDB
+   tables…)" and P-AMEND 11's "Dataset truth stays GRDB" are SUPERSEDED: dataset truth = the VAULT
+   ARTIFACT (CSV / XLSX-.icalc + .dataset.md companion); GRDB = derived cache. Nothing else in
+   P-AMEND 9/11/12 changes — the boundary (note tables editor-side; datasets referenced never
+   duplicated), the payload-agnostic span rule, the notebook manifest, and the disclosure/export
+   contracts all stand; exports still ride IronCalc. "Data room" phrasing anywhere = the dataset
+   tab surfaces (the room stays cut).

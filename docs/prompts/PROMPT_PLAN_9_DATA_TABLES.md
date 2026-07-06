@@ -363,3 +363,29 @@ remains startable early; everything agent-facing still lands after KINDRED K6.
   + dry_run→confirm→apply→undo + the mascot hook all stand as written.
 - Everything else in §0 (silent-Univer, IronCalc sole authority, WASM placement, GRDB truth,
   dual-zone/defined-names, xlsx via IronCalc, never Univer Pro, licensing) is UNCHANGED.
+
+---
+
+## TRUTH-FLIP SUPERSESSION (2026-07-06, RECKONER wave accepted by audit #4 — BINDING; owner-reversible)
+
+**Dataset truth = the VAULT ARTIFACT; GRDB = derived cache/working store.** CSV (flat datasets) /
+XLSX-`.icalc` (promoted workbooks) + a `.dataset.md` companion (id, schema, formula cells, view +
+chart specs) live in the vault and outrank everything; GRDB is the fast working copy, rebuildable;
+commit = one GRDB transaction + SYNCHRONOUS vault writeback (deferred writeback would silently
+re-flip truth). Rationale + evidence: `docs/plans/reckoner/RECKONER_REVIEW_2026_07_06.md` §A
+(fabric F1 literal, owner file-truth arc, dissolves the SQLite-under-sync fork, one mental model
+with notes). This supersedes, by exact line: §0.1 "One SQLite data core" (core survives as cache),
+**§0.5 in full**, §1's diagram line "SQLite/GRDB — THE durable truth", §2's "binding shape" header,
+§3.1/§3.3/§3.5 commit-boundary phrasing, §4 "executor over GRDB", §9 Stage-1, the RESHAPE lines
+"GRDB single truth … unchanged" / "same GRDB truth", and the §0-supersession-map's "GRDB truth …
+UNCHANGED" token. The adjudication doc carries a superseded banner; raw corpora stay historical.
+
+**Also recorded here:**
+- **Charts re-affirmed per §0.9:** Swift Charts native block = PRIMARY (the wave's vchart-primary
+  inversion is reversed — plugin license unconfirmed + peer-locked to Univer ^0.2.5; vchart = the
+  "later if needed" lane, decided at R0).
+- **DEFERRED, not killed (owner-reversible):** the dual-zone/defined-names model, §2's four-layer
+  binding shape, and record-LEVEL first-class vault objects (v1 ships dataset-level nodes/links;
+  grid-first). The wave silently omitted these; this line makes the deferral explicit.
+- **KEELSTONE seam:** dataset artifacts (.csv/.xlsx/.icalc/*.dataset.md) join the reconciler's
+  watched set with delegated conflict routing — KEELSTONE's docs carry the addendum.

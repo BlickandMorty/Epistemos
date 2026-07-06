@@ -109,3 +109,10 @@ Plan 2 (LUMENLENS, `docs/plans/lumenlens/`) was audited after you started. Three
    minimal-diff writeback will pass pre-composed WHOLE-buffer contents (splice happens in memory;
    the write is always full-buffer atomic). Keep the `write(_ content:, to:)` whole-content
    signature; don't add partial/streaming write variants.
+4. **Dataset artifacts (RECKONER, additive — fold in at your next clean point, do not interrupt a
+   mid-phase state):** plan §15.10 — make the indexed-set/artifact routing EXTENSIBLE
+   (csv/xlsx/icalc → dataset hook; *.dataset.md → companion parser, not the note indexer), add the
+   artifact conflict-delegation branch, extend the gate soak per §15.10(c), and give
+   AtomicVaultWriter a Data overload. If you have already passed the reconciler phases, land the
+   extensibility seam + overload now and leave the dataset-specific routes as clearly-marked stubs
+   for the RECKONER agent.

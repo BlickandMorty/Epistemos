@@ -21,7 +21,7 @@ both. A research/plan artifact carrying ID `X` may never silently absorb content
 | 6 — Quick Capture (unstructured + voice) | **EMBERCATCH** | `EPI-RP-06-EMBERCATCH` | both |
 | 7 — Sync + Release + Schema-solidification | **KEELSTONE** | `EPI-RP-07-KEELSTONE` | both |
 | 8 — ResearchHub (multi-source feed) | **LODESTAR** | `EPI-RP-08-LODESTAR` | both |
-| 9 — Data tab (Univer render × IronCalc calc, GRDB truth) | **RECKONER** | `EPI-RP-09-RECKONER` | both |
+| 9 — Data (Univer render × IronCalc calc, vault-artifact truth) | **RECKONER** | `EPI-RP-09-RECKONER` | both |
 
 Codenames are deliberately distinctive nouns with no generic overlap. Do not reuse, abbreviate, or
 invent new ones without adding a row here first (this table is the single source of truth).

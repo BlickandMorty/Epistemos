@@ -271,3 +271,15 @@ Verified against the live repo before build-start. Full detail: `KEELSTONE_REVIE
    implementation is LUMENLENS's `LensSessionCoordinator` (docs/plans/lumenlens/spine/). (c)
    `AtomicVaultWriter.write(_ content:, to:)` keeps its whole-buffer contract — LUMENLENS
    minimal-diff writeback composes buffers in memory and always writes full content atomically.
+10. **DATASET-ARTIFACT SEAM (2026-07-06, RECKONER audit #4 — additive).** RECKONER makes vault
+   files the dataset truth: `.csv` (flat), `.xlsx`/`.icalc` (workbooks), `*.dataset.md`
+   (companion). Three additions bind: (a) the reconciler's indexed set becomes EXTENSIBLE —
+   csv/xlsx/icalc route to a dataset re-derive hook, `*.dataset.md` routes to the companion parser
+   (NOT the note indexer; today it would pass the `.md` predicate and be mis-indexed); (b) conflict
+   DELEGATION for artifacts — KEELSTONE detects+routes, RECKONER resolves (clean → re-derive +
+   repaint; dirty → user-wins-live, agent rebases/flags; moved/deleted → embedInvalidated + relink;
+   NEVER a conflict-copy of a CSV); (c) release-gate soak extensions — kill-9 mid CSV-writeback
+   (untouched rows byte-identical), sync-storm on a CSV, cache-rebuild == fresh-re-derive
+   equivalence, delete-CSV-then-edit surfaces relink (never silent GRDB resurrection). Also:
+   `AtomicVaultWriter` gains a Data overload (binary artifacts). Phase 4.5's grep-leg is
+   UNAFFECTED (note-body scoped).

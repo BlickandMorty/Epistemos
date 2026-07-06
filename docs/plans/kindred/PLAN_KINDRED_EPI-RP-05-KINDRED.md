@@ -234,3 +234,10 @@ depth 4 · Depth/novelty 4. No axis < 4.
    reference-only (session truth stays the 1Code store); no new chat system; 1Code-only — on MAS
    the chat tab surfaces via LUMENLENS's robust disclosure (degraded + exportable markdown
    transcript). LUMENLENS owns the tab container; you own the mounted chat content.
+11. **PRESENCE CONTRACT EXTENSION for RECKONER (2026-07-06, audit #4) + wording fixes.** RECKONER's
+   grid presence needs three additions to the presence contract KINDRED owns: (a) a **dataTab
+   Surface variant**, (b) a **datasetId slot** in Location, (c) a **live `detail` field** on
+   CompanionPresence (so the roster can read "cleaning column C" — without it that promise has no
+   wire slot). RECKONER emits to the SWIFT hub (CompanionState) per K-AMEND-era binding placement —
+   never to agent_core. Wording fixes to K-AMEND 9: the mascot pins on the **Data TAB** (the room
+   is cut); dataset truth = the vault artifact per the accepted RECKONER truth-flip (GRDB derived).

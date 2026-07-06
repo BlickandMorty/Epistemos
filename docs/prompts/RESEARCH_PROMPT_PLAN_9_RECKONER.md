@@ -2,9 +2,17 @@
 
 **ID:** `EPI-RP-09-RECKONER` · **Codename:** RECKONER · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
-> Paste everything below `─── BEGIN ───` into a top-tier deep-research model. Output = a
-> **build-ready dossier** hardening the RESHAPED direction (2026-07-06) against the dual plan
-> (LUMENLENS `EPI-RP-02` + KINDRED `EPI-RP-05`). Owner authored 2026-07-06.
+> **How to use this file.** Give the research model four inputs, in this order:
+> 1. `INTEGRATION_FABRIC.md` (whole file).
+> 2. `RESEARCH_PROMPT_STANDARD.md` (whole file).
+> 3. `PROMPT_PLAN_9_DATA_TABLES.md` §0, §1-§11, Cross-plan note, and especially the BINDING
+>    `RESHAPE` + `Exact §0 supersession map`.
+> 4. Everything below `─── BEGIN ───` in this file.
+>
+> Output = a **build-ready dossier + implementation spine** hardening the RESHAPED direction
+> (2026-07-06) against the dual plan (LUMENLENS `EPI-RP-02` + KINDRED `EPI-RP-05`). Owner authored
+> 2026-07-06. This is a research brief, not a build brief: the researcher returns the dossier,
+> schemas, seams, file-tree/skeleton proposals, contradiction sweep, self-score, and self-critique.
 >
 > **Build split: both builds.** The data core, tools, tabs, and embeds ship on MAS + Experimental;
 > only the companion/minichat *presence chrome* is 1Code-only (June answers the same tools on MAS).
@@ -21,10 +29,22 @@
 
 ## 0. Who you are / deliverable
 Principal product-architecture researcher for an agent-native data layer inside a macOS PKM.
-Produce a build-ready dossier: chosen mechanisms with rejected alternatives named, schemas, seams
-(who owns what), UX flows, failure modes, perf budgets, phased build order with witnessable
-done-bars. External claims cited to primary sources; engine facts may cite the existing
+Produce a build-ready dossier AND a compact implementation spine: chosen mechanisms with rejected
+alternatives named, schemas, seams (who owns what), UX flows, failure modes, perf budgets, phased
+build order with witnessable done-bars, and concrete build contracts (DDL, Swift/Rust/TypeScript
+interfaces, bridge payloads, markdown/reference syntax, preview/export provider protocols, and a
+proposed file tree). External claims cited to primary sources; engine facts may cite the existing
 adjudication instead of re-deriving. No invented APIs; unknowns flagged with fallbacks.
+
+**Run three internal cycles before finalizing, and print the cycle outcomes:**
+1. **C1 — Engine inheritance audit:** verify every claimed engine fact is inherited from the
+   2026-07-03 canon/adjudication or newly cited with file:line/source; do not re-open locked
+   keystones without new evidence.
+2. **C2 — Triad integration audit:** prove the RECKONER shape plugs into KEELSTONE, LUMENLENS, and
+   KINDRED through named seams rather than absorbing their scope.
+3. **C3 — Contradiction/buildability audit:** sweep for resurrected Data-room, docked-chat,
+   five-views-v1, duplicate-truth, hidden-content, MAS-subprocess, and new-chat contradictions; then
+   rewrite any section that fails the rubric before returning.
 
 ## 1. Product context (ground truth — design against this)
 Epistemos = macOS-native PKM (Swift 6 + Rust agent_core/UniFFI + GRDB + WKWebView). Two builds:
@@ -110,6 +130,11 @@ structural change attributed and revertible. Harden that loop until it is boring
   pooling, teardown discipline); the existing per-vault GRDB (SearchIndexService etc.); the F2
   capability registry concept (`INTEGRATION_FABRIC.md`); 1Code `sub_chats.sessionId`/`stream_id`.
 
+**Researcher reality check:** You may not have repo access. Treat these file paths as design targets
+and mark each claim as **observed from provided canon**, **inferred from provided canon**, or
+**requires repo verification**. If a mechanism depends on exact live code (for example tabbing
+identifier, bridge handler names, or 1Code store columns), give the verification query/file to run.
+
 ## 5. Research dimensions
 
 ### D1 — The agent-first data lifecycle ★ (the new primary door — go deepest)
@@ -123,6 +148,10 @@ structural change attributed and revertible. Harden that loop until it is boring
   query, chart, import) with typed params, honest gating (which are per-turn approved), and
   IDENTICAL semantics driven by June (agent_core) and the 1Code backend. One tool surface, two
   drivers — specify the seam.
+- Return a **tool-contract spine**: JSON schemas for each dry-run/apply/undo command, the preview
+  hash/inverse-op requirement, per-turn approval classification, redaction rules for row/cell
+  context sent to agents, and the exact failure envelope (ambiguous intent, coercion warning,
+  partial import, too-large selection, timeout).
 - Prior art, cited: Notion AI databases, Airtable AI/Omni, agentic-spreadsheet products (e.g.
   Shortcut/Paradigm-class), Tana supertags+AI, LLM text-to-schema literature. What they get wrong
   (silent restructuring, no undo, hallucinated schemas) → your guardrails.
@@ -137,6 +166,9 @@ structural change attributed and revertible. Harden that loop until it is boring
   grid WebView; Swift Charts placement; how a dataset tab title/icon lives in the tab group.
 - WebView economics: one WKWebView per dataset tab vs a pooled/single grid view re-pointed —
   measure against the repo's Epdoc pooling + teardown discipline (40-60MB per editor reclaimed).
+- Return a **dataset-document spine**: tab identity fields, lifecycle events, undo/redo ownership,
+  close/reopen behavior, multi-window conflict policy, and bridge messages between native tab
+  chrome and the grid WebView.
 
 ### D3 — The grid seam, hardened at scale
 - Carry the canon's §3 seam (silent-Univer + IronCalc-WASM co-resident; edit → setUserInput +
@@ -144,6 +176,10 @@ structural change attributed and revertible. Harden that loop until it is boring
   the script-message bridge). Pressure-test: 100k rows × 30 columns — virtualized rendering
   limits in Univer OSS, WASM memory envelope, evaluate() latency, diff-queue size. Cite Univer/
   IronCalc sources or flag as measure-first.
+- Return an **engine-bridge spine**: Swift, Rust/UniFFI, and TypeScript interface sketches for
+  workbook load, edit/evaluate, diff flush, snapshot save, undo/redo, reload after WebView crash,
+  and headless agent dry-run. Keep Univer as renderer and IronCalc as sole calc authority in every
+  sketch.
 - Failure modes: crash mid-commit (op-log replay), WebView reload (re-hydrate from GRDB +
   to_bytes snapshot), WASM OOM, formula cycles, the free-zone/record-zone conflict cases.
 
@@ -158,6 +194,9 @@ structural change attributed and revertible. Harden that loop until it is boring
   preview provider the embed registers with LUMENLENS's Lens-Fidelity Disclosure (what a
   disclosure preview shows: dataset name, dims, a value snapshot; how staleness is marked; reuse
   whatever liveness verdict D4 picks — one render path, two consumers).
+- Return an **embed/reference spine**: markdown grammar, stable IDs, versioning, unknown-type
+  tombstone behavior, minimal-diff edit rules, graph edge emission, preview/export provider shape,
+  and examples of the raw markdown an external editor would see.
 
 ### D5 — Dataset-aware chat (no new chat — the parameterization ask on K6)
 - What the KINDRED minichat needs to serve a dataset tab: focused-dataset context injection
@@ -165,6 +204,9 @@ structural change attributed and revertible. Harden that loop until it is boring
   the SAME session continuity (`sub_chats.sessionId`). Specify the context payload + size bounds.
 - MAS parity: June receives the same context through agent_core — specify where that context is
   assembled natively so both drivers see one shape.
+- Return a **dataset-context packet** shared by both agent drivers: bounded schema summary,
+  selected rows/cells digest, visible view state, provenance handles, privacy/redaction policy, and
+  escalation behavior when the context is too large.
 
 ### D6 — Storage placement + KEELSTONE alignment ★ (open fork — resolve with evidence)
 - WHERE does the data-core SQLite live? Options: (a) inside the vault directory (portable,
@@ -178,6 +220,8 @@ structural change attributed and revertible. Harden that loop until it is boring
   derived; does the exemption hold?). Verdict + migration/teardown implications.
 - Datasets in the release gate: what KEELSTONE §9 soak cases must extend to cover the data core
   (kill -9 mid-commit, sync-storm around the DB file, op-log replay equivalence).
+- Return an explicit **KEELSTONE handoff card**: what, if anything, the sync/release agent must be
+  reprompted with; if no reprompt is needed, say so and justify by seam ownership.
 
 ### D7 — Ingest, agent-scoped
 - v1 ingest through the agent door: CSV/xlsx (IronCalc load verified) + paste-a-table; Vision/PDF
@@ -189,6 +233,9 @@ structural change attributed and revertible. Harden that loop until it is boring
   keystroke→repaint in-grid, evaluate() p95 at 10k/100k rows, commit latency, embed render cost
   in Epdoc, WASM resident memory. Failure table in the KEELSTONE style (detect → contain →
   recover → witness) for every D3/D6 failure mode.
+- Include a **measurement plan** for each budget: fixture size, hardware assumption, warm/cold
+  distinction, instrumentation point, pass/fail threshold, and fallback trigger (for example
+  pooled WebView, lazy mount, or renderer fallback).
 
 ### D9 — Competitive synthesis
 - Cited table: Notion databases, Airtable (+AI), Obsidian Dataview/Bases, Tana, Capacities,
@@ -238,6 +285,9 @@ honest:
   export-from-disclosure as the universal escape hatch.
 - **Cross-lens:** the whole notebook obeys 3b — Prose/Source show the body normally and the tabs
   through the ROBUST disclosure popovers (preview + download/export per tab).
+- Return a **notebook spine**: manifest schema, sample markdown before/after adding a sheet tab and
+  a chat tab, tab-order conflict policy, in-note navigator entries, lazy-mount rules, promotion
+  flow from embed→tab if accepted, and MAS degradation/export behavior for chat tabs.
 
 ### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
 - **F1 vault:** records are first-class vault objects via references; embeds live in notes;
@@ -253,9 +303,11 @@ These six briefs + this one form a **single integrated product built one plan at
 ## 6. Primary-source discipline
 Engine facts: cite `PLAN9_ADJUDICATION_WORKING_2026_07_03.md` + the clone paths rather than
 re-deriving; NEW claims about Univer/IronCalc internals need file:line from the clones or upstream
-sources. External products: official docs/changelogs over blogs. SQLite-under-sync: primary
-sources (sqlite.org, hictor/hazard write-ups with provenance). Observed vs inferred flagged;
-version-gated capabilities carry fallbacks.
+sources. External products: official docs/changelogs over blogs. SQLite-under-sync and sandbox
+claims require primary/official sources first (sqlite.org, Apple docs, vendor docs for iCloud/
+Dropbox behavior where available), with incident write-ups only as corroboration. Observed vs
+inferred flagged; version-gated capabilities carry fallbacks. If a needed current source cannot be
+verified, mark it `OPEN` and design a fail-closed fallback instead of guessing.
 
 ## 7. Deliverable
 1. Executive thesis (the loop, boringly reliable). 2. **Agent-first lifecycle + F2 tool schema**
@@ -265,11 +317,16 @@ modes (D3). 5. Embed spec + liveness verdict (D4). 6. Dataset-aware chat paramet
 8. Ingest (D7). 9. Budgets + failure table (D8). 10. Competitive + novel moves (D9).
 11. **The Epdoc Notebook** (D10 — headline: manifest verdict, second-mount rules, chat-tab seam,
 launcher scope, the earn-a-tab survey, failure modes). 12. Deep Fabric section (D★).
-13. **Phased build order** (data core → native IronCalc/UniFFI → grid seam → tab documents →
-F2 tools + dry-run loop → embeds → notebook tabs + launcher → dataset-aware chat → ingest), each
-phase with a WITNESSABLE done-bar; flag dependencies (KEELSTONE 0-4; LUMENLENS L1/L5 + the tab
-container; KINDRED K6). 14. Open questions preserved (not silently resolved). 15. Self-critique +
-rubric scores (§3 of the standard; iterate any axis <4).
+13. **Implementation Spine Appendix** with proposed file tree plus the contracts requested in D1-D6,
+D8, and D10: tool JSON schemas, DDL, UniFFI/Swift/TS interfaces, bridge payloads, markdown
+reference grammar, preview/export provider protocols, notebook manifest examples, failure table,
+and perf-budget TOML snippet. 14. **Phased build order** (data core → native IronCalc/UniFFI → grid
+seam → tab documents → F2 tools + dry-run loop → embeds → notebook tabs + launcher →
+dataset-aware chat → ingest), each phase with a WITNESSABLE done-bar; flag dependencies (KEELSTONE
+0-4; LUMENLENS L1/L5 + the tab container; KINDRED K6). 15. **Contradiction sweep** against the old
+Plan 9 room/chat/five-view wording and against LUMENLENS/KINDRED ownership; include verdicts.
+16. Open questions preserved (not silently resolved). 17. Self-critique + rubric scores (§3 of the
+standard; iterate any axis <4). If any axis remains below 4, the dossier is not done.
 
 ## 8. Anti-patterns (do NOT do)
 Do not resurrect the room, the docked chat panel, or five-views-v1. Do not re-litigate the
@@ -281,6 +338,18 @@ storage-placement fork unresolved — it gets a verdict with evidence. Notebook 
 in the markdown, never embedded blobs (the `.md` stays sole note truth and stays readable
 everywhere); chat tabs mount EXISTING minichat sessions, never a new chat; the "+ new tab"
 launcher stays inside the note — it is not a room; do not add tab types the earn-a-tab survey
-can't defend.
+can't defend. Do not return a dossier without an implementation spine, contradiction sweep,
+phase-by-phase done-bars, and explicit handoff cards for KEELSTONE, LUMENLENS, and KINDRED.
 
 ─── END RESEARCH BRIEF ───
+
+---
+
+## POST-WAVE ANNOTATION (2026-07-06 — the wave returned; audit #4 accepted with amendments)
+This brief's "datasets = GRDB truth" lines (constraint 3/3c, the locked-keystones §0.5 echo, D2's
+"GRDB truth is LIVE", D6, D10) are SUPERSEDED by the accepted truth-flip: vault artifact = truth,
+GRDB = derived cache (see the canon's TRUTH-FLIP SUPERSESSION + `docs/plans/reckoner/`). D6's
+"data core is TRUTH so B4's exemption holds" argument therefore collapses — the reckoner GRDB is
+DERIVED, B4 binds, and the pool joins SearchIndexService's existing DB. OQ-1/OQ-2 (IronCalc wasm
+surface) were settled empirically during the audit (=0.7.0, 4-arg ctor, no UserModel in wasm).
+The build-ready package + full amendment set: `docs/plans/reckoner/`.
