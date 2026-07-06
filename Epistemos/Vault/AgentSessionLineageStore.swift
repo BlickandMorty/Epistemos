@@ -80,7 +80,7 @@ final class AgentSessionLineageStore {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let updatedData = try encoder.encode(root)
-        try updatedData.write(to: sessionURL, options: .atomic)
+        try AtomicVaultWriter.writeSynchronously(String(decoding: updatedData, as: UTF8.self), to: sessionURL)
     }
 
     private func loadMapping() -> [String: String] {

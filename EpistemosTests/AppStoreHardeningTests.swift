@@ -250,6 +250,32 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("Agent session lineage metadata writes use AtomicVaultWriter")
+    func agentSessionLineageMetadataUsesAtomicVaultWriter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Vault/AgentSessionLineageStore.swift")
+        let writeMetadata = Self.sourceSection(
+            in: source,
+            startingAt: "static func writeMetadata",
+            endingBefore: "    private func loadMapping"
+        )
+
+        #expect(
+            writeMetadata?.contains("JSONDecoder().decode([String: JSONValue].self") == true
+                && writeMetadata?.contains("encoder.outputFormatting = [.prettyPrinted, .sortedKeys]") == true,
+            "AgentSessionLineageStore must preserve existing session.json fields and deterministic JSON encoding."
+        )
+        #expect(
+            writeMetadata?.contains("try AtomicVaultWriter.writeSynchronously(String(decoding: updatedData, as: UTF8.self), to: sessionURL)") == true,
+            "AgentSessionLineageStore writes vault session metadata and must use the coordinated temp-replace spine."
+        )
+        #expect(
+            writeMetadata?.contains("updatedData.write(to:") == false
+                && writeMetadata?.contains("replaceItemAt") == false
+                && writeMetadata?.contains("moveItem(at:") == false,
+            "AgentSessionLineageStore session metadata writes must not use direct Data.write or raw FileManager replacement."
+        )
+    }
+
     @Test("AtomicVaultWriter writes whole vault buffers through the coordinated durable path")
     func atomicVaultWriterWritesWholeVaultBuffers() async throws {
         let root = FileManager.default.temporaryDirectory
