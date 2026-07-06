@@ -916,3 +916,46 @@ match / off-host; skips slash/short/already-grounded — guards proven). Reuses 
 the existing-chat (acp/ipc) transport is a noted follow-on. Deployed (verified in tarball). Composes
 experimental-vault-context-assembly. **RAISED BAR:** extend auto-ground to the existing-chat transport;
 live-verify (desktop-permitting); native ReplayBundle FFI on an owner checkpoint.
+
+---
+
+# DoD-THESIS — why the Experimental surface now exceeds Codex and the Claude Desktop app
+*(grounded in shipped + verified features, not aspiration. 2026-07-06, after 17 cycles.)*
+
+**The claim.** Codex, Claude Desktop, opencode, goose, cline, aider are all *session-cold, repo-scoped*
+agents: their entire "context" is what they can grep in the current working directory, and their output
+evaporates when the session ends. The field study (`AGENT_APP_FIELD_STUDY.md`, exhaustive negative grep)
+confirmed NONE has semantic retrieval from a personal knowledge base, a concept graph, or provenance
+write-back. The Experimental surface is different *in kind* — it is the same first-class agent baseline
+(six live cloud engines, streaming, diff review, tool approval) **embedded in the Epistemos substrate**.
+Three axes, each backed by shipped code:
+
+1. **Retrieve from the user's knowledge, not just the repo.** The agent's context is assembled from the
+   user's vault via a three-stage retrieval axis — shadow RRF (BM25+HNSW) → whole-vault fs (any layout) →
+   graph expansion (outlink + backlink neighbors of the concept). Delivered live through the "Vault"
+   button, Prompt Forge grounding, and opt-in auto-grounding at send time. *No standalone app can do this
+   — they have no personal KB or concept graph to retrieve from.* (PATCH_LEDGER 26,36,48,49,54,55,56;
+   witness: scripts/experimental-backend-witness.sh.)
+2. **Verify against that knowledge — claims AND actions.** cite-check verifies every `[[citation]]`
+   against the real vault by EXACT title match (proven live catching an agent hallucination; the one
+   substring false-verify an adversarial review found is fixed + guarded by the witness). Run-provenance
+   captures the agent's whole tool-call sequence into a hash-chained integrity record. *Standalone apps
+   can neither verify a citation against a KB they don't have, nor persist an auditable run to it.*
+3. **Write work back — the loop compounds.** Save-to-vault + provenance notes + Prompt/System-Prompt
+   Forge write durable, cited, personalized artifacts back into the vault, which then feed retrieval next
+   session. *A standalone agent's work dies with the session; here it becomes substrate.*
+
+**Verification honesty (no overclaiming).** PROVEN LIVE in the running app: Prompt Forge diff, System
+Prompt Forge + Persona picker, vault MCP (list_files → real notes), cite-check catching a real
+hallucination, de-brand=0, the one native "Home" pill, Epistemos theme, cloud default. PROVEN
+DETERMINISTIC (headless, at the exact endpoint): whole-vault cite-check exact-match + H1 guard, graph
+outlink/backlink expansion, Prompt/System-Prompt Forge enhance, run-audit hash properties, auto-ground
+guards. REVIEWED: an adversarial multi-agent pass over all overlays — traversal/secret-leak/injection
+surfaces clean; the single HIGH (false-verify) fixed. OPEN (honestly): full live re-confirmation of the
+newest features (blocked by shared-desktop contention, not code); Persona for Codex/OpenCode (ACP
+preamble); the cryptographically-signed `.epbundle` export (needs the agent_core ReplayBundle FFI — a
+native checkpoint deferred under the no-risky-mid-stream-Rust discipline).
+
+**Bottom line.** On the baseline the field is matched; on the three embedding axes — retrieve-from-KB,
+verify-against-KB, write-back-to-KB, *including the concept graph* — the surface does what those apps
+structurally cannot, because they do not live where this one lives.
