@@ -276,6 +276,37 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("Vault lifecycle graph writes use AtomicVaultWriter")
+    func vaultLifecycleGraphWritesUseAtomicVaultWriter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Vault/VaultLifecycleService.swift")
+        let sessionGraph = Self.sourceSection(
+            in: source,
+            startingAt: "nonisolated func generateSessionGraphLocal",
+            endingBefore: "nonisolated func generate_session_graph"
+        )
+        let vaultGraph = Self.sourceSection(
+            in: source,
+            startingAt: "nonisolated func merge_vault_graph",
+            endingBefore: "nonisolated func detectVaultContradictionsLocal"
+        )
+
+        #expect(
+            sessionGraph?.contains("try AtomicVaultWriter.writeSynchronously(json, to: folderURL.appendingPathComponent(\"graph.json\"))") == true
+                && sessionGraph?.contains("try AtomicVaultWriter.writeSynchronously(\n        graphReport(for: graph, sessionID: sessionID),") == true,
+            "VaultLifecycleService must write session graph files through the coordinated temp-replace spine."
+        )
+        #expect(
+            vaultGraph?.contains("try AtomicVaultWriter.writeSynchronously(String(decoding: data, as: UTF8.self), to: outputURL)") == true,
+            "VaultLifecycleService must write vault_graph.json through the coordinated temp-replace spine."
+        )
+        #expect(
+            sessionGraph?.contains(".write(to:") == false
+                && sessionGraph?.contains("atomically: true") == false
+                && vaultGraph?.contains(".write(to:") == false,
+            "Vault lifecycle graph outputs must not use direct Data.write/String.write APIs."
+        )
+    }
+
     @Test("AtomicVaultWriter writes whole vault buffers through the coordinated durable path")
     func atomicVaultWriterWritesWholeVaultBuffers() async throws {
         let root = FileManager.default.temporaryDirectory

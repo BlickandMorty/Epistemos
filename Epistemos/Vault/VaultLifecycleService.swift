@@ -476,9 +476,11 @@ nonisolated func generateSessionGraphLocal(sessionFolderPath: String) throws -> 
     let data = try encoder.encode(graph)
     let json = String(decoding: data, as: UTF8.self)
 
-    try data.write(to: folderURL.appendingPathComponent("graph.json"), options: .atomic)
-    try graphReport(for: graph, sessionID: sessionID)
-        .write(to: folderURL.appendingPathComponent("GRAPH_REPORT.md"), atomically: true, encoding: .utf8)
+    try AtomicVaultWriter.writeSynchronously(json, to: folderURL.appendingPathComponent("graph.json"))
+    try AtomicVaultWriter.writeSynchronously(
+        graphReport(for: graph, sessionID: sessionID),
+        to: folderURL.appendingPathComponent("GRAPH_REPORT.md")
+    )
     return json
 }
 
@@ -542,7 +544,7 @@ nonisolated func merge_vault_graph(vaultPath: String) throws -> String {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     let data = try encoder.encode(mergedGraph)
-    try data.write(to: outputURL, options: .atomic)
+    try AtomicVaultWriter.writeSynchronously(String(decoding: data, as: UTF8.self), to: outputURL)
     return outputURL.path
 }
 
