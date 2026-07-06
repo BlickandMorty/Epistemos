@@ -1075,3 +1075,17 @@ EVERY whole-vault-dependent feature (grounding, auto-ground). Committed fork + m
 (two git repos). **RAISED BAR:** the retrieval foundation is now ranked end-to-end (shadow RRF native +
 whole-vault relevance-ranked + graph). Moat: retrieve(ranked)/verify/write-back/learn — all four axes
 proven + regression-guarded.
+
+---
+
+**Cycle 27 (2026-07-06) — LIVE: all 24 Zen models + all 6 providers confirmed (owner idle 40min).**
+Closed the owner's direct "I want all the zen models" ask LIVE: the Models settings → OpenCode row shows
+"**24 LIVE MODELS · AUTO-UPDATED**" enumerating the full free-Zen set (Ring 2.6 1T, MiMo V2 Pro/V2.5/Flash/
+Omni, Nemotron 3 Ultra/Super, GLM-4.7/GLM-5, DeepSeek V4 Flash, MiniMax-M3/M2.5/M2.1, Kimi K2.5, Hy3,
+Ling 2.6, North Mini Code, Grok Code Fast, Trinity Large, Big Pickle, Qwen3.6 Plus…), each marked "free"
+with the honest data-use notice. ALL SIX providers confirmed configured live: Claude Code (Ready), Codex
+(Ready), Kimi (Add key), GLM (Add key), Gemini (Ready), OpenCode (Ready) — Keychain-only keys per the UI
+note. This closes DoD-Foundation's "six engines + live catalog" LIVE (was headless-proven). Combined with
+Cycles 19-20 (provenance/cite-check/vaultMCP/thinking-toggle live), the DoD-Foundation is now fully
+live-confirmed. Incidentally the file-finder also showed real vault files (04_CLAIM_LEDGER.md etc.),
+re-confirming vault access. No code this cycle — a pure live-verification closure.
