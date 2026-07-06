@@ -33,6 +33,11 @@ private actor ActivityFlagState {
     }
 }
 
+private struct ActivityTrackerBodyRef: Sendable {
+    let filePath: String?
+    let inlineBody: String
+}
+
 @MainActor @Observable
 final class ActivityTracker {
     nonisolated private static let log = Logger(subsystem: "com.epistemos", category: "ActivityTracker")
@@ -237,8 +242,15 @@ final class ActivityTracker {
         }
 
         Task { @MainActor in
+            let bodyRef = fetchPageBodyRef(pageId: pageId)
             let hashes = await Task.detached(priority: .utility) {
-                let body = NoteFileStorage.readBody(pageId: pageId, mapped: true, fast: true)
+                let body = await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: pageId,
+                    filePath: bodyRef.filePath,
+                    inlineBody: bodyRef.inlineBody,
+                    mapped: true,
+                    fast: true
+                )
                 return Self.paragraphHashes(from: body)
             }.value
             guard !Task.isCancelled, !hashes.isEmpty else { return }
@@ -277,6 +289,25 @@ final class ActivityTracker {
         } catch {
             Self.log.error("ActivityTracker: failed to fetch page title: \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    private func fetchPageBodyRef(pageId: String) -> ActivityTrackerBodyRef {
+        guard let context = AppBootstrap.shared?.modelContainer.mainContext else {
+            return ActivityTrackerBodyRef(filePath: nil, inlineBody: "")
+        }
+        let targetId = pageId
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.id == targetId }
+        )
+        do {
+            guard let page = try context.fetch(descriptor).first else {
+                return ActivityTrackerBodyRef(filePath: nil, inlineBody: "")
+            }
+            return ActivityTrackerBodyRef(filePath: page.filePath, inlineBody: page.body)
+        } catch {
+            Self.log.error("ActivityTracker: failed to fetch page body reference: \(error.localizedDescription)")
+            return ActivityTrackerBodyRef(filePath: nil, inlineBody: "")
         }
     }
 

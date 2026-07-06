@@ -647,6 +647,15 @@ struct RuntimeValidationTests {
         #expect(!scanner.contains("func scanForLiveNotes(context: ModelContext) async -> [LiveNoteTask]"))
     }
 
+    @Test("activity paragraph snapshots use file-first body loading")
+    func activityParagraphSnapshotsUseFileFirstBodyLoading() throws {
+        let source = try loadRepoTextFile("Epistemos/State/ActivityTracker.swift")
+
+        #expect(source.contains("SDPage.loadBodyAsyncFromPrimitives("))
+        #expect(source.contains("filePath: bodyRef.filePath"))
+        #expect(!source.contains("NoteFileStorage.readBody"))
+    }
+
     @Test("main scene disables macOS window restoration so bad saved state cannot trap launch")
     func mainSceneDisablesMacOSWindowRestoration() throws {
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
