@@ -1203,3 +1203,19 @@ waste for a chip that displays only verified/total. Added `checkCitations(text, 
 for the manual button; the chip passes false). The ambient chip now does only the noteExists verifications;
 the manual cite-check button still repairs. Gate=110, deployed. Small, real polish on new code — the
 discipline of TEMPER-ing what you just shipped before moving on.
+
+---
+
+**Cycle 36 (2026-07-06) — HONESTY CORRECTION: the running app is STALE; recent deploys await a relaunch.**
+Discovered (verified against the unpacked web dir) that the RUNNING Experimental app (pid launched
+02:53) loaded its web at launch and has NOT re-unpacked since — so it is missing every feature from the
+recent cycles: VRM chip (absent — the "Speculative" grep hit was a coincidental React enum), Skills
+library ("Learned workflows"/"My skills"), whole-vault ranking (MAX_CANDIDATES), cite-repair ("did you
+mean"). The current deploy BUNDLE (04:30 tarball) has them all + they are backend-witnessed (11/11) +
+typechecked; they simply require an app RELAUNCH to unpack (the app keys the unpack on tarball
+{size}-{mtime}). CORRECTION to prior reports: "deployed ✓ (in tarball)" meant the BUNDLE was updated, NOT
+that the running app loaded it — an important distinction I should have drawn. The features are real and
+staged; they are not yet LIVE in the app the owner sees. I did NOT force a relaunch: restarting the
+owner's working app unattended is an intrusive, not-durably-authorized action (and I don't fully own the
+Experimental launch env), so I surface it for the owner to relaunch when ready. Live-verification of
+Cycles 24-35 is pending that relaunch. No fake capability — the honest state, stated plainly.
