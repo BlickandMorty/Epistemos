@@ -104,14 +104,12 @@ struct WorkOpenCodeRuntimeTests {
 
     @Test("factory readiness HONESTLY mirrors the bundled runtime (live iff present; always inert on MAS)")
     func factoryHonestlyMirrorsBundledRuntime() {
-        let shell = WorkOpenCodeShellFactory.resolve(
-            environment: [WorkOpenCodeShellGateStatus.flagName: "1"]
-        )
+        let shell = WorkOpenCodeShellFactory.resolve(environment: ["EPISTEMOS_WORK_OPENCODE_V0": "1"])
         #if EPISTEMOS_APP_STORE
-        // MAS: the OpenCode sidecar is Pro-only → always inert, never faked live.
+        // MAS: the OpenCode sidecar is unavailable → always inert, never faked live.
         #expect(shell.isReady == false)
         #else
-        // Pro/direct-dist: the factory is LIVE iff the runtime is ACTUALLY bundled (resolved via the
+        // Direct-dist: the factory is LIVE iff the runtime is ACTUALLY bundled (resolved via the
         // structured `opencode-runtime/bin/` layout OR the flattened Resources-root fallback, iter32) —
         // honest, never faked. Tie the assertion to the real bundle state so it holds whether or not
         // build-opencode-runtime.sh has vendored the runtime into this test host.

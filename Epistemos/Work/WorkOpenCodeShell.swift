@@ -96,8 +96,8 @@ nonisolated enum WorkOpenCodeShellFactory {
         // WORK = OPENCODE IS THE WORK SURFACE (owner 2026-06-22, parallel to Act): NO experimental
         // opt-in toggle. Go LIVE whenever the OpenCode runtime is actually bundled on disk — which it is
         // (build-opencode-runtime.sh vendors the pinned OpenCode + Bun into Resources/opencode-runtime at build
-        // time). The experimental `WorkOpenCodeShellGateStatus` arm-gate is no longer a precondition; work is
-        // the real surface, not an opt-in. Honest fallback: if the runtime is somehow absent, stay inert (the
+        // time). The old experimental opt-in gate is no longer a precondition; work is the real surface, not an
+        // opt-in. Honest fallback: if the runtime is somehow absent, stay inert (the
         // health row shows the placeholder) — never a fake terminal.
         _ = environment
         guard let runtimeURL = WorkOpenCodeRuntime.bundledRuntimeURL() else {

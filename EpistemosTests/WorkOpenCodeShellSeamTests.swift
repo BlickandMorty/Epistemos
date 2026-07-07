@@ -3,83 +3,27 @@ import Foundation
 @testable import Epistemos
 
 /// WORK = OpenCode shell — Seam A (owner 2026-06-21). Locks the honest-inert contract
-/// for the OpenCode terminal-shell seam: a pure gate, an inert default that NEVER
+/// for the OpenCode terminal-shell seam: a runtime-presence gate, an inert default that NEVER
 /// fakes a terminal (refuses with an honest error), a centralized factory, and a
 /// visible health row. Mirrors the other work/act seam tests. This is the
 /// foundation the native terminal view (SwiftTerm/PTY) + lazy Bun engine + vendored
 /// OpenCode TUI plug into.
 @Suite("Work = OpenCode shell — Seam A (honest-inert)")
 struct WorkOpenCodeShellSeamTests {
-    #if !EPISTEMOS_APP_STORE
-    @Test("in-app toggle override resolves: override > env flag > off (owner §194, work twin of act)")
-    func workOverrideResolutionOrder() {
-        let suite = "test.work.opencode.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let on = [WorkOpenCodeShellGateStatus.flagName: "1"]
+    @Test("factory ignores the retired opt-in gate and mirrors only bundled runtime presence")
+    func factoryIgnoresRetiredOptInGate() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Work/WorkOpenCodeShell.swift")
+        let retiredGateTypeName = "WorkOpenCodeShell" + "GateStatus"
+        #expect(!src.contains(retiredGateTypeName))
+        #expect(src.contains("WorkOpenCodeRuntime.bundledRuntimeURL()"))
+        #expect(src.contains("#if EPISTEMOS_APP_STORE"))
 
-        // no override → defer to env (off by default).
-        #expect(!WorkOpenCodeShellGateStatus.resolvedActive(environment: [:], defaults: defaults))
-        #expect(WorkOpenCodeShellGateStatus.resolvedActive(environment: on, defaults: defaults))
-        // override forces ON with env unset…
-        WorkOpenCodeShellGateStatus.setOverride(true, defaults: defaults)
-        #expect(WorkOpenCodeShellGateStatus.override(defaults: defaults) == true)
-        #expect(WorkOpenCodeShellGateStatus.resolvedActive(environment: [:], defaults: defaults))
-        // …and OFF even when the env flag says on (override WINS).
-        WorkOpenCodeShellGateStatus.setOverride(false, defaults: defaults)
-        #expect(!WorkOpenCodeShellGateStatus.resolvedActive(environment: on, defaults: defaults))
-        // clearing reverts to env-flag behavior.
-        WorkOpenCodeShellGateStatus.setOverride(nil, defaults: defaults)
-        #expect(WorkOpenCodeShellGateStatus.override(defaults: defaults) == nil)
-        #expect(WorkOpenCodeShellGateStatus.resolvedActive(environment: on, defaults: defaults))
-    }
-
-    @Test("status reflects the override SOURCE honestly (in-app toggle vs env)")
-    func workOverrideStatusReflectsSource() {
-        let suite = "test.work.opencode.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        WorkOpenCodeShellGateStatus.setOverride(true, defaults: defaults)
-        let on = WorkOpenCodeShellGateStatus.status(environment: [:], defaults: defaults)
-        #expect(on.isActive)
-        #expect(on.detail.contains("in-app toggle"))
-
-        WorkOpenCodeShellGateStatus.setOverride(false, defaults: defaults)
-        let off = WorkOpenCodeShellGateStatus.status(
-            environment: [WorkOpenCodeShellGateStatus.flagName: "1"], defaults: defaults)
-        #expect(!off.isActive, "override OFF beats env=1")
-        #expect(off.detail.contains("in-app toggle"))
-    }
-    #endif
-
-    @Test("gate is pure + honest: off by default, arms on the Pro flag")
-    func gateHonesty() {
-        // Hermetic: read the gate from a CLEAN defaults suite so the host app's PERSISTED in-app
-        // toggle (set during a real app run; the registry default is `.standard`) can't pollute
-        // these default/armed-state checks.
-        let suite = "test.work.opencode.gate.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        let off = WorkOpenCodeShellGateStatus.status(environment: [:], defaults: defaults)
-        #expect(off.isActive == false)
-        #expect(off.headline.contains("terminal runtime"))
-
-        #expect(WorkOpenCodeShellGateStatus.isEnabled("1"))
-        #expect(WorkOpenCodeShellGateStatus.isEnabled("true"))
-        #expect(WorkOpenCodeShellGateStatus.isEnabled(nil) == false)
-        #expect(WorkOpenCodeShellGateStatus.isEnabled("0") == false)
-
-        #if !EPISTEMOS_APP_STORE
-        let armed = WorkOpenCodeShellGateStatus.status(
-            environment: [WorkOpenCodeShellGateStatus.flagName: "1"], defaults: defaults
-        )
-        #expect(armed.isActive == true)
-        #expect(armed.detail.contains("INERT"))   // honest: armed ≠ live
+        let shell = WorkOpenCodeShellFactory.resolve(environment: ["EPISTEMOS_WORK_OPENCODE_V0": "0"])
+        let bundledRuntimeIsPresent = WorkOpenCodeRuntime.bundledRuntimeURL(bundle: .main) != nil
+        #if EPISTEMOS_APP_STORE
+        #expect(shell.isReady == false)
         #else
-        let mas = WorkOpenCodeShellGateStatus.status(environment: [:], defaults: defaults)
-        #expect(mas.detail.contains("Pro"))        // honest "Pro only" on MAS, never a silent cut
+        #expect(shell.isReady == bundledRuntimeIsPresent)
         #endif
     }
 
@@ -97,9 +41,7 @@ struct WorkOpenCodeShellSeamTests {
         let shell = WorkOpenCodeShellFactory.resolve(environment: [:])
         let bundledRuntimeIsPresent = WorkOpenCodeRuntime.bundledRuntimeURL(bundle: .main) != nil
         #expect(shell.isReady == bundledRuntimeIsPresent)
-        let armed = WorkOpenCodeShellFactory.resolve(
-            environment: [WorkOpenCodeShellGateStatus.flagName: "1"]
-        )
+        let armed = WorkOpenCodeShellFactory.resolve(environment: ["EPISTEMOS_WORK_OPENCODE_V0": "1"])
         #expect(armed.isReady == bundledRuntimeIsPresent)
     }
 
@@ -120,8 +62,7 @@ struct WorkOpenCodeShellSeamTests {
         let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/WorkOpenCodeShellHealthRow.swift")
         #expect(row.contains("struct WorkOpenCodeShellHealthRow"))
         // The row was refactored (owner 2026-06-22) to report the HONEST live/inert state from the
-        // ACTUAL factory resolution (no experimental gate) — so it reads WorkOpenCodeShellFactory,
-        // not WorkOpenCodeShellGateStatus. Assert the real source of truth it now wires to.
+        // ACTUAL factory resolution. Assert the real source of truth it now wires to.
         #expect(row.contains("WorkOpenCodeShellFactory.resolve()"))
         let panel = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
         #expect(panel.contains("WorkOpenCodeShellHealthRow()"))

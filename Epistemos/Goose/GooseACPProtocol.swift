@@ -1836,6 +1836,75 @@ nonisolated struct GooseACPCreateElicitationResponse: Codable, Equatable, Sendab
     }
 }
 
+nonisolated struct GooseACPElicitationFormField: Identifiable, Equatable, Sendable {
+    static let maxFields = 16
+    static let maxFieldIDCharacters = 128
+    static let maxFieldTitleCharacters = 160
+
+    enum FieldType: String, Equatable, Sendable {
+        case string
+        case number
+        case boolean
+        case unknown
+    }
+
+    let id: String
+    let title: String
+    let type: FieldType
+    let isRequired: Bool
+
+    static func fields(from schema: JSONValue) -> [Self] {
+        guard case .object(let root) = schema,
+              case .object(let properties)? = root["properties"] else {
+            return []
+        }
+        let required = Set(stringArray(root["required"]))
+        var fields: [Self] = []
+        for key in properties.keys.sorted() {
+            guard fields.count < maxFields else { break }
+            let displayKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !displayKey.isEmpty, key.count <= maxFieldIDCharacters else { continue }
+            let property: [String: JSONValue]
+            if case .object(let object)? = properties[key] {
+                property = object
+            } else {
+                property = [:]
+            }
+            fields.append(Self(
+                id: key,
+                title: boundedFieldText(
+                    string(property["title"]),
+                    fallback: displayKey,
+                    maxCharacters: maxFieldTitleCharacters
+                ),
+                type: FieldType(rawValue: string(property["type"]) ?? "") ?? .unknown,
+                isRequired: required.contains(key)
+            ))
+        }
+        return fields
+    }
+
+    private static func stringArray(_ value: JSONValue?) -> [String] {
+        guard case .array(let values)? = value else { return [] }
+        return values.compactMap(string)
+    }
+
+    private static func string(_ value: JSONValue?) -> String? {
+        guard case .string(let string)? = value else { return nil }
+        return string
+    }
+
+    private static func boundedFieldText(
+        _ value: String?,
+        fallback: String,
+        maxCharacters: Int
+    ) -> String {
+        let trimmed = (value ?? fallback).trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.isEmpty ? fallback : trimmed
+        return String(normalized.prefix(maxCharacters))
+    }
+}
+
 extension JSONValue {
     nonisolated func decoded<T: Decodable>(_ type: T.Type) throws -> T {
         let data = try JSONEncoder().encode(self)

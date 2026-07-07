@@ -9,10 +9,8 @@ struct SettingsCategoryTests {
         var labels = [
             "Capture",
             "Graph",
+            "Automation",
         ]
-        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-        labels.append("Automation")
-        #endif
         labels += [
             "Privacy & Storage",
             "Advanced",
@@ -21,20 +19,19 @@ struct SettingsCategoryTests {
     }
 
     private static var expectedVisibleSections: Set<SettingsView.SettingsSection> {
-        var sections: Set<SettingsView.SettingsSection> = [
+        let sections: Set<SettingsView.SettingsSection> = [
             .general,
             .ambientFrequencies,
+            .voice,
+            .skills,
+            .cloudModels,
             .landing,
             .appearance,
             .vault,
             .privacy,
             .provenance,
             .substrateHealth,
-            .workClone,
         ]
-        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-        sections.insert(.skills)
-        #endif
         return sections
     }
 
@@ -66,14 +63,15 @@ struct SettingsCategoryTests {
         let expected: [SettingsView.SettingsSection: SettingsView.SettingsCategory] = [
             .landing: .capture,
             .ambientFrequencies: .capture,
+            .voice: .capture,
             .appearance: .graph,
             .skills: .automation,
+            .cloudModels: .automation,
             .vault: .privacyStore,
             .privacy: .privacyStore,
             .provenance: .privacyStore,
             .general: .advanced,
             .substrateHealth: .advanced,
-            .workClone: .advanced,
         ]
         for (section, category) in expected {
             #expect(section.category == category, "\(section.rawValue) should map to \(category.rawValue)")

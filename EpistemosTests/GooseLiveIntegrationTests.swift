@@ -938,8 +938,8 @@ func waitForGooseWebBootProbe(
 }
 
 @MainActor
-func startGooseWebUILoopbackServer(root: URL) async throws -> (server: WorkSPAServer, baseURL: URL) {
-    let server = WorkSPAServer(root: root, advertisedHost: "127.0.0.1")
+func startGooseWebUILoopbackServer(root: URL) async throws -> (server: GooseLoopbackTestServer, baseURL: URL) {
+    let server = GooseLoopbackTestServer(root: root, advertisedHost: "127.0.0.1")
     try server.start()
     for _ in 0..<80 {
         switch server.status {

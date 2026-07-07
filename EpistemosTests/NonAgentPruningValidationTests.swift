@@ -76,11 +76,12 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains("SettingsSection.visibleSections"))
         #expect(!source.contains("List(SettingsSection.allCases"))
         #expect(source.contains(".substrateHealth"))
-        #expect(source.contains(".workClone"))
+        #expect(source.contains(".skills"))
+        #expect(source.contains(".cloudModels"))
+        #expect(!source.contains(".workClone"))
         #expect(!source.contains(".cognitive"))
         #expect(!source.contains(".knowledgeFusion"))
         #expect(!source.contains(".modelVaults"))
-        #expect(source.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
         #expect(!source.contains(".omega"))
     }
 

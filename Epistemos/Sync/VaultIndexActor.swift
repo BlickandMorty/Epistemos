@@ -124,6 +124,30 @@ actor VaultIndexActor {
             .path
     }
 
+    nonisolated private static func filePathAliases(for path: String) -> Set<String> {
+        let url = URL(fileURLWithPath: path)
+        var aliases: Set<String> = [
+            path,
+            url.path,
+            url.standardizedFileURL.path,
+            canonicalFilePath(path),
+        ]
+
+        for alias in Array(aliases) {
+            if alias.hasPrefix("/private/") {
+                aliases.insert(String(alias.dropFirst("/private".count)))
+            } else if alias.hasPrefix("/") {
+                aliases.insert("/private\(alias)")
+            }
+        }
+
+        return aliases
+    }
+
+    nonisolated private static func filePathAliases(for fileURL: URL) -> Set<String> {
+        filePathAliases(for: fileURL.path)
+    }
+
     // MARK: - FTS5 Search Index (GRDB)
     typealias SaveContextOperation = @Sendable (String) throws -> Bool
 
@@ -632,8 +656,9 @@ actor VaultIndexActor {
         for page in existingPages {
             if let fp = page.filePath {
                 allExistingPaths.insert(fp)
-                existingByPath[fp] = page
-                existingByPath[Self.canonicalFilePath(fp)] = page
+                for alias in Self.filePathAliases(for: fp) {
+                    existingByPath[alias] = page
+                }
             }
         }
 
@@ -807,8 +832,7 @@ actor VaultIndexActor {
                 processedFileCount += 1
                 let filePath = fileURL.path
                 diskPaths.insert(filePath)
-                diskPathAliases.insert(filePath)
-                diskPathAliases.insert(Self.canonicalFilePath(filePath))
+                diskPathAliases.formUnion(Self.filePathAliases(for: fileURL))
 
                 // Get file modification date
                 let fileModDate =
@@ -827,7 +851,10 @@ actor VaultIndexActor {
                     continue
                 }
 
-                let existingPage = existingByPath[filePath] ?? existingByPath[Self.canonicalFilePath(filePath)]
+                let existingPage = Self.filePathAliases(for: fileURL)
+                    .lazy
+                    .compactMap { existingByPath[$0] }
+                    .first
                 if let existingPage {
                     let currentVaultFileFingerprint = Self.largeVaultFileFingerprint(for: fileURL)
                     if existingPage.lastSyncedBodyHash == currentVaultFileFingerprint,
@@ -1167,7 +1194,12 @@ actor VaultIndexActor {
     /// Re-index a single file that changed externally.
     @discardableResult
     func reindexFile(at url: URL, vaultURL: URL) async throws -> Bool {
-        let result = try await upsertPage(from: url, vaultURL: vaultURL)
+        let matchingPages = try fetchTrackedPages(atFileURL: url)
+        let result = try await upsertPage(
+            from: url,
+            vaultURL: vaultURL,
+            existingPage: matchingPages.first
+        )
         let changed: Bool
         switch result {
         case .unchanged:
@@ -1179,6 +1211,12 @@ actor VaultIndexActor {
             try saveContext("single file reindex")
             log.debug("Re-indexed: \(url.lastPathComponent, privacy: .public)")
         }
+
+        if changed || matchingPages.count > 1 {
+            let removedDuplicateCount = try removeDuplicateTrackedVaultPages(atFileURL: url, vaultURL: vaultURL)
+            return changed || removedDuplicateCount > 0
+        }
+
         return changed
     }
 
@@ -1349,11 +1387,7 @@ actor VaultIndexActor {
 
     /// Remove a page from SwiftData when its .md file is deleted externally.
     func handleFileDeletion(at url: URL) throws {
-        let filePath = url.path
-        let descriptor = FetchDescriptor<SDPage>(
-            predicate: #Predicate { $0.filePath == filePath }
-        )
-        let existing = try modelContext.fetch(descriptor)
+        let existing = try fetchTrackedPages(atFileURL: url)
         for page in existing {
             let pageId = page.id
             removePageArtifacts(page)
@@ -1370,10 +1404,74 @@ actor VaultIndexActor {
 
     // MARK: - Private Helpers
 
+    private func fetchTrackedPages(atFileURL fileURL: URL) throws -> [SDPage] {
+        let candidatePaths = Array(Self.filePathAliases(for: fileURL))
+        var pagesByID: [String: SDPage] = [:]
+        for candidatePath in candidatePaths {
+            let descriptor = FetchDescriptor<SDPage>(
+                predicate: #Predicate { $0.filePath == candidatePath }
+            )
+            for page in try modelContext.fetch(descriptor) {
+                pagesByID[page.id] = page
+            }
+        }
+        return pagesByID.values.sorted(by: prefersNewerTrackedPage)
+    }
+
+    private func prefersNewerTrackedPage(_ lhs: SDPage, _ rhs: SDPage) -> Bool {
+        let lhsSyncedAt = lhs.lastSyncedAt ?? .distantPast
+        let rhsSyncedAt = rhs.lastSyncedAt ?? .distantPast
+        if lhsSyncedAt != rhsSyncedAt {
+            return lhsSyncedAt > rhsSyncedAt
+        }
+
+        if lhs.updatedAt != rhs.updatedAt {
+            return lhs.updatedAt > rhs.updatedAt
+        }
+
+        return lhs.id < rhs.id
+    }
+
+    @discardableResult
+    private func removeDuplicateTrackedVaultPages(atFileURL fileURL: URL, vaultURL: URL) throws -> Int {
+        let aliases = Self.filePathAliases(for: fileURL)
+        let pages = try fetchTrackedPages(atFileURL: fileURL)
+        let targetCanonicalPath = Self.canonicalFilePath(fileURL.path)
+        let vaultCanonicalRoot = Self.canonicalFilePath(vaultURL.path)
+        let trackedPrefix = vaultCanonicalRoot.hasSuffix("/") ? vaultCanonicalRoot : vaultCanonicalRoot + "/"
+
+        let duplicates = pages.filter { page in
+            guard let filePath = page.filePath else { return false }
+            let canonicalPath = Self.canonicalFilePath(filePath)
+            return aliases.contains(filePath)
+                || canonicalPath == targetCanonicalPath
+                || canonicalPath.hasPrefix(trackedPrefix) && canonicalPath == targetCanonicalPath
+        }
+        guard duplicates.count > 1 else { return 0 }
+
+        let orderedPages = duplicates.sorted(by: prefersNewerTrackedPage)
+        guard let keeper = orderedPages.first else { return 0 }
+
+        var removedCount = 0
+        for duplicate in orderedPages.dropFirst() {
+            removePageArtifacts(duplicate)
+            modelContext.delete(duplicate)
+            removedCount += 1
+        }
+
+        if removedCount > 0 {
+            try saveContext("duplicate tracked vault path cleanup")
+            log.warning(
+                "VaultIndex: removed \(removedCount, privacy: .public) duplicate tracked page rows for \(targetCanonicalPath, privacy: .private); kept page \(keeper.id, privacy: .public)"
+            )
+        }
+        return removedCount
+    }
+
     @discardableResult
     private func removeDuplicateTrackedVaultPages(in vaultURL: URL) throws -> Int {
         let pages = try modelContext.fetch(FetchDescriptor<SDPage>())
-        let vaultRoot = vaultURL.standardizedFileURL.path
+        let vaultRoot = Self.canonicalFilePath(vaultURL.path)
         let trackedPrefix = vaultRoot.hasSuffix("/") ? vaultRoot : vaultRoot + "/"
         var pagesByCanonicalPath: [String: [SDPage]] = [:]
 
@@ -1392,19 +1490,7 @@ actor VaultIndexActor {
 
         var removedCount = 0
         for (path, duplicatePages) in pagesByCanonicalPath where duplicatePages.count > 1 {
-            let orderedPages = duplicatePages.sorted { lhs, rhs in
-                let lhsSyncedAt = lhs.lastSyncedAt ?? .distantPast
-                let rhsSyncedAt = rhs.lastSyncedAt ?? .distantPast
-                if lhsSyncedAt != rhsSyncedAt {
-                    return lhsSyncedAt > rhsSyncedAt
-                }
-
-                if lhs.updatedAt != rhs.updatedAt {
-                    return lhs.updatedAt > rhs.updatedAt
-                }
-
-                return lhs.id < rhs.id
-            }
+            let orderedPages = duplicatePages.sorted(by: prefersNewerTrackedPage)
 
             guard let keeper = orderedPages.first else { continue }
             for duplicate in orderedPages.dropFirst() {
@@ -1516,7 +1602,10 @@ actor VaultIndexActor {
             predicate: #Predicate { $0.filePath == filePath }
         )
         let existing = try modelContext.fetch(descriptor)
-        let existingPage = knownExistingPage ?? existing.first
+        var existingPage = knownExistingPage ?? existing.first
+        if existingPage == nil {
+            existingPage = try fetchTrackedPages(atFileURL: fileURL).first
+        }
 
         let parsedTitle = frontMatter["title"] ?? fileURL.deletingPathExtension().lastPathComponent
         let parsedTags =

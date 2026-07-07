@@ -1846,12 +1846,12 @@ struct GooseWebViewBootShimTests {
     @Test("Goose Web UI load waits until the loopback server can serve the index")
     func gooseWebUILoadWaitsForServedIndex() async throws {
         let missingRoot = try temporaryDirectory()
-        let missingServer = WorkSPAServer(root: missingRoot, advertisedHost: "127.0.0.1")
+        let missingServer = GooseLoopbackTestServer(root: missingRoot, advertisedHost: "127.0.0.1")
         defer {
             missingServer.stop()
             try? FileManager.default.removeItem(at: missingRoot)
         }
-        let missingBaseURL = try await startGooseSurfaceTestServer(missingServer)
+        let missingBaseURL = try await startGooseLoopbackTestServer(missingServer)
         #expect(await GooseWebSurfaceView.gooseUIReady(baseURL: missingBaseURL) == false)
 
         let readyRoot = try temporaryDirectory()
@@ -1860,12 +1860,12 @@ struct GooseWebViewBootShimTests {
             atomically: true,
             encoding: .utf8
         )
-        let readyServer = WorkSPAServer(root: readyRoot, advertisedHost: "127.0.0.1")
+        let readyServer = GooseLoopbackTestServer(root: readyRoot, advertisedHost: "127.0.0.1")
         defer {
             readyServer.stop()
             try? FileManager.default.removeItem(at: readyRoot)
         }
-        let readyBaseURL = try await startGooseSurfaceTestServer(readyServer)
+        let readyBaseURL = try await startGooseLoopbackTestServer(readyServer)
         #expect(await GooseWebSurfaceView.gooseUIReady(baseURL: readyBaseURL) == true)
 
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
@@ -3170,7 +3170,7 @@ private enum GooseSurfaceTestError: Error {
     case serverDidNotStart
 }
 
-private func startGooseSurfaceTestServer(_ server: WorkSPAServer) async throws -> URL {
+private func startGooseLoopbackTestServer(_ server: GooseLoopbackTestServer) async throws -> URL {
     try server.start()
     for _ in 0..<100 {
         if case .running(let baseURL) = server.status {

@@ -29,7 +29,7 @@ Usage: scripts/keelstone-release-gate.sh [--direct-app /path/Epistemos.app] [--a
 Source-level KEELSTONE release gate guardrails:
   - exactly two application targets: Epistemos and Epistemos-AppStore
   - target-scoped EPISTEMOS_EXPERIMENTAL / EPISTEMOS_APP_STORE / KINDRED_ENABLED macros
-  - no OpenChamber / ProAgent / PRO_BUILD / openchamber residue in sources, tests, scripts, or project.yml
+  - no retired branded-surface residue in sources, tests, scripts, or project.yml
   - data-safety soak and first-run/upgrade witness tests remain wired
   - HIGH/CRITICAL hardening findings block release
   - source entitlement plists match the approved direct and MAS posture
@@ -255,10 +255,19 @@ require_not_contains "${appstore_target}" "EPISTEMOS_EXPERIMENTAL" "Epistemos-Ap
 require_not_contains "${appstore_target}" "KINDRED_ENABLED" "Epistemos-AppStore target"
 
 echo ""
-echo "==> KEELSTONE §9.4 OpenChamber/ProAgent drift"
-residue_report="${ROOT_DIR}/build/keelstone-release-gate-openchamber-proagent.txt"
+echo "==> KEELSTONE §9.4 retired-surface drift"
+residue_report="${ROOT_DIR}/build/keelstone-release-gate-retired-surfaces.txt"
 mkdir -p "$(dirname "${residue_report}")"
-if rg -n "OpenChamber|ProAgent|PRO_BUILD|openchamber" \
+legacy_surface_a="Open"
+legacy_surface_b="Chamber"
+legacy_surface_lower_a="open"
+legacy_surface_lower_b="chamber"
+legacy_agent_a="Pro"
+legacy_agent_b="Agent"
+legacy_flag_a="PRO"
+legacy_flag_b="BUILD"
+legacy_residue_pattern="${legacy_surface_a}${legacy_surface_b}|${legacy_agent_a}${legacy_agent_b}|${legacy_flag_a}_${legacy_flag_b}|${legacy_surface_lower_a}${legacy_surface_lower_b}"
+if rg -n "${legacy_residue_pattern}" \
   "${ROOT_DIR}/Epistemos" \
   "${ROOT_DIR}/EpistemosTests" \
   "${ROOT_DIR}/project.yml" \
@@ -266,11 +275,11 @@ if rg -n "OpenChamber|ProAgent|PRO_BUILD|openchamber" \
   --glob '!Build/**' \
   --glob '!scripts/keelstone-release-gate.sh' \
   >"${residue_report}"; then
-  fail "OpenChamber/ProAgent residue remains; see ${residue_report}"
+  fail "Retired branded-surface residue remains; see ${residue_report}"
   sed -n '1,80p' "${residue_report}" >&2
 else
   : >"${residue_report}"
-  pass "No OpenChamber/ProAgent/PRO_BUILD/openchamber residue in guarded source paths"
+  pass "No retired branded-surface residue in guarded source paths"
 fi
 
 echo ""

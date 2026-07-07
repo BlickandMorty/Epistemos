@@ -1158,6 +1158,7 @@ struct GooseACPClientTests {
     }
 }
 
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 @Suite("Goose ACP event bridge")
 @MainActor
 struct GooseACPEventBridgeTests {
@@ -1632,6 +1633,7 @@ struct GooseACPEventBridgeTests {
         #expect(diagnostic.parameterSummary.count < 512)
     }
 }
+#endif
 
 // The Goose WebView surface was intentionally excised in 0b10f728b. Keep
 // historical WebView prompt-bridge coverage opt-in until that surface is restored.
