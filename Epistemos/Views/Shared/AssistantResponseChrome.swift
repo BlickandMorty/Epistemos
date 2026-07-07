@@ -64,15 +64,19 @@ enum TextExportSupport {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        do {
-            try write(content, to: url)
-        } catch {
-            presentWriteFailure(error, destination: url)
+        Task { @MainActor in
+            do {
+                try await write(content, to: url)
+            } catch {
+                presentWriteFailure(error, destination: url)
+            }
         }
     }
 
-    static func write(_ content: String, to url: URL) throws {
-        try content.write(to: url, atomically: true, encoding: .utf8)
+    static func write(_ content: String, to url: URL) async throws {
+        try await Task.detached(priority: .utility) {
+            try AtomicVaultWriter.writeSynchronously(content, to: url)
+        }.value
     }
 
     private static func presentWriteFailure(_ error: Error, destination: URL) {

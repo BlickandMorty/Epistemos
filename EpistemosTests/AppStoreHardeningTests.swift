@@ -347,6 +347,36 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("Artifact text exports use AtomicVaultWriter off-main")
+    func artifactTextExportsUseAtomicVaultWriterOffMain() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Shared/AssistantResponseChrome.swift")
+        let save = Self.sourceSection(
+            in: source,
+            startingAt: "static func save(_ content:",
+            endingBefore: "    static func write(_ content:"
+        )
+        let write = Self.sourceSection(
+            in: source,
+            startingAt: "static func write(_ content:",
+            endingBefore: "    private static func presentWriteFailure"
+        )
+
+        #expect(
+            save?.contains("Task { @MainActor in") == true
+                && save?.contains("try await write(content, to: url)") == true,
+            "Artifact export save-panel writes must leave the main actor before touching disk."
+        )
+        #expect(
+            write?.contains("Task.detached(priority: .utility)") == true
+                && write?.contains("try AtomicVaultWriter.writeSynchronously(content, to: url)") == true,
+            "Artifact text exports can be saved into the vault and must use the coordinated whole-buffer writer."
+        )
+        #expect(
+            write?.contains("content.write(to:") == false,
+            "Artifact text exports must not bypass the coordinated writer with direct String.write."
+        )
+    }
+
     @Test("First-run vault metadata writes use AtomicVaultWriter")
     func firstRunBootstrapMetadataUsesAtomicVaultWriter() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Vault/FirstRunBootstrap.swift")

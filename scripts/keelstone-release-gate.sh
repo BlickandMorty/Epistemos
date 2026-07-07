@@ -311,6 +311,7 @@ require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultC
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func skillVaultFileWritesUseAtomicVaultWriter()" "Data-safety witness: skill vault writes use coordinated vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func epistemosSidecarsUseAtomicVaultWriter()" "Data-safety witness: vault JSON sidecars use coordinated vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func experimentalAgentVaultNoteWritesUseAtomicVaultWriterOffMain()" "Data-safety witness: Experimental agent note creation uses coordinated off-main vault IO"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func artifactTextExportsUseAtomicVaultWriterOffMain()" "Data-safety witness: artifact text exports use coordinated off-main IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func firstRunBootstrapMetadataUsesAtomicVaultWriter()" "Data-safety witness: first-run vault metadata uses coordinated vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func agentSessionLineageMetadataUsesAtomicVaultWriter()" "Data-safety witness: agent session lineage metadata uses coordinated vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultLifecycleGraphWritesUseAtomicVaultWriter()" "Data-safety witness: vault lifecycle graph writes use coordinated vault IO"
