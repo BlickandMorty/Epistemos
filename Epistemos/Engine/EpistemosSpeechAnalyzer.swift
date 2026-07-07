@@ -119,10 +119,7 @@ public final class EpistemosSpeechAnalyzer {
                 return .modelDownloadRequired
             }
         } catch {
-            let message = VoiceCaptureDiagnostics.externalErrorDescription(
-                error,
-                fallback: "asset inventory check failed"
-            )
+            let message = VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "asset inventory check failed")
             Self.log.warning(
                 "\(message, privacy: .public)"
             )
@@ -244,10 +241,7 @@ public final class EpistemosSpeechAnalyzer {
                     }
                 }
             } catch {
-                let message = VoiceCaptureDiagnostics.externalErrorDescription(
-                    error,
-                    fallback: "transcriber results failed"
-                )
+                let message = VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "transcriber results failed")
                 Self.log.warning(
                     "\(message, privacy: .public)"
                 )
@@ -262,10 +256,7 @@ public final class EpistemosSpeechAnalyzer {
             do {
                 try await analyzer.start(inputSequence: inputStream)
             } catch {
-                let message = VoiceCaptureDiagnostics.externalErrorDescription(
-                    error,
-                    fallback: "speech analysis failed"
-                )
+                let message = VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "speech analysis failed")
                 Self.log.warning(
                     "\(message, privacy: .public)"
                 )
@@ -433,7 +424,8 @@ public final class EpistemosSpeechAnalyzer {
             try engine.start()
             Self.log.info("audio input re-armed after configuration change")
         } catch {
-            Self.log.error("failed to restart audio engine after configuration change: \(error.localizedDescription, privacy: .public)")
+            let message = VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "audio engine failed")
+            Self.log.error("\(message, privacy: .public)")
         }
     }
 

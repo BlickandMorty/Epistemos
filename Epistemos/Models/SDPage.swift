@@ -312,6 +312,14 @@ final class SDPage {
         mapped: Bool = false,
         fast: Bool = false
     ) async -> String {
+        if let filePath,
+           !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let fileURL = URL(fileURLWithPath: filePath)
+            if let readableVaultBody = VaultIndexActor.decodedBodyFromReadableVaultFile(at: fileURL) {
+                return readableVaultBody
+            }
+        }
+
         if resourceServiceIsReady() {
             let trimmedPath = filePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let reference = trimmedPath.isEmpty ? pageId : trimmedPath
@@ -333,13 +341,6 @@ final class SDPage {
             }
         }
 
-        if let filePath,
-           !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let fileURL = URL(fileURLWithPath: filePath)
-            if let readableVaultBody = VaultIndexActor.decodedBodyFromReadableVaultFile(at: fileURL) {
-                return readableVaultBody
-            }
-        }
         return legacyManagedOrInlineBody(
             pageId: pageId,
             inlineBody: inlineBody,

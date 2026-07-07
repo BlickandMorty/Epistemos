@@ -54,7 +54,7 @@ mcp_invoke_ms_p99    = 2.0
 ffi_hot_path_us_p99  = 5.0
 
 [agent_surface]
-# Agent-surface budgets for the 2026-07-03 rebuilds (Pro = OpenChamber WKWebView
+# Agent-surface budgets for the 2026-07-03 rebuilds (Experimental = 1Code WKWebView
 # over a supervised localhost server; MAS = native SwiftUI over in-process
 # agent_core). These gate the owner-critical "opens instantly" behaviour PLUS the
 # web-side + app-side optimization mandate in
@@ -72,7 +72,7 @@ cold_open_ms_max            = 1500   # first-ever open -> interactive
 placeholder_paint_ms_max    = 100    # click -> placeholder/loading visible (never blank/hang)
 first_token_ms_max          = 1200   # send -> first streamed token (cloud); Apple FM lower
 #
-# --- Pro web-side (OpenChamber SPA served by the web server) ---
+# --- Experimental web-side (vendored SPA served by the local supervisor) ---
 pro_web_bundle_kb_max       = 3500   # gzipped initial JS+CSS; regression ceiling, tighten as measured
 pro_first_paint_ms_max      = 1000   # SPA mount -> first meaningful paint (server already warm)
 #

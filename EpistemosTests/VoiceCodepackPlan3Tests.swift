@@ -6,9 +6,12 @@ import Testing
 
 @Suite("Plan 3 Voice codepack")
 struct VoiceCodepackPlan3Tests {
+    private static let voiceCodepackPath = "docs/research/Plan 3 — Voice codepack (shipped code, Pass 8).md"
+
     @Test("voice codepack matches the wired MAS-safe voice state")
     func voiceCodepackMatchesWiredState() throws {
-        let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_VOICE_CODEPACK_2026_06_28.md")
+        let plan = try loadMirroredSourceTextFile(Self.voiceCodepackPath)
+        let normalizedPlan = Self.normalizedWhitespace(plan)
 
         for required in [
             "Visible auto toggles are consumer-backed",
@@ -32,14 +35,14 @@ struct VoiceCodepackPlan3Tests {
             "KokoroCoreMLSynthesizer",
             "AVAudioEngine",
             "raw-vocabulary",
-            "advances observable read-aloud progress",
+            "advancing observable read-aloud progress",
             "preflight empty and over-cap text",
             "oversized text cannot flip the UI into speaking state",
             "LocalPackages/KokoroPipeline",
             "Voice settings section now shows",
             "TTS unavailable",
             "Kokoro neural voice",
-            "Readiness rejects symlink-routed or non-regular model artifacts",
+            "Package verification rejects symlink-routed or non-regular model artifacts",
             "Kokoro gate, settings presentation, and checked package install/removal",
             "failed replacement install rolls back to the previous package",
             "[DONE] Gate shipped TTS as Kokoro-only",
@@ -53,13 +56,13 @@ struct VoiceCodepackPlan3Tests {
             "[DONE] Add a local checked-package installer/remover",
             "[DONE] Vendor native `KokoroPipeline` source"
         ] {
-            #expect(plan.contains(required), "Missing voice codepack state: \(required)")
+            #expect(normalizedPlan.contains(Self.normalizedWhitespace(required)), "Missing voice codepack state: \(required)")
         }
     }
 
     @Test("voice codepack has no stale contradiction claims")
     func voiceCodepackHasNoStaleContradictions() throws {
-        let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_VOICE_CODEPACK_2026_06_28.md")
+        let plan = try loadMirroredSourceTextFile(Self.voiceCodepackPath)
 
         for stale in [
             "clone-ready",
@@ -77,8 +80,9 @@ struct VoiceCodepackPlan3Tests {
 
     @Test("voice codepack and rollup mark shipped state honestly")
     func voiceCodepackAndRollupMarkShippedStateHonestly() throws {
-        let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_VOICE_CODEPACK_2026_06_28.md")
+        let plan = try loadMirroredSourceTextFile(Self.voiceCodepackPath)
         let capabilities = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+        let normalizedCapabilities = Self.normalizedWhitespace(capabilities)
 
         #expect(plan.contains("shipped code"))
         #expect(plan.contains("## Shipped state"))
@@ -88,23 +92,23 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("Voice — STT SHIPPED; TTS KOKORO-ONLY GATED (Pass 8)"))
         #expect(capabilities.contains("Kokoro-only read-aloud availability"))
         #expect(capabilities.contains("domain/code-redacted status/error text"))
-        #expect(capabilities.contains("raw status/domain strings bounded and\n  control/whitespace-normalized"))
-        #expect(capabilities.contains("status ellipsis kept inside the configured cap"))
-        #expect(capabilities.contains("Kokoro-82M is checked-package gated"))
+        #expect(normalizedCapabilities.contains("raw status/domain strings bounded and control/whitespace-normalized"))
+        #expect(normalizedCapabilities.contains("status ellipsis stays inside the configured cap"))
+        #expect(normalizedCapabilities.contains("Kokoro-82M is checked-package status-gated"))
         #expect(capabilities.contains("rejects symlink-routed, hardlinked, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched"))
         #expect(capabilities.contains("declared package byte caps"))
-        #expect(capabilities.contains("bounded, control/whitespace-normalized model-relative\n  status diagnostics"))
+        #expect(normalizedCapabilities.contains("bounded, control/whitespace-normalized model-relative status diagnostics"))
         #expect(capabilities.contains("ellipsis inside configured caps"))
-        #expect(capabilities.contains("Voice settings status/runtime affordance"))
-        #expect(capabilities.contains("no Apple AVSpeech fallback"))
-        #expect(capabilities.contains("local checked-package installer/remover"))
+        #expect(normalizedCapabilities.contains("Voice settings now show a status/runtime affordance"))
+        #expect(capabilities.contains("No Apple AVSpeech fallback"))
+        #expect(normalizedCapabilities.contains("local checked-package installer/remover"))
         #expect(capabilities.contains("manifest-derived package evidence"))
-        #expect(capabilities.contains("bounded printable\n  bundle profile"))
+        #expect(normalizedCapabilities.contains("bounded printable bundle profile"))
         #expect(capabilities.contains("observable read-aloud progress"))
         #expect(capabilities.contains("Swift/CoreML `KokoroPipeline` path tokenizes supported raw vocabulary text"))
-        #expect(capabilities.contains("requires the complete manifest-declared duration/bucket CoreML package"))
-        #expect(capabilities.contains("no Apple AVSpeech fallback, committed model asset, Python, subprocess"))
-        #expect(capabilities.contains("Python, subprocess, hidden fallback, or unchecked Kokoro row"))
+        #expect(normalizedCapabilities.contains("requires the complete manifest-declared duration/bucket CoreML package"))
+        #expect(normalizedCapabilities.contains("No Apple AVSpeech fallback, committed model asset, Python, subprocess"))
+        #expect(normalizedCapabilities.contains("Python, subprocess, hidden fallback, or unchecked Kokoro row"))
 
         for stale in [
             "Research/code in a later pass",
@@ -117,9 +121,13 @@ struct VoiceCodepackPlan3Tests {
         }
     }
 
+    private static func normalizedWhitespace(_ text: String) -> String {
+        text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+
     @Test("voice codepack preserves Plan 3 MAS and ownership boundaries")
     func voiceCodepackPreservesBoundaries() throws {
-        let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_VOICE_CODEPACK_2026_06_28.md")
+        let plan = try loadMirroredSourceTextFile(Self.voiceCodepackPath)
 
         for required in [
             "Do not edit `Epistemos/Goose/*`",

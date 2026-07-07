@@ -177,6 +177,54 @@ struct NoteSavingEdgeCaseTests {
         }
     }
 
+    @Test("async primitive body reads prefer readable vault source")
+    func asyncPrimitiveBodyReadPrefersReadableVaultSource() async throws {
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let fileURL = vaultURL.appendingPathComponent("Async Vault First.md")
+        try AtomicVaultWriter.writeSynchronously(
+            """
+            ---
+            title: Async Vault First
+            ---
+
+            Async body from disk
+            """,
+            to: fileURL
+        )
+
+        let body = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: UUID().uuidString,
+            filePath: fileURL.path,
+            inlineBody: ""
+        )
+
+        #expect(body == "Async body from disk")
+    }
+
+    @Test("async primitive body loader checks vault file before resource gateway")
+    func asyncPrimitiveBodyLoaderChecksVaultFileBeforeResourceGateway() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Models/SDPage.swift")
+        guard let functionStart = source.range(of: "static func loadBodyAsyncFromPrimitives(")?.lowerBound,
+              let legacyFallback = source.range(
+                of: "return legacyManagedOrInlineBody(",
+                range: functionStart..<source.endIndex
+              )?.lowerBound else {
+            Issue.record("Could not locate loadBodyAsyncFromPrimitives source body")
+            return
+        }
+
+        let functionBody = String(source[functionStart..<legacyFallback])
+        guard let fileRead = functionBody.range(of: "VaultIndexActor.decodedBodyFromReadableVaultFile"),
+              let gatewayRead = functionBody.range(of: "if resourceServiceIsReady()") else {
+            Issue.record("Async primitive body loader lost vault-file or gateway read path")
+            return
+        }
+
+        #expect(fileRead.lowerBound < gatewayRead.lowerBound)
+    }
+
     @Test("loadBody preserves raw non-markdown files that begin with front-matter separators")
     @MainActor func loadBodyPreservesRawNonMarkdownFilesThatBeginWithFrontMatterSeparators() throws {
         let storageURL = try makeTempDirectory()
@@ -204,7 +252,7 @@ struct NoteSavingEdgeCaseTests {
         }
     }
 
-    @Test("loadBody preserves an intentionally blank managed body even when the vault source still has content")
+    @Test("loadBody preserves an intentionally blank staged body even when the vault source still has content")
     @MainActor func loadBodyDoesNotResurrectVaultContentWhenManagedBodyExists() throws {
         let storageURL = try makeTempDirectory()
         let vaultURL = try makeTempDirectory()
@@ -216,18 +264,21 @@ struct NoteSavingEdgeCaseTests {
         try NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL) {
             let page = SDPage(title: "Blank Managed Body")
             let fileURL = vaultURL.appendingPathComponent("Blank Managed Body.md")
-            try """
+            try AtomicVaultWriter.writeSynchronously(
+                """
             ---
             title: Blank Managed Body
             ---
 
             Older vault content
-            """.write(to: fileURL, atomically: true, encoding: .utf8)
+            """,
+                to: fileURL
+            )
             page.filePath = fileURL.path
 
             page.saveBody("")
 
-            #expect(NoteFileStorage.bodyExists(pageId: page.id))
+            #expect(NoteFileStorage.hasStagedOrPersistedBody(pageId: page.id))
             #expect(page.loadBody().isEmpty)
             #expect(page.loadBody(mapped: true).isEmpty)
         }
