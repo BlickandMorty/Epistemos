@@ -212,14 +212,14 @@ public actor ThoughtAttachmentBridge {
         }
     }
 
-    /// Serialize to disk at `url`. Atomic write (temp file + rename)
+    /// Serialize to disk at `url` through the coordinated vault writer
     /// so a crash during save can't leave the sidecar half-written.
     public func saveTo(url: URL) throws {
         let snap = snapshot()
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(snap)
-        try data.write(to: url, options: [.atomic])
+        try AtomicVaultWriter.writeSynchronously(data, to: url)
     }
 
     /// Load from disk. Skips silently when the file doesn't exist

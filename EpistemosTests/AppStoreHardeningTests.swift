@@ -39,6 +39,7 @@ struct AppStoreHardeningTests {
     func vaultIndexActorExportUsesAtomicVaultWriter() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Sync/VaultIndexActor.swift")
         let writerSource = try loadMirroredSourceTextFile("Epistemos/Sync/AtomicVaultWriter.swift")
+        let epdocWriteThrough = try loadMirroredSourceTextFile("Epistemos/Engine/EpdocMarkdownWriteThrough.swift")
         let coordinatedWrite = Self.sourceSection(
             in: source,
             startingAt: "private func coordinatedWrite",
@@ -82,6 +83,16 @@ struct AppStoreHardeningTests {
             coordinatedWrite?.contains(".write(to:") == false,
             "VaultIndexActor's vault-file write path must not use direct Data.write/String.write APIs."
         )
+        #expect(
+            source.contains("try AtomicVaultWriter.writeSynchronously(migratedData, to: newSidecarURL)")
+                && !source.contains("encode(migrated).write(to: newSidecarURL"),
+            "VaultIndexActor code-sidecar migration writes vault JSON and must use AtomicVaultWriter."
+        )
+        #expect(
+            epdocWriteThrough.contains("try AtomicVaultWriter.writeSynchronously(serialized, to: targetURL)")
+                && !epdocWriteThrough.contains("NoteFileStorage.writeTextAtomically(\n            serialized"),
+            "Epdoc markdown-canonical vault files must use AtomicVaultWriter, not legacy NoteFileStorage helpers."
+        )
     }
 
     @Test("CodeFileService source writes use AtomicVaultWriter for vault files")
@@ -97,6 +108,11 @@ struct AppStoreHardeningTests {
             startingAt: "public func updateCodeFile",
             endingBefore: "    // MARK: - Delete"
         )
+        let sidecar = Self.sourceSection(
+            in: source,
+            startingAt: "private func writeSidecar",
+            endingBefore: "private func verifySourceWrite"
+        )
 
         #expect(
             create?.contains("try AtomicVaultWriter.writeSynchronously(resolvedBody, to: fileURL.url)") == true,
@@ -110,6 +126,11 @@ struct AppStoreHardeningTests {
             create?.contains("bodyData.write(to: fileURL.url") == false
                 && update?.contains("bodyData.write(to: contained.url") == false,
             "CodeFileService source writes must not regress to direct Foundation Data.write APIs."
+        )
+        #expect(
+            sidecar?.contains("try AtomicVaultWriter.writeSynchronously(json, to: url)") == true
+                && sidecar?.contains("json.write(to:") == false,
+            "CodeFileService .epcache sidecars live under the vault root and must use the coordinated writer."
         )
     }
 
@@ -226,6 +247,58 @@ struct AppStoreHardeningTests {
                 && writeText?.contains("open(path, O_WRONLY") == false
                 && writeText?.contains(".write(to:") == false,
             "SkillVaultFileIO must not bypass NSFileCoordinator with POSIX temp+rename or direct Foundation write APIs."
+        )
+    }
+
+    @Test("Epistemos JSON sidecars use AtomicVaultWriter for vault files")
+    func epistemosSidecarsUseAtomicVaultWriter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSidecar.swift")
+        let approvalStore = try loadMirroredSourceTextFile("Epistemos/Vault/AgentApprovalPolicyStore.swift")
+        let templateStore = try loadMirroredSourceTextFile("Epistemos/Engine/EpdocBlockTemplateStore.swift")
+        let thoughtBridge = try loadMirroredSourceTextFile("Epistemos/Engine/ThoughtAttachmentBridge.swift")
+        let write = Self.sourceSection(
+            in: source,
+            startingAt: "public static func write(",
+            endingBefore: "private static func markModelDerived"
+        )
+        let writeDocument = Self.sourceSection(
+            in: approvalStore,
+            startingAt: "private static func writeDocument",
+            endingBefore: "private static func approvalListURL"
+        )
+        let saveTemplate = Self.sourceSection(
+            in: templateStore,
+            startingAt: "public func save(_ template:",
+            endingBefore: "    /// Remove a template by id."
+        )
+        let saveThoughtBridge = Self.sourceSection(
+            in: thoughtBridge,
+            startingAt: "public func saveTo(url:",
+            endingBefore: "    /// Load from disk."
+        )
+
+        #expect(
+            write?.contains("try AtomicVaultWriter.writeSynchronously(data, to: url)") == true,
+            ".epistemos.json sidecars are vault JSON artifacts and must use the coordinated durable writer."
+        )
+        #expect(
+            write?.contains("data.write(to:") == false,
+            ".epistemos.json sidecars must not use direct Data.write APIs inside the vault."
+        )
+        #expect(
+            writeDocument?.contains("try AtomicVaultWriter.writeSynchronously(data, to: url)") == true
+                && writeDocument?.contains("data.write(to:") == false,
+            ".epistemos/approval_lists.json lives in the vault and must use the coordinated durable writer."
+        )
+        #expect(
+            saveTemplate?.contains("try AtomicVaultWriter.writeSynchronously(data, to: fileURL)") == true
+                && saveTemplate?.contains("data.write(to:") == false,
+            ".epcache/templates JSON files live under the vault root and must use the coordinated durable writer."
+        )
+        #expect(
+            saveThoughtBridge?.contains("try AtomicVaultWriter.writeSynchronously(data, to: url)") == true
+                && saveThoughtBridge?.contains("data.write(to:") == false,
+            ".epcache/thoughts-bridge.json lives under the vault root and must use the coordinated durable writer."
         )
     }
 

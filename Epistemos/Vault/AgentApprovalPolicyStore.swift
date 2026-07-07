@@ -176,7 +176,7 @@ final class AgentApprovalPolicyStore {
         let url = approvalListURL(vaultPath: vaultPath)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try JSONEncoder.approvalPolicyEncoder.encode(document.normalized())
-        try data.write(to: url, options: .atomic)
+        try AtomicVaultWriter.writeSynchronously(data, to: url)
     }
 
     private static func approvalListURL(vaultPath: String) -> URL {

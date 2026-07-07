@@ -409,7 +409,9 @@ nonisolated public enum EpistemosSidecarStore {
 
     /// Atomically write `sidecar` for `source`. Encoding is
     /// deterministic so re-saving an unchanged sidecar is a no-op
-    /// at the byte level (git-friendly).
+    /// at the byte level (git-friendly). Sidecars are vault JSON
+    /// artifacts, so replacement goes through the coordinated vault
+    /// writer instead of direct Data.write APIs.
     public static func write(
         _ sidecar: EpistemosSidecar,
         for source: URL,
@@ -421,7 +423,7 @@ nonisolated public enum EpistemosSidecarStore {
         let data: Data
         do { data = try Self.encoder.encode(sidecar) }
         catch { throw SidecarError.encodeFailed(url, error) }
-        do { try data.write(to: url, options: [.atomic]) }
+        do { try AtomicVaultWriter.writeSynchronously(data, to: url) }
         catch { throw SidecarError.writeFailed(url, error) }
         if modelDerived {
             try Self.markModelDerived(url)

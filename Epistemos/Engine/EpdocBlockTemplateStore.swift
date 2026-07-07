@@ -104,7 +104,7 @@ public actor EpdocBlockTemplateStore {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(template)
-        try data.write(to: fileURL, options: [.atomic])
+        try AtomicVaultWriter.writeSynchronously(data, to: fileURL)
         // Refresh in-memory copy.
         if let idx = templates.firstIndex(where: { $0.id == template.id }) {
             templates[idx] = template

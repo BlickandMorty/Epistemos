@@ -114,12 +114,12 @@ nonisolated enum EpdocMarkdownWriteThrough {
             contentJSONHash: request.contentJSONHash,
             widthMode: request.widthMode
         )
-        let wrote = NoteFileStorage.writeTextAtomically(
-            serialized,
-            to: targetURL,
-            itemLabel: "Epdoc markdown source \(request.manifest.id)"
-        )
-        return wrote ? .wrote(targetURL) : .failed("atomic markdown write failed")
+        do {
+            try AtomicVaultWriter.writeSynchronously(serialized, to: targetURL)
+            return .wrote(targetURL)
+        } catch {
+            return .failed(error.localizedDescription)
+        }
     }
 
     static func loadCanonicalMarkdownIfEnabled(

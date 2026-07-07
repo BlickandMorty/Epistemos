@@ -16,7 +16,7 @@ extension SDPage {
     // MARK: - Active Pages
 
     /// Non-archived pages sorted by most recently updated.
-    /// No fetchLimit — note bodies live in sidecar markdown files, so fetching page metadata stays cheap.
+    /// No fetchLimit — note bodies live in vault markdown files, so fetching page metadata stays cheap.
     /// A 5000-page vault loads ~5MB of metadata (titles, tags, dates, IDs).
     static var activePagesDescriptor: FetchDescriptor<SDPage> {
         var descriptor = FetchDescriptor<SDPage>(

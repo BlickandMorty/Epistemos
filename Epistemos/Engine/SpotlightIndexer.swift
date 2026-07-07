@@ -95,8 +95,8 @@ enum SpotlightIndexer {
     ///
     /// Phase R.3 async cascade: captures Sendable primitives and
     /// dispatches the body read through
-    /// `SDPage.loadBodyAsyncFromPrimitives`, which preserves the
-    /// managed sidecar before using the R.3 gateway fallback.
+    /// `SDPage.loadBodyAsyncFromPrimitives`, which reads the vault
+    /// markdown first before using legacy fallback data.
     /// `SDPage` stays on the main actor — the Task never captures
     /// the model reference.
     static func index(_ page: SDPage) {
@@ -135,11 +135,11 @@ enum SpotlightIndexer {
 
     /// Bulk re-index all notes (e.g. on vault load).
     /// Processes in batches to avoid loading all page bodies into memory at once
-    /// (note bodies live in sidecar markdown files, so each read is explicit disk I/O).
+    /// (note bodies live in vault markdown files, so each read is explicit disk I/O).
     ///
     /// Phase R.3 async cascade: each body read goes through
-    /// `loadBodyAsyncFromPrimitives` so the managed sidecar remains
-    /// authoritative before the R.3 gateway fallback is used.
+    /// `loadBodyAsyncFromPrimitives` so the vault markdown remains
+    /// authoritative before legacy fallback data is used.
     /// The work is dispatched onto the current MainActor Task so the
     /// public call signature stays sync; inside the task we await per
     /// page.

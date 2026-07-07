@@ -191,9 +191,8 @@ final class AIPartnerService {
             return partnerErrorJSON("failed to fetch note \(noteId): \(error.localizedDescription)")
         }
 
-        // Phase R.3: managed-sidecar-first body read via the
-        // Sendable-primitive helper. Parity with legacy `loadBody`
-        // is byte-equal per `PhaseR3BodyReadParityTests`.
+        // KEELSTONE: vault-file-first body read via the Sendable-primitive
+        // helper, with legacy fallback only when disk truth is unavailable.
         let content = await SDPage.loadBodyAsyncFromPrimitives(
             pageId: page.id,
             filePath: page.filePath,

@@ -2335,7 +2335,8 @@ actor VaultIndexActor {
                 at: newSidecarURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try JSONEncoder.epdocCanonical.encode(migrated).write(to: newSidecarURL, options: .atomic)
+            let migratedData = try JSONEncoder.epdocCanonical.encode(migrated)
+            try AtomicVaultWriter.writeSynchronously(migratedData, to: newSidecarURL)
             if oldSidecarURL.path != newSidecarURL.path {
                 try? CoordinatedVaultFileMutation.removeItem(at: oldSidecarURL)
             }

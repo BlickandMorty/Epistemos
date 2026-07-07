@@ -304,7 +304,7 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
                 withIntermediateDirectories: true
             )
             let json = try JSONEncoder.epdocCanonical.encode(sidecar)
-            try json.write(to: url, options: .atomic)
+            try AtomicVaultWriter.writeSynchronously(json, to: url)
         } catch {
             throw ServiceError.sidecarWriteFailed(underlying: error)
         }

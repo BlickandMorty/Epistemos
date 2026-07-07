@@ -211,7 +211,7 @@ nonisolated struct EpdocMarkdownWriteThroughTests {
         try FileManager.default.createDirectory(at: notesURL, withIntermediateDirectories: true)
 
         let targetURL = notesURL.appendingPathComponent("doc-123.md")
-        try "title: no frontmatter\n\nBody".write(to: targetURL, atomically: true, encoding: .utf8)
+        try AtomicVaultWriter.writeSynchronously("title: no frontmatter\n\nBody", to: targetURL)
         #expect(
             EpdocMarkdownWriteThrough.loadCanonicalMarkdownIfEnabled(
                 mode: .markdownCanonical,
@@ -220,13 +220,16 @@ nonisolated struct EpdocMarkdownWriteThroughTests {
             ) == .skipped(.missingEpdocFrontmatter)
         )
 
-        try """
+        try AtomicVaultWriter.writeSynchronously(
+            """
         ---
         _epdoc_id: "other-doc"
         ---
 
         Body
-        """.write(to: targetURL, atomically: true, encoding: .utf8)
+        """,
+            to: targetURL
+        )
         #expect(
             EpdocMarkdownWriteThrough.loadCanonicalMarkdownIfEnabled(
                 mode: .markdownCanonical,
