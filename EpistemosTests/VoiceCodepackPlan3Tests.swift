@@ -793,6 +793,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(downloader.contains("response.value(forHTTPHeaderField: \"X-Repo-Commit\")"))
         #expect(downloader.contains("response.url?.pathComponents"))
         #expect(downloader.contains("isHexSHA(candidate) ? candidate : nil"))
+        #expect(downloader.contains("downloadFileWithMainFallback("))
+        #expect(downloader.contains("catch DownloadError.httpFailure where revision != \"main\""))
+        #expect(downloader.contains("revision: \"main\""))
+        #expect(downloader.contains("checksum verification below still rejects stale or tampered bytes"))
         #expect(
             !downloader.contains("manifest[\"hf_revision\"]"),
             "Hosted Kokoro manifests can carry stale hf_revision values; downloads must use the resolved main commit."

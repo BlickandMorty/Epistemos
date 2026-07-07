@@ -375,7 +375,7 @@ final class KokoroModelDownloadService {
             at: destination.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        let digest = try await downloadFile(
+        let digest = try await downloadFileWithMainFallback(
             repositoryPath: file.relativePath,
             revision: revision,
             destination: destination,
@@ -383,6 +383,33 @@ final class KokoroModelDownloadService {
         )
         guard digest == file.sha256 else {
             throw DownloadError.checksumMismatch(file.relativePath)
+        }
+    }
+
+    nonisolated private static func downloadFileWithMainFallback(
+        repositoryPath: String,
+        revision: String,
+        destination: URL,
+        fileManager: FileManager
+    ) async throws -> String {
+        do {
+            return try await downloadFile(
+                repositoryPath: repositoryPath,
+                revision: revision,
+                destination: destination,
+                fileManager: fileManager
+            )
+        } catch DownloadError.httpFailure where revision != "main" {
+            // The manifest is fetched from `main`, but Hugging Face resolve-cache
+            // headers can briefly disagree with blob availability. Retry `main`;
+            // checksum verification below still rejects stale or tampered bytes.
+            log.notice("Retrying Kokoro file from main after resolved revision miss: \(repositoryPath, privacy: .public)")
+            return try await downloadFile(
+                repositoryPath: repositoryPath,
+                revision: "main",
+                destination: destination,
+                fileManager: fileManager
+            )
         }
     }
 
