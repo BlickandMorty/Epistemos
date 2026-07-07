@@ -41,14 +41,25 @@ actor VaultIndexActor {
 
     struct VaultImportInventory: Sendable, Equatable {
         let files: [URL]
+        let routedArtifactFiles: [URL]
         let discoveredRegularFileCount: Int
         let unsupportedFileCount: Int
         let skippedPolicyCount: Int
+        let routedArtifactCount: Int
         let folderCount: Int
         let duplicateFileNameCount: Int
         let fileTypeCounts: [String: Int]
         let unsupportedFileTypeCounts: [String: Int]
+        let routedArtifactTypeCounts: [String: Int]
         let skippedPolicyReasonCounts: [String: Int]
+    }
+
+    enum VaultArtifactKind: Sendable, Equatable {
+        case note
+        case datasetTable
+        case datasetWorkbook
+        case datasetCompanion
+        case unsupported
     }
 
     private struct PageIndexingSnapshot: Sendable {
@@ -287,11 +298,14 @@ actor VaultIndexActor {
         rootURL: URL?
     ) -> VaultImportInventory {
         var drained: [URL] = []
+        var routedArtifactFiles: [URL] = []
         var discoveredRegularFileCount = 0
         var unsupportedFileCount = 0
         var skippedPolicyCount = 0
+        var routedArtifactCount = 0
         var fileTypeCounts: [String: Int] = [:]
         var unsupportedFileTypeCounts: [String: Int] = [:]
+        var routedArtifactTypeCounts: [String: Int] = [:]
         var skippedPolicyReasonCounts: [String: Int] = [:]
         var folderPaths = Set<String>()
         var fileNameCounts: [String: Int] = [:]
@@ -312,21 +326,26 @@ actor VaultIndexActor {
             discoveredRegularFileCount += 1
             let ext = normalizedExtension(for: fileURL)
 
-            guard isImportableNoteFile(fileURL) else {
+            switch vaultArtifactKind(for: fileURL) {
+            case .note:
+                drained.append(fileURL)
+                fileTypeCounts[ext, default: 0] += 1
+                fileNameCounts[name.lowercased(), default: 0] += 1
+
+                if let rootURL {
+                    let relativeFolderPath = relativeFolderPath(for: fileURL, rootURL: rootURL)
+                    if !relativeFolderPath.isEmpty {
+                        folderPaths.insert(relativeFolderPath)
+                    }
+                }
+            case .datasetTable, .datasetWorkbook, .datasetCompanion:
+                routedArtifactFiles.append(fileURL)
+                routedArtifactCount += 1
+                routedArtifactTypeCounts[ext, default: 0] += 1
+                skippedPolicyReasonCounts["dataset-artifact-routed", default: 0] += 1
+            case .unsupported:
                 unsupportedFileCount += 1
                 unsupportedFileTypeCounts[ext, default: 0] += 1
-                continue
-            }
-
-            drained.append(fileURL)
-            fileTypeCounts[ext, default: 0] += 1
-            fileNameCounts[name.lowercased(), default: 0] += 1
-
-            if let rootURL {
-                let relativeFolderPath = relativeFolderPath(for: fileURL, rootURL: rootURL)
-                if !relativeFolderPath.isEmpty {
-                    folderPaths.insert(relativeFolderPath)
-                }
             }
         }
 
@@ -336,13 +355,16 @@ actor VaultIndexActor {
 
         return VaultImportInventory(
             files: drained,
+            routedArtifactFiles: routedArtifactFiles,
             discoveredRegularFileCount: discoveredRegularFileCount,
             unsupportedFileCount: unsupportedFileCount,
             skippedPolicyCount: skippedPolicyCount,
+            routedArtifactCount: routedArtifactCount,
             folderCount: folderPaths.count,
             duplicateFileNameCount: duplicateFileNameCount,
             fileTypeCounts: fileTypeCounts,
             unsupportedFileTypeCounts: unsupportedFileTypeCounts,
+            routedArtifactTypeCounts: routedArtifactTypeCounts,
             skippedPolicyReasonCounts: skippedPolicyReasonCounts
         )
     }
@@ -374,9 +396,44 @@ actor VaultIndexActor {
         "r", "zig", "wgsl", "glsl", "metal", "hlsl",
     ]
 
+    nonisolated static func vaultArtifactKind(for fileURL: URL) -> VaultArtifactKind {
+        let lowercasedName = fileURL.lastPathComponent.lowercased()
+        if lowercasedName.hasSuffix(".dataset.md") {
+            return .datasetCompanion
+        }
+
+        switch fileURL.pathExtension.lowercased() {
+        case "csv":
+            return .datasetTable
+        case "xlsx", "icalc":
+            return .datasetWorkbook
+        case let ext where importableExtensions.contains(ext):
+            return .note
+        default:
+            return .unsupported
+        }
+    }
+
     nonisolated static func isImportableNoteFile(_ fileURL: URL) -> Bool {
-        let ext = fileURL.pathExtension.lowercased()
-        return importableExtensions.contains(ext)
+        vaultArtifactKind(for: fileURL) == .note
+    }
+
+    nonisolated static func isRoutableVaultFile(_ fileURL: URL) -> Bool {
+        switch vaultArtifactKind(for: fileURL) {
+        case .note, .datasetTable, .datasetWorkbook, .datasetCompanion:
+            return true
+        case .unsupported:
+            return false
+        }
+    }
+
+    nonisolated static func isDatasetArtifactFile(_ fileURL: URL) -> Bool {
+        switch vaultArtifactKind(for: fileURL) {
+        case .datasetTable, .datasetWorkbook, .datasetCompanion:
+            return true
+        case .note, .unsupported:
+            return false
+        }
     }
 
     nonisolated static func countImportableNoteFiles(in url: URL) -> Int {
@@ -700,13 +757,16 @@ actor VaultIndexActor {
         var failedCount = 0
         var importInventory = VaultImportInventory(
             files: [],
+            routedArtifactFiles: [],
             discoveredRegularFileCount: 0,
             unsupportedFileCount: 0,
             skippedPolicyCount: 0,
+            routedArtifactCount: 0,
             folderCount: 0,
             duplicateFileNameCount: 0,
             fileTypeCounts: [:],
             unsupportedFileTypeCounts: [:],
+            routedArtifactTypeCounts: [:],
             skippedPolicyReasonCounts: [:]
         )
         var pendingInsertedPages = [SDPage]()
@@ -814,6 +874,7 @@ actor VaultIndexActor {
             // so the filter is identical to the pre-migration
             // iteration behaviour.
             importInventory = Self.drainEnumeratorWithInventory(enumerator, rootURL: url)
+            routeDatasetArtifacts(importInventory.routedArtifactFiles, vaultURL: url, reason: "vault import")
             let drained = importInventory.files
             if let progress {
                 let snapshot = makeProgressSnapshot(phase: "Found \(drained.count) importable files")
@@ -1191,9 +1252,29 @@ actor VaultIndexActor {
 
     // MARK: - Single File Re-index
 
+    private func routeDatasetArtifacts(_ fileURLs: [URL], vaultURL: URL?, reason: String) {
+        guard !fileURLs.isEmpty else { return }
+
+        // RECKONER owns dataset re-derive/repaint and artifact conflict resolution.
+        // KEELSTONE only classifies and routes these vault files so note indexing
+        // never treats CSV/XLSX/ICALC or *.dataset.md as ordinary note bodies.
+        log.info(
+            "Routed \(fileURLs.count, privacy: .public) dataset artifact(s) for \(reason, privacy: .public); RECKONER dataset hook pending"
+        )
+        _ = vaultURL
+    }
+
     /// Re-index a single file that changed externally.
     @discardableResult
     func reindexFile(at url: URL, vaultURL: URL) async throws -> Bool {
+        guard Self.isImportableNoteFile(url) else {
+            if Self.isDatasetArtifactFile(url) {
+                routeDatasetArtifacts([url], vaultURL: vaultURL, reason: "single-file event")
+                return true
+            }
+            return false
+        }
+
         let matchingPages = try fetchTrackedPages(atFileURL: url)
         let result = try await upsertPage(
             from: url,
@@ -1387,6 +1468,13 @@ actor VaultIndexActor {
 
     /// Remove a page from SwiftData when its .md file is deleted externally.
     func handleFileDeletion(at url: URL) throws {
+        guard Self.isImportableNoteFile(url) else {
+            if Self.isDatasetArtifactFile(url) {
+                routeDatasetArtifacts([url], vaultURL: nil, reason: "artifact deletion")
+            }
+            return
+        }
+
         let existing = try fetchTrackedPages(atFileURL: url)
         for page in existing {
             let pageId = page.id

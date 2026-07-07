@@ -54,6 +54,11 @@ struct AppStoreHardeningTests {
             "AtomicVaultWriter's whole-buffer write signature is load-bearing for KEELSTONE and LUMENLENS."
         )
         #expect(
+            writerSource.contains("func write(_ data: Data, to targetURL: URL)")
+                && writerSource.contains("nonisolated static func writeSynchronously(_ data: Data, to targetURL: URL)"),
+            "AtomicVaultWriter must expose a whole-buffer Data overload for RECKONER binary vault artifacts without adding partial/streaming writes."
+        )
+        #expect(
             writerSource.contains("NSFileCoordinator(filePresenter: nil)"),
             "AtomicVaultWriter must coordinate MAS vault writes instead of touching user-selected files directly."
         )
@@ -323,6 +328,10 @@ struct AppStoreHardeningTests {
 
         try await AtomicVaultWriter.shared.write(newBody, to: target)
         #expect(try String(contentsOf: target, encoding: .utf8) == newBody)
+
+        let binary = Data([0x00, 0x45, 0x50, 0x49, 0xFF, 0x10])
+        try await AtomicVaultWriter.shared.write(binary, to: target)
+        #expect(try Data(contentsOf: target) == binary)
     }
 
     @Test("VaultNoteEditor production seam uses coordinated vault IO")
@@ -840,6 +849,69 @@ struct AppStoreHardeningTests {
         )
         let legacySurfaceFlag = "PRO" + "_BUILD"
         #expect(!surface.contains(legacySurfaceFlag), "Surface selection must not use a legacy surface flag.")
+    }
+
+    @Test("KEELSTONE artifact routing keeps dataset files out of the note index")
+    func keelstoneDatasetArtifactRoutingIsExtensibleAndNonAuthoritative() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("KeelstoneArtifactRouting-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let note = root.appendingPathComponent("Note.md")
+        let companion = root.appendingPathComponent("Metrics.dataset.md")
+        let csv = root.appendingPathComponent("Metrics.csv")
+        let workbook = root.appendingPathComponent("Workbook.xlsx")
+        let calc = root.appendingPathComponent("Model.icalc")
+        let ignored = root.appendingPathComponent("Archive.pdf")
+
+        for url in [note, companion, csv, workbook, calc, ignored] {
+            try Data("fixture".utf8).write(to: url)
+        }
+
+        #expect(VaultIndexActor.vaultArtifactKind(for: note) == .note)
+        #expect(VaultIndexActor.vaultArtifactKind(for: companion) == .datasetCompanion)
+        #expect(VaultIndexActor.vaultArtifactKind(for: csv) == .datasetTable)
+        #expect(VaultIndexActor.vaultArtifactKind(for: workbook) == .datasetWorkbook)
+        #expect(VaultIndexActor.vaultArtifactKind(for: calc) == .datasetWorkbook)
+
+        #expect(VaultIndexActor.isImportableNoteFile(note))
+        #expect(!VaultIndexActor.isImportableNoteFile(companion))
+        #expect(!VaultIndexActor.isImportableNoteFile(csv))
+        #expect(VaultIndexActor.isRoutableVaultFile(companion))
+        #expect(VaultIndexActor.isRoutableVaultFile(csv))
+        #expect(VaultIndexActor.isRoutableVaultFile(workbook))
+        #expect(VaultIndexActor.isRoutableVaultFile(calc))
+        #expect(!VaultIndexActor.isRoutableVaultFile(ignored))
+
+        let enumerator = try #require(FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ))
+        let inventory = VaultIndexActor.drainEnumeratorWithInventory(enumerator, rootURL: root)
+        #expect(inventory.files.map(\.lastPathComponent) == ["Note.md"])
+        #expect(Set(inventory.routedArtifactFiles.map(\.lastPathComponent)) == Set([
+            "Metrics.dataset.md",
+            "Metrics.csv",
+            "Workbook.xlsx",
+            "Model.icalc",
+        ]))
+        #expect(inventory.routedArtifactCount == 4)
+        #expect(inventory.unsupportedFileCount == 1)
+        #expect(inventory.skippedPolicyReasonCounts["dataset-artifact-routed"] == 4)
+
+        let actor = try loadMirroredSourceTextFile("Epistemos/Sync/VaultIndexActor.swift")
+        let sync = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
+        #expect(
+            actor.contains("routeDatasetArtifacts")
+                && actor.contains("RECKONER owns dataset re-derive/repaint and artifact conflict resolution"),
+            "KEELSTONE should only classify and route dataset artifacts; RECKONER owns the dataset-specific resolver."
+        )
+        #expect(
+            sync.contains("VaultIndexActor.isRoutableVaultFile(fileURL)"),
+            "The FSEvents path filter must let dataset artifacts reach the routing seam instead of dropping them as unsupported note files."
+        )
     }
 
     @Test("KEELSTONE reconcile convergence: incremental change set equals fresh rebuild")

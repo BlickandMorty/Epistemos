@@ -4051,7 +4051,7 @@ final class VaultSyncService {
         guard !components.contains(where: { $0.hasPrefix(".") || VaultIndexActor.shouldSkipDescendants(for: $0) }) else {
             return nil
         }
-        guard VaultIndexActor.isImportableNoteFile(fileURL) else { return nil }
+        guard VaultIndexActor.isRoutableVaultFile(fileURL) else { return nil }
         return fileURL
     }
 

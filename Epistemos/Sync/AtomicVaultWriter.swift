@@ -26,6 +26,10 @@ actor AtomicVaultWriter {
         try Self.writeSynchronously(content, to: targetURL)
     }
 
+    func write(_ data: Data, to targetURL: URL) throws {
+        try Self.writeSynchronously(data, to: targetURL)
+    }
+
     nonisolated static func writeSynchronously(_ content: String, to targetURL: URL) throws {
         guard let data = content.data(using: .utf8) else {
             throw AtomicVaultWriteError.encodingFailed
@@ -33,7 +37,7 @@ actor AtomicVaultWriter {
         try writeSynchronously(data, to: targetURL)
     }
 
-    private nonisolated static func writeSynchronously(_ data: Data, to targetURL: URL) throws {
+    nonisolated static func writeSynchronously(_ data: Data, to targetURL: URL) throws {
         let activity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiated, .idleSystemSleepDisabled],
             reason: "Epistemos atomic vault write"
