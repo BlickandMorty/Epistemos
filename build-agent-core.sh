@@ -33,18 +33,8 @@ if [ "${AGENT_CORE_BUILD_BINS:-0}" = "1" ]; then
     CARGO_TARGET_ARGS=()
 fi
 
-REQUESTED_ARCHS="${ARCHS:-${CURRENT_ARCH:-${NATIVE_ARCH_ACTUAL:-arm64 x86_64}}}"
-BUILD_ARM64=0
-BUILD_X86_64=0
-case " $REQUESTED_ARCHS " in
-    *" arm64 "*) BUILD_ARM64=1 ;;
-esac
-case " $REQUESTED_ARCHS " in
-    *" x86_64 "*) BUILD_X86_64=1 ;;
-esac
-if [ "$BUILD_ARM64" -eq 0 ] && [ "$BUILD_X86_64" -eq 0 ]; then
-    BUILD_ARM64=1
-fi
+BUILD_ARM64=1
+BUILD_X86_64=1
 
 if [ "$CONFIGURATION" = "Debug" ]; then
     if [ "$BUILD_ARM64" -eq 1 ]; then
