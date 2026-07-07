@@ -167,6 +167,11 @@ final class KokoroModelDownloadService {
         let sha256: String
     }
 
+    private struct ManifestDownload: Sendable {
+        let data: Data
+        let resolvedRevision: String?
+    }
+
     enum DownloadError: Error, LocalizedError {
         case invalidManifest
         case invalidURL(String)
@@ -195,15 +200,17 @@ final class KokoroModelDownloadService {
     ) async throws -> KokoroVoiceGateStatus.Status {
         let fileManager = FileManager.default
 
-        let manifestData = try await fetchData(
+        let manifestDownload = try await fetchData(
             repositoryPath: tier.manifestRepositoryPath,
             revision: "main",
             maxBytes: maxManifestBytes
         )
-        guard var manifest = try? JSONSerialization.jsonObject(with: manifestData) as? [String: Any] else {
+        guard var manifest = try? JSONSerialization.jsonObject(with: manifestDownload.data) as? [String: Any] else {
             throw DownloadError.invalidManifest
         }
-        let revision = (manifest["hf_revision"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "main"
+        let revision = manifestDownload.resolvedRevision
+            ?? (manifest["hf_revision"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            ?? "main"
 
         let requiredFiles = try requiredFiles(from: manifest)
         let voiceObjects = (manifest["voices"] as? [[String: Any]]) ?? []
@@ -291,14 +298,16 @@ final class KokoroModelDownloadService {
         repositoryPath: String,
         revision: String,
         maxBytes: Int
-    ) async throws -> Data {
+    ) async throws -> ManifestDownload {
         let url = try resolveURL(repositoryPath: repositoryPath, revision: revision)
         let (data, response) = try await URLSession.shared.data(from: url)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw DownloadError.httpFailure(repositoryPath)
         }
         guard data.count <= maxBytes else { throw DownloadError.invalidManifest }
-        return data
+        let resolvedRevision = http.value(forHTTPHeaderField: "X-Repo-Commit")
+            .flatMap { $0.isEmpty ? nil : $0 }
+        return ManifestDownload(data: data, resolvedRevision: resolvedRevision)
     }
 
     nonisolated private static func resolveURL(repositoryPath: String, revision: String) throws -> URL {

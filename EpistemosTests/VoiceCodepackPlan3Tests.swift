@@ -624,7 +624,7 @@ struct VoiceCodepackPlan3Tests {
             "linear_weights",
             "linear_bias",
             "validateStarterVoice(at:",
-            "voice embedding must be a positive multiple of 256 Float32 values",
+            "voice embedding must be a positive multiple of \\(embeddingDimensions) Float32 values",
             "VoiceCapturePresentationBounds.normalizedDisplayText(clipped)",
             "starterVoiceEmbedding",
             "starterVoiceEmbeddingDimensions",
@@ -731,7 +731,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(section.contains("static func installHelp(for tier: KokoroModelDownloadService.Tier) -> String"))
         #expect(section.contains("@State private var selectedDownloadTier: KokoroModelDownloadService.Tier = .starter"))
         #expect(section.contains("KokoroVoiceInstallPresentation.highestQualityInstallTitle"))
-        #expect(section.contains("KokoroVoiceInstallPresentation.starterInstallTitle"))
+        #expect(section.contains("static let starterInstallTitle = \"Install Starter Voice\""))
         #expect(section.contains("KokoroVoiceInstallPresentation.installTitle(for: selectedTier)"))
         #expect(section.contains("KokoroVoiceInstallPresentation.installHelp(for: selectedTier)"))
         #expect(section.contains("KokoroVoiceInstallPresentation.installTitle(for: selectedDownloadTier)"))
@@ -779,6 +779,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(downloader.contains("KokoroRuntimeManifest.json"))
         #expect(downloader.contains("sdk/full/KokoroRuntimeManifest.json"))
         #expect(downloader.contains("currently matches Starter"))
+        #expect(downloader.contains("http.value(forHTTPHeaderField: \"X-Repo-Commit\")"))
+        #expect(downloader.contains("let revision = manifestDownload.resolvedRevision"))
         #expect(KokoroModelDownloadService.Tier.allCases == [.starter, .standard, .highestQuality])
         #expect(onboarding.contains("@State private var selectedKokoroTier: KokoroModelDownloadService.Tier = .starter"))
         #expect(onboarding.contains("KokoroVoiceInstallPresentation.installTitle(for: selectedKokoroTier)"))
