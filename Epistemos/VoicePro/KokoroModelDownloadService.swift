@@ -87,6 +87,8 @@ final class KokoroModelDownloadService {
     private nonisolated static let repositoryID = "mattmireles/kokoro-coreml"
     private nonisolated static let maxManifestBytes = 512 * 1024
     private nonisolated static let hashChunkBytes = 1 * 1024 * 1024
+    private nonisolated static let maxDownloadAttempts = 3
+    private nonisolated static let retryBaseDelayNanoseconds: UInt64 = 350_000_000
     private nonisolated static let log = Logger(subsystem: "com.epistemos", category: "Voice.KokoroDownload")
 
     var isBusy: Bool {
@@ -175,7 +177,8 @@ final class KokoroModelDownloadService {
     enum DownloadError: Error, LocalizedError {
         case invalidManifest
         case invalidURL(String)
-        case httpFailure(String)
+        case httpFailure(path: String, statusCode: Int?, requestID: String?)
+        case transportFailure(path: String, reason: String)
         case checksumMismatch(String)
 
         var errorDescription: String? {
@@ -184,8 +187,17 @@ final class KokoroModelDownloadService {
                 return "The Kokoro voice manifest could not be read."
             case .invalidURL(let path):
                 return "The Kokoro download address was invalid (\(path))."
-            case .httpFailure(let path):
-                return "A Kokoro voice file could not be downloaded (\(path))."
+            case .httpFailure(let path, let statusCode, let requestID):
+                var message = "A Kokoro voice file could not be downloaded (\(path))"
+                if let statusCode {
+                    message += " (HTTP \(statusCode))"
+                }
+                if let requestID, !requestID.isEmpty {
+                    message += " [request \(requestID)]"
+                }
+                return "\(message)."
+            case .transportFailure(let path, let reason):
+                return "A Kokoro voice file could not be downloaded (\(path)): \(reason)."
             case .checksumMismatch(let path):
                 return "A downloaded Kokoro file failed verification (\(path))."
             }
@@ -279,11 +291,12 @@ final class KokoroModelDownloadService {
         fileManager: FileManager
     ) async throws -> String {
         let url = try resolveURL(repositoryPath: repositoryPath, revision: revision)
-        let (temporaryURL, response) = try await URLSession.shared.download(from: url)
-        defer { try? fileManager.removeItem(at: temporaryURL) }
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw DownloadError.httpFailure(repositoryPath)
+        let request = request(for: url)
+        let (temporaryURL, response) = try await retryingNetworkRequest(repositoryPath: repositoryPath) {
+            try await URLSession.shared.download(for: request)
         }
+        defer { try? fileManager.removeItem(at: temporaryURL) }
+        try validateHTTPResponse(response, repositoryPath: repositoryPath)
         let digest = try sha256Hex(ofFileAt: temporaryURL)
         if fileManager.fileExists(atPath: destination.path) {
             try fileManager.removeItem(at: destination)
@@ -298,10 +311,11 @@ final class KokoroModelDownloadService {
         maxBytes: Int
     ) async throws -> ManifestDownload {
         let url = try resolveURL(repositoryPath: repositoryPath, revision: revision)
-        let (data, response) = try await URLSession.shared.data(from: url)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw DownloadError.httpFailure(repositoryPath)
+        let request = request(for: url)
+        let (data, response) = try await retryingNetworkRequest(repositoryPath: repositoryPath) {
+            try await URLSession.shared.data(for: request)
         }
+        let http = try validateHTTPResponse(response, repositoryPath: repositoryPath)
         guard data.count <= maxBytes else { throw DownloadError.invalidManifest }
         let resolvedRevision = resolvedRepositoryRevision(from: http)
         return ManifestDownload(data: data, resolvedRevision: resolvedRevision)
@@ -352,6 +366,89 @@ final class KokoroModelDownloadService {
         return url
     }
 
+    nonisolated private static func request(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 60
+        request.setValue("application/octet-stream,application/json,text/plain,*/*", forHTTPHeaderField: "Accept")
+        request.setValue("Epistemos KokoroVoiceDownloader", forHTTPHeaderField: "User-Agent")
+        return request
+    }
+
+    @discardableResult
+    nonisolated private static func validateHTTPResponse(
+        _ response: URLResponse,
+        repositoryPath: String
+    ) throws -> HTTPURLResponse {
+        guard let http = response as? HTTPURLResponse else {
+            throw DownloadError.transportFailure(path: repositoryPath, reason: "download response was not HTTP")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw DownloadError.httpFailure(
+                path: repositoryPath,
+                statusCode: http.statusCode,
+                requestID: http.value(forHTTPHeaderField: "X-Request-Id")
+            )
+        }
+        return http
+    }
+
+    nonisolated private static func retryingNetworkRequest<Value>(
+        repositoryPath: String,
+        operation: @escaping () async throws -> Value
+    ) async throws -> Value {
+        var lastError: Error?
+        for attempt in 1...maxDownloadAttempts {
+            try Task.checkCancellation()
+            do {
+                return try await operation()
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let error as DownloadError {
+                lastError = error
+                guard shouldRetry(error), attempt < maxDownloadAttempts else {
+                    throw error
+                }
+            } catch let error as URLError {
+                lastError = error
+                guard attempt < maxDownloadAttempts else {
+                    throw DownloadError.transportFailure(
+                        path: repositoryPath,
+                        reason: error.localizedDescription
+                    )
+                }
+            } catch {
+                lastError = error
+                guard attempt < maxDownloadAttempts else {
+                    throw DownloadError.transportFailure(
+                        path: repositoryPath,
+                        reason: error.localizedDescription
+                    )
+                }
+            }
+
+            log.notice("Retrying Kokoro download \(repositoryPath, privacy: .public), attempt \(attempt + 1, privacy: .public)")
+            try await Task.sleep(nanoseconds: retryBaseDelayNanoseconds * UInt64(attempt))
+        }
+
+        if let lastError {
+            throw DownloadError.transportFailure(path: repositoryPath, reason: lastError.localizedDescription)
+        }
+        throw DownloadError.transportFailure(path: repositoryPath, reason: "download failed")
+    }
+
+    nonisolated private static func shouldRetry(_ error: DownloadError) -> Bool {
+        switch error {
+        case .httpFailure(path: _, statusCode: let statusCode, requestID: _):
+            guard let statusCode else { return true }
+            return statusCode == 408 || statusCode == 409 || statusCode == 425 || statusCode == 429 || statusCode >= 500
+        case .transportFailure:
+            return true
+        case .invalidManifest, .invalidURL, .checksumMismatch:
+            return false
+        }
+    }
+
     nonisolated private static func sha256Hex(ofFileAt url: URL) throws -> String {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
@@ -399,7 +496,8 @@ final class KokoroModelDownloadService {
                 destination: destination,
                 fileManager: fileManager
             )
-        } catch DownloadError.httpFailure where revision != "main" {
+        } catch let error as DownloadError where revision != "main" {
+            guard case .httpFailure = error else { throw error }
             // The manifest is fetched from `main`, but Hugging Face resolve-cache
             // headers can briefly disagree with blob availability. Retry `main`;
             // checksum verification below still rejects stale or tampered bytes.

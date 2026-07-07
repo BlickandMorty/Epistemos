@@ -794,8 +794,14 @@ struct VoiceCodepackPlan3Tests {
         #expect(downloader.contains("response.url?.pathComponents"))
         #expect(downloader.contains("isHexSHA(candidate) ? candidate : nil"))
         #expect(downloader.contains("downloadFileWithMainFallback("))
-        #expect(downloader.contains("catch DownloadError.httpFailure where revision != \"main\""))
+        #expect(downloader.contains("retryingNetworkRequest(repositoryPath: repositoryPath)"))
+        #expect(downloader.contains("maxDownloadAttempts = 3"))
+        #expect(downloader.contains("Task.sleep(nanoseconds: retryBaseDelayNanoseconds"))
+        #expect(!downloader.contains("Thread.sleep"))
+        #expect(downloader.contains("catch let error as DownloadError where revision != \"main\""))
+        #expect(downloader.contains("guard case .httpFailure = error else { throw error }"))
         #expect(downloader.contains("revision: \"main\""))
+        #expect(downloader.contains("requestID: http.value(forHTTPHeaderField: \"X-Request-Id\")"))
         #expect(downloader.contains("checksum verification below still rejects stale or tampered bytes"))
         #expect(
             !downloader.contains("manifest[\"hf_revision\"]"),
