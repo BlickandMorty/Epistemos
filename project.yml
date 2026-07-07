@@ -527,6 +527,35 @@ targets:
         SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
 
+  EpistemosAppStoreKeelstoneTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: EpistemosAppStoreKeelstoneTests
+        type: syncedFolder
+    dependencies:
+      - target: Epistemos-AppStore
+    settings:
+      base:
+        PRODUCT_NAME: EpistemosAppStoreKeelstoneTests
+        PRODUCT_MODULE_NAME: EpistemosAppStoreKeelstoneTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.appstore.keelstone-tests
+        GENERATE_INFOPLIST_FILE: true
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 3BNL2669SL
+        ALWAYS_SEARCH_USER_PATHS: false
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
+        Release:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
+
 packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift.git
@@ -563,6 +592,10 @@ schemes:
     build:
       targets:
         Epistemos-AppStore: all
+        EpistemosAppStoreKeelstoneTests: [test]
+    test:
+      targets:
+        - EpistemosAppStoreKeelstoneTests
     run:
       executable: Epistemos-AppStore
     archive:

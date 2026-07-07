@@ -1671,7 +1671,7 @@ struct AppStoreHardeningTests {
         )
     }
 
-    @Test("App Store scheme has tests or CI runs a dedicated MAS artifact gate")
+    @Test("App Store scheme has tests and CI runs dedicated MAS gates")
     func appStoreSchemeHasTestsOrCIRunsDedicatedMASArtifactGate() throws {
         let scheme = try loadMirroredSourceTextFile(
             "Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme"
@@ -1688,13 +1688,16 @@ struct AppStoreHardeningTests {
         }
 
         let schemeHasTestables = testablesBody.contains("<TestableReference")
+            && testablesBody.contains("EpistemosAppStoreKeelstoneTests")
         let ciRunsMASGate = ci.contains("Epistemos-AppStore")
             && ci.contains("Tools/app-review-audit/app-review-audit.sh")
             && ci.contains("scripts/scan_appstore_bundle.sh")
+            && ci.contains("-configuration Debug")
+            && ci.contains("-only-testing:EpistemosAppStoreKeelstoneTests")
 
         #expect(
-            schemeHasTestables || ciRunsMASGate,
-            "Epistemos-AppStore.xcscheme has no Testables and CI does not run a dedicated MAS artifact gate."
+            schemeHasTestables && ciRunsMASGate,
+            "Epistemos-AppStore.xcscheme must host EpistemosAppStoreKeelstoneTests, and CI must run both the MAS artifact gate and the App Store KEELSTONE test target."
         )
     }
 

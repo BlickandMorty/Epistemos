@@ -187,7 +187,7 @@ require_file_contains() {
     fail "${label} missing file ${relative_path}"
     return
   fi
-  if grep -Fq "${needle}" "${path}"; then
+  if grep -Fq -- "${needle}" "${path}"; then
     pass "${label}"
   else
     fail "${label} missing '${needle}' in ${relative_path}"
@@ -331,6 +331,9 @@ require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func experi
 require_file_contains "EpistemosTests/FirstRunBootstrapTests.swift" "func simulatedFirstRunEndToEnd()" "Upgrade matrix witness: fresh first-run empty vault"
 require_file_contains "EpistemosTests/FirstRunBootstrapTests.swift" "func partialScaffoldRecovers()" "Upgrade matrix witness: partial first-run scaffold recovery"
 require_file_contains "EpistemosTests/FirstRunBootstrapTests.swift" "func idempotentBootstrap()" "Upgrade matrix witness: relaunch/idempotent bootstrap"
+require_file_contains "EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift" "func appStoreLaneFirstRunAndUpgradeBootstrapMatrix()" "App Store lane witness: first-run/upgrade bootstrap matrix is executable"
+require_file_contains "EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift" "func appStoreLaneRejectsInvalidStartupBookmarks()" "App Store lane witness: stale/plain bookmarks are rejected"
+require_file_contains "EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift" "func appStoreLaneRootUnavailabilityFreezesWrites()" "App Store lane witness: root unavailability freezes vault writes"
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func startupBookmarkValidationRejectsStaleBookmarks()" "Upgrade matrix witness: stale bookmark blocks automatic restore"
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func masStartupBookmarkValidationRejectsPlainResolvedBookmarks()" "Upgrade matrix witness: MAS rejects non-security-scoped bookmark restore"
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func masPersistVaultSelectionRefusesPlainBookmarkFallback()" "Upgrade matrix witness: MAS refuses plain bookmark fallback"
@@ -338,6 +341,8 @@ require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func sw
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func securityScopedBookmarkRoundTripsAcrossWriteCycle()" "Upgrade matrix witness: bookmark survives write-cycle re-resolve"
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func rootWatcherUnavailabilityFreezesWritesAndPreservesLocalState()" "Upgrade matrix witness: root watcher unavailability preserves state and blocks writes"
 require_file_contains ".github/workflows/ci.yml" "./scripts/keelstone-release-gate.sh --appstore-app" "Release workflow witness: App Store built app participates in KEELSTONE gate"
+require_file_contains ".github/workflows/ci.yml" "-configuration Debug" "Release workflow witness: App Store KEELSTONE tests run in the testable Debug lane"
+require_file_contains ".github/workflows/ci.yml" "-only-testing:EpistemosAppStoreKeelstoneTests" "Release workflow witness: App Store lane runs KEELSTONE first-run/upgrade tests"
 require_file_contains ".github/workflows/release.yml" "./scripts/keelstone-release-gate.sh --direct-app" "Release workflow witness: direct built app participates in KEELSTONE gate"
 require_file_contains ".github/workflows/ci.yml" "KEELSTONE_SEED_HIGH_FINDING=1 ./scripts/keelstone-release-gate.sh" "Release workflow witness: seeded HIGH hardening finding blocks the gate"
 require_file_contains ".github/workflows/ci.yml" "KEELSTONE_SEED_PERF_REGRESSION=1 ./scripts/check-perf-budgets.sh" "Release workflow witness: seeded KEELSTONE perf regression blocks the gate"

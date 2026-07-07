@@ -21,6 +21,20 @@
                ReferencedContainer = "container:Epistemos.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A5BC3560F9D79CC3603CB663"
+               BuildableName = "EpistemosAppStoreKeelstoneTests.xctest"
+               BlueprintName = "EpistemosAppStoreKeelstoneTests"
+               ReferencedContainer = "container:Epistemos.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -39,7 +53,20 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A5BC3560F9D79CC3603CB663"
+               BuildableName = "EpistemosAppStoreKeelstoneTests.xctest"
+               BlueprintName = "EpistemosAppStoreKeelstoneTests"
+               ReferencedContainer = "container:Epistemos.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

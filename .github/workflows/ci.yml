@@ -300,12 +300,12 @@ jobs:
           path: TestResults.xcresult
           retention-days: 14
 
-      # Patch 9: Build the App Store variant (build-only, no tests) so we can
-      # measure the produced .app bundle size. Tests for this variant are not
-      # run here to keep the job under the 5-minute budget called out in the
-      # patch spec; the default Epistemos scheme above already covers test
-      # coverage.
-      - name: Build Epistemos-AppStore (bundle-size gate)
+      # Patch 9: Build the App Store variant so we can measure the produced
+      # .app bundle size and run the entitlement gate against a Release
+      # artifact. App Store KEELSTONE behavior tests run below in Debug because
+      # the hosted Swift test bundle needs testability, while the App Store
+      # surface macros remain target-scoped on that lane.
+      - name: Build Epistemos-AppStore for bundle-size gate
         run: |
           ./scripts/xcodebuild_epistemos.sh build \
             -project Epistemos.xcodeproj \
@@ -315,6 +315,18 @@ jobs:
             -derivedDataPath .derived-data-ci-appstore \
             -clonedSourcePackagesDirPath .spm-cache \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: KEELSTONE App Store first-run and upgrade matrix
+        run: |
+          ./scripts/xcodebuild_epistemos.sh test \
+            -project Epistemos.xcodeproj \
+            -scheme Epistemos-AppStore \
+            -configuration Debug \
+            -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath .derived-data-ci-appstore-tests \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO \
+            -only-testing:EpistemosAppStoreKeelstoneTests
 
       - name: KEELSTONE App Store built entitlement gate
         run: |
