@@ -316,6 +316,7 @@ require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func keelst
 require_file_contains "Epistemos/Sync/AtomicVaultWriter.swift" "func write(_ data: Data, to targetURL: URL)" "Data-safety witness: binary artifact writes use AtomicVaultWriter whole-buffer Data overload"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func keelstoneIncrementalReconcileEqualsFreshRebuild()" "Data-safety soak witness: incremental reconcile equals fresh rebuild"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceFSEventsClassificationIsExecutable()" "Data-safety witness: FSEvents escalation classifier is executable"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceFSEventsStartIDReplaysPerVaultCheckpoint()" "Data-safety witness: FSEvents checkpoint replay is executable"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceRootUnavailableFreezesMountedVault()" "Data-safety witness: root unavailability freezes active vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func dirtyLiveEditorExternalEditCreatesConflictCopy()" "Data-safety soak witness: dirty external edit conflict-copy flow"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func keelstoneBodyTruthHasNoProductionSidecarWriters()" "Body-truth witness: production note saves are vault-md-first"

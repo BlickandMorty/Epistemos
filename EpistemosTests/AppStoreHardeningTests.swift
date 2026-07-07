@@ -437,14 +437,54 @@ struct AppStoreHardeningTests {
             "FSEvents must watch the vault root so root moves/deletes escalate to a rescan/remount path."
         )
         #expect(
-            watcher?.contains("kFSEventStreamEventIdSinceNow") == true
-                && watcher?.contains("defaults.string(forKey: checkpointKey)") == true,
+            source.contains("kFSEventStreamEventIdSinceNow") == true
+                && watcher?.contains("vaultFSEventStartID(for: url, defaults: defaults)") == true,
             "The stream must resume from the persisted checkpoint and only fall back to since-now on first mount."
         )
         #expect(
             callback?.contains("kFSEventStreamEventExtendedDataPathKey") == true
                 && callback?.contains("kFSEventStreamEventExtendedFileIDKey") == true,
             "The callback must decode the real extended-data path and fileID keys; kFSEventStreamEventExtendedDataKeyInode is not real."
+        )
+    }
+
+    @Test("VaultSyncService FSEvents start ID replays the per-vault checkpoint")
+    func vaultSyncServiceFSEventsStartIDReplaysPerVaultCheckpoint() throws {
+        let suiteName = "com.epistemos.tests.keelstone.fsevents.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("keelstone-fsevents-checkpoint-\(UUID().uuidString)", isDirectory: true)
+        let vaultA = root.appendingPathComponent("VaultA", isDirectory: true)
+        let vaultB = root.appendingPathComponent("VaultB", isDirectory: true)
+
+        #expect(
+            VaultSyncService.vaultFSEventStartIDForTesting(vaultURL: vaultA, defaults: defaults)
+                == FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+            "First mount must use since-now rather than pretending an unobserved event history is authoritative."
+        )
+
+        let checkpointKeyA = VaultSyncService.vaultFSEventCheckpointKeyForTesting(vaultURL: vaultA)
+        defaults.set("424242", forKey: checkpointKeyA)
+
+        #expect(
+            VaultSyncService.vaultFSEventStartIDForTesting(vaultURL: vaultA, defaults: defaults)
+                == FSEventStreamEventId(424242),
+            "A persisted checkpoint must be reused so edits made while the app was quit can replay into reconcile."
+        )
+        #expect(
+            VaultSyncService.vaultFSEventStartIDForTesting(vaultURL: vaultB, defaults: defaults)
+                == FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+            "FSEvents checkpoints must be namespaced per vault; a second vault must not inherit another vault's event ID."
+        )
+
+        defaults.set("not-a-number", forKey: checkpointKeyA)
+        #expect(
+            VaultSyncService.vaultFSEventStartIDForTesting(vaultURL: vaultA, defaults: defaults)
+                == FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+            "A corrupt checkpoint must fail closed to since-now instead of inventing an authoritative event ID."
         )
     }
 

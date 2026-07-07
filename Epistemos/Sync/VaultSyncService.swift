@@ -406,6 +406,30 @@ final class VaultSyncService {
         "\(vaultFSEventCheckpointPrefix)\(vaultCheckpointID(for: vaultURL))"
     }
 
+    private nonisolated static func vaultFSEventStartID(
+        for vaultURL: URL,
+        defaults: UserDefaults
+    ) -> FSEventStreamEventId {
+        let checkpointKey = vaultFSEventCheckpointKey(for: vaultURL)
+        return defaults.string(forKey: checkpointKey)
+            .flatMap(UInt64.init)
+            .map { FSEventStreamEventId($0) }
+            ?? FSEventStreamEventId(kFSEventStreamEventIdSinceNow)
+    }
+
+#if DEBUG
+    nonisolated static func vaultFSEventCheckpointKeyForTesting(vaultURL: URL) -> String {
+        vaultFSEventCheckpointKey(for: vaultURL)
+    }
+
+    nonisolated static func vaultFSEventStartIDForTesting(
+        vaultURL: URL,
+        defaults: UserDefaults
+    ) -> FSEventStreamEventId {
+        vaultFSEventStartID(for: vaultURL, defaults: defaults)
+    }
+#endif
+
     nonisolated static func shouldRestoreVaultFromBookmark(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
@@ -3811,11 +3835,7 @@ final class VaultSyncService {
             copyDescription: nil
         )
         let pathsToWatch = [url.path] as CFArray
-        let checkpointKey = Self.vaultFSEventCheckpointKey(for: url)
-        let since = defaults.string(forKey: checkpointKey)
-            .flatMap(UInt64.init)
-            .map { FSEventStreamEventId($0) }
-            ?? FSEventStreamEventId(kFSEventStreamEventIdSinceNow)
+        let since = Self.vaultFSEventStartID(for: url, defaults: defaults)
         let flags = FSEventStreamCreateFlags(
             kFSEventStreamCreateFlagFileEvents
                 | kFSEventStreamCreateFlagUseExtendedData
