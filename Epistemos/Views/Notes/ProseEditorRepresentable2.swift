@@ -1133,8 +1133,8 @@ extension ProseEditorRepresentable2 {
                 return
             }
 
-            // Rewrite the source page's body file on disk.
-            // The app's canonical note body lives in NoteFileStorage (page.loadBody / saveBody).
+            // Rewrite the source page's vault markdown body. The staged NoteFileStorage
+            // value is only a same-process bridge until savePageBodyFileFirst reaches disk;
             // SDBlock.content alone is not read by vault export, search, or reopen.
             let sourcePageId = block.pageId
 

@@ -3,13 +3,13 @@ import OSLog
 
 /// NOTE-4 (audit 2026-07-03): crash-recovery drafts for note editing.
 ///
-/// The durable managed body (`NoteFileStorage`) is written on a ~5s debounce, and on a
-/// HARD crash / kill -9 / kernel panic no `willTerminate` fires — so edits since the last
-/// durable write are lost with no recovery (meetings have `MeetingDraftStore`; notes did
-/// not). This mirrors that pattern for notes: the editor writes the current body to a
-/// lightweight `.draft` file on a short (~1.5s) debounce and deletes it once the body is
-/// durably saved. At launch, `reconcileOrphanedDrafts()` recovers any draft that is NEWER
-/// than its durable body (a crash orphan) and clears the rest.
+/// The vault `.md` body is written on a debounce, and on a HARD crash / kill -9 /
+/// kernel panic no `willTerminate` fires — so edits since the last durable write need
+/// a non-canonical recovery path. This mirrors `MeetingDraftStore`: the editor writes
+/// the current body to a lightweight `.draft` file on a short (~1.5s) debounce and
+/// deletes it once the body is durably saved. At launch, `reconcileOrphanedDrafts()`
+/// offers newer crash drafts back through the vault-file-first recovery path and clears
+/// the rest.
 ///
 /// Drafts are non-canonical: the `.md` remains the source of truth. Recovery routes back
 /// through the normalizing atomic writer, and a timestamp guard prevents clobbering a body

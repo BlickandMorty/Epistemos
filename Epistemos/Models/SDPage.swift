@@ -4,8 +4,8 @@ import OSLog
 import SwiftData
 
 // MARK: - SDPage
-// The Intelligence Index for a note page. SwiftData is the source of truth during editing.
-// Vault .md files are a secondary export — updated on manual Save or auto-save interval.
+// The Intelligence Index for a note page. SwiftData stores metadata and derived state during editing.
+// The vault .md file is the live body source of truth.
 // SwiftData enables relational queries at O(log n) via #Predicate — impossible in v2.
 //
 // CloudKit-compatible: all properties optional or defaulted, no @Attribute(.unique),
