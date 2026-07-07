@@ -1261,6 +1261,16 @@ enum NoteFileStorage {
         return FileManager.default.fileExists(atPath: url.path)
     }
 
+    /// Transitional fallback for dirty pre-KEELSTONE drafts that have not yet
+    /// been written through the vault `.md` source of truth.
+    nonisolated static func stagedOrPersistedDraftBody(pageId: String, mapped: Bool = true) -> String? {
+        let draft = readBody(pageId: pageId, mapped: mapped)
+        guard !draft.isEmpty || hasStagedOrPersistedBody(pageId: pageId) else {
+            return nil
+        }
+        return draft
+    }
+
     @discardableResult
     nonisolated static func cleanupOrphanBodies<S: Sequence>(
         in directory: URL? = nil,

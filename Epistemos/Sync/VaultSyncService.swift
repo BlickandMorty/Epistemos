@@ -3435,8 +3435,7 @@ final class VaultSyncService {
             if !page.body.isEmpty {
                 return page.body
             }
-            let localBody = NoteFileStorage.readBody(pageId: pageId, mapped: true)
-            if !localBody.isEmpty || NoteFileStorage.hasStagedOrPersistedBody(pageId: pageId) {
+            if let localBody = NoteFileStorage.stagedOrPersistedDraftBody(pageId: pageId) {
                 return localBody
             }
         }

@@ -1714,9 +1714,8 @@ actor VaultIndexActor {
                 if !page.body.isEmpty {
                     return page.body
                 }
-                let managedBody = NoteFileStorage.readBody(pageId: pageID, mapped: true)
-                if !managedBody.isEmpty || NoteFileStorage.hasStagedOrPersistedBody(pageId: pageID) {
-                    return managedBody
+                if let draftBody = NoteFileStorage.stagedOrPersistedDraftBody(pageId: pageID) {
+                    return draftBody
                 }
                 return currentBody
             }()
