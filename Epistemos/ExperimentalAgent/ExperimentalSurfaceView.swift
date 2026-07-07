@@ -388,6 +388,11 @@ private struct ExperimentalWebView: NSViewRepresentable {
             if kind == "epistemos:open-url" {
                 return await handleOpenURL(payload: body["payload"])
             }
+            // The agent-created note is a vault file. Keep the reply path async so the actual
+            // coordinated replacement runs off the main actor.
+            if kind == "vault:create-note" {
+                return await handleCreateVaultNote(payload: body["payload"])
+            }
             return reply(to: kind, payload: body["payload"])
         }
 
@@ -502,7 +507,7 @@ private struct ExperimentalWebView: NSViewRepresentable {
         // Write an assistant reply into <vault>/notes/ as a titled markdown note.
         // Returns {success, path} to the web caller (which toasts on success).
         @MainActor
-        private func handleCreateVaultNote(payload: Any?) -> (Any?, String?) {
+        private func handleCreateVaultNote(payload: Any?) async -> (Any?, String?) {
             guard let obj = payload as? [String: Any] else {
                 return (["success": false, "error": "bad payload"], nil)
             }
@@ -534,9 +539,9 @@ private struct ExperimentalWebView: NSViewRepresentable {
             // both treat this as an ordinary markdown note.
             let noteText = "# \(title)\n\n_Saved from the Experimental agent._\n\n\(body)\n"
             do {
-                try FileManager.default.createDirectory(
-                    at: notesDir, withIntermediateDirectories: true)
-                try noteText.write(to: fileURL, atomically: true, encoding: .utf8)
+                try await Task.detached(priority: .utility) {
+                    try AtomicVaultWriter.writeSynchronously(noteText, to: fileURL)
+                }.value
                 return (["success": true, "path": fileURL.path], nil)
             } catch {
                 return (["success": false, "error": String(describing: error)], nil)
@@ -670,11 +675,7 @@ private struct ExperimentalWebView: NSViewRepresentable {
                 }
                 return (nil, nil)
             case "vault:create-note":
-                // EPISTEMOS fusion (deeply connect features): one-click "Save to vault" from the
-                // transcript writes an assistant reply into the SAME Epistemos vault the agent's
-                // MCP already reads/writes — so a good answer becomes a real, indexed note. Scoped
-                // to <vault>/notes/ (the ShadowVaultBootstrapper crawl path → auto-reindexed).
-                return handleCreateVaultNote(payload: payload)
+                return (["__unhandled": true], nil)
             case "window:set-traffic-light-visibility",
                  "window:toggle-devtools", "window:unlock-devtools",
                  "app:set-badge-icon":

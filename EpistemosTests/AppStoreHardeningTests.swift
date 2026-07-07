@@ -302,6 +302,37 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("Experimental agent vault note writes use AtomicVaultWriter off-main")
+    func experimentalAgentVaultNoteWritesUseAtomicVaultWriterOffMain() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/ExperimentalAgent/ExperimentalSurfaceView.swift")
+        let replyHandler = Self.sourceSection(
+            in: source,
+            startingAt: "func userContentController(\n            _ userContentController: WKUserContentController,\n            didReceive message: WKScriptMessage\n        ) async",
+            endingBefore: "        // Read-aloud"
+        )
+        let createNote = Self.sourceSection(
+            in: source,
+            startingAt: "private func handleCreateVaultNote",
+            endingBefore: "        @MainActor\n        private func handleSaveFile"
+        )
+
+        #expect(
+            replyHandler?.contains("if kind == \"vault:create-note\"") == true
+                && replyHandler?.contains("return await handleCreateVaultNote(payload: body[\"payload\"])") == true,
+            "The vault:create-note bridge must stay on the async reply path so vault IO can leave the main actor."
+        )
+        #expect(
+            createNote?.contains("Task.detached(priority: .utility)") == true
+                && createNote?.contains("try AtomicVaultWriter.writeSynchronously(noteText, to: fileURL)") == true,
+            "Agent-created notes are vault markdown files and must use the coordinated temp-replace writer off the main actor."
+        )
+        #expect(
+            createNote?.contains(".write(to:") == false
+                && createNote?.contains("FileManager.default.createDirectory") == false,
+            "The Experimental agent vault note path must not directly write vault files or do vault directory creation on @MainActor."
+        )
+    }
+
     @Test("First-run vault metadata writes use AtomicVaultWriter")
     func firstRunBootstrapMetadataUsesAtomicVaultWriter() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Vault/FirstRunBootstrap.swift")
