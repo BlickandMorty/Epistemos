@@ -967,9 +967,17 @@ struct AppStoreHardeningTests {
         let alphaURL = vaultURL.appendingPathComponent("Alpha.md")
         let betaURL = vaultURL.appendingPathComponent("Beta.md")
         let gammaURL = vaultURL.appendingPathComponent("Gamma.md")
+        let burstURL = vaultURL.appendingPathComponent("Burst", isDirectory: true)
 
         try Self.writeExternalVaultText("# Alpha\n\nfirst body\n", to: alphaURL)
         try Self.writeExternalVaultText("# Beta\n\nremove me\n", to: betaURL)
+        for index in 0..<1_000 {
+            let name = String(format: "Note-%04d.md", index)
+            try Self.writeExternalVaultText(
+                "# Burst \(index)\n\nseed body \(index)\n",
+                to: burstURL.appendingPathComponent(name)
+            )
+        }
 
         try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodiesURL) {
             let incrementalContainer = try Self.makeKeelstoneModelContainer()
@@ -983,6 +991,43 @@ struct AppStoreHardeningTests {
             _ = try await incrementalActor.reindexFile(at: alphaURL, vaultURL: vaultURL)
             try await incrementalActor.handleFileDeletion(at: betaURL)
             _ = try await incrementalActor.reindexFile(at: gammaURL, vaultURL: vaultURL)
+
+            for index in 0..<200 {
+                let name = String(format: "Note-%04d.md", index)
+                let url = burstURL.appendingPathComponent(name)
+                try Self.writeExternalVaultText(
+                    "# Burst \(index)\n\nexternally edited body \(index)\n",
+                    to: url
+                )
+                _ = try await incrementalActor.reindexFile(at: url, vaultURL: vaultURL)
+            }
+
+            for index in 200..<300 {
+                let name = String(format: "Note-%04d.md", index)
+                let url = burstURL.appendingPathComponent(name)
+                try FileManager.default.removeItem(at: url)
+                try await incrementalActor.handleFileDeletion(at: url)
+            }
+
+            for index in 300..<400 {
+                let oldName = String(format: "Note-%04d.md", index)
+                let newName = String(format: "Renamed-%04d.md", index)
+                let oldURL = burstURL.appendingPathComponent(oldName)
+                let newURL = burstURL.appendingPathComponent(newName)
+                try FileManager.default.moveItem(at: oldURL, to: newURL)
+                try await incrementalActor.handleFileDeletion(at: oldURL)
+                _ = try await incrementalActor.reindexFile(at: newURL, vaultURL: vaultURL)
+            }
+
+            for index in 1_000..<1_600 {
+                let name = String(format: "Pulled-%04d.md", index)
+                let url = burstURL.appendingPathComponent(name)
+                try Self.writeExternalVaultText(
+                    "# Pulled \(index)\n\nsync-pull body \(index)\n",
+                    to: url
+                )
+                _ = try await incrementalActor.reindexFile(at: url, vaultURL: vaultURL)
+            }
 
             let incremental = try Self.keelstonePageSnapshot(
                 in: incrementalContainer,
@@ -999,7 +1044,7 @@ struct AppStoreHardeningTests {
 
             #expect(
                 incremental == fresh,
-                "Incremental reconcile must converge to the same page snapshot as a fresh rebuild from disk. incremental=\(incremental) fresh=\(fresh)"
+                Self.keelstoneSnapshotMismatchMessage(incremental: incremental, fresh: fresh)
             )
         }
     }
@@ -1666,6 +1711,21 @@ struct AppStoreHardeningTests {
             )
         }
         .sorted { $0.relativePath < $1.relativePath }
+    }
+
+    private static func keelstoneSnapshotMismatchMessage(
+        incremental: [KeelstonePageSnapshot],
+        fresh: [KeelstonePageSnapshot]
+    ) -> Comment {
+        let firstMismatch = zip(incremental, fresh)
+            .first { $0 != $1 }
+            .map { "firstMismatch incremental=\($0.0) fresh=\($0.1)" }
+            ?? "no overlapping mismatch"
+        return Comment(rawValue: """
+            Incremental reconcile must converge to the same page snapshot as a fresh rebuild from disk \
+            after external add/edit/delete/rename churn and a 1,000-file burst. \
+            incrementalCount=\(incremental.count) freshCount=\(fresh.count) \(firstMismatch)
+            """)
     }
 
     private static func writeExternalVaultText(_ content: String, to url: URL) throws {
