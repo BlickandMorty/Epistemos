@@ -256,15 +256,15 @@ final class SDPage {
     }
 
     /// Async variant of ``loadBody(mapped:fast:)``. It preserves the same
-    /// source-of-truth order as the synchronous path: managed sidecar body
-    /// first, then the Phase R.3 unified `VaultResourceService` gateway
-    /// when it is ready, then inline/vault-file fallback data.
+    /// source-of-truth order as the synchronous path: the readable vault
+    /// file first, then the Phase R.3 unified `VaultResourceService` gateway
+    /// when it is ready, then legacy staged/inline fallback data.
     ///
     /// The gateway path produces byte-identical output to ``loadBody``
     /// for notes that resolve to a `ResourceId::VaultNote` — verified in
     /// `PhaseR3BodyReadParityTests`. Callers in async contexts should
-    /// prefer this entry point; once the strangler-fig migration
-    /// completes, the sync `loadBody` will become a shim around this.
+    /// prefer this entry point. Legacy managed bodies are a recovery/staging
+    /// fallback only; they are not canonical vault truth.
     ///
     /// Plan refs: docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §Phase R.3,
     /// docs/AUDIT_REFLECTION_2026_04_23.md §2 (I-002 / I-003 OPEN).

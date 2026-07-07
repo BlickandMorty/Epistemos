@@ -787,11 +787,16 @@ struct VoiceCodepackPlan3Tests {
         #expect(downloader.contains("KokoroRuntimeManifest.json"))
         #expect(downloader.contains("sdk/full/KokoroRuntimeManifest.json"))
         #expect(downloader.contains("currently matches Starter"))
+        #expect(downloader.contains("fetchData(\n            repositoryPath: tier.manifestRepositoryPath,\n            revision: \"main\""))
         #expect(downloader.contains("let revision = manifestDownload.resolvedRevision ?? \"main\""))
         #expect(downloader.contains("resolvedRepositoryRevision(from: http)"))
         #expect(downloader.contains("response.value(forHTTPHeaderField: \"X-Repo-Commit\")"))
         #expect(downloader.contains("response.url?.pathComponents"))
         #expect(downloader.contains("isHexSHA(candidate) ? candidate : nil"))
+        #expect(
+            !downloader.contains("manifest[\"hf_revision\"]"),
+            "Hosted Kokoro manifests can carry stale hf_revision values; downloads must use the resolved main commit."
+        )
         #expect(KokoroModelDownloadService.Tier.allCases == [.starter, .standard, .highestQuality])
         #expect(onboarding.contains("@State private var selectedKokoroTier: KokoroModelDownloadService.Tier = .starter"))
         #expect(onboarding.contains("KokoroVoiceInstallPresentation.installTitle(for: selectedKokoroTier)"))

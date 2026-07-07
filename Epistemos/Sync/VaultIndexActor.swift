@@ -2480,7 +2480,7 @@ actor VaultIndexActor {
 
     /// All pages formatted for a full FTS5 rebuild.
     ///
-    /// Phase R.3: same managed-sidecar-first body read via the
+    /// Phase R.3 / KEELSTONE: vault-file-first body reads via the
     /// primitives helper, inside an async for-loop (sync `.map` can't await).
     func allPagesForRebuild() async -> [(id: String, title: String, body: String, tags: String, updatedAt: Date)] {
         let descriptor = FetchDescriptor<SDPage>(
@@ -2571,7 +2571,7 @@ actor VaultIndexActor {
 
             // Body matches: only for recent pages, and only if title gave partial signal
             // or this is in the body-scan window. Each body match: +1 base + length bonus.
-            // Phase R.3: managed-sidecar-first read via the primitives helper.
+            // Phase R.3 / KEELSTONE: vault-file-first read via the primitives helper.
             if bodyScanIds.contains(page.id), score < 8 {
                 let body: String
                 if let cached = cachedBodies[page.id] {
@@ -2692,8 +2692,8 @@ actor VaultIndexActor {
     /// Build a complete vault manifest for vault briefing.
     /// Includes metadata for ALL non-archived notes + full bodies of the 20 most recent.
     ///
-    /// Phase R.3: deep-read body pass uses the Sendable-primitive
-    /// helper so managed sidecars stay authoritative. The metadata
+    /// Phase R.3 / KEELSTONE: deep-read body pass uses the Sendable-primitive
+    /// helper so vault files stay authoritative. The metadata
     /// `entries` map stays synchronous — no body reads there.
     func buildVaultManifest(vaultTitle: String) async -> VaultManifest? {
         let descriptor = FetchDescriptor<SDPage>(
@@ -2751,9 +2751,8 @@ actor VaultIndexActor {
 
     /// Fetch full bodies for specific notes by page ID (for @-mention resolution & preWarm).
     ///
-    /// Phase R.3: each body read goes through the Sendable-primitive
-    /// helper so managed sidecars stay authoritative before gateway
-    /// fallback.
+    /// Phase R.3 / KEELSTONE: each body read goes through the Sendable-primitive
+    /// helper so vault files stay authoritative before legacy fallback.
     func fetchNoteBodies(ids: [String]) async -> [VaultManifest.NoteBody] {
         guard !ids.isEmpty else { return [] }
         // Individual fetches — SwiftData #Predicate can't reliably translate

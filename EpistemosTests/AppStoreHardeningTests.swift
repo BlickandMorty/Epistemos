@@ -694,6 +694,11 @@ struct AppStoreHardeningTests {
             "Do not poll iCloud downloads with Thread.sleep; that can block coordination and starve the sync daemon."
         )
         #expect(
+            materializer.contains("withTaskCancellationHandler")
+                && materializer.contains("cancelWaiter"),
+            "Timed-out or cancelled iCloud materialization waits must remove pending continuations instead of leaking until a future metadata update."
+        )
+        #expect(
             upsert?.contains("iCloudMaterializer.shared.state(of: fileURL)") == true
                 && upsert?.contains("try await iCloudMaterializer.shared.whenLocal(fileURL)") == true,
             "VaultIndexActor import/reindex must materialize dataless iCloud files before classifying them as unreadable or unchanged."

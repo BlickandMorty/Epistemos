@@ -19,7 +19,7 @@ actor iCloudMaterializer {
     }
 
     private let queryQueue = OperationQueue()
-    private var waiters: [String: [CheckedContinuation<Void, Error>]] = [:]
+    private var waiters: [String: [UUID: CheckedContinuation<Void, Error>]] = [:]
     private var query: NSMetadataQuery?
 
     init() {
@@ -63,12 +63,11 @@ actor iCloudMaterializer {
 
         ensureQueryRunning()
         let key = url.standardizedFileURL.path
+        let waiterID = UUID()
 
         try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask { [weak self] in
-                try await withCheckedThrowingContinuation { continuation in
-                    Task { await self?.enqueueWaiter(key: key, continuation: continuation) }
-                }
+            group.addTask { [self] in
+                try await waitUntilLocal(key: key, waiterID: waiterID)
             }
             group.addTask {
                 try await Task.sleep(for: timeout)
@@ -83,12 +82,31 @@ actor iCloudMaterializer {
         try FileManager.default.evictUbiquitousItem(at: url)
     }
 
-    private func enqueueWaiter(key: String, continuation: CheckedContinuation<Void, Error>) {
-        if case .alreadyLocal = state(of: URL(fileURLWithPath: key)) {
-            continuation.resume()
-            return
+    private func waitUntilLocal(key: String, waiterID: UUID) async throws {
+        try await withTaskCancellationHandler(operation: {
+            try await withCheckedThrowingContinuation { continuation in
+                if case .alreadyLocal = state(of: URL(fileURLWithPath: key)) {
+                    continuation.resume()
+                    return
+                }
+                waiters[key, default: [:]][waiterID] = continuation
+            }
+        }, onCancel: {
+            Task { await self.cancelWaiter(key: key, waiterID: waiterID, error: CancellationError()) }
+        })
+    }
+
+    private func cancelWaiter(key: String, waiterID: UUID, error: Error) {
+        guard var keyedWaiters = waiters[key],
+              let continuation = keyedWaiters.removeValue(forKey: waiterID)
+        else { return }
+
+        if keyedWaiters.isEmpty {
+            waiters.removeValue(forKey: key)
+        } else {
+            waiters[key] = keyedWaiters
         }
-        waiters[key, default: []].append(continuation)
+        continuation.resume(throwing: error)
     }
 
     private func ensureQueryRunning() {
@@ -147,7 +165,7 @@ actor iCloudMaterializer {
     private func handleMaterializedKeys(_ keys: [String]) {
         for key in keys {
             if let pending = waiters.removeValue(forKey: key) {
-                pending.forEach { $0.resume() }
+                pending.values.forEach { $0.resume() }
             }
         }
     }
