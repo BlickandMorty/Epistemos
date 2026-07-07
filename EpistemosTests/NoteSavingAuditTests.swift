@@ -162,13 +162,16 @@ struct NoteSavingEdgeCaseTests {
         try NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL) {
             let page = SDPage(title: "Vault Fallback")
             let fileURL = vaultURL.appendingPathComponent("Vault Fallback.md")
-            try """
+            try AtomicVaultWriter.writeSynchronously(
+                """
             ---
             title: Vault Fallback
             ---
 
             Recovered from the vault body
-            """.write(to: fileURL, atomically: true, encoding: .utf8)
+            """,
+                to: fileURL
+            )
             page.filePath = fileURL.path
 
             #expect(!NoteFileStorage.bodyExists(pageId: page.id))
@@ -243,7 +246,7 @@ struct NoteSavingEdgeCaseTests {
             ---
             enabled: true
             """
-            try source.write(to: fileURL, atomically: true, encoding: .utf8)
+            try AtomicVaultWriter.writeSynchronously(source, to: fileURL)
             page.filePath = fileURL.path
 
             #expect(!NoteFileStorage.bodyExists(pageId: page.id))

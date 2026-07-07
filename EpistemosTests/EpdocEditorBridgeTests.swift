@@ -251,6 +251,50 @@ nonisolated struct EpdocEditorBridgeTests {
     }
 
     @MainActor
+    @Test("chrome controller suppresses dirty save echoes from initial Markdown load")
+    func chromeControllerSuppressesInitialMarkdownBridgeEchoes() {
+        let controller = EpdocEditorChromeController()
+        let emptyJSON = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let renderedJSON = #"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Loaded"}]}]}"#
+            .data(using: .utf8)!
+        let editedJSON = #"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Edited"}]}]}"#
+            .data(using: .utf8)!
+        let markdown = "# Loaded\n"
+        var changedJSON: [Data] = []
+        var changedMarkdown: [String] = []
+
+        controller.onContentChanged = { changedJSON.append($0) }
+        controller.onMarkdownChanged = { changedMarkdown.append($0) }
+        controller.toolbarModel.isDirty = true
+
+        controller.loadInitialContent(emptyJSON, title: "Loaded MD", markdownSource: markdown)
+        controller.installEditorDispatch { _ in }
+        controller.handleBridgeMessage(.editorReady)
+        controller.handleBridgeMessage(.contentDidChange(json: renderedJSON))
+        controller.handleBridgeMessage(.markdownDidChange(markdown: markdown))
+
+        #expect(!controller.toolbarModel.isDirty)
+        #expect(changedJSON.isEmpty)
+        #expect(changedMarkdown.isEmpty)
+
+        controller.handleBridgeMessage(.contentDidChange(json: editedJSON))
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "# Edited\n"))
+
+        #expect(controller.toolbarModel.isDirty)
+        #expect(changedJSON == [editedJSON])
+        #expect(changedMarkdown == ["# Edited\n"])
+
+        let raceController = EpdocEditorChromeController()
+        var racedMarkdown: [String] = []
+        raceController.onMarkdownChanged = { racedMarkdown.append($0) }
+        raceController.loadInitialContent(emptyJSON, title: "Loaded MD", markdownSource: markdown)
+        raceController.installEditorDispatch { _ in }
+        raceController.handleBridgeMessage(.editorReady)
+        raceController.handleBridgeMessage(.markdownDidChange(markdown: "# User edit\n"))
+        #expect(racedMarkdown == ["# User edit\n"])
+    }
+
+    @MainActor
     @Test("chrome controller restores canonical note width without echoing persistence")
     func chromeControllerRestoresMarkdownCanonicalWidth() {
         let controller = EpdocEditorChromeController()

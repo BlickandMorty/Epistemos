@@ -129,6 +129,8 @@ public final class EpdocEditorChromeController {
     private var bridgeDispatchInstalled = false
     private var didPushInitialContent = false
     private var isFlushingInitialContent = false
+    private var pendingInitialContentBridgeEcho = false
+    private var pendingInitialMarkdownBridgeEcho: String?
 
     // MARK: - Dispatch + persistence wiring
     /// Fire a Swift → JS command. The chrome installs this on every
@@ -228,6 +230,9 @@ public final class EpdocEditorChromeController {
         latestMarkdownSnapshot = markdownSource
         canonicalWidthMode = widthMode?.normalized
         toolbarModel.widthMode = widthMode?.normalized ?? .normal
+        toolbarModel.isDirty = false
+        pendingInitialContentBridgeEcho = false
+        pendingInitialMarkdownBridgeEcho = nil
         documentTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? "Untitled"
             : title
@@ -281,6 +286,8 @@ public final class EpdocEditorChromeController {
         }
         didPushInitialContent = true
         isFlushingInitialContent = true
+        pendingInitialContentBridgeEcho = true
+        pendingInitialMarkdownBridgeEcho = initialMarkdownSource
         defer { isFlushingInitialContent = false }
         if let initialMarkdownSource {
             dispatch(.setMarkdown(markdown: initialMarkdownSource))
@@ -356,11 +363,22 @@ public final class EpdocEditorChromeController {
             // happen. Counts (separately emitted via the JS-side
             // CharacterCount extension) still flow through their own
             // bridge case.
+            if pendingInitialContentBridgeEcho {
+                pendingInitialContentBridgeEcho = false
+                refreshDerivedStatus(from: json)
+                return
+            }
             onContentChanged(json)
             toolbarModel.isDirty = true
             refreshDerivedStatus(from: json)
         case let .markdownDidChange(markdown):
             latestMarkdownSnapshot = markdown
+            if let pendingEcho = pendingInitialMarkdownBridgeEcho {
+                pendingInitialMarkdownBridgeEcho = nil
+                if markdown == pendingEcho {
+                    return
+                }
+            }
             onMarkdownChanged(markdown)
         case let .documentStatsChanged(wordCount, characterCount):
             toolbarModel.wordCount = wordCount
