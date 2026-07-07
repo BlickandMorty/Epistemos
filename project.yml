@@ -269,9 +269,6 @@ targets:
     dependencies:
       - package: GRDB
       - package: Grape
-      # MAS Surface A embedded llama.cpp lane (Plan 1-MAS §2.1).
-      - package: EpistemosLlama
-        product: EpistemosLlama
       - package: KokoroPipeline
         product: KokoroPipeline
       - package: MarkEditCore
@@ -550,12 +547,6 @@ packages:
     path: LocalPackages/MarkEdit/MarkEditKit
   MarkEditModules:
     path: LocalPackages/MarkEdit/MarkEditMac/Modules
-  # MAS Surface A embedded llama.cpp lane (Plan 1-MAS §2.1). Pinned upstream
-  # XCFramework fetched per-checkout by scripts/fetch-llama-xcframework.sh
-  # (sha256-verified, never committed) — run it once before building.
-  EpistemosLlama:
-    path: LocalPackages/EpistemosLlama
-
 schemes:
   Epistemos:
     build:

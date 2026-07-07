@@ -1323,13 +1323,20 @@ struct AppStoreHardeningTests {
         )
 
         // GGUFRuntimeBridge + the llama.framework rm-step removed with cloud-only/Omega removal
-        // 2026-07-03 — the GGUF/llama runtime is gone from BOTH targets (project.yml has no
-        // GGUFRuntimeBridge or llama.framework), so the Pro-vs-AppStore split collapses to "absent everywhere".
+        // 2026-07-03. KEELSTONE also forbids the package-level EpistemosLlama
+        // dependency, since a linked Swift package silently copies llama.framework
+        // into the App Store app even when source-level GGUF guards are inactive.
         #expect(proTarget?.contains("GGUFRuntimeBridge") == false)
         #expect(appStoreTarget != nil)
         #expect(appStorePBXTarget != nil)
+        #expect(spec.contains("EpistemosLlama") == false)
+        #expect(pbxproj.contains("EpistemosLlama") == false)
+        #expect(pbxproj.contains("LocalPackages/EpistemosLlama") == false)
+        #expect(pbxproj.contains("llama.framework") == false)
         #expect(appStoreTarget?.contains("GGUFRuntimeBridge") == false)
+        #expect(appStoreTarget?.contains("EpistemosLlama") == false)
         #expect(appStorePBXTarget?.contains("GGUFRuntimeBridge") == false)
+        #expect(appStorePBXTarget?.contains("EpistemosLlama") == false)
         #expect(appStoreTarget?.contains("rm -rf \"${frameworks_dir}/llama.framework\"") == false)
     }
 
@@ -1341,13 +1348,16 @@ struct AppStoreHardeningTests {
         )
         let importHits = try swiftFiles.compactMap { url -> String? in
             let source = try String(contentsOf: url, encoding: .utf8)
-            guard source.contains("canImport(GGUFRuntimeBridge)") else { return nil }
+            guard source.contains("canImport(GGUFRuntimeBridge)")
+                    || source.contains("canImport(EpistemosLlama)")
+                    || source.contains("import EpistemosLlama")
+            else { return nil }
             return url.path
         }
 
         #expect(
             importHits.isEmpty,
-            "Swift source must not canImport(GGUFRuntimeBridge). A prior Pro build leaves GGUFRuntimeBridge in shared DerivedData, making App Store builds import the Pro-only llama module. Hits: \(importHits.joined(separator: ", "))"
+            "Swift source must not import or canImport a GGUF/llama runtime. A prior build can leave modules in shared DerivedData and make App Store builds import a retired local runtime. Hits: \(importHits.joined(separator: ", "))"
         )
     }
 

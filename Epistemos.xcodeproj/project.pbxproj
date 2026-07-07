@@ -19,7 +19,7 @@
 		226F765E554D4FB43B088278 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13D3E6E9629BE150EEFC32BE /* Security.framework */; };
 		2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		2EA19F2C59A0EE724E69CDF8 /* EpistemosControlWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE235934630CAC96EDC68D93 /* EpistemosControlWidget.swift */; };
-		30E13BBA08D4E40824E55896 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = F8EFC969F569F143FA21C59C /* FileVersion */; };
+		30E13BBA08D4E40824E55896 /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = DD9553A30739FBFA2CD51437 /* FontPicker */; };
 		3B8E1C3C335DC819029D0BFB /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
 		3BDE702EBE7513A75F05E85F /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = D8818F7A8F2FF6B520C10B42 /* FontPicker */; };
 		3F21FFDC8F385A6DEC3412FF /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = DF6711EF9A00AF3A68ED8143 /* FileDrop */; };
@@ -27,47 +27,46 @@
 		47EC22FDE2094C0AD988091C /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0A2D551363AE61A7F5B1B898 /* GRDB */; };
 		4CAE00A3B9F046672C6522D6 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
 		535DA20E3D052CF1BE542E54 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
-		54FEAA196B99035E42E8B0B6 /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 16CC623C4E71A4DF3F6DBDBC /* TextBundle */; };
+		54FEAA196B99035E42E8B0B6 /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 88BCB3EA6698A7750855E06F /* TextCompletion */; };
 		5B1557CE7B5BE6FA4FD1DCC2 /* SidecarCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA1101E0D8741618C93599C /* SidecarCache.swift */; };
-		5BD2F1107633AD6B41B0C58B /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 104F667588B6B74771455F14 /* Statistics */; };
+		5BD2F1107633AD6B41B0C58B /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 16CC623C4E71A4DF3F6DBDBC /* TextBundle */; };
 		5FA96D2820E6751FD7CAE761 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
 		61C8116B784756491A5EC96D /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
 		61DC567C838103D0C2929555 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		6807228E4B5A4998F227E8EA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13D3E6E9629BE150EEFC32BE /* Security.framework */; };
 		6CAD9FFA6A82372FE5C6844E /* AFMSessionPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEB6F791FCD3D66E463779B /* AFMSessionPool.swift */; };
-		74959B01F628EBAA2FBB4B29 /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 88BCB3EA6698A7750855E06F /* TextCompletion */; };
-		7BA33DAD72F26B5969AF58A4 /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5565EA54F11316CA03FCE0A /* MarkEditCore */; };
-		7E04502E94924A57934605BE /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 40094AE6591C1C7FEA3D49B6 /* SettingsUI */; };
+		7BA33DAD72F26B5969AF58A4 /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3FF61CC7613816DCD256501A /* MarkEditKit */; };
+		7E04502E94924A57934605BE /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 104F667588B6B74771455F14 /* Statistics */; };
 		7FB9B55EC62CC75E4D5D6688 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		80D36B635950E94BB3667A8B /* SessionTelemetryClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */; };
 		81716E83E67308AE0E10312D /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 135D935B56D44B67D290BC44 /* SwiftTerm */; };
-		836B564E870EDF34873B3A58 /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */; };
-		9306CA2B6D16680A144B5317 /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3FF61CC7613816DCD256501A /* MarkEditKit */; };
+		836B564E870EDF34873B3A58 /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5565EA54F11316CA03FCE0A /* MarkEditCore */; };
+		9306CA2B6D16680A144B5317 /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = 929E3F8673D5E6BA76C7D611 /* AppKitControls */; };
 		A0CC72DF04BB145B6C54585F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		A105AB197896C116C097EB9E /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 152E3DBC8E6BBCFBA8489486 /* TextCompletion */; };
 		A4EADC574B8E36EB1327DA66 /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 6E17340F4F4FFCF08C0E672D /* Statistics */; };
 		A5782539EAC785740C793CCA /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = 992412F140C574B1E0283AEA /* Previewer */; };
 		B131CB2C4E4E857765F2366F /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = C38C0526B12EAEB10976C5B1 /* SettingsUI */; };
-		B6058CDDBAC6D239758DE0BE /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = 929E3F8673D5E6BA76C7D611 /* AppKitControls */; };
+		B6058CDDBAC6D239758DE0BE /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 21E9EC38054CF698E1778CBE /* AppKitExtensions */; };
 		BAAEE4E38661F000D998F186 /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = A7B4A33EDFA6CDF19164E100 /* Grape */; };
 		BDA83B0079DB6B1F90AD4093 /* ConversationStateClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4D9497705CF8ABBA8B8483 /* ConversationStateClassifier.swift */; };
-		BE22FF112091A73278DA1574 /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = C5C43578924D958FD0F10AEA /* FileDrop */; };
+		BE22FF112091A73278DA1574 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = F8EFC969F569F143FA21C59C /* FileVersion */; };
 		BFE34268D83FB96D10840B4D /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = A5223DF8B66054B397B8063A /* MarkEditCore */; };
 		C18BD6A1E86E5CE754EC3C02 /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 43820B4F7DE581D5047F0349 /* KokoroPipeline */; };
 		D78DB160002E1ADAA6A29A47 /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 970856BAED7F66F3D3CAEF36 /* TextBundle */; };
 		DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		DF83A55045962D57B510A3AE /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9F7E743E103DA1BED82C903 /* MarkEditKit */; };
-		E1411145209B0CCD99C5C608 /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 21E9EC38054CF698E1778CBE /* AppKitExtensions */; };
+		E1411145209B0CCD99C5C608 /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = C5C43578924D958FD0F10AEA /* FileDrop */; };
 		E5C918B7DB7D7E04D07548A6 /* EpistemosSpeechSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F812DA2636E2F30D6DD16757 /* EpistemosSpeechSynthesizer.swift */; };
 		E5F98A62361C1EBB82523B92 /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 1387824EA0DAA6D702EFD7BA /* AppKitExtensions */; };
-		E70B453353C9AB5E24A29DFA /* EpistemosLlama in Frameworks */ = {isa = PBXBuildFile; productRef = 3795DC0C48B43DA46FE88219 /* EpistemosLlama */; };
+		E70B453353C9AB5E24A29DFA /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */; };
 		ED91AE601D067F5CD1FA6937 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
-		F179F5290BD109FC06F77403 /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = F5DBC24422FD519A6BED081F /* Previewer */; };
+		F179F5290BD109FC06F77403 /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 40094AE6591C1C7FEA3D49B6 /* SettingsUI */; };
 		F17AA91C0BB197EE4008CED8 /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = B13F202AC1BF0231DEF14824 /* AppKitControls */; };
 		F224B157305CA3C973457BCF /* QuarantineArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5714802E4CF5F19C54626435 /* QuarantineArchive.swift */; };
 		F4FD9C1FBB3D7E66B93DD4B4 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = B8E0559AD19EF2A9B70D952C /* FileVersion */; };
-		F5784C6AD6DA3C05A246766E /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = DD9553A30739FBFA2CD51437 /* FontPicker */; };
+		F5784C6AD6DA3C05A246766E /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = F5DBC24422FD519A6BED081F /* Previewer */; };
 		F916294B9966E7689528DAF5 /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
 /* End PBXBuildFile section */
 
@@ -86,7 +85,6 @@
 		0AF21CF0D294861545AE5324 /* EpistemosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EpistemosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		0C22103FC04EC48867600235 /* MarkEditCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MarkEditCore; path = LocalPackages/MarkEdit/MarkEditCore; sourceTree = SOURCE_ROOT; };
-		134FB1FC495841C9ED25232F /* EpistemosLlama */ = {isa = PBXFileReference; lastKnownFileType = folder; name = EpistemosLlama; path = LocalPackages/EpistemosLlama; sourceTree = SOURCE_ROOT; };
 		13D3E6E9629BE150EEFC32BE /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		169A8DC98B20151778A8196C /* CognitiveIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CognitiveIntents.swift; sourceTree = "<group>"; };
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -357,20 +355,19 @@
 			files = (
 				47EC22FDE2094C0AD988091C /* GRDB in Frameworks */,
 				BAAEE4E38661F000D998F186 /* Grape in Frameworks */,
-				E70B453353C9AB5E24A29DFA /* EpistemosLlama in Frameworks */,
-				836B564E870EDF34873B3A58 /* KokoroPipeline in Frameworks */,
-				7BA33DAD72F26B5969AF58A4 /* MarkEditCore in Frameworks */,
-				9306CA2B6D16680A144B5317 /* MarkEditKit in Frameworks */,
-				B6058CDDBAC6D239758DE0BE /* AppKitControls in Frameworks */,
-				E1411145209B0CCD99C5C608 /* AppKitExtensions in Frameworks */,
-				BE22FF112091A73278DA1574 /* FileDrop in Frameworks */,
-				30E13BBA08D4E40824E55896 /* FileVersion in Frameworks */,
-				F5784C6AD6DA3C05A246766E /* FontPicker in Frameworks */,
-				F179F5290BD109FC06F77403 /* Previewer in Frameworks */,
-				7E04502E94924A57934605BE /* SettingsUI in Frameworks */,
-				5BD2F1107633AD6B41B0C58B /* Statistics in Frameworks */,
-				54FEAA196B99035E42E8B0B6 /* TextBundle in Frameworks */,
-				74959B01F628EBAA2FBB4B29 /* TextCompletion in Frameworks */,
+				E70B453353C9AB5E24A29DFA /* KokoroPipeline in Frameworks */,
+				836B564E870EDF34873B3A58 /* MarkEditCore in Frameworks */,
+				7BA33DAD72F26B5969AF58A4 /* MarkEditKit in Frameworks */,
+				9306CA2B6D16680A144B5317 /* AppKitControls in Frameworks */,
+				B6058CDDBAC6D239758DE0BE /* AppKitExtensions in Frameworks */,
+				E1411145209B0CCD99C5C608 /* FileDrop in Frameworks */,
+				BE22FF112091A73278DA1574 /* FileVersion in Frameworks */,
+				30E13BBA08D4E40824E55896 /* FontPicker in Frameworks */,
+				F5784C6AD6DA3C05A246766E /* Previewer in Frameworks */,
+				F179F5290BD109FC06F77403 /* SettingsUI in Frameworks */,
+				7E04502E94924A57934605BE /* Statistics in Frameworks */,
+				5BD2F1107633AD6B41B0C58B /* TextBundle in Frameworks */,
+				54FEAA196B99035E42E8B0B6 /* TextCompletion in Frameworks */,
 				0465C1B669B990DFF2F4AAF8 /* AppKit.framework in Frameworks */,
 				2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */,
 				14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */,
@@ -458,7 +455,6 @@
 		CDE9EC77D799DAC3B605278D /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				134FB1FC495841C9ED25232F /* EpistemosLlama */,
 				5CA1ADD76D0A683D0954DDB5 /* KokoroPipeline */,
 				0C22103FC04EC48867600235 /* MarkEditCore */,
 				FC737BC198BF4E5BEADB7BC8 /* MarkEditKit */,
@@ -582,7 +578,6 @@
 			packageProductDependencies = (
 				0A2D551363AE61A7F5B1B898 /* GRDB */,
 				A7B4A33EDFA6CDF19164E100 /* Grape */,
-				3795DC0C48B43DA46FE88219 /* EpistemosLlama */,
 				50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */,
 				B5565EA54F11316CA03FCE0A /* MarkEditCore */,
 				3FF61CC7613816DCD256501A /* MarkEditKit */,
@@ -638,7 +633,6 @@
 			packageReferences = (
 				C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				524D78E9249015029F79F437 /* XCRemoteSwiftPackageReference "Grape" */,
-				1B35C0DC51AEC6846C08363A /* XCLocalSwiftPackageReference "LocalPackages/EpistemosLlama" */,
 				9780EB52E9DBAAAEE6416DCF /* XCLocalSwiftPackageReference "LocalPackages/KokoroPipeline" */,
 				364B6F662E4418B1727D73D1 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditCore" */,
 				B1BD229D7BC4AA1455B53515 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditKit" */,
@@ -1430,10 +1424,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LocalPackages/SwiftTerm;
 		};
-		1B35C0DC51AEC6846C08363A /* XCLocalSwiftPackageReference "LocalPackages/EpistemosLlama" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = LocalPackages/EpistemosLlama;
-		};
 		364B6F662E4418B1727D73D1 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LocalPackages/MarkEdit/MarkEditCore;
@@ -1500,10 +1490,6 @@
 		21E9EC38054CF698E1778CBE /* AppKitExtensions */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AppKitExtensions;
-		};
-		3795DC0C48B43DA46FE88219 /* EpistemosLlama */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = EpistemosLlama;
 		};
 		3FF61CC7613816DCD256501A /* MarkEditKit */ = {
 			isa = XCSwiftPackageProductDependency;
