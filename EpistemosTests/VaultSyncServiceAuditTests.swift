@@ -1812,9 +1812,11 @@ struct VaultSyncServiceAuditTests {
             #expect(pages.allSatisfy { ($0.filePath?.isEmpty == false) })
             #expect(pages.contains { $0.id == "recovered-a" })
             #expect(pages.contains { $0.id == "recovered-b" })
-            #expect(NoteFileStorage.bodyExists(pageId: "recovered-a"))
-            #expect(NoteFileStorage.bodyExists(pageId: "recovered-b"))
+            #expect(!NoteFileStorage.bodyExists(pageId: "recovered-a"))
+            #expect(!NoteFileStorage.bodyExists(pageId: "recovered-b"))
             #expect(!NoteFileStorage.bodyExists(pageId: "orphan-body"))
+            #expect(pages.first(where: { $0.id == "recovered-a" })?.loadBody().contains("recover-alpha") == true)
+            #expect(pages.first(where: { $0.id == "recovered-b" })?.loadBody().contains("recover-beta") == true)
 
             let searchHits = await service.searchFullAsync(query: "recover-alpha", limit: 5)
             #expect(searchHits.contains { $0.pageId == "recovered-a" })

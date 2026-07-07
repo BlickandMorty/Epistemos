@@ -232,6 +232,14 @@ final class SDPage {
     ///   This reduces intermediate copying for bulk operations, but the returned `String` is still materialized.
     ///   Default `false` for interactive use (editing, display) where the String is long-lived.
     func loadBody(mapped: Bool = false, fast: Bool = false) -> String {
+        if needsVaultSync && NoteFileStorage.hasStagedOrPersistedBody(pageId: id) {
+            return Self.legacyManagedOrInlineBody(
+                pageId: id,
+                inlineBody: body,
+                mapped: mapped,
+                fast: fast
+            )
+        }
         if let filePath,
            !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let fileURL = URL(fileURLWithPath: filePath)

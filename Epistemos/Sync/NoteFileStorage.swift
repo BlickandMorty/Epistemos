@@ -1250,6 +1250,17 @@ enum NoteFileStorage {
         return FileManager.default.fileExists(atPath: url.path)
     }
 
+    /// Check whether a transitional managed body exists in memory or on disk.
+    nonisolated static func hasStagedOrPersistedBody(pageId: String) -> Bool {
+        guard isValidPageId(pageId) else { return false }
+        let directory = storageDirectory()
+        if pendingBody(for: pageId, directory: directory) != nil {
+            return true
+        }
+        let url = bodyURL(pageId: pageId, in: directory)
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
     @discardableResult
     nonisolated static func cleanupOrphanBodies<S: Sequence>(
         in directory: URL? = nil,

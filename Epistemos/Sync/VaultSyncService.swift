@@ -844,7 +844,7 @@ final class VaultSyncService {
         to vaultURL: URL,
         bodyOverride: String? = nil
     ) async throws -> (path: String, bodyHash: String)? {
-        if bodyOverride == nil, let exportPageOverride {
+        if let exportPageOverride {
             return try await exportPageOverride(pageId, vaultURL)
         }
         return try await indexActor?.exportPage(pageId: pageId, to: vaultURL, bodyOverride: bodyOverride)
@@ -3431,6 +3431,15 @@ final class VaultSyncService {
         if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
             return liveBody
         }
+        if page.needsVaultSync {
+            if !page.body.isEmpty {
+                return page.body
+            }
+            let localBody = NoteFileStorage.readBody(pageId: pageId, mapped: true)
+            if !localBody.isEmpty || NoteFileStorage.hasStagedOrPersistedBody(pageId: pageId) {
+                return localBody
+            }
+        }
         return page.loadBody(mapped: true)
     }
 
@@ -3839,6 +3848,7 @@ final class VaultSyncService {
         let flags = FSEventStreamCreateFlags(
             kFSEventStreamCreateFlagFileEvents
                 | kFSEventStreamCreateFlagUseExtendedData
+                | kFSEventStreamCreateFlagUseCFTypes
                 | kFSEventStreamCreateFlagWatchRoot
                 | kFSEventStreamCreateFlagNoDefer
         )
@@ -4146,7 +4156,11 @@ final class VaultSyncService {
         do {
             if needsFullRescan {
                 log.info("File watcher: path detail unavailable — running guarded vault import")
-                guard let snapshot = try await actor.importVault(from: vaultURL) else {
+                let shouldRemoveMissingFilesDuringFallbackImport = false
+                guard let snapshot = try await actor.importVault(
+                    from: vaultURL,
+                    deleteMissingFiles: shouldRemoveMissingFilesDuringFallbackImport
+                ) else {
                     return false
                 }
                 importSnapshot = snapshot

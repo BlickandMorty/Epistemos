@@ -1710,6 +1710,16 @@ actor VaultIndexActor {
             let liveEditorBody = await MainActor.run {
                 NoteWindowManager.shared.editorBody(for: pageID)
             }
+            let localDraftBody: String = {
+                if !page.body.isEmpty {
+                    return page.body
+                }
+                let managedBody = NoteFileStorage.readBody(pageId: pageID, mapped: true)
+                if !managedBody.isEmpty || NoteFileStorage.hasStagedOrPersistedBody(pageId: pageID) {
+                    return managedBody
+                }
+                return currentBody
+            }()
             let incomingBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
             let liveEditorIsDirty = liveEditorBody.map { editorBody in
                 guard let lastSyncedBodyHash = page.lastSyncedBodyHash else {
@@ -1717,7 +1727,9 @@ actor VaultIndexActor {
                 }
                 return SDPage.bodyHash(editorBody) != lastSyncedBodyHash
             } ?? false
-            let preserveBody = liveEditorIsDirty
+            let localDraftIsDirty = page.needsVaultSync
+                && SDPage.bodyHash(localDraftBody) != incomingBodyHash
+            let preserveBody = liveEditorIsDirty || localDraftIsDirty
             let importedBodyChanged = page.lastSyncedBodyHash != incomingBodyHash
 
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
@@ -1731,7 +1743,7 @@ actor VaultIndexActor {
             {
                 let snapshot = UpdatedPageSnapshot(
                     pageId: page.id,
-                    body: liveEditorBody ?? currentBody,
+                    body: liveEditorBody ?? localDraftBody,
                     filePath: page.filePath,
                     wordCount: page.wordCount,
                     emoji: page.emoji,
@@ -1801,7 +1813,7 @@ actor VaultIndexActor {
                     // folder relationship will be re-wired by synthesis/repair
                 }
 
-                let indexBody = preserveBody ? (liveEditorBody ?? currentBody) : importedStorageBody
+                let indexBody = preserveBody ? (liveEditorBody ?? localDraftBody) : importedStorageBody
                 upsertSearchIndex(page: page, body: searchIndexBody(indexBody, filePath: filePath))
                 return .updated(snapshot)
             }
