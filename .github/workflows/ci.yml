@@ -246,6 +246,23 @@ jobs:
       - name: KEELSTONE release gate drift guardrails
         run: ./scripts/keelstone-release-gate.sh
 
+      - name: KEELSTONE hardening seed-failure witness
+        run: |
+          set +e
+          mkdir -p build
+          KEELSTONE_SEED_HIGH_FINDING=1 ./scripts/keelstone-release-gate.sh > build/keelstone-seed-high.log 2>&1
+          seed_rc=$?
+          set -e
+          cat build/keelstone-seed-high.log
+          if [ "${seed_rc}" -eq 0 ]; then
+            echo "::error::KEELSTONE_SEED_HIGH_FINDING=1 did not fail the release gate"
+            exit 1
+          fi
+          if ! grep -q "HIGH/CRITICAL hardening finding blocks release" build/keelstone-seed-high.log; then
+            echo "::error::KEELSTONE hardening seed failed for the wrong reason"
+            exit 1
+          fi
+
       - name: Resolve SPM dependencies
         run: |
           ./scripts/xcodebuild_epistemos.sh -resolvePackageDependencies \
@@ -368,6 +385,23 @@ jobs:
       # bench has written runtime measurements.
       - name: Check perf budgets (docs/perf-budgets.toml)
         run: ./scripts/check-perf-budgets.sh
+
+      - name: KEELSTONE perf seed-failure witness
+        run: |
+          set +e
+          mkdir -p build
+          KEELSTONE_SEED_PERF_REGRESSION=1 ./scripts/check-perf-budgets.sh > build/keelstone-seed-perf.log 2>&1
+          seed_rc=$?
+          set -e
+          cat build/keelstone-seed-perf.log
+          if [ "${seed_rc}" -eq 0 ]; then
+            echo "::error::KEELSTONE_SEED_PERF_REGRESSION=1 did not fail the perf budget gate"
+            exit 1
+          fi
+          if ! grep -q "KEELSTONE perf budget exceeded" build/keelstone-seed-perf.log; then
+            echo "::error::KEELSTONE perf seed failed for the wrong reason"
+            exit 1
+          fi
 
       - name: Cache SPM packages
         uses: actions/cache@v4

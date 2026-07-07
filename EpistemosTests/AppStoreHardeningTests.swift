@@ -1460,6 +1460,19 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("CI proves a seeded KEELSTONE HIGH hardening finding fails the release gate")
+    func ciYmlProvesSeededHighHardeningFindingFailsReleaseGate() throws {
+        let ci = try loadMirroredSourceTextFile(".github/workflows/ci.yml")
+        #expect(
+            ci.contains("KEELSTONE_SEED_HIGH_FINDING=1 ./scripts/keelstone-release-gate.sh"),
+            "CI must exercise the KEELSTONE HIGH-finding seed path, not only run the happy-path release gate."
+        )
+        #expect(
+            ci.contains("HIGH/CRITICAL hardening finding blocks release"),
+            "The seeded hardening witness must assert the gate failed because a HIGH/CRITICAL finding blocks release."
+        )
+    }
+
     @Test("App Store agent command modes do not advertise Pro subprocess tools")
     func appStoreAgentCommandModesHideProSubprocessTools() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/State/AgentCommandCenterState.swift")

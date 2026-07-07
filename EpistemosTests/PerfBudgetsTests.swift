@@ -137,6 +137,19 @@ nonisolated struct PerfBudgetsTests {
         )
     }
 
+    @Test("ci.yml proves a seeded KEELSTONE perf regression fails the budget gate")
+    func ciYmlProvesSeededKeelstonePerfRegressionFails() throws {
+        let yml = try Self.loadText(".github/workflows/ci.yml")
+        #expect(
+            yml.contains("KEELSTONE_SEED_PERF_REGRESSION=1 ./scripts/check-perf-budgets.sh"),
+            "CI must exercise the KEELSTONE perf seed path, not only run the happy-path budget check."
+        )
+        #expect(
+            yml.contains("KEELSTONE perf budget exceeded"),
+            "The seeded perf witness must assert the gate failed for a KEELSTONE perf regression, not for an unrelated shell error."
+        )
+    }
+
     // MARK: - tiny TOML reader
 
     /// A minimal table-of-tables TOML reader sufficient for

@@ -256,6 +256,25 @@ keelstone_failures=0
 keelstone_missing=0
 keelstone_checked=0
 
+declare -a KEELSTONE_REFERENCE_KEYS=(
+    "keelstone.reference  | hardware"
+    "keelstone.reference  | vault_notes"
+    "keelstone.enterprise | vault_notes"
+)
+
+for entry in "${KEELSTONE_REFERENCE_KEYS[@]}"; do
+    IFS='|' read -r raw_section raw_key <<< "${entry}"
+    section="$(echo "${raw_section}" | xargs)"
+    key="$(echo "${raw_key}" | xargs)"
+    value="$(toml_get "${section}" "${key}")"
+    if [[ -z "${value}" ]]; then
+        echo "::error::perf-budgets.toml is missing [${section}].${key}" >&2
+        keelstone_failures=$((keelstone_failures + 1))
+    else
+        printf "  %-48s  reference %s\n" "${section}.${key}" "${value}"
+    fi
+done
+
 if [[ "${KEELSTONE_SEED_PERF_REGRESSION:-0}" == "1" ]]; then
     keelstone_seeded_path="$(mktemp "${TMPDIR:-/tmp}/keelstone-perf-regression.XXXXXX.json")"
     cat >"${keelstone_seeded_path}" <<'JSON'

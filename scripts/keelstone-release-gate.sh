@@ -335,6 +335,8 @@ require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func se
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func rootWatcherUnavailabilityFreezesWritesAndPreservesLocalState()" "Upgrade matrix witness: root watcher unavailability preserves state and blocks writes"
 require_file_contains ".github/workflows/ci.yml" "./scripts/keelstone-release-gate.sh --appstore-app" "Release workflow witness: App Store built app participates in KEELSTONE gate"
 require_file_contains ".github/workflows/release.yml" "./scripts/keelstone-release-gate.sh --direct-app" "Release workflow witness: direct built app participates in KEELSTONE gate"
+require_file_contains ".github/workflows/ci.yml" "KEELSTONE_SEED_HIGH_FINDING=1 ./scripts/keelstone-release-gate.sh" "Release workflow witness: seeded HIGH hardening finding blocks the gate"
+require_file_contains ".github/workflows/ci.yml" "KEELSTONE_SEED_PERF_REGRESSION=1 ./scripts/check-perf-budgets.sh" "Release workflow witness: seeded KEELSTONE perf regression blocks the gate"
 
 echo ""
 echo "==> KEELSTONE §7 hardening finding gate"
