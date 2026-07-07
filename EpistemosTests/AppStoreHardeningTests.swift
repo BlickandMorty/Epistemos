@@ -315,6 +315,11 @@ struct AppStoreHardeningTests {
             startingAt: "private func handleCreateVaultNote",
             endingBefore: "        @MainActor\n        private func handleSaveFile"
         )
+        let saveFile = Self.sourceSection(
+            in: source,
+            startingAt: "private func handleSaveFile",
+            endingBefore: "        private func reply(to kind:"
+        )
 
         #expect(
             replyHandler?.contains("if kind == \"vault:create-note\"") == true
@@ -330,6 +335,15 @@ struct AppStoreHardeningTests {
             createNote?.contains(".write(to:") == false
                 && createNote?.contains("FileManager.default.createDirectory") == false,
             "The Experimental agent vault note path must not directly write vault files or do vault directory creation on @MainActor."
+        )
+        #expect(
+            saveFile?.contains("Task.detached(priority: .utility)") == true
+                && saveFile?.contains("try AtomicVaultWriter.writeSynchronously(data, to: url)") == true,
+            "Agent save-dialog binary writes can target the vault and must use the coordinated whole-buffer Data writer off the main actor."
+        )
+        #expect(
+            saveFile?.contains("data.write(to:") == false,
+            "The Experimental agent save-dialog path must not bypass the coordinated writer with direct Data.write."
         )
     }
 

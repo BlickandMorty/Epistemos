@@ -572,7 +572,9 @@ private struct ExperimentalWebView: NSViewRepresentable {
                 return (["success": false], nil)  // user cancelled
             }
             do {
-                try data.write(to: url, options: .atomic)
+                try await Task.detached(priority: .utility) {
+                    try AtomicVaultWriter.writeSynchronously(data, to: url)
+                }.value
                 return (["success": true, "filePath": url.path], nil)
             } catch {
                 return (["success": false], nil)
