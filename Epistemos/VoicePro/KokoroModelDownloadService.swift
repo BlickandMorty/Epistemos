@@ -208,9 +208,7 @@ final class KokoroModelDownloadService {
         guard var manifest = try? JSONSerialization.jsonObject(with: manifestDownload.data) as? [String: Any] else {
             throw DownloadError.invalidManifest
         }
-        let revision = manifestDownload.resolvedRevision
-            ?? (manifest["hf_revision"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-            ?? "main"
+        let revision = manifestDownload.resolvedRevision ?? "main"
 
         let requiredFiles = try requiredFiles(from: manifest)
         let voiceObjects = (manifest["voices"] as? [[String: Any]]) ?? []
@@ -305,9 +303,39 @@ final class KokoroModelDownloadService {
             throw DownloadError.httpFailure(repositoryPath)
         }
         guard data.count <= maxBytes else { throw DownloadError.invalidManifest }
-        let resolvedRevision = http.value(forHTTPHeaderField: "X-Repo-Commit")
-            .flatMap { $0.isEmpty ? nil : $0 }
+        let resolvedRevision = resolvedRepositoryRevision(from: http)
         return ManifestDownload(data: data, resolvedRevision: resolvedRevision)
+    }
+
+    nonisolated private static func resolvedRepositoryRevision(from response: HTTPURLResponse) -> String? {
+        if let header = response.value(forHTTPHeaderField: "X-Repo-Commit"),
+           isHexSHA(header) {
+            return header
+        }
+        guard let pathComponents = response.url?.pathComponents else {
+            return nil
+        }
+        let repositoryComponents = repositoryID.split(separator: "/").map(String.init)
+        guard repositoryComponents.count == 2 else { return nil }
+        for index in pathComponents.indices {
+            let nextIndex = pathComponents.index(after: index)
+            guard nextIndex < pathComponents.endIndex,
+                  pathComponents[index] == repositoryComponents[0],
+                  pathComponents[nextIndex] == repositoryComponents[1] else {
+                continue
+            }
+            let revisionIndex = pathComponents.index(after: nextIndex)
+            guard revisionIndex < pathComponents.endIndex else { return nil }
+            let candidate = pathComponents[revisionIndex]
+            return isHexSHA(candidate) ? candidate : nil
+        }
+        return nil
+    }
+
+    nonisolated private static func isHexSHA(_ value: String) -> Bool {
+        value.utf8.count == 40 && value.utf8.allSatisfy { byte in
+            (48...57).contains(byte) || (65...70).contains(byte) || (97...102).contains(byte)
+        }
     }
 
     nonisolated private static func resolveURL(repositoryPath: String, revision: String) throws -> URL {
