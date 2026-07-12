@@ -320,7 +320,10 @@ fn buffer_has_encrypt_reference(buffer: &[u8]) -> bool {
     }
     let mut start = 0usize;
     while start + MARKER.len() <= buffer.len() {
-        match buffer[start..].windows(MARKER.len()).position(|w| w == MARKER) {
+        match buffer[start..]
+            .windows(MARKER.len())
+            .position(|w| w == MARKER)
+        {
             Some(rel) => {
                 let idx = start + rel;
                 if bytes_look_like_indirect_ref(&buffer[idx + MARKER.len()..]) {
@@ -651,8 +654,7 @@ mod tests {
 
     #[test]
     fn detects_encrypt_reference_in_trailer_bytes() {
-        let trailer =
-            b"trailer\n<< /Size 10 /Root 1 0 R /Encrypt 9 0 R >>\nstartxref\n123\n%%EOF";
+        let trailer = b"trailer\n<< /Size 10 /Root 1 0 R /Encrypt 9 0 R >>\nstartxref\n123\n%%EOF";
         assert!(buffer_has_encrypt_reference(trailer));
     }
 
@@ -691,8 +693,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock should be after the Unix epoch")
             .as_nanos();
-        let path =
-            std::env::temp_dir().join(format!("epistemos-liteparse-encrypted-{unique}.pdf"));
+        let path = std::env::temp_dir().join(format!("epistemos-liteparse-encrypted-{unique}.pdf"));
         std::fs::write(
             &path,
             b"%PDF-1.7\n1 0 obj\n<< >>\nendobj\ntrailer\n<< /Root 1 0 R /Encrypt 9 0 R >>\nstartxref\n0\n%%EOF\n",

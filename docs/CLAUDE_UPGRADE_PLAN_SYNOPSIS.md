@@ -137,7 +137,10 @@ Every implementation gets a comment like `// per CODEX_PROMPT_CHAIN.md §B-7` or
 
 ### 4. When specs conflict, surface the conflict — don't pick.
 
-If GOOSE_AGENT_RESEARCH.md says X and UNIFIED_SUBSTRATE_RESEARCH.md says Y, I stop and ask. I don't silently pick one. I present both and ask the user which doc is authoritative for this slice.
+If GOOSE_AGENT_RESEARCH.md says X and UNIFIED_SUBSTRATE_RESEARCH.md says Y, I use the current
+living/master index to identify the highest canon, record the conflict, and continue on the
+smallest reversible path. I ask the user only if the choice is destructive, irreversible, or
+scope-changing. I don't silently pick one.
 
 ### 5. Match the "HOW," not just the "WHAT."
 

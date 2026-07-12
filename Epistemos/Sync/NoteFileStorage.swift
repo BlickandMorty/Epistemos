@@ -1386,6 +1386,14 @@ enum NoteFileStorage {
     /// is always "" for migrated notes and therefore useless as a change signal).
     nonisolated static let pageBodyDidChange = Notification.Name("EpistemosPageBodyDidChange")
 
+    nonisolated enum PageBodyChangeOrigin: String, Sendable {
+        case external
+        case localEditorSave
+    }
+
+    private nonisolated static let pageBodyChangeOriginKey = "origin"
+    private nonisolated static let pageBodyChangeSavedBodyKey = "savedBody"
+
     /// Asks any open editor for the given page to stage its in-memory edits immediately
     /// before a downstream reader (save/export/transclusion) continues.
     nonisolated static let pageBodyWillRead = Notification.Name("EpistemosPageBodyWillRead")
@@ -1393,7 +1401,49 @@ enum NoteFileStorage {
     /// Post the body-changed notification on the main thread.
     /// Call after `saveBody()` completes in any external mutation path (restore, sync, etc.).
     @MainActor static func notifyBodyChanged(pageId: String) {
-        NotificationCenter.default.post(name: pageBodyDidChange, object: nil, userInfo: ["pageId": pageId])
+        NotificationCenter.default.post(
+            pageBodyChangeNotification(
+                pageId: pageId,
+                origin: .external,
+                savedBody: nil
+            )
+        )
+    }
+
+    @MainActor static func notifyLocalBodySaved(pageId: String, body: String) {
+        NotificationCenter.default.post(
+            pageBodyChangeNotification(
+                pageId: pageId,
+                origin: .localEditorSave,
+                savedBody: body
+            )
+        )
+    }
+
+    nonisolated static func pageBodyChangeNotification(
+        pageId: String,
+        origin: PageBodyChangeOrigin,
+        savedBody: String?
+    ) -> Notification {
+        var userInfo: [AnyHashable: Any] = [
+            "pageId": pageId,
+            pageBodyChangeOriginKey: origin.rawValue
+        ]
+        if let savedBody {
+            userInfo[pageBodyChangeSavedBodyKey] = savedBody
+        }
+        return Notification(name: pageBodyDidChange, object: nil, userInfo: userInfo)
+    }
+
+    nonisolated static func pageBodyChangeOrigin(for notification: Notification) -> PageBodyChangeOrigin {
+        guard let rawValue = notification.userInfo?[pageBodyChangeOriginKey] as? String else {
+            return .external
+        }
+        return PageBodyChangeOrigin(rawValue: rawValue) ?? .external
+    }
+
+    nonisolated static func savedBody(for notification: Notification) -> String? {
+        notification.userInfo?[pageBodyChangeSavedBodyKey] as? String
     }
 
     /// Ask any open editor for this page to flush pending edits.

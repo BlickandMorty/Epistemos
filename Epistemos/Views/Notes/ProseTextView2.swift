@@ -80,7 +80,8 @@ final class ProseTextView2: NSTextView {
 
     /// Delegate that classifies paragraphs via Rust FFI and applies structural styles.
     let markdownDelegate = MarkdownContentStorage()
-    private var reparseTask: Task<Void, Never>?
+    private var pendingFrictionEvents: [EditorTelemetryEvent] = []
+    private var frictionFlushTask: Task<Void, Never>?
     private var currentActiveLine: Int?
     private var pendingActiveLineInvalidation = false
     private nonisolated(unsafe) var boundsObserver: (any NSObjectProtocol)?
@@ -169,6 +170,7 @@ final class ProseTextView2: NSTextView {
     }
 
     deinit {
+        frictionFlushTask?.cancel()
         if let boundsObserver {
             NotificationCenter.default.removeObserver(boundsObserver)
         }
@@ -350,7 +352,7 @@ final class ProseTextView2: NSTextView {
             kind: .cursorMove(delta: delta),
             timestampMs: Int64(Date().timeIntervalSince1970 * 1000)
         )
-        Task.detached(priority: .utility) { await monitor.record(event) }
+        enqueueFrictionEvent(event, monitor: monitor)
     }
 
     private func updateActiveLine() {
@@ -493,25 +495,27 @@ final class ProseTextView2: NSTextView {
         //   DispatchWorkItem on main. A typing burst collapses to ONE
         //   reparse at the end of the quiet window.
         if reparseDebounceWindow > 0 {
+            let debounceWindow = max(
+                reparseDebounceWindow,
+                NoteEditorPerformancePolicy.proseReparseDebounceWindow(characterCount: string.utf16.count)
+            )
             pendingDebouncedReparse?.cancel()
             let work = DispatchWorkItem { [weak self] in
                 self?.reparseAndInvalidate()
             }
             pendingDebouncedReparse = work
             DispatchQueue.main.asyncAfter(
-                deadline: .now() + reparseDebounceWindow,
+                deadline: .now() + debounceWindow,
                 execute: work
             )
         } else {
             reparseAndInvalidate()
         }
-        Task { @MainActor in
-            AppBootstrap.shared?.activityTracker.recordInAppActivity()
-        }
+        AppBootstrap.shared?.activityTracker.recordInAppActivity()
         notifyFrictionMonitorEdit()
     }
 
-    /// Lightweight friction telemetry hook — dispatches to actor, never blocks editor.
+    /// Lightweight friction telemetry hook — batches input before crossing to the actor.
     private func notifyFrictionMonitorEdit() {
         guard let pageId, let monitor = FrictionMonitorService.shared else { return }
         let delta = lastFrictionEditDelta
@@ -524,7 +528,23 @@ final class ProseTextView2: NSTextView {
             kind: kind,
             timestampMs: Int64(Date().timeIntervalSince1970 * 1000)
         )
-        Task.detached(priority: .utility) { await monitor.record(event) }
+        enqueueFrictionEvent(event, monitor: monitor)
+    }
+
+    private func enqueueFrictionEvent(
+        _ event: EditorTelemetryEvent,
+        monitor: FrictionMonitorService
+    ) {
+        pendingFrictionEvents.append(event)
+        guard frictionFlushTask == nil else { return }
+        frictionFlushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(50))
+            guard !Task.isCancelled, let self else { return }
+            let events = self.pendingFrictionEvents
+            self.pendingFrictionEvents.removeAll(keepingCapacity: true)
+            self.frictionFlushTask = nil
+            await monitor.record(events)
+        }
     }
 
     /// Reparse structure, apply link attributes to storage, invalidate layout.
@@ -2414,7 +2434,19 @@ final class RenderedTableOverlayManager2 {
 
 enum NoteEditorPerformancePolicy {
     nonisolated static let proseReparseDebounceWindow: TimeInterval = 0.08
-    static let renderedTableOverlayRefreshDelay: Duration = .milliseconds(120)
+    nonisolated static func proseReparseDebounceWindow(characterCount: Int) -> TimeInterval {
+        switch characterCount {
+        case ..<20_000:
+            proseReparseDebounceWindow
+        case ..<80_000:
+            0.16
+        default:
+            0.28
+        }
+    }
+
+    static let renderedTableOverlayRefreshDelay: Duration = .milliseconds(220)
+    static let transclusionOverlayRefreshDelay: Duration = .milliseconds(160)
     static let scrollOverlayRefreshDelay: Duration = .milliseconds(40)
     static let scrollWorkCoalescingDelay: Duration = .milliseconds(16)
     static let overlayViewportPaddingMultiplier = 1

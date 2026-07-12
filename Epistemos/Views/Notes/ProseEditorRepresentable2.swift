@@ -298,6 +298,8 @@ extension ProseEditorRepresentable2 {
         var bindingSyncTask: Task<Void, Never>?
         var hasPendingBindingSync = false
         var isFlushingTokens = false
+        private var bindingSyncRevision: UInt64 = 0
+        private var bindingSyncWorkerGeneration: UInt64 = 0
 
         // Table alignment
         var tableAlignTask: Task<Void, Never>?
@@ -307,6 +309,8 @@ extension ProseEditorRepresentable2 {
 
         // Data detection
         private var dataDetectionTask: Task<Void, Never>?
+        private var dataDetectionRevision: UInt64 = 0
+        private var dataDetectionWorkerGeneration: UInt64 = 0
 
         // Patch 7 / AMBIENT_RECALL_WIRING_PLAN §5 — Contextual Shadows recall
         // debounce. Cancelled on every keystroke so a fresh request always
@@ -470,9 +474,9 @@ extension ProseEditorRepresentable2 {
             }
 
             // 3. Cancel pending tasks + clear overlays
-            bindingSyncTask?.cancel()
+            cancelBindingSyncWorker()
             tableAlignTask?.cancel()
-            dataDetectionTask?.cancel()
+            cancelDataDetectionWorker()
             transclusionManager?.removeAll()
             renderedTableOverlayManager?.removeAll()
             blockRefAutocomplete?.dismiss()
@@ -623,8 +627,7 @@ extension ProseEditorRepresentable2 {
 
             // Cancel pending tasks FIRST — prevents races where a debounced sync
             // fires mid-dismantle and writes to the binding during teardown.
-            bindingSyncTask?.cancel()
-            bindingSyncTask = nil
+            cancelBindingSyncWorker()
             recallDebounceTask?.cancel()
             recallDebounceTask = nil
             scrollOverlayRefreshCoalescer.cancel()
@@ -643,7 +646,7 @@ extension ProseEditorRepresentable2 {
             // Persist through the page flush callback (disk + BlockMirror + dirty flag).
             persistCurrentTextIfNeeded()
             tableAlignTask?.cancel()
-            dataDetectionTask?.cancel()
+            cancelDataDetectionWorker()
             blockEditTranslator = nil
             transclusionManager?.removeAll()
             transclusionManager = nil
@@ -724,9 +727,8 @@ extension ProseEditorRepresentable2 {
             // Fold state preserved during edits — only changes via explicit user toggle or mode switch.
 
             // ── SAVE-CRITICAL ──────────────────────────────────
-            let newText = tv.string
             hasPendingBindingSync = true
-            debouncedBindingSync(newText)
+            debouncedBindingSync()
 
             // ── NON-CRITICAL ───────────────────────────────────
 
@@ -799,8 +801,8 @@ extension ProseEditorRepresentable2 {
             renderedTableOverlayManager?.refreshAfterTextChange()
 
             scheduleTableAlignment(tv)
-            scheduleDataDetection(newText)
-            scheduleContextualShadowsRecall(newText)
+            scheduleDataDetection()
+            scheduleContextualShadowsRecall()
         }
 
         // MARK: - Contextual Shadows Recall (200ms debounce)
@@ -808,9 +810,10 @@ extension ProseEditorRepresentable2 {
         // recall query 200ms after the last keystroke. The actual encoder +
         // HNSW search runs inside `ContextualShadowsState.requestRecall`,
         // which dispatches to `Task.detached(priority: .utility)`. This hop
-        // exists only to apply the 200ms debounce + capture the snapshot.
+        // exists only to apply the 200ms debounce; it reads a bounded live
+        // cursor window after the delay and retains no full-note revision.
         // No-op when the V0 flag is OFF (state.isEnabled gates the request).
-        private func scheduleContextualShadowsRecall(_ snapshotText: String) {
+        private func scheduleContextualShadowsRecall() {
             recallDebounceTask?.cancel()
             // Skip the work entirely when the V0 flag is unset — saves the
             // 200ms hop on the steady-state hot path. AppBootstrap is the
@@ -834,7 +837,7 @@ extension ProseEditorRepresentable2 {
                 // typed more during the debounce window. A cursor-local window
                 // prevents older paragraphs from pinning recall to the same
                 // stale note list.
-                let liveText = self.contextualRecallText(fallback: snapshotText)
+                guard let liveText = self.contextualRecallText() else { return }
                 let snapshot = RecallContextSnapshot(
                     text: liveText,
                     kind: .note,
@@ -849,17 +852,17 @@ extension ProseEditorRepresentable2 {
             }
         }
 
-        private func contextualRecallText(fallback: String) -> String {
-            guard let textView else { return fallback }
+        private func contextualRecallText() -> String? {
+            guard let textView else { return nil }
             let string = textView.string as NSString
-            guard string.length > 0 else { return fallback }
+            guard string.length > 0 else { return nil }
 
             let selectedRange = textView.selectedRange()
             let selectedEnd = min(max(0, selectedRange.location + selectedRange.length), string.length)
             let leadingContext = 700
             let start = max(0, selectedEnd - leadingContext)
             let end = selectedEnd
-            guard end > start else { return fallback }
+            guard end > start else { return nil }
             return string.substring(with: NSRange(location: start, length: end - start))
         }
 
@@ -1331,46 +1334,87 @@ extension ProseEditorRepresentable2 {
 
         // MARK: - Data Detection (1s debounce)
 
-        private func scheduleDataDetection(_ text: String) {
-            dataDetectionTask?.cancel()
+        private func scheduleDataDetection() {
+            dataDetectionRevision &+= 1
+            guard dataDetectionTask == nil else { return }
+            dataDetectionWorkerGeneration &+= 1
+            let workerGeneration = dataDetectionWorkerGeneration
             dataDetectionTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(1))
-                guard let self, !Task.isCancelled else { return }
-                let items = await DataDetectionService.detectAsync(in: text)
-                guard !Task.isCancelled else { return }
-                guard let tv = self.textView, let storage = tv.textStorage else { return }
-                guard storage.string == text else { return }
-                let fullRange = NSRange(location: 0, length: storage.length)
-                storage.enumerateAttribute(DataDetectionService.detectedDataKey, in: fullRange) { val, range, _ in
-                    guard val != nil else { return }
-                    storage.removeAttribute(DataDetectionService.detectedDataKey, range: range)
-                    storage.removeAttribute(.underlineStyle, range: range)
-                    storage.removeAttribute(.underlineColor, range: range)
+                guard let self else { return }
+                defer {
+                    if self.dataDetectionWorkerGeneration == workerGeneration {
+                        self.dataDetectionTask = nil
+                    }
                 }
-                let isDark = self.parent.theme.isDark
-                DataDetectionService.styleDetectedRanges(in: storage, items: items, isDark: isDark)
+                while !Task.isCancelled {
+                    let scheduledRevision = self.dataDetectionRevision
+                    try? await Task.sleep(for: .seconds(1))
+                    guard !Task.isCancelled else { break }
+                    guard scheduledRevision == self.dataDetectionRevision else { continue }
+                    guard let storage = self.textView?.textStorage else { break }
+                    let text = storage.string
+                    let items = await DataDetectionService.detectAsync(in: text)
+                    guard !Task.isCancelled else { break }
+                    guard scheduledRevision == self.dataDetectionRevision,
+                          storage.string == text else { continue }
+                    let fullRange = NSRange(location: 0, length: storage.length)
+                    storage.enumerateAttribute(DataDetectionService.detectedDataKey, in: fullRange) { val, range, _ in
+                        guard val != nil else { return }
+                        storage.removeAttribute(DataDetectionService.detectedDataKey, range: range)
+                        storage.removeAttribute(.underlineStyle, range: range)
+                        storage.removeAttribute(.underlineColor, range: range)
+                    }
+                    let isDark = self.parent.theme.isDark
+                    DataDetectionService.styleDetectedRanges(in: storage, items: items, isDark: isDark)
+                    break
+                }
             }
+        }
+
+        private func cancelDataDetectionWorker() {
+            dataDetectionWorkerGeneration &+= 1
+            dataDetectionTask?.cancel()
+            dataDetectionTask = nil
         }
 
         // MARK: - Binding Sync (300ms debounce)
         // Coalesces rapid keystrokes so SwiftUI @Binding updates at most ~3×/second.
         // Prevents per-keystroke view tree re-evaluation.
 
-        func debouncedBindingSync(_ newText: String) {
-            bindingSyncTask?.cancel()
+        func debouncedBindingSync() {
+            bindingSyncRevision &+= 1
+            guard bindingSyncTask == nil else { return }
+            bindingSyncWorkerGeneration &+= 1
+            let workerGeneration = bindingSyncWorkerGeneration
             bindingSyncTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(300))
-                guard !Task.isCancelled, let self else { return }
-                guard !self.isFlushingTokens else { return }
-                self.syncBinding(to: newText)
-                self.bindingSyncTask = nil
+                guard let self else { return }
+                defer {
+                    if self.bindingSyncWorkerGeneration == workerGeneration {
+                        self.bindingSyncTask = nil
+                    }
+                }
+                while !Task.isCancelled {
+                    let scheduledRevision = self.bindingSyncRevision
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { break }
+                    guard scheduledRevision == self.bindingSyncRevision else { continue }
+                    guard !self.isFlushingTokens else { continue }
+                    guard let text = self.textView?.string else { break }
+                    self.syncBinding(to: text)
+                    break
+                }
             }
+        }
+
+        private func cancelBindingSyncWorker() {
+            bindingSyncWorkerGeneration &+= 1
+            bindingSyncTask?.cancel()
+            bindingSyncTask = nil
         }
 
         /// Flush binding immediately — called by accept/discard to persist AI changes.
         func flushBindingSync(force: Bool = false) {
-            bindingSyncTask?.cancel()
-            bindingSyncTask = nil
+            cancelBindingSyncWorker()
             guard let tv = textView else { return }
             let text = tv.string
             guard force || hasPendingBindingSync || text != lastSyncedText else { return }

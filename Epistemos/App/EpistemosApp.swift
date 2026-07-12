@@ -77,6 +77,7 @@ private struct HomeSceneRootContent: View {
     let bootstrap: AppBootstrap
     @Binding var showQuickCapture: Bool
     @State private var setupComplete = UserDefaults.standard.bool(forKey: setupCompleteKey)
+    @State private var didRunKokoroLaunchProof = false
     // ISSUE-2026-05-12-002 — post-setup vault re-prompt. Per-launch
     // flag that resets when the app cold-starts; lets the user dismiss
     // the re-prompt this session if they really want to use the app
@@ -219,6 +220,7 @@ private struct HomeSceneRootContent: View {
                         modelContainer: bootstrap.modelContainer,
                         physicsCoordinator: bootstrap.physicsCoordinator
                     )
+                    runKokoroLaunchProofIfRequested()
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(500))
                         await bootstrap.performPrimaryLaunchInitialization()
@@ -260,6 +262,45 @@ private struct HomeSceneRootContent: View {
         UserDefaults.standard.set(true, forKey: Self.setupCompleteKey)
         bootstrap.uiState.needsSetup = false
         setupComplete = true
+    }
+
+    private func runKokoroLaunchProofIfRequested() {
+        guard !didRunKokoroLaunchProof else { return }
+        guard KokoroLaunchProof.shouldRun() else { return }
+        didRunKokoroLaunchProof = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(700))
+            KokoroLaunchProof.run()
+        }
+    }
+}
+
+@MainActor
+private enum KokoroLaunchProof {
+    static let argument = "--epistemos-run-kokoro-proof-on-launch"
+    static let defaultsKey = "epistemos.voice.runKokoroProofOnLaunchOnce"
+    private static let log = Logger(subsystem: "com.epistemos", category: "Speech.RuntimeProof")
+    private static let phrase = "Epistemos Kokoro English voice proof is ready."
+
+    static func shouldRun(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        arguments.contains(argument) || defaults.bool(forKey: defaultsKey)
+    }
+
+    static func run(defaults: UserDefaults = .standard) {
+        if defaults.bool(forKey: defaultsKey) {
+            defaults.set(false, forKey: defaultsKey)
+        }
+        log.notice("Kokoro launch proof requested phraseLanguage=en")
+        EpistemosSpeechSynthesizer.logTextToSpeechReadiness(context: "launch-voice-proof")
+        let utteranceID = EpistemosAgentReadAloud.speak(phrase)
+        if let utteranceID {
+            log.notice("Kokoro launch proof queued utteranceID=\(utteranceID, privacy: .public)")
+        } else {
+            log.error("Kokoro launch proof failedToQueue")
+        }
     }
 }
 
@@ -1091,11 +1132,31 @@ enum KnowledgeGraphShortcutDispatcher {
             if HologramController.shared.isVisible {
                 HologramController.shared.hide()
             }
+            ensureEmbeddedGraphLoadStarted(bootstrap: bootstrap)
             bootstrap.uiState.homeTab = .home
             bootstrap.uiState.setActivePanel(.home)
             HomeWindowIdentity.surfaceHomeWindow()
             setEmbeddedGraphVisible(true, bootstrap: bootstrap, reduceMotion: reduceMotion)
         }
+    }
+
+    private static func ensureEmbeddedGraphLoadStarted(bootstrap: AppBootstrap) {
+        let graphState = bootstrap.graphState
+        guard bootstrap.vaultSync.vaultURL != nil else {
+            graphState.resetForVaultLifecycle()
+            return
+        }
+        if !graphState.isLoaded {
+            graphState.shouldSnapNextGlobalRecommitCamera = true
+            let modelContainer = bootstrap.modelContainer
+            Task(priority: .utility) {
+                await graphState.loadGraph(container: modelContainer)
+            }
+            return
+        }
+        guard graphState.needsRefresh else { return }
+        graphState.deferStructuralRefreshUntilGraphIsVisible()
+        graphState.requestRecommit()
     }
 
     private static func setEmbeddedGraphVisible(
@@ -1129,10 +1190,30 @@ private enum KnowledgeGraphKeyEventMonitor {
     }
 }
 
+@MainActor
+private final class TerminationDataFlushDeadline {
+    private var result: Bool?
+    private var waiters: [CheckedContinuation<Bool, Never>] = []
+
+    func resolve(_ result: Bool) {
+        guard self.result == nil else { return }
+        self.result = result
+        let currentWaiters = waiters
+        waiters.removeAll()
+        currentWaiters.forEach { $0.resume(returning: result) }
+    }
+
+    func value() async -> Bool {
+        if let result { return result }
+        return await withCheckedContinuation { waiters.append($0) }
+    }
+}
+
 final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private static let isRunningTests =
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private var didTeardown = false
+    private var terminationFlushTask: Task<Void, Never>?
     private static let showQuitDialogKey = "epistemos.showSaveOnQuitDialog"
 
     /// Local keyDown monitor for ⌘G that toggles the graph overlay even when
@@ -1268,30 +1349,85 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if terminationFlushTask != nil {
+            return .terminateLater
+        }
         guard showSaveOnQuitDialogEnabled else {
-            performTeardown()
-            return .terminateNow
+            beginTerminationDataFlush()
+            return .terminateLater
         }
         let hasOpenNotes = !NoteWindowManager.shared.orderedPageIds().isEmpty
         let hasOpenChats = false
         let hasGraphWork = AppBootstrap.shared?.graphState.currentRoute != .canvas
             || HologramController.shared.isVisible
         guard hasOpenNotes || hasOpenChats || hasGraphWork else {
-            performTeardown()
-            return .terminateNow
+            beginTerminationDataFlush()
+            return .terminateLater
         }
 
         // Show a floating save panel above ALL windows (note editors, mini chats, etc.).
         // Borderless panel with frosted glass blur and rounded corners.
         QuitSavePanelController.showQuitSave { [weak self] shouldQuit in
             if shouldQuit {
-                self?.performTeardown()
-                NSApp.reply(toApplicationShouldTerminate: true)
+                self?.beginTerminationDataFlush()
             } else {
                 NSApp.reply(toApplicationShouldTerminate: false)
             }
         }
         return .terminateLater
+    }
+
+    private func beginTerminationDataFlush() {
+        guard terminationFlushTask == nil else { return }
+        terminationFlushTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let deadline = TerminationDataFlushDeadline()
+            let flushTask = Task { @MainActor [weak self] in
+                let saved = await self?.flushUserDataForTermination() ?? false
+                deadline.resolve(saved)
+            }
+            let timeoutTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(12))
+                guard !Task.isCancelled else { return }
+                deadline.resolve(false)
+            }
+            let allSaved = await deadline.value()
+            timeoutTask.cancel()
+            if !allSaved {
+                Logger(subsystem: "com.epistemos", category: "Termination")
+                    .error("Quit data flush was incomplete or exceeded 12 seconds; recovery drafts were retained")
+            }
+            flushTask.cancel()
+            self.performTeardown()
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+    }
+
+    @MainActor
+    private func flushUserDataForTermination() async -> Bool {
+        EpdocEditorSavePipeline.flushAllForShutdown()
+        let openPageIds = NoteWindowManager.shared.orderedPageIds()
+        for pageId in openPageIds {
+            NoteFileStorage.requestFlush(pageId: pageId)
+        }
+
+        var allSaved = await NoteWorkspaceFinalFlushRegistry.shared.flushAllSurfaces()
+        if !(await MarkdownDocumentSurfaceSaveRegistry.shared.flushAllSurfaces()) {
+            allSaved = false
+        }
+        if let bootstrap = AppBootstrap.shared {
+            if !(await bootstrap.vaultSync.drainFileFirstSaveTails()) {
+                allSaved = false
+            }
+            if let dirtySaveTask = bootstrap.vaultSync.saveAllDirtyPages() {
+                await dirtySaveTask.value
+            }
+            if !(await bootstrap.vaultSync.drainFileFirstSaveTails()) {
+                allSaved = false
+            }
+        }
+        NoteFileStorage.flushAllPendingBodiesForShutdown()
+        return allSaved
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -1329,12 +1465,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
         RuntimeIssueMonitor.shared.stop(reason: "application_teardown")
         HomeWindowInputDiagnostics.shared.stop()
-        #if EPISTEMOS_EXPERIMENTAL
-        // Reap the embedded 1Code headless backend on a clean quit — otherwise the
-        // node child survives until the next-launch child-ledger sweep (leak found
-        // live 2026-07-05). stop() sends SIGTERM; the backend's own handler exits.
-        ExperimentalRuntimeSupervisor.shared.stop()
-        #endif
         guard let bootstrap = AppBootstrap.shared else { return }
         bootstrap.teardownRuntimeObservers()
         bootstrap.activityTracker.stopTracking()
@@ -1461,8 +1591,6 @@ extension Notification.Name {
     static let showQuitSavePanel = Notification.Name("epistemos.showQuitSavePanel")
     static let proceedWithQuit = Notification.Name("epistemos.proceedWithQuit")
     static let showQuickCapture = Notification.Name("epistemos.showQuickCapture")
-    /// Reopen a Work session from a recent-session row.
-    static let openWorkSession = Notification.Name("epistemos.openWorkSession")
 }
 
 struct EpistemosCommands: Commands {
@@ -1517,6 +1645,18 @@ struct EpistemosCommands: Commands {
                 NSApp.activate()
             }
             .keyboardShortcut(",", modifiers: .command)  // GAP-21: standard macOS Settings shortcut
+
+            Button("Open Voice Settings") {
+                UtilityWindowManager.shared.showSettings(section: .voice)
+                NSApp.activate()
+            }
+
+            Button("Read Visible Surface") {
+                Task { @MainActor in
+                    _ = EpistemosAgentReadAloud.readVisibleSurface()
+                }
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
         }
 
         CommandGroup(replacing: .newItem) {

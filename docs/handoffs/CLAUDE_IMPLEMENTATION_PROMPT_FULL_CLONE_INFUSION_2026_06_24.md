@@ -1,6 +1,6 @@
 # Claude Implementation Prompt - Full Clone Infusion And Pruning Overhaul - 2026-06-24
 
-> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** An implementation prompt for the DEAD clone-infusion/reskin-Goose-surface approach. The agent surface is OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** An implementation prompt for the DEAD clone-infusion/reskin-Goose-surface approach. current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > 🛑 **SUPERSEDED 2026-06-29 — DO NOT PASTE THIS.** This is a stale 2026-06-24 paste-prompt; its authority chain
 > (full-clone infusion / Osaurus Act engine / native-shell-with-donor-engines) is entirely 06-24 docs and has been

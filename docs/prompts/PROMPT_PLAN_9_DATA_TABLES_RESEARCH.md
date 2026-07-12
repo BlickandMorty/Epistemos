@@ -2,10 +2,14 @@
 
 > ✅ **RESEARCH COMPLETE — this prompt has been fulfilled.** 4 dossiers returned
 > (3 GPT singletons + the owner's Claude synthesis, weighted spine), adjudicated and
-> clone-verified in `docs/research/PLAN9_ADJUDICATION_WORKING_2026_07_03.md`. **The
-> canonical, buildable plan is [`PROMPT_PLAN_9_DATA_TABLES.md`](PROMPT_PLAN_9_DATA_TABLES.md)
-> — build from THAT.** This file remains as the owner-intent frame (§0 locked decisions)
-> the plan inherits.
+> clone-verified in `docs/research/PLAN9_ADJUDICATION_WORKING_2026_07_03.md`.
+> 🔴 **SUPERSEDED BY 2026-07-06 RECKONER RESHAPE.** Do not paste this older prompt to a
+> researcher as current canon. The canonical, buildable plan is
+> [`PROMPT_PLAN_9_DATA_TABLES.md`](PROMPT_PLAN_9_DATA_TABLES.md), and the current external
+> research prompt is [`RESEARCH_PROMPT_PLAN_9_RECKONER.md`](RESEARCH_PROMPT_PLAN_9_RECKONER.md).
+> This file remains historical owner-intent only; its dedicated Data room, GRDB-as-truth, and
+> Pro/OpenChamber framing are superseded. As of `MAS-ONLY-SHIP-LOCK-2026-07-07`, any reused
+> research must target MAS/June only.
 
 Paste-to-external-deep-research-agent prompt. The canonical Plan 9 gets written FROM the
 dossier this produces (same pattern as the OpenChamber/MAS research). Owner decisions are
@@ -25,11 +29,10 @@ the app's local vault, with no server and no heavy backend.
 - Epistemos = a native **macOS** research/PKM app. Swift (SwiftUI + AppKit) + **Rust**
   (crate `agent_core`, exposed to Swift via **UniFFI**) + **GRDB/SQLite** for the local
   vault + a knowledge graph. Ships WKWebViews already (a Tiptap editor, KaTeX).
-- **Two builds:** MAS (Mac App Store — App Sandbox + hardened runtime, **no subprocess, no
-  local server binary**) and Pro (Developer ID — subprocess OK).
-- **Two agent surfaces** the Data tab must work with: **MAS = "June" + `agent_core`
-  in-process** (sandbox-legal, no subprocess); **Pro = OpenChamber + goose/OpenCode**.
-  Both consume agent tools via an app-hosted MCP / `agent_core` tool seam.
+- **Active build:** MAS (Mac App Store — App Sandbox + hardened runtime, **no subprocess, no
+  local server binary**). Experimental/1Code is parked.
+- **Current agent surface** the dataset tools must work with: **MAS = "June" +
+  `agent_core` in-process** (sandbox-legal, no subprocess). OpenChamber/ProAgent are deletion targets.
 - Keys in Keychain. On-device Apple frameworks available (Vision, PDFKit, Swift Charts,
   Foundation Models on macOS 26).
 
@@ -50,9 +53,10 @@ the app's local vault, with no server and no heavy backend.
    only where native provably sacrifices functionality.** Map the exact native ceiling.
 5. **Agent-native** (the differentiator): the companion agent can **restructure the entire
    database via prompt** (create/alter tables, fields, types, links, views; bulk
-   transforms; populate); there is a **chat surface in the Data tab**; and it **ingests
+   transforms; populate); current agent surfaces can chat about the dataset in context; and it **ingests
    structured + unstructured data** (receipts/PDFs/pasted text/CSV) into typed records.
-   This must work on **BOTH** agent builds (MAS in-process `agent_core` + Pro goose/OpenCode).
+   This must work on **BOTH** current agent builds (MAS in-process `agent_core` +
+   Experimental/1Code/KINDRED).
 6. **No heavy server, no Postgres, no subprocess on MAS.** The "heaviness" of Teable/
    Baserow (Postgres + Django/Node servers) is replaced by the app's **embedded SQLite/
    GRDB**. That's how we supersede them without their weight.
@@ -98,15 +102,14 @@ Baserow (Django registry pattern) model fields/views/links and reimplement on SQ
 **Code:** the SQLite/GRDB schema (tables/fields/records/links/views) + how a formula field
 routes through the engine.
 
-**Q4 — The agent layer: natural-language DB restructuring + chat, on BOTH builds.** Define
+**Q4 — The agent layer: natural-language DB restructuring + MAS-June assist.** Define
 the **agent tool/function schema** for structural ops (`create_table`, `add_field`,
 `change_field_type`, `add_link`, `create_view`, `bulk_transform`, `populate_records`,
 `rename`, `delete`…) that the companion calls. Because NL structural ops are **destructive**,
 specify a **safety pattern: preview/dry-run → confirm → apply → undo** (schema migrations
-with rollback). Show how the SAME tool surface is driven **in-process on MAS via
-`agent_core` (sandbox-legal, no subprocess)** and on **Pro via goose/OpenCode** (the
-app-hosted MCP). Define the **chat surface** in the Data tab (talk to/about the data;
-results render as tables/edits). **Code:** the tool/function schema (JSON), the Swift/Rust
+with rollback). Show how the tool surface is driven **in-process on MAS via
+`agent_core` (sandbox-legal, no subprocess)**. Define the existing MAS-June agent-surface chat/tool entry (talk to/about the data; results
+render as tables/edits), not a separate Data-tab chat. **Code:** the tool/function schema (JSON), the Swift/Rust
 execution path, and the dry-run+undo pattern.
 
 **Q5 — Ingest: structured + unstructured → typed records (MAS-legal).** Design the pipeline
@@ -131,10 +134,10 @@ systems, linked-records, filter/sort/group engines, and registry/plugin patterns
 specifically to emulate to *supersede them without the server heaviness*. Airtable/Notion/
 Coda as UX reference for the hybrid + agent + inline-DB feel.
 
-**Q8 — MAS/Pro + verification.** Confirm the ALL-embedded stack (SQLite/GRDB + IronCalc/
+**Q8 — MAS/Experimental + verification.** Confirm the ALL-embedded stack (SQLite/GRDB + IronCalc/
 Univer + native/web views + agent via `agent_core`/MCP + Vision OCR) is fully
 **MAS-sandbox-legal** (no server, no subprocess, no forbidden entitlements). Confirm every
-license. Flag anything that needs a server or is Pro-only. Confirm the agent DB-ops + chat
+license. Flag anything that needs a server or is Developer-ID/Experimental-only. Confirm the agent DB-ops + chat
 + ingest all run in-process on the MAS June build.
 
 ## Deliverable format (be rigorous)
@@ -152,8 +155,9 @@ license. Flag anything that needs a server or is Pro-only. Confirm the agent DB-
 - **Open questions for the owner.**
 
 ## Critical constraints (repeat for the researcher)
-- Native macOS, Swift + Rust(UniFFI) + GRDB/SQLite; two builds (MAS sandboxed / Pro
-  Developer-ID); two agent surfaces (MAS June+agent_core in-process / Pro goose+OpenCode).
+- Native macOS, Swift + Rust(UniFFI) + GRDB/SQLite; two builds (MAS sandboxed /
+  Experimental Developer-ID); two current agent surfaces (MAS June+agent_core in-process /
+  Experimental/1Code/KINDRED).
 - **No server, no Postgres, no subprocess on MAS. Embed everything.**
 - "As native as possible **without sacrificing functionality**" — map the native ceiling;
   native frame always; web only where native provably loses functionality.
@@ -169,4 +173,4 @@ license. Flag anything that needs a server or is Pro-only. Confirm the agent DB-
 - **Destructive NL DB ops** need a real preview/undo/rollback story.
 - The agent (restructure + chat + ingest) must run **in-process on the MAS build** — verify
   each piece is sandbox-legal (esp. OCR via Apple Vision, not a cloud/subprocess dependency).
-- Note anything that is genuinely Pro-only vs MAS-safe.
+- Note anything that is genuinely Developer-ID/Experimental-only vs MAS-safe.

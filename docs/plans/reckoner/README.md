@@ -19,6 +19,13 @@ Contents:
 - HANDOFF_CARDS.md — 5 cross-plan seam cards (LUMENLENS, KINDRED, KEELSTONE,
   graph, ledger) with owner/contract/gating.
 
+Post-handoff polish (Codex, 2026-07-06): the package has been reconciled so the
+main plan, build prompt, and copy-prone spine bodies match the audit amendments
+directly. Builders should still read `RECKONER_REVIEW_2026_07_06.md` first, but
+they no longer need to mentally merge stale body text with corrective headers for
+IronCalc wasm facts, chart primacy, edit interception, embed node shape, tool
+registration, or tabular provenance.
+
 Anti-drift: files here reference EPI-RP-02-LUMENLENS, EPI-RP-05-KINDRED, and
 EPI-RP-07-KEELSTONE only inside explicitly marked "Dependencies / hand-off seam"
 sections, per RESEARCH_PROMPT_STANDARD §2.2. The sibling plans are consumed as

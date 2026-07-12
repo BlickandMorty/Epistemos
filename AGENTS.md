@@ -1,5 +1,23 @@
 # Epistemos — Engineering Bible
 
+## MAS-Only Strategic Pivot — 2026-07-07
+
+Instruction lock ID: `MAS-ONLY-SHIP-LOCK-2026-07-07`.
+
+Current owner strategy is Mac App Store first and Mac App Store only. Before
+acting on any plan prompt, read
+`docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md`. Treat MAS/June as the
+only active agent/product target. Pro, Developer-ID, Experimental, 1Code,
+OpenChamber, and Kindred runtime work are parked unless the owner explicitly
+reopens them in a later dated directive.
+
+Preserve useful ideas from parked lanes only by rebuilding them through the MAS
+architecture: `Epistemos-AppStore`, App Sandbox, security-scoped vault access,
+Keychain secrets, in-process `agent_core`, June, native Swift/AppKit/SwiftUI,
+and bundled WKWebView assets. No hidden sidecar, runtime subprocess, local
+server, terminal/code-exec tool, stdio MCP, Node backend, or browser-use
+Chromium path belongs to the active MAS plan.
+
 ## Golden Rules (non-negotiable)
 
 1. **Zero copy-paste.** If code exists, call it. If two things look similar, extract a shared function. Three similar lines is better than a premature abstraction, but four is not.
@@ -12,8 +30,8 @@
 8. **Research-first.** For every concept, deliberation, task, refactor, reroute,
    reduction, bug fix, or simple edit, search the local canon before coding:
    start at `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`, follow the
-   canonical source it names, then verify current code/logs. Use a quick local
-   pass for simple edits and a deeper pass for architecture/high-risk work; do
+   canonical source it names, then verify current code/logs. Use a focused
+   local pass for simple edits and a deeper pass for architecture/high-risk work; do
    not waste tokens reading unrelated docs. If the local canon lacks a
    structured answer or the task depends on current external facts (API, OS,
    package, model, App Store, security, framework), do a targeted web
@@ -22,7 +40,104 @@
    Codex, Claude, Kimi, and every delegated agent handoff. Use semantic
    expansion: "zero-copy" also means UMA, in-process, single-binary,
    deterministic, no hot-path subprocess, no tensor copies, direct/bare-metal
-   path, and "as complex as a brain, as simple as an app, as fast as a jet."
+   path, and "as complex as a brain, as simple as an app, as responsive as a jet."
+
+## Deep Reasoning And Verification Discipline
+
+Instruction lock ID: `OWNER-INTENT-HARDENING-LOCK-2026-07-07`.
+If a user or agent invokes this ID, re-read this section, the active feature
+prompt/plan, relevant memory links, `agentic-engineering-protocol`, and
+`deep-hardening-loop` before editing.
+
+Do not optimize for the appearance of immediacy on substantive work. For
+multi-file, architecture, UI/UX, agent/runtime, data-loss, release, or
+root-instruction tasks, prefer deep source reading, semantic local research,
+contradiction checks, deliberate tool/skill selection, implementation batches,
+and evidence sized to the claim. Before editing on those tasks, state the
+current goal, hard constraints, done bar, and verification plan; keep a short
+running checklist when work spans multiple steps.
+
+Owner intent intake is mandatory for substantive work, especially when the
+owner writes in prose, brain-dump form, frustration, or steering corrections.
+Maintain an intent checkpoint in the active progress/evidence doc, or create a
+scoped `INTENT_LEDGER.md` next to the active feature docs if no such file
+exists. Each checkpoint must preserve the owner's verbatim query or exact
+excerpt, the interpreted intent, hard constraints, non-goals, acceptance
+checks, contradictions/questions, and the next action. Every later owner steer
+updates this ledger before the next implementation edit.
+
+Interpret owner words with their real product weight. In UI/product work,
+terms such as `revamp`, `upgrade`, `refactor`, `V2`, `new stack`, `replace`,
+`whole new thing`, and `not a wrapper/reskin/polish` mean structural and
+visible replacement of the relevant component/route/behavior unless the owner
+explicitly narrows the ask. Do not translate those words into wrapper divs,
+token-only changes, shallow polish, or package-presence proof.
+
+Use surgical edits by default. Before editing, read the target file and the
+nearby contract it participates in. After editing, re-read the changed region
+and inspect the diff. Full-file replacement is allowed only when the active
+plan explicitly requires it or the agent has mapped the old/new ownership,
+blast radius, tests, and rollback path.
+
+Verification may be batched during long implementation sessions when the owner
+asks for more coding between builds/tests. Batching means keeping a running
+verification-debt ledger of deferred commands, files touched, risk reason,
+expected proof, and checkpoint trigger, then running the relevant narrow and
+broad checks at a meaningful stopping point. It never means skipping evidence,
+claiming completion without tests, or ignoring risky/shared behavior that needs
+an immediate narrow check. Never run competing `xcodebuild` jobs concurrently.
+
+Before changing files on substantive work, complete a grounding pass:
+- search local canon with semantic expansion, not only exact words
+- read the target files, nearby call sites, tests, fixtures, build scripts, and
+  feature docs that define the behavior
+- inspect current code/logs instead of relying on memory or older prompt stacks
+- use applicable local skills and record which were used or why a relevant one
+  was skipped
+- validate current or external facts with targeted web research using
+  primary/official sources where possible, especially for APIs, OS behavior,
+  packages, models, App Store policy, security, frameworks, and UI libraries
+- for UI/UX work, research the active app surface plus current robust reference
+  implementations, component libraries, design-system docs, and popular repos
+  before choosing a stack or component grammar
+
+The owner's standing preference is that serious work must not be called done
+after an abbreviated or shallow pass. If meaningful research, implementation,
+and evidence have not happened, say the work is incomplete, leave a checkpoint,
+and continue rather than presenting completion. Narrow mechanical edits, direct
+command answers, and one-line fixes do not need artificial delay, but they
+still require reading the file being changed.
+
+Use applicable local skills and tools when they fit the task. Examples:
+`agentic-engineering-protocol` for reasoning/instruction upgrades,
+`thermo-nuclear-code-quality-review` for major refactor quality,
+`Recursive App Audit` for app-wide regression loops, `Epistemos Release Audit`
+for release-readiness claims, and browser/computer-use/runtime tooling for
+visual or manual evidence. Skills are not decoration; when a task matches one,
+load its instructions before acting.
+
+After editing, perform a self-audit before claiming completion: inspect the
+diff, search for contradictions or stale directives, run relevant tests/builds
+or source guards, collect runtime/manual evidence when behavior or visuals
+changed, and state any unproven area. Build green or source guards alone are
+not enough for broad product, release, architecture, or visual-completion
+claims.
+
+When a feature plan, implementation phase, or refactor appears complete, do not
+stop at the last checklist item. Treat completion as the start of continuing
+hardening until the owner explicitly stops or a real blocker prevents useful
+progress. Invoke `deep-hardening-loop` and combine it with
+`thermo-nuclear-code-quality-review`, `Recursive App Audit`, `Epistemos Release
+Audit`, Playwright/browser/screenshot tooling, and security skills as the
+scope warrants. Keep the loop focused on the implemented scope, seams, tests,
+evidence, docs, release risk, and regression surface; do not absorb unrelated
+feature scope.
+
+Scoped feature directives live outside this root file. If and only if the task
+explicitly concerns Experimental/1Code visible agent renderer replacement, read
+`THE_R_PLAN.md`, `THE_R_RESEARCH_BACKLOG.md`, and `THE_R_FULL_LOOP_PROMPT.md`.
+Do not apply those feature-specific steps to unrelated Keelstone, LumenLens,
+Kindred, runtime, model, vault, editor, release, research, or docs work.
 
 ## Current Architecture Addendum — 2026-06-01
 
@@ -154,8 +269,8 @@ Runtime policy:
   `docs/audits/FOCUSED_PROOF_ROOT_OWNER_APPROVAL_RUNBOOK_2026_06_08.md`.
   Do not treat command-card/parser PASS as executed Swift tests, full
   automated-check PASS, release readiness, or Gemma product capability.
-- 2026-06-08 Gemma fast-add distinction: a model-picker/settings row can be
-  added quickly only as honest gated visibility. Gemma as the main app model is
+- 2026-06-08 Gemma settings-row distinction: a model-picker/settings row can be
+  added only as honest gated visibility. Gemma as the main app model is
   a separate runtime admission claim requiring owner path, selected byte
   envelope, runtime digest, cancellation, rollback, RunEventLog, AnswerPacket,
   release-audit evidence, and user-visible caveats. Do not let a visible row
@@ -168,7 +283,7 @@ Runtime policy:
   execution-artifact parser gate, owner-approval runbook, log/manual/
   distribution/repeated-zero-fail requirements, settings/diagnostics copy,
   AnswerPacket, RunEventLog, rollback, abstention, SCOPE-Rex, SovereignGate,
-  cancellation, non-promotion, fast-row gated visibility, owner action, and
+  cancellation, non-promotion, settings-row gated visibility, owner action, and
   product-capability recheck deferral. It wires zero settings rows, runs zero
   Xcode commands, loads zero model/runtime/provider bytes, and does not make
   Gemma live/default/user-facing. Next Gemma side-ladder unit:
@@ -414,7 +529,7 @@ Runtime policy:
   facing claim. Next side-ladder unit is
   `gemma_direct_harness_owner_approved_system_g_dry_run_route_packet_gate`.
 - 2026-06-09 Gemma practical runtime cutover canon: future sessions should not
-  keep adding metadata gates without a path to runtime proof. The fastest
+  keep adding metadata gates without a path to runtime proof. The most direct
   credible T2 attempt is owner-approved E2B/E4B QAT GGUF through direct
   `llama-cli`, with no server, no network, bounded prompt/context, redacted
   first-token receipt, timeout/cancel/teardown, memory/timing samples,

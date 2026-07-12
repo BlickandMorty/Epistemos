@@ -1,6 +1,17 @@
 # PLAN 6 — Quick Capture surfacing (Swift UX over the shipped Rust substrate) build prompt (SAVED — paste later)
 
-> 🟢 **CANON BREADCRUMB — 2026-07-02 (no drift found; this doc is CLEAN).** Verified free of goose-as-surface / Option-1 / reskin-Goose / Goose-only wording. For consistency only: the agent surface is now **OpenChamber (goose + OpenCode engines)** per memory `project_ui_base_pivot_openchamber_2026_07_02`; if capture ever routes "into the agent," route to the Agent surface, not a "Goose reskin." Otherwise nothing here needs changing.
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. Quick Capture
+> now targets MAS only: Swift/AppKit/SwiftUI capture UX, vault writes, reversible
+> routing, Action Trace, NightBrain eligibility, and June seeding must all obey
+> App Store constraints. Park Pro git-sync, subprocess, Python, Developer-ID,
+> and any non-MAS routing.
+
+> 🔴 **OWNER OVERRIDE — 2026-07-06 (READ FIRST).** OpenChamber/ProAgent are deletion targets,
+> not current surfaces. The 2026-07-06 two-surface wording is superseded by the 2026-07-07
+> MAS-only lock: the active surface is **MAS/June**.
+> If capture routes "into the agent," route to the current agent surface, not a Goose reskin or
+> OpenChamber lane.
 
 > 🎨 **OWNER DESIGN DIRECTIVE — 2026-06-30 (CURRENT CANON, identical in EVERY plan):** the look = **HIGH-QUALITY FLAT · MINIMAL · THEME-AWARE · OPTIMIZED.** KEEP the Apple-native **FRAME** — rounded-corner window, vibrancy, traffic-lights, the calibrated springs (the curved-white native window the owner likes STAYS). **SURFACES (panels · buttons · lists · inputs) are FLAT + BORDERLESS:** NO thick outlines, NO hard box borders, NO 1px rules — differentiate by a subtle background tint + spacing + a very soft shadow only. NOT the old thick-outline pixel-art look, and NOT translucent-glass on every surface. **TOTAL THEME-AWARENESS:** every surface (native + editor-web + Goose-web) reads the Epistemos tokens for ALL palettes incl. the user CUSTOM palette; no hardcoded color; two-token-sources in lock-step. Full doctrine: `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
 

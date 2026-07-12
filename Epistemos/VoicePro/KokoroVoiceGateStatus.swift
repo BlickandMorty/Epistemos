@@ -31,6 +31,8 @@ nonisolated enum KokoroVoiceGateStatus {
     private static let maxManifestMetadataCharacters = 96
     private static let manifestMetadataAllowedPunctuation = CharacterSet(charactersIn: "._-")
     private static let hashReadChunkBytes = 1024 * 1024
+    private static let defaultStatusCacheLock = NSLock()
+    nonisolated(unsafe) private static var cachedDefaultStatus: Status?
     private static let requiredDurationTokenSizes: Set<Int> = [32, 64, 128, 256, 320, 384, 512]
     private static let allowedBuckets: Set<Int> = [3, 7, 10, 15, 30]
     private static let f0FrameCountsByBucket: [Int: Int] = [
@@ -89,17 +91,101 @@ nonisolated enum KokoroVoiceGateStatus {
             .appendingPathComponent("VoicePro", isDirectory: true)
     }
 
+    static func hasInstalledPackageCandidate(
+        modelRoot: URL?,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        guard let modelRoot else { return false }
+        let modelDirectory = modelRoot.appendingPathComponent(modelDirectoryName, isDirectory: true)
+        var isDirectory = ObjCBool(false)
+        return fileManager.fileExists(atPath: modelDirectory.path, isDirectory: &isDirectory)
+            && isDirectory.boolValue
+    }
+
     static func status(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         modelRoot: URL? = defaultModelRoot(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        defaults: UserDefaults = .standard
     ) -> Status {
-        guard FeatureGateOverride.resolved(overrideKey: flagName, envValue: environment[flagName]) else {
+        let usesCache = usesDefaultStatusCache(
+            environment: environment,
+            modelRoot: modelRoot,
+            fileManager: fileManager,
+            defaults: defaults
+        )
+        if usesCache,
+           let cached = defaultStatusCacheLock.withLock({ cachedDefaultStatus }) {
+            return cached
+        }
+        let resolved = computedStatus(
+            environment: environment,
+            modelRoot: modelRoot,
+            fileManager: fileManager,
+            defaults: defaults
+        )
+        if usesCache {
+            defaultStatusCacheLock.withLock {
+                cachedDefaultStatus = resolved
+            }
+        }
+        return resolved
+    }
+
+    static func invalidateDefaultStatusCache() {
+        defaultStatusCacheLock.withLock {
+            cachedDefaultStatus = nil
+        }
+    }
+
+    static func replaceDefaultStatusCache(_ status: Status, modelRoot: URL?) {
+        guard isDefaultModelRoot(modelRoot) else { return }
+        defaultStatusCacheLock.withLock {
+            cachedDefaultStatus = status
+        }
+    }
+
+    private static func usesDefaultStatusCache(
+        environment: [String: String],
+        modelRoot: URL?,
+        fileManager: FileManager,
+        defaults: UserDefaults
+    ) -> Bool {
+        fileManager === FileManager.default
+            && defaults === UserDefaults.standard
+            && environment[flagName] == ProcessInfo.processInfo.environment[flagName]
+            && isDefaultModelRoot(modelRoot)
+    }
+
+    private static func isDefaultModelRoot(_ modelRoot: URL?) -> Bool {
+        guard let requestedPath = modelRoot?.standardizedFileURL.path,
+              let defaultPath = defaultModelRoot()?.standardizedFileURL.path else {
+            return false
+        }
+        return requestedPath == defaultPath
+    }
+
+    private static func computedStatus(
+        environment: [String: String],
+        modelRoot: URL?,
+        fileManager: FileManager,
+        defaults: UserDefaults
+    ) -> Status {
+        let legacyGateEnabled = FeatureGateOverride.resolved(
+            overrideKey: flagName,
+            envValue: environment[flagName],
+            defaults: defaults
+        )
+        let installedPackageCandidate = hasInstalledPackageCandidate(
+            modelRoot: modelRoot,
+            fileManager: fileManager
+        )
+        guard legacyGateEnabled || installedPackageCandidate else {
             return Status(
                 state: .unavailable,
                 isReady: false,
-                headline: "Kokoro voice: off",
-                detail: "Turn on the Kokoro neural voice and install the checked \(upstreamRepositoryID) CoreML bundle. Off means text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
+                headline: "Kokoro voice: not installed",
+                detail: "Install the checked \(upstreamRepositoryID) CoreML bundle to enable Kokoro read-aloud. Until then, text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
             )
         }
 

@@ -347,6 +347,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         private var isDetached = false
         private var isLoadingPreview = false
         private var pendingRender: PendingRender?
+        private var activeNavigation: WKNavigation?
 
         init(
             package: HTMLWorkspacePackage,
@@ -431,7 +432,10 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             lastRenderedDataJSON = render.dataJSON
             lastInspectorProbeShellIdentity = nil
             lastPythonProbeShellIdentity = nil
-            webView.loadHTMLString(render.html, baseURL: HTMLWorkspacePreviewURL.baseURL)
+            activeNavigation = webView.loadHTMLString(
+                render.html,
+                baseURL: HTMLWorkspacePreviewURL.baseURL
+            )
         }
 
         func patchDataJSON(
@@ -476,6 +480,11 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             """
             webView.evaluateJavaScript(script) { [weak self, weak webView] result, error in
                 guard let self, let webView, !self.isDetached else { return }
+                guard !self.isLoadingPreview,
+                      !webView.isLoading,
+                      self.lastRenderedShellIdentity == shellIdentity,
+                      self.lastRenderedDataJSON == dataJSON,
+                      self.lastRenderedHTML == renderedFallbackHTML else { return }
                 if error != nil || (result as? String) != "patched" {
                     self.startRender(
                         PendingRender(
@@ -633,11 +642,11 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             _ webView: WKWebView,
             didFinish navigation: WKNavigation!
         ) {
-            finishPreviewNavigation(in: webView, didLoadPage: true)
+            finishPreviewNavigation(navigation, in: webView, didLoadPage: true)
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            finishPreviewNavigation(in: webView, didLoadPage: false)
+            finishPreviewNavigation(navigation, in: webView, didLoadPage: false)
         }
 
         func webView(
@@ -645,10 +654,16 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             didFailProvisionalNavigation navigation: WKNavigation!,
             withError error: Error
         ) {
-            finishPreviewNavigation(in: webView, didLoadPage: false)
+            finishPreviewNavigation(navigation, in: webView, didLoadPage: false)
         }
 
-        private func finishPreviewNavigation(in webView: WKWebView, didLoadPage: Bool) {
+        private func finishPreviewNavigation(
+            _ navigation: WKNavigation?,
+            in webView: WKWebView,
+            didLoadPage: Bool
+        ) {
+            guard let activeNavigation, navigation === activeNavigation else { return }
+            self.activeNavigation = nil
             isLoadingPreview = false
             guard !isDetached else { return }
             if let pendingRender {
@@ -891,6 +906,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             isDetached = true
             isLoadingPreview = false
             pendingRender = nil
+            activeNavigation = nil
             pendingAppBridgeProbeNonce = nil
             pendingConsoleProbeNonce = nil
             pendingPythonProbeNonce = nil
@@ -975,6 +991,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
 
         private func dispatchAppBridgeResponse(command: HTMLWorkspaceSafeAPI.Command, in webView: WKWebView?) {
             guard let webView, !isDetached else { return }
+            guard !isLoadingPreview, !webView.isLoading else { return }
             let response = HTMLWorkspaceSafeAPI.diagnosticMessage(for: command, package: package)
             let isSupported = command.isSupported
             let script = """

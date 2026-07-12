@@ -21,7 +21,6 @@ private enum LandingInlineCommand: Equatable {
     case workspaces
     case saveWorkspace
     case timeMachine
-    case quickChat
 
     var minStageHeight: CGFloat {
         switch self {
@@ -29,7 +28,6 @@ private enum LandingInlineCommand: Equatable {
         case .workspaces: 380
         case .saveWorkspace: 380
         case .timeMachine: 420
-        case .quickChat: 470
         }
     }
 }
@@ -96,15 +94,6 @@ struct LandingView: View {
     @State private var cursorLocation: CGPoint?
     /// Landing size, so the greeting's cursor parallax is relative to the landing center.
     @State private var landingSize: CGSize = .zero
-    // Surface A quick chat (Plan 1-MAS §2): transcript state lives at the
-    // landing level so closing the stage keeps the conversation; the GGUF
-    // engine itself is app-lifetime (LocalGGUFQuickChatBackend.shared).
-    // MAS-ONLY (owner 2026-07-04): Experimental routes agent work through
-    // HomeContent.agent.
-    #if EPISTEMOS_APP_STORE
-    @State private var quickChatController = QuickChatController()
-    @State private var quickChatDownloads = QuickChatModelDownloadManager()
-    #endif
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var landingInlineCommandSurfaceTheme: EpistemosTheme {
         LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
@@ -114,26 +103,20 @@ struct LandingView: View {
     private var showingLandingStageCommand: Bool {
         activeLandingInlineCommand != nil
     }
+    private var agentPageTitle: String {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        "June"
+        #else
+        "Agent"
+        #endif
+    }
     private var landingStageMinHeight: CGFloat {
         return activeLandingInlineCommand?.minStageHeight ?? 220
     }
 
     @ViewBuilder
     private var agentSurface: some View {
-        switch AppSurface.current {
-        case .appStore:
-            #if EPISTEMOS_APP_STORE
-            JuneAgentSurfaceView()
-            #else
-            EmptyView()
-            #endif
-        case .experimental:
-            #if EPISTEMOS_EXPERIMENTAL
-            ExperimentalSurfaceView(theme: theme)
-            #else
-            EmptyView()
-            #endif
-        }
+        JuneAgentSurfaceView()
     }
 
     // MARK: - Body
@@ -203,7 +186,7 @@ struct LandingView: View {
                     .id(ui.browserInitialURL)
                     .transition(Self.homePageTransition).zIndex(1)
             case .agent:
-                HomeEmbeddedPage(title: "Agent") {
+                HomeEmbeddedPage(title: agentPageTitle) {
                     agentSurface
                 }
                 .transition(Self.homePageTransition).zIndex(1)
@@ -288,6 +271,7 @@ struct LandingView: View {
         )
         .onAppear {
             LandingViewStateSync.reassertHomeSurface(ui)
+            registerLandingReadAloudProvider()
             scheduleWelcomeBackPresentationIfNeeded()
             #if DEBUG && !EPISTEMOS_APP_STORE
             // Repeatable agent-surface acceptance runs (Plan 1-PRO R7 phase
@@ -322,6 +306,7 @@ struct LandingView: View {
             scheduleWelcomeBackSync()
         }
         .onDisappear {
+            EpistemosVisibleReadAloudRegistry.shared.unregister(.landingHome)
             welcomeBackDismissTask?.cancel()
             welcomeBackDismissTask = nil
             welcomeBackSyncTask?.cancel()
@@ -429,6 +414,55 @@ struct LandingView: View {
         } message: {
             Text(landingFeatureStatusMessage ?? "")
         }
+    }
+
+    private func registerLandingReadAloudProvider() {
+        EpistemosVisibleReadAloudRegistry.shared.register(.landingHome) {
+            landingVisibleReadAloudText()
+        }
+    }
+
+    private func landingVisibleReadAloudText() -> String? {
+        if showWelcomeBack, let info = presentedWelcomeBack {
+            let graph = info.graphWasOpen ? "open" : "off"
+            return [
+                "Welcome Back.",
+                "\(info.noteCount) notes, \(info.chatCount) chats, graph \(graph), \(info.sessionMinutes) minute session.",
+                info.displayText
+            ]
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        if showingBrief {
+            let brief = dailyBrief.dailyBriefContent.trimmingCharacters(in: .whitespacesAndNewlines)
+            return brief.isEmpty ? "Daily Brief is loading." : "Daily Brief. \(brief)"
+        }
+
+        var parts: [String] = []
+        switch ui.homeContent {
+        case .greeting:
+            parts.append("Greetings, researcher.")
+            parts.append("Home shortcuts: PDF import, arXiv, browser, meeting, agent, quick capture, workspaces, save workspace, time machine, notes, new note, new code, HTML workspace, and graph.")
+        case .graph:
+            parts.append("Knowledge graph home view. Explore note relationships, graph search, and node inspection.")
+        case .meeting:
+            parts.append("Meeting notes view. Start recording to capture a live transcript.")
+        case .arxiv:
+            parts.append("arXiv search view. Search papers and save research into notes.")
+        case .browser:
+            parts.append("Browser view. Open a page and save it into notes.")
+        case .agent:
+            return nil
+        }
+
+        if let status = landingFeatureStatusMessage, showingLandingFeatureStatus {
+            parts.append(status)
+        }
+
+        return parts
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var landingBackdrop: some View {
@@ -603,19 +637,6 @@ struct LandingView: View {
             case .timeMachine:
                 TimeMachineView(isPresented: landingInlineCommandBinding(for: .timeMachine))
                     .frame(width: 760, height: 410)
-            case .quickChat:
-                #if EPISTEMOS_APP_STORE
-                QuickChatStageView(
-                    isPresented: landingInlineCommandBinding(for: .quickChat),
-                    theme: theme,
-                    controller: quickChatController,
-                    downloads: quickChatDownloads
-                )
-                .frame(width: 640, height: 460)
-                #else
-                // Pro: QuickChat is MAS-only; unreachable (no tile routes here).
-                EmptyView()
-                #endif
             }
         }
         .preferredColorScheme(landingInlineCommandSurfaceTheme.colorScheme)
@@ -626,21 +647,6 @@ struct LandingView: View {
             columns: [GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)],
             spacing: 8
         ) {
-            // MAS-ONLY (owner 2026-07-04): QuickChat "ask" tile. Experimental
-            // routes agent work through HomeContent.agent.
-            #if EPISTEMOS_APP_STORE
-            PixelLandingCommandTile(
-                title: "ask",
-                shortcut: nil,
-                glyph: .chat,
-                theme: theme,
-                accent: theme.resolved.accent.color,
-                haptic: .capture,
-                isActive: activeLandingInlineCommand == .quickChat,
-                help: "Ask anything — answered privately on this Mac.",
-                action: { showLandingInlineCommand(.quickChat) }
-            )
-            #endif
             PixelLandingCommandTile(
                 title: "quick capture",
                 shortcut: "\u{2318}\u{21E7}N",

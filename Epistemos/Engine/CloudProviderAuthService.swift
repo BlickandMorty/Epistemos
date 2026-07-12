@@ -1,12 +1,16 @@
 import AppKit
 import CryptoKit
 import Foundation
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import Network
+#endif
 import os
 import Security
 
 nonisolated enum CloudProviderOAuthMode: String, Codable, Sendable, Equatable {
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     case openAICodex
+    #endif
     case googleGemini
     case anthropicClaudeCode
 }
@@ -155,6 +159,7 @@ nonisolated enum OAuthTokenMetadata {
     }
 }
 
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 nonisolated enum OpenAICodexRuntimeMetadata {
     static let clientID = "app_EMoamEEZ73f0CkXaXp7hrann"
     static let clientVersion = loadClientVersion()
@@ -185,12 +190,15 @@ nonisolated enum OpenAICodexRuntimeMetadata {
         return trimmed.isEmpty ? clientVersionFallback : trimmed
     }
 }
+#endif
 
 nonisolated enum CloudProviderResolvedCredential: Sendable, Equatable {
     case apiKey(String)
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     case openAICodex(accessToken: String)
     case googleOAuth(accessToken: String, projectID: String)
     case anthropicOAuth(accessToken: String)
+    #endif
 }
 
 nonisolated enum AnthropicClaudeCodeImportResult: Sendable, Equatable {
@@ -204,13 +212,16 @@ nonisolated enum CloudProviderAuthError: LocalizedError {
     case missingOAuthSession(CloudModelProvider)
     case missingOAuthRefreshToken(CloudModelProvider)
     case unsupportedOAuthProvider(CloudModelProvider)
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     case openAIDeviceCodeRequestFailed
     case openAIDeviceCodeTimedOut
     case openAIDeviceCodeCancelled
     case openAITokenExchangeFailed(Int)
+    #endif
     case googleAuthorizationDenied(String)
     case googleAuthorizationTimedOut
     case googleTokenExchangeFailed(Int)
+    case googleOAuthLoopbackUnavailableInAppStore
     case anthropicRefreshFailed
     case callbackServerFailed
     case callbackServerReceivedInvalidRequest
@@ -223,11 +234,16 @@ nonisolated enum CloudProviderAuthError: LocalizedError {
         case .googleProjectIDRequired:
             "Google OAuth needs a Cloud project ID for Gemini API requests."
         case .missingOAuthSession(let provider):
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "No \(provider.displayName) API key is saved yet."
+            #else
             "\(provider.displayName) account access is not connected yet."
+            #endif
         case .missingOAuthRefreshToken(let provider):
             "\(provider.displayName) account access cannot refresh because no refresh token was stored."
         case .unsupportedOAuthProvider(let provider):
             "\(provider.displayName) does not support this OAuth flow."
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAIDeviceCodeRequestFailed:
             "OpenAI account sign-in could not start the device authorization flow."
         case .openAIDeviceCodeTimedOut:
@@ -236,12 +252,15 @@ nonisolated enum CloudProviderAuthError: LocalizedError {
             "OpenAI account sign-in was cancelled."
         case .openAITokenExchangeFailed(let status):
             "OpenAI account sign-in failed during token exchange (\(status))."
+        #endif
         case .googleAuthorizationDenied(let message):
             "Google account sign-in was denied: \(message)"
         case .googleAuthorizationTimedOut:
             "Google account sign-in timed out after 90 seconds before the browser callback returned. Finish the browser step and then tap Retry Google OAuth."
         case .googleTokenExchangeFailed(let status):
             "Google account sign-in failed during token exchange (\(status))."
+        case .googleOAuthLoopbackUnavailableInAppStore:
+            "Google OAuth sign-in is parked in the App Store build because the desktop callback requires a local listener. Use a Google API key or an OpenAI API key until a MAS-safe Google flow is available."
         case .anthropicRefreshFailed:
             "Anthropic account access could not be refreshed."
         case .callbackServerFailed:
@@ -320,6 +339,7 @@ final class CloudProviderAuthService {
         for provider: CloudModelProvider,
         apiKey: String?
     ) async throws -> CloudProviderResolvedCredential {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         if let credential = storedOAuthCredential(for: provider) {
             let refreshed = try await refreshedCredentialIfNeeded(credential)
             switch refreshed.authMode {
@@ -334,6 +354,7 @@ final class CloudProviderAuthService {
                 return .anthropicOAuth(accessToken: refreshed.accessToken)
             }
         }
+        #endif
 
         guard let trimmedAPIKey = apiKey?.trimmingCharacters(in: .whitespacesAndNewlines),
               !trimmedAPIKey.isEmpty else {
@@ -343,6 +364,9 @@ final class CloudProviderAuthService {
     }
 
     func importOpenAICodexCLIIfPresent() -> Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return false
+        #else
         let authPath = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".codex/auth.json")
         guard let data = try? Data(contentsOf: authPath),
@@ -379,9 +403,15 @@ final class CloudProviderAuthService {
             success: stored
         )
         return stored
+        #endif
     }
 
     func importAnthropicClaudeCodeCredentials() -> AnthropicClaudeCodeImportResult {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return .failure(
+            "Anthropic account-session import is unavailable in the App Store build. Use an Anthropic API key."
+        )
+        #else
         let credentialsURL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/.credentials.json")
         guard let data = try? Data(contentsOf: credentialsURL) else {
@@ -410,8 +440,10 @@ final class CloudProviderAuthService {
             )
         }
         return .imported(credential)
+        #endif
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     /// RCA7-P2-004 fix-pass: record CLI credential import as a
     /// distinct provenance event (vs in-app OAuth refresh) so the
     /// audit log can distinguish "imported from disk" from "refreshed
@@ -475,11 +507,15 @@ final class CloudProviderAuthService {
             accountLabel: Self.inferredAnthropicAccountLabel(from: json)
         )
     }
+    #endif
 
     func signInToOpenAI(
         openURL: @escaping @Sendable (URL) -> Void = { NSWorkspace.shared.open($0) },
         onDeviceCodeReady: @escaping @MainActor @Sendable (OpenAIDeviceAuthorization) -> Void = { _ in }
     ) async throws {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        throw CloudProviderAuthError.unsupportedOAuthProvider(.openAI)
+        #else
         try await withOpenAITimeout {
             let deviceCodeRequest = try await self.requestOpenAIDeviceCode()
             onDeviceCodeReady(deviceCodeRequest)
@@ -490,12 +526,16 @@ final class CloudProviderAuthService {
                 throw CloudProviderAuthError.openAITokenExchangeFailed(0)
             }
         }
+        #endif
     }
 
     func signInToGoogle(
         configuration: GoogleOAuthClientConfiguration,
         openURL: @escaping @Sendable (URL) -> Void = { NSWorkspace.shared.open($0) }
     ) async throws {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        throw CloudProviderAuthError.googleOAuthLoopbackUnavailableInAppStore
+        #else
         let scopes = [
             "https://www.googleapis.com/auth/cloud-platform",
             "https://www.googleapis.com/auth/userinfo.email",
@@ -547,8 +587,10 @@ final class CloudProviderAuthService {
         case .failure(let message):
             throw CloudProviderAuthError.googleAuthorizationDenied(message)
         }
+        #endif
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private func refreshedCredentialIfNeeded(
         _ credential: CloudProviderOAuthCredential
     ) async throws -> CloudProviderOAuthCredential {
@@ -706,6 +748,7 @@ final class CloudProviderAuthService {
         return String(describing: type(of: error))
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private func refreshOpenAICredential(
         _ credential: CloudProviderOAuthCredential
     ) async throws -> CloudProviderOAuthCredential {
@@ -751,6 +794,7 @@ final class CloudProviderAuthService {
         _ = storeOAuthCredential(updated)
         return updated
     }
+    #endif
 
     private func refreshGoogleCredential(
         _ credential: CloudProviderOAuthCredential
@@ -856,7 +900,9 @@ final class CloudProviderAuthService {
 
         throw CloudProviderAuthError.anthropicRefreshFailed
     }
+    #endif
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private func requestOpenAIDeviceCode() async throws -> OpenAIDeviceAuthorization {
         guard let url = OpenAICodexRuntimeMetadata.url(
             appendingClientVersionTo: "https://auth.openai.com/api/accounts/deviceauth/usercode"
@@ -1004,6 +1050,7 @@ final class CloudProviderAuthService {
             accountLabel: openAIAccountLabel(fromAccessToken: accessToken)
         )
     }
+    #endif
 
     private func exchangeGoogleAuthorizationCode(
         code: String,
@@ -1270,8 +1317,10 @@ final class CloudProviderAuthService {
         return UUID().uuidString.replacingOccurrences(of: "-", with: "")
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private nonisolated static let anthropicClaudeCodeClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
     private nonisolated static let anthropicClaudeCodeVersionFallback = "2.1.74"
+    #endif
 }
 
 struct OpenAIDeviceAuthorization: Sendable, Equatable, Identifiable {
@@ -1370,6 +1419,7 @@ nonisolated enum OAuthCallbackRequestValidator {
     }
 }
 
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 actor LocalOAuthCallbackServer {
     private let listener: NWListener
     private(set) var port: UInt16 = 0
@@ -1598,3 +1648,4 @@ private final class DataBufferAccumulator: @unchecked Sendable {
         return value
     }
 }
+#endif

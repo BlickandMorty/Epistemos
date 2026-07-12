@@ -11,6 +11,13 @@ private struct EditorMetricsSnapshot: Sendable {
     let headings: [TOCItem]
 }
 
+private enum NoteWorkspacePerformancePolicy {
+    static let liveTypingMetricsQuietWindow: Duration = .milliseconds(900)
+    static let liveTypingRefreshesHeavyOutlines = false
+    static let graphEmbeddedInitialRefreshesHeavyOutlines = false
+    static let nonEditOutlineOverlayEnabled = false
+}
+
 struct NoteModeBodySnapshot: Equatable {
     let pageId: String
     let body: String
@@ -30,6 +37,55 @@ private struct CodeFileBodySnapshot: Equatable, Sendable {
         guard pageId == currentPageId, filePath == currentFilePath else { return nil }
         return body
     }
+}
+
+private enum NoteEditorFlushResult: Equatable {
+    case noPage
+    case unchanged
+    case staged
+    case blocked
+}
+
+@MainActor
+final class NoteWorkspaceFinalFlushRegistry {
+    static let shared = NoteWorkspaceFinalFlushRegistry()
+
+    private struct Entry {
+        let pageId: String
+        let flush: @MainActor () async -> Bool
+    }
+
+    private var entries: [UUID: Entry] = [:]
+
+    private init() {}
+
+    func register(
+        pageId: String,
+        token: UUID,
+        flush: @escaping @MainActor () async -> Bool
+    ) {
+        entries[token] = Entry(pageId: pageId, flush: flush)
+    }
+
+    func unregister(token: UUID) {
+        entries.removeValue(forKey: token)
+    }
+
+    func flushAllSurfaces() async -> Bool {
+        let snapshot = entries.values.sorted { $0.pageId < $1.pageId }
+        var allSaved = true
+        for entry in snapshot {
+            if !(await entry.flush()) {
+                allSaved = false
+            }
+        }
+        return allSaved
+    }
+}
+
+enum NoteBodyChangeDisposition: Equatable {
+    case acceptLocalSave(String)
+    case externalChange
 }
 
 enum NoteWorkspaceMode: String, CaseIterable, Hashable {
@@ -145,8 +201,7 @@ private struct SourceEditorPersistedContent {
     }
 
     @MainActor
-    func apply(to page: SDPage) {
-        page.body = body
+    func applyMarkdownNoteState(to page: SDPage) {
         if let metadata = markdownMetadata {
             page.frontMatter = metadata.frontMatter
             page.title = VaultIndexActor.sanitizeTitle(metadata.title.isEmpty ? page.title : metadata.title)
@@ -155,6 +210,13 @@ private struct SourceEditorPersistedContent {
             page.parentPageId = metadata.parentPageId
             page.templateId = metadata.templateId
         }
+        page.applyInteractiveDerivedState(from: body)
+        page.wordCount = body.split(separator: " ").count
+    }
+
+    @MainActor
+    func applyCodeFileSnapshot(to page: SDPage) {
+        page.body = body
         page.blockReferences = SDPage.extractBlockReferences(from: body)
         page.wordCount = body.split(separator: " ").count
     }
@@ -194,6 +256,12 @@ enum NoteEditorViewFinder {
             }
         }
         return nil
+    }
+
+    static func findTextView(in window: NSWindow, matchingPageId pageId: String? = nil)
+        -> NSTextView?
+    {
+        noteEditorTextView(in: window, matchingPageId: pageId)
     }
 
     private static func noteWindows() -> [NSWindow] {
@@ -461,6 +529,14 @@ struct NoteDetailWorkspaceView: View {
     @State private var showInfoPopover = false
     @State private var showWebClipperSheet = false
     @State private var noteMode: NoteWorkspaceMode = .document
+    @State private var noteSession: NoteSessionStateMachine
+    @State private var noteSessionLifecycleGeneration: UInt64 = 0
+    @State private var workspaceFinalFlushToken: UUID?
+    @State private var documentEditorRevision: UInt64 = 0
+    @State private var sourceEditorLiveTextQueryKey = UUID()
+    @State private var sourceEditorRevision: UInt64 = 0
+    @State private var sourcePersistenceTask: Task<Bool, Never>?
+    @State private var editorProvenanceStore: EditorProvenanceGRDBStore?
     @State private var showMarkEditSourceSettings = false
     @State private var sourcePDFViewerPresentation: SourcePDFViewerPresentation?
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
@@ -479,6 +555,7 @@ struct NoteDetailWorkspaceView: View {
     /// KC block-outline rows for the outline panel's Blocks mode (Slice 3 cutover,
     /// Option 1). Empty unless the knowledgeCoreRuntimeV0 runtime is standing.
     @State private var blockOutlineItems: [TOCItem] = []
+    @State private var selectedNotebookTabID = EpdocNotebookManifest.bodyTabID
     @State private var hasModelDerivedSidecar = false
     @State private var deterministicOutlineState: KnowledgeCoreOutlineProjectionState
     @State private var wordCountDebounce: Task<Void, Never>?
@@ -518,6 +595,12 @@ struct NoteDetailWorkspaceView: View {
         self.presentation = presentation
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
         _noteMode = State(initialValue: initialMode)
+        _noteSession = State(
+            initialValue: NoteSessionStateMachine(
+                noteID: pageId,
+                initialLens: NoteSessionLens(initialMode)
+            )
+        )
         _persistedBody = State(initialValue: "")
         _deterministicOutlineState = State(
             initialValue: KnowledgeCoreOutlineProjectionState()
@@ -754,7 +837,7 @@ struct NoteDetailWorkspaceView: View {
             wordCountDebounce?.cancel()
             metricsTask?.cancel()
             wordCountDebounce = Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(300))
+                try? await Task.sleep(for: NoteWorkspacePerformancePolicy.liveTypingMetricsQuietWindow)
                 guard !Task.isCancelled else { return }
                 refreshVisibleEditorMetrics()
             }
@@ -851,20 +934,50 @@ struct NoteDetailWorkspaceView: View {
                     .padding(.bottom, 52)
             }
             .overlay(alignment: .trailing) {
-                let outlineMarkdown = pages.first.map(activeOutlineMarkdown(for:)) ?? persistedBody
-                NoteOutlineOverlay(
-                    markdown: outlineMarkdown,
-                    theme: ui.theme,
-                    onNavigate: { charOffset in
-                        navigateActiveOutline(to: charOffset)
-                    },
-                    externalItems: pages.first.flatMap(activeOutlineExternalItems(for:)),
-                    blockItems: pages.first.flatMap(activeOutlineBlockItems(for:))
-                )
+                if let page = pages.first,
+                   shouldMountOutlineOverlay(for: page) {
+                    let outlineMarkdown = activeOutlineMarkdown(for: page)
+                    NoteOutlineOverlay(
+                        markdown: outlineMarkdown,
+                        theme: ui.theme,
+                        onNavigate: { charOffset in
+                            navigateActiveOutline(to: charOffset)
+                        },
+                        onNavigateItem: { item in
+                            navigateActiveOutline(to: item)
+                        },
+                        externalItems: activeOutlineExternalItems(for: page),
+                        blockItems: activeOutlineBlockItems(for: page)
+                    )
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(noteWorkspaceBackground)
             .onAppear {
+                noteSessionLifecycleGeneration &+= 1
+                registerProseReadAloudProvider()
+                if let databaseWriter = vaultSync.searchService?.databaseWriter() {
+                    noteSession.configureLeaseStore(
+                        NoteSessionGRDBLeaseStore(databaseWriter: databaseWriter)
+                    )
+                    if editorProvenanceStore == nil {
+                        editorProvenanceStore = EditorProvenanceGRDBStore(databaseWriter: databaseWriter)
+                    }
+                }
+                _ = noteSession.open()
+                _ = noteSession.acquireCleanLeaseHandoffIfAvailable()
+                if let workspaceFinalFlushToken {
+                    NoteWorkspaceFinalFlushRegistry.shared.unregister(token: workspaceFinalFlushToken)
+                }
+                let finalFlushToken = UUID()
+                workspaceFinalFlushToken = finalFlushToken
+                NoteWorkspaceFinalFlushRegistry.shared.register(
+                    pageId: pageId,
+                    token: finalFlushToken
+                ) {
+                    let result = await flushCurrentEditor(reason: .appBackground)
+                    return result != .blocked
+                }
                 Task { @MainActor in
                     refreshTabCount()
                     if let page = pages.first {
@@ -878,7 +991,8 @@ struct NoteDetailWorkspaceView: View {
                         refreshLegacyRecoveryPresentation()
                         scheduleMetricsRefresh(
                             body: body,
-                            includeMarkdownHeadings: true
+                            includeMarkdownHeadings: true,
+                            includeHeavyOutlines: shouldRunHeavyOutlineWork(for: page)
                         )
                     } else {
                         refreshModelDerivedSidecarBadge(for: nil)
@@ -893,6 +1007,28 @@ struct NoteDetailWorkspaceView: View {
                 }
             }
             .onDisappear {
+                noteSessionLifecycleGeneration &+= 1
+                let teardownGeneration = noteSessionLifecycleGeneration
+                let disappearingFlushToken = workspaceFinalFlushToken
+                EpistemosVisibleReadAloudRegistry.shared.unregister(.proseNoteBody)
+                if noteSession.isLeaseOwner {
+                    Task { @MainActor in
+                        defer {
+                            if let disappearingFlushToken {
+                                NoteWorkspaceFinalFlushRegistry.shared.unregister(token: disappearingFlushToken)
+                            }
+                        }
+                        let flushResult = await flushCurrentEditor(reason: .disappear)
+                        guard noteSessionLifecycleGeneration == teardownGeneration else { return }
+                        guard flushResult != .blocked else { return }
+                        noteSession.close()
+                    }
+                } else {
+                    if let disappearingFlushToken {
+                        NoteWorkspaceFinalFlushRegistry.shared.unregister(token: disappearingFlushToken)
+                    }
+                    noteSession.close()
+                }
                 wordCountDebounce?.cancel()
                 metricsTask?.cancel()
                 modelDerivedSidecarTask?.cancel()
@@ -907,6 +1043,7 @@ struct NoteDetailWorkspaceView: View {
                 legacyRecoveryRefreshTask = nil
             }
             .onChange(of: pages.isEmpty) { _, isEmpty in
+                registerProseReadAloudProvider()
                 if isEmpty {
                     schedulePersistedBodyRefresh(for: nil)
                     scheduleCodeFileBodyRefresh(for: nil)
@@ -922,13 +1059,45 @@ struct NoteDetailWorkspaceView: View {
                 }
             }
             .onChange(of: pages.first?.filePath) { _, _ in
+                registerProseReadAloudProvider()
+                scheduleCodeFileBodyRefresh(for: pages.first)
+                refreshModelDerivedSidecarBadge(for: pages.first)
+            }
+            .onChange(of: vaultSync.vaultURL?.standardizedFileURL.path) { _, _ in
+                registerProseReadAloudProvider()
+                schedulePersistedBodyRefresh(for: pages.first)
                 scheduleCodeFileBodyRefresh(for: pages.first)
                 refreshModelDerivedSidecarBadge(for: pages.first)
             }
             .onReceive(NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyDidChange)) { notification in
                 guard let changedId = notification.userInfo?["pageId"] as? String,
                       changedId == pageId else { return }
-                schedulePersistedBodyRefresh(for: pages.first)
+                let currentBody = pages.first.flatMap(currentEditorBody)
+                switch Self.bodyChangeDisposition(
+                    for: notification,
+                    currentEditorBody: currentBody
+                ) {
+                case .acceptLocalSave(let savedBody):
+                    persistedBody = savedBody
+                    noteSession.acceptLocalSave()
+                    return
+                case .externalChange:
+                    break
+                }
+                if let page = pages.first,
+                   let currentBody,
+                   currentBody != persistedBodyFor(page) {
+                    _ = noteSession.recordUserEdit(source: .user)
+                }
+                switch noteSession.externalBodyChanged(diff3Base: pages.first.map(persistedBodyFor)) {
+                case .reloadWhenClean:
+                    schedulePersistedBodyRefresh(for: pages.first)
+                    noteSession.acceptExternalReload()
+                case .conflict:
+                    Log.notes.warning(
+                        "NoteDetailWorkspaceView: deferred external body change for dirty note session \(String(pageId.prefix(8)), privacy: .public)"
+                    )
+                }
             }
         }
     }
@@ -943,6 +1112,17 @@ struct NoteDetailWorkspaceView: View {
             )
             ContextualShadowsButton(scopeKind: .note, scopeID: pageId)
         }
+    }
+
+    private func registerProseReadAloudProvider() {
+        EpistemosVisibleReadAloudRegistry.shared.register(.proseNoteBody) {
+            guard let page = pages.first else {
+                return nil
+            }
+            let rawBody = currentEditorBody(for: page) ?? persistedBodyFor(page)
+            return EpistemosSpeechSynthesizer.plainTextForSpeech(fromMarkdown: rawBody)
+        }
+        EpistemosVisibleReadAloudRegistry.shared.markActive(.proseNoteBody)
     }
 
     private func openContextualShadowHit(_ hit: ContextualShadowsState.RecallHit) {
@@ -1056,15 +1236,39 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func saveCurrentNoteToDisk() {
+        Task { @MainActor in
+            await saveCurrentNoteToDiskAsync()
+        }
+    }
+
+    private func saveCurrentNoteToDiskAsync() async {
+        if !noteSession.canWrite {
+            _ = noteSession.acquireLeaseIfAvailable()
+        }
+        guard noteSession.canWrite else {
+            _ = noteSession.requestLeaseHandoff()
+            return
+        }
         if let page = pages.first,
-           let route = sourceEditorRoute(for: page),
-           let sourceContent = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) {
-            saveCodeFileContent(page: page, filePath: route.filePath, content: sourceContent, noteBacked: route.isNoteBacked)
+           resolvedNoteMode(for: page) == .document,
+           let documentFlushResult = await MarkdownDocumentSurfaceSaveRegistry.shared.flush(pageId: page.id) {
+            if !documentFlushResult {
+                Log.notes.error(
+                    "NoteDetailWorkspaceView: document-surface save failed for page \(String(page.id.prefix(8)), privacy: .public)"
+                )
+            }
             return
         }
 
-        flushCurrentEditor()
-        vaultSync.savePage(pageId: pageId)
+        switch await flushCurrentEditor() {
+        case .unchanged:
+            if let page = pages.first, sourceEditorRoute(for: page) != nil {
+                return
+            }
+            vaultSync.savePage(pageId: pageId)
+        case .staged, .blocked, .noPage:
+            return
+        }
     }
 
     private func noteWorkspaceQuickActions(
@@ -1101,7 +1305,7 @@ struct NoteDetailWorkspaceView: View {
     private func activeOutlineExternalItems(for page: SDPage) -> [TOCItem]? {
         switch resolvedNoteMode(for: page) {
         case .edit:
-            return tocItems.isEmpty ? nil : tocItems
+            return tocItems
         case .document, .preview, .source:
             return nil
         }
@@ -1110,6 +1314,32 @@ struct NoteDetailWorkspaceView: View {
     private func activeOutlineBlockItems(for page: SDPage) -> [TOCItem]? {
         guard resolvedNoteMode(for: page) == .edit else { return nil }
         return blockOutlineItems.isEmpty ? nil : blockOutlineItems
+    }
+
+    private var editorSurfacesAcceptInput: Bool {
+        noteSession.canWrite || noteSession.currentOwnerID == nil
+    }
+
+    private func shouldMountOutlineOverlay(for page: SDPage) -> Bool {
+        guard !presentation.usesGraphEmbeddedChrome else {
+            return false
+        }
+        switch resolvedNoteMode(for: page) {
+        case .edit:
+            return true
+        case .document, .preview, .source:
+            return NoteWorkspacePerformancePolicy.nonEditOutlineOverlayEnabled
+        }
+    }
+
+    private func shouldRunHeavyOutlineWork(for page: SDPage) -> Bool {
+        guard resolvedNoteMode(for: page) == .edit else {
+            return false
+        }
+        if presentation.usesGraphEmbeddedChrome {
+            return NoteWorkspacePerformancePolicy.graphEmbeddedInitialRefreshesHeavyOutlines
+        }
+        return true
     }
 
     private func noteFooterBubble<Content: View>(
@@ -1142,62 +1372,23 @@ struct NoteDetailWorkspaceView: View {
 
     @ViewBuilder
     private func noteEditorSurface(page: SDPage, availableSize: CGSize) -> some View {
+        let resolvedMode = resolvedNoteMode(for: page)
+        let documentSurfaceIsAvailable = noteModeOptions(for: page).modes.contains(.document)
         Group {
-            if resolvedNoteMode(for: page) == .document {
-                MarkdownDocumentSurface(
-                    pageId: page.id,
-                    title: page.title,
-                    markdown: displayBody(for: page),
-                    theme: noteWorkspaceTheme,
-                    saveMarkdown: { markdown in
-                        saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)
-                    },
-                    surfaceToolbarAccessory: markdownDocumentSurfaceToolbarAccessory(for: page)
-                )
+            if documentSurfaceIsAvailable {
+                ZStack(alignment: .topLeading) {
+                    noteDocumentSurface(page: page, isActive: resolvedMode == .document)
+                        .opacity(resolvedMode == .document ? 1 : 0)
+                        .allowsHitTesting(resolvedMode == .document)
+                        .accessibilityHidden(resolvedMode != .document)
+
+                    if resolvedMode != .document {
+                        noteNonDocumentEditorSurface(page: page, availableSize: availableSize)
+                    }
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            } else if let route = sourceEditorRoute(for: page) {
-                VStack(spacing: 0) {
-                    CodeEditorView(
-                        content: cachedSourceEditorContent(page: page, route: route),
-                        language: route.language,
-                        filePath: route.filePath,
-                        onTextSnapshot: { latestContent in
-                            recordSourceEditorSnapshot(
-                                page: page,
-                                filePath: route.filePath,
-                                content: latestContent
-                            )
-                        },
-                        onContentChange: { newContent in
-                            saveCodeFileContent(page: page, filePath: route.filePath, content: newContent, noteBacked: route.isNoteBacked)
-                        },
-                        // SS-GC: in the embedded home graph, give the code editor the same
-                        // landing-variant theme the prose branch gets, so its top bar paints the
-                        // graph backdrop instead of a white card. nil elsewhere = unchanged.
-                        allowsMarkEditWindowToolbar: false,
-                        externalSelectionRequest: sourceEditorSelectionRequest,
-                        themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
-                    )
-                    .id("\(page.id)::\(route.filePath)")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                }
-                .sheet(isPresented: $showMarkEditSourceSettings) {
-                    #if canImport(MarkEditKit)
-                    MarkEditSourceSettingsSheet()
-                    #else
-                    EmptyView()
-                    #endif
-                }
             } else {
-                let initialBodyOverride = currentModeBodySnapshot(for: page.id)
-                ProseEditorView(
-                    page: page,
-                    isEditable: true,
-                    initialBodyOverride: initialBodyOverride,
-                    navigationContext: presentation.usesGraphEmbeddedChrome ? .graph : .notes,
-                    themeOverride: noteWorkspaceTheme
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                noteNonDocumentEditorSurface(page: page, availableSize: availableSize)
             }
         }
         .padding(
@@ -1211,196 +1402,324 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
+    @ViewBuilder
+    private func noteDocumentSurface(page: SDPage, isActive: Bool) -> some View {
+        let markdown = displayBody(for: page)
+        let notebook = EpdocNotebookManifest.parse(in: markdown)
+        let selectedTab = resolvedNotebookTabID(for: notebook)
+
+        VStack(spacing: 0) {
+            EpdocNotebookTabStrip(
+                manifest: notebook,
+                selectedTabID: selectedTab,
+                theme: noteWorkspaceTheme,
+                selectTab: { tabID in
+                    selectedNotebookTabID = tabID
+                }
+            )
+
+            if selectedTab == EpdocNotebookManifest.bodyTabID {
+                MarkdownDocumentSurface(
+                    pageId: page.id,
+                    title: page.title,
+                    markdown: markdown,
+                    theme: noteWorkspaceTheme,
+                    noteRelativePath: page.vaultRelativeNotePath ?? "page:\(page.id)",
+                    isEditable: editorSurfacesAcceptInput,
+                    isActive: isActive,
+                    provenanceStore: editorProvenanceStore,
+                    onEditStarted: {
+                        markDocumentEditorDirtyBeforeDebouncedSave()
+                    },
+                    saveMarkdown: { markdown in
+                        await saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)
+                    },
+                    surfaceToolbarAccessory: markdownDocumentSurfaceToolbarAccessory(for: page)
+                )
+            } else if selectedTab == EpdocNotebookManifest.launcherTabID {
+                EpdocNotebookLauncherPane(theme: noteWorkspaceTheme)
+            } else if let tab = notebook.tabs.first(where: { $0.id == selectedTab }) {
+                EpdocNotebookReferencePane(tab: tab, theme: noteWorkspaceTheme)
+            } else {
+                MarkdownDocumentSurface(
+                    pageId: page.id,
+                    title: page.title,
+                    markdown: markdown,
+                    theme: noteWorkspaceTheme,
+                    noteRelativePath: page.vaultRelativeNotePath ?? "page:\(page.id)",
+                    isEditable: editorSurfacesAcceptInput,
+                    isActive: isActive,
+                    provenanceStore: editorProvenanceStore,
+                    onEditStarted: {
+                        markDocumentEditorDirtyBeforeDebouncedSave()
+                    },
+                    saveMarkdown: { markdown in
+                        await saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)
+                    },
+                    surfaceToolbarAccessory: markdownDocumentSurfaceToolbarAccessory(for: page)
+                )
+            }
+        }
+        .onAppear {
+            guard isActive else { return }
+            registerProseReadAloudProvider()
+            EpistemosVisibleReadAloudRegistry.shared.markActive(.proseNoteBody)
+        }
+        .onChange(of: isActive) { _, active in
+            guard active else { return }
+            registerProseReadAloudProvider()
+            EpistemosVisibleReadAloudRegistry.shared.markActive(.proseNoteBody)
+        }
+        .onChange(of: notebook.selectableTabIDs) { _, ids in
+            if !ids.contains(selectedNotebookTabID) {
+                selectedNotebookTabID = EpdocNotebookManifest.bodyTabID
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private func noteNonDocumentEditorSurface(page: SDPage, availableSize: CGSize) -> some View {
+        if let route = sourceEditorRoute(for: page) {
+            VStack(spacing: 0) {
+                CodeEditorView(
+                    content: cachedSourceEditorContent(page: page, route: route),
+                    language: route.language,
+                    filePath: route.filePath,
+                    onEditStarted: {
+                        markSourceEditorDirtyBeforeDebouncedSave()
+                    },
+                    onTextSnapshot: { latestContent in
+                        recordSourceEditorSnapshot(
+                            page: page,
+                            filePath: route.filePath,
+                            content: latestContent
+                        )
+                    },
+                    onContentChange: { newContent in
+                        saveCodeFileContent(page: page, filePath: route.filePath, content: newContent, noteBacked: route.isNoteBacked)
+                    },
+                    isEditable: editorSurfacesAcceptInput,
+                    // SS-GC: in the embedded home graph, give the code editor the same
+                    // landing-variant theme the prose branch gets, so its top bar paints the
+                    // graph backdrop instead of a white card. nil elsewhere = unchanged.
+                    allowsMarkEditWindowToolbar: false,
+                    externalSelectionRequest: sourceEditorSelectionRequest,
+                    liveTextQueryKey: sourceEditorLiveTextQueryKey,
+                    themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
+                )
+                .id(page.id)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+            .onAppear {
+                EpistemosVisibleReadAloudRegistry.shared.markActive(.codeEditor)
+            }
+            .sheet(isPresented: $showMarkEditSourceSettings) {
+                #if canImport(MarkEditKit)
+                MarkEditSourceSettingsSheet()
+                #else
+                EmptyView()
+                #endif
+            }
+        } else {
+            let initialBodyOverride = currentModeBodySnapshot(for: page.id)
+            ProseEditorView(
+                page: page,
+                isEditable: editorSurfacesAcceptInput,
+                initialBodyOverride: initialBodyOverride,
+                navigationContext: presentation.usesGraphEmbeddedChrome ? .graph : .notes,
+                themeOverride: noteWorkspaceTheme,
+                onEditStarted: {
+                    markEditorDirtyBeforeDebouncedSave()
+                }
+            )
+            .onAppear {
+                registerProseReadAloudProvider()
+                EpistemosVisibleReadAloudRegistry.shared.markActive(.proseNoteBody)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private func markEditorDirtyBeforeDebouncedSave() {
+        _ = noteSession.recordUserEdit(source: .user)
+    }
+
+    private func markDocumentEditorDirtyBeforeDebouncedSave() {
+        documentEditorRevision &+= 1
+        markEditorDirtyBeforeDebouncedSave()
+    }
+
+    private func markSourceEditorDirtyBeforeDebouncedSave() {
+        sourceEditorRevision &+= 1
+        markEditorDirtyBeforeDebouncedSave()
+    }
+
     /// Saves code file content back to disk and updates associated page state
     private func saveCodeFileContent(page: SDPage, filePath: String, content: String, noteBacked: Bool = false) {
+        _ = enqueueSourceEditorPersistence(
+            page: page,
+            filePath: filePath,
+            content: content,
+            noteBacked: noteBacked,
+            reason: .idleDebounce
+        )
+    }
+
+    @discardableResult
+    private func enqueueSourceEditorPersistence(
+        page: SDPage,
+        filePath: String,
+        content: String,
+        noteBacked: Bool,
+        reason: NoteSessionSaveReason
+    ) -> Task<Bool, Never> {
+        let predecessor = sourcePersistenceTask
+        let editorRevision = sourceEditorRevision
+        let task = Task { @MainActor in
+            if let predecessor {
+                _ = await predecessor.value
+            }
+            guard !Task.isCancelled else { return false }
+            return await persistSourceEditorContent(
+                page: page,
+                filePath: filePath,
+                content: content,
+                noteBacked: noteBacked,
+                reason: reason,
+                editorRevision: editorRevision
+            )
+        }
+        sourcePersistenceTask = task
+        return task
+    }
+
+    @discardableResult
+    private func persistSourceEditorContent(
+        page: SDPage,
+        filePath: String,
+        content: String,
+        noteBacked: Bool = false,
+        reason: NoteSessionSaveReason,
+        editorRevision: UInt64
+    ) async -> Bool {
+        _ = noteBacked
+        guard beginNoteSessionWrite(reason: reason) else { return false }
         if CodeLanguage.isMarkdownDocument(path: filePath) {
-            saveMarkdownSourceContent(page: page, filePath: filePath, content: content, noteBacked: noteBacked)
-            return
+            return await persistMarkdownSourceEditorContent(
+                page: page,
+                filePath: filePath,
+                content: content,
+                editorRevision: editorRevision
+            )
         }
 
         guard let vaultURL = vaultSync.vaultURL else {
             Log.app.error("CodeEditor: failed to save code file because no active vault contains \(filePath, privacy: .private)")
-            return
+            noteSession.finishAutosave(succeeded: false)
+            return false
         }
-
         let fileURL = URL(fileURLWithPath: filePath)
-        Task { @MainActor in
-            do {
-                try await CodeFileService.updateCodeFileAsync(
-                    at: fileURL,
-                    vaultRoot: vaultURL,
-                    body: content
-                )
+        do {
+            try await CodeFileService.updateCodeFileAsync(
+                at: fileURL,
+                vaultRoot: vaultURL,
+                body: content
+            )
+            try Self.applyDirectCodeFileSave(
+                content,
+                to: page,
+                filePath: filePath,
+                modelContext: modelContext,
+                graphState: AppBootstrap.shared?.graphState
+            )
+            persistedBody = page.body
+            if sourceEditorRevision == editorRevision {
                 codeFileBodySnapshot = CodeFileBodySnapshot(
                     pageId: page.id,
                     filePath: filePath,
                     body: content
                 )
-                try Self.applyDirectCodeFileSave(
-                    content,
-                    to: page,
-                    filePath: filePath,
-                    modelContext: modelContext,
-                    graphState: AppBootstrap.shared?.graphState
-                )
-                persistedBody = page.body
-                if CodeLanguage.isMarkdownDocument(path: filePath) {
-                    modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: page.body)
-                }
-            } catch {
-                Log.app.error("CodeEditor: failed to save code file: \(error.localizedDescription, privacy: .public)")
+                noteSession.finishAutosave(succeeded: true)
+            } else {
+                _ = noteSession.recordUserEdit(source: .user)
             }
+            return true
+        } catch {
+            noteSession.finishAutosave(succeeded: false)
+            Log.app.error("CodeEditor: failed to save code file: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 
     private func recordSourceEditorSnapshot(page: SDPage, filePath: String, content: String) {
-        codeFileBodySnapshot = CodeFileBodySnapshot(
-            pageId: page.id,
-            filePath: filePath,
-            body: content
-        )
-        guard CodeLanguage.isMarkdownDocument(path: filePath) else { return }
-        let persistedContent = SourceEditorPersistedContent(rawContent: content, filePath: filePath)
-        modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: persistedContent.body)
-    }
-
-    private func saveMarkdownSourceContent(page: SDPage, filePath: String, content: String, noteBacked: Bool = false) {
-        let fileURL = URL(fileURLWithPath: filePath)
-        Task { @MainActor in
-            let pageId = page.id
-            let persistedContent = SourceEditorPersistedContent(rawContent: content, filePath: filePath)
-            let persistedSourceBody = persistedContent.body
-            guard stageBodyWrite(pageId: pageId, fullText: persistedSourceBody) else { return }
-
-            if noteBacked {
-                // DISPLAY-ONLY route: never bind page.filePath to the synthesized path and never
-                // write a file directly (that would create a spurious/colliding vault file and
-                // corrupt the note's sync identity). Persist the body via the note pipeline and let
-                // the normal vault export assign the real, dedup'd .md path + page.filePath. After
-                // that first save the note has a real filePath and Source takes the on-disk branch. (source-toggle 2026-07-01)
-                persistedContent.apply(to: page)
-                page.updatedAt = .now
-                page.needsVaultSync = true
-                do {
-                    try modelContext.save()
-                } catch {
-                    Log.app.error("CodeEditor: failed to save note-backed markdown Source state: \(error.localizedDescription, privacy: .public)")
-                    return
-                }
-                codeFileBodySnapshot = CodeFileBodySnapshot(pageId: pageId, filePath: filePath, body: content)
-                persistedBody = persistedSourceBody
-                modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: persistedSourceBody)
-                AppBootstrap.shared?.graphState.needsRefresh = true
-                scheduleMetricsRefresh(body: persistedSourceBody, includeMarkdownHeadings: false)
-                if let modelContainer = AppBootstrap.shared?.modelContainer {
-                    Task {
-                        await BlockMirrorSyncCoordinator.shared.scheduleSync(
-                            pageId: pageId,
-                            body: persistedSourceBody,
-                            modelContainer: modelContainer
-                        )
-                    }
-                }
-                vaultSync.savePage(pageId: pageId)
-                return
-            }
-
-            if page.filePath != filePath {
-                page.filePath = filePath
-            }
-            persistedContent.apply(to: page)
-            page.updatedAt = .now
-            page.needsVaultSync = true
-
-            do {
-                try modelContext.save()
-            } catch {
-                Log.app.error("CodeEditor: failed to save markdown Source note state: \(error.localizedDescription, privacy: .public)")
-                return
-            }
-
+        let existingSourceBody = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: filePath)
+        if existingSourceBody != content {
+            sourceEditorRevision &+= 1
             codeFileBodySnapshot = CodeFileBodySnapshot(
-                pageId: pageId,
+                pageId: page.id,
                 filePath: filePath,
                 body: content
             )
-            persistedBody = persistedSourceBody
-            modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: persistedSourceBody)
-            AppBootstrap.shared?.graphState.needsRefresh = true
-            scheduleMetricsRefresh(body: persistedSourceBody, includeMarkdownHeadings: false)
-
-            if let modelContainer = AppBootstrap.shared?.modelContainer {
-                Task {
-                    await BlockMirrorSyncCoordinator.shared.scheduleSync(
-                        pageId: pageId,
-                        body: persistedSourceBody,
-                        modelContainer: modelContainer
-                    )
-                }
-            }
-
-            guard let vaultURL = vaultSync.vaultURL else {
-                Log.app.error("CodeEditor: saved markdown Source note state without an active vault for \(filePath, privacy: .private)")
-                return
-            }
-
-            do {
-                try await CodeFileService.updateCodeFileAsync(
-                    at: fileURL,
-                    vaultRoot: vaultURL,
-                    body: content
-                )
-            } catch {
-                Log.app.error("CodeEditor: failed to write markdown Source file directly: \(error.localizedDescription, privacy: .public)")
-                vaultSync.savePage(pageId: pageId)
-                return
-            }
-
-            guard codeFileBodySnapshot?.body(ifMatches: pageId, filePath: filePath) == content else {
-                return
-            }
-            page.lastSyncedBodyHash = SDPage.bodyHash(persistedSourceBody)
-            page.lastSyncedAt = .now
-            page.needsVaultSync = false
-            do {
-                try modelContext.save()
-            } catch {
-                Log.app.error("CodeEditor: failed to save markdown Source sync state: \(error.localizedDescription, privacy: .public)")
-            }
         }
+        guard CodeLanguage.isMarkdownDocument(path: filePath) else { return }
+        let persistedContent = SourceEditorPersistedContent(rawContent: content, filePath: filePath)
+        guard modeBodySnapshot?.body(ifMatches: page.id) != persistedContent.body else { return }
+        modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: persistedContent.body)
     }
 
-    private func saveMarkdownDocumentSurfaceContent(page: SDPage, markdown: String) {
+    @discardableResult
+    private func persistMarkdownSourceEditorContent(
+        page: SDPage,
+        filePath: String,
+        content: String,
+        editorRevision: UInt64
+    ) async -> Bool {
         let pageId = page.id
-        guard stageBodyWrite(pageId: pageId, fullText: markdown) else { return }
-        page.body = markdown
-        page.blockReferences = SDPage.extractBlockReferences(from: markdown)
-        page.wordCount = markdown.split(separator: " ").count
-        page.updatedAt = .now
-        page.needsVaultSync = true
+        let persistedContent = SourceEditorPersistedContent(rawContent: content, filePath: filePath)
+        let persistedSourceBody = persistedContent.body
 
-        do {
-            try modelContext.save()
-        } catch {
-            Log.app.error("Document surface: failed to save markdown note state: \(error.localizedDescription, privacy: .public)")
-            return
+        persistedContent.applyMarkdownNoteState(to: page)
+        let saved = await vaultSync.savePageBodyFileFirst(pageId: pageId, body: persistedSourceBody)
+        guard saved else {
+            noteSession.finishAutosave(succeeded: false)
+            Log.app.error("CodeEditor: file-first markdown Source save failed for \(filePath, privacy: .private)")
+            return false
+        }
+
+        persistedBody = persistedSourceBody
+        if sourceEditorRevision == editorRevision {
+            modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: persistedSourceBody)
+            refreshMarkdownSourceSnapshot(for: page)
+            scheduleMetricsRefresh(body: persistedSourceBody, includeMarkdownHeadings: false)
+            noteSession.finishAutosave(succeeded: true)
+        } else {
+            _ = noteSession.recordUserEdit(source: .user)
+        }
+        return true
+    }
+
+    @discardableResult
+    private func saveMarkdownDocumentSurfaceContent(page: SDPage, markdown: String) async -> Bool {
+        let editorRevision = documentEditorRevision
+        guard beginNoteSessionWrite(reason: .idleDebounce) else { return false }
+        let pageId = page.id
+        let saved = await vaultSync.savePageBodyFileFirst(pageId: pageId, body: markdown)
+        guard saved else {
+            noteSession.finishAutosave(succeeded: false)
+            return false
         }
 
         persistedBody = markdown
-        modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: markdown)
-        AppBootstrap.shared?.graphState.needsRefresh = true
-        scheduleMetricsRefresh(body: markdown, includeMarkdownHeadings: false)
-
-        if let modelContainer = AppBootstrap.shared?.modelContainer {
-            Task {
-                await BlockMirrorSyncCoordinator.shared.scheduleSync(
-                    pageId: pageId,
-                    body: markdown,
-                    modelContainer: modelContainer
-                )
-            }
+        if documentEditorRevision == editorRevision {
+            modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: markdown)
+            refreshMarkdownSourceSnapshot(for: page)
+            scheduleMetricsRefresh(body: markdown, includeMarkdownHeadings: false)
+            noteSession.finishAutosave(succeeded: true)
+        } else {
+            _ = noteSession.recordUserEdit(source: .user)
         }
-        vaultSync.savePage(pageId: pageId)
+        return true
     }
 
     private func codeFileServiceForActiveVault(filePath: String) -> CodeFileService? {
@@ -1424,7 +1743,11 @@ struct NoteDetailWorkspaceView: View {
         // Code files are already written to their tracked vault path, so keep the page
         // synchronized without routing them back through markdown export.
         let persistedContent = SourceEditorPersistedContent(rawContent: content, filePath: filePath)
-        persistedContent.apply(to: page)
+        if persistedContent.isMarkdownSource {
+            persistedContent.applyMarkdownNoteState(to: page)
+        } else {
+            persistedContent.applyCodeFileSnapshot(to: page)
+        }
         page.updatedAt = .now
         page.lastSyncedBodyHash = SDPage.bodyHash(persistedContent.body)
         page.lastSyncedAt = .now
@@ -1465,6 +1788,7 @@ struct NoteDetailWorkspaceView: View {
     @ViewBuilder
     private var noteToolbarPrimaryActions: some View {
         if let page = pages.first {
+            let readAloudText = noteReadAloudText(for: page)
             if !isMarkdownDocumentSurfaceModeActive {
                 noteModePicker(for: page)
             }
@@ -1476,18 +1800,25 @@ struct NoteDetailWorkspaceView: View {
                     sourcePDFViewerPresentation = SourcePDFViewerPresentation(url: url)
                 }
             )
-        }
 
-        // TTS (2026-07-04): read the note aloud (Kokoro; honest-gated — disables to
-        // "TTS unavailable" without the voice). Shows only when the note has body text.
-        if !persistedBody.isEmpty {
-            ReadAloudButton(
-                text: EpistemosSpeechSynthesizer.plainTextForSpeech(fromMarkdown: persistedBody),
-                style: .icon
-            )
+            // TTS (2026-07-04): read the live note/editor body aloud (Kokoro;
+            // opens the installer when voice files are missing).
+            if !readAloudText.isEmpty {
+                ReadAloudButton(
+                    text: readAloudText,
+                    style: .icon,
+                    surface: .proseNoteBody
+                )
+            }
         }
 
         moreMenu
+    }
+
+    private func noteReadAloudText(for page: SDPage) -> String {
+        let rawBody = currentEditorBody(for: page) ?? persistedBodyFor(page)
+        return EpistemosSpeechSynthesizer.plainTextForSpeech(fromMarkdown: rawBody)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func markdownDocumentSurfaceToolbarAccessory(for page: SDPage) -> AnyView {
@@ -1726,10 +2057,18 @@ struct NoteDetailWorkspaceView: View {
 
     private func refreshVisibleEditorMetrics() {
         guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else { return }
-        scheduleMetricsRefresh(body: tv.string, includeMarkdownHeadings: true)
+        scheduleMetricsRefresh(
+            body: tv.string,
+            includeMarkdownHeadings: true,
+            includeHeavyOutlines: NoteWorkspacePerformancePolicy.liveTypingRefreshesHeavyOutlines
+        )
     }
 
-    private func scheduleMetricsRefresh(body: String, includeMarkdownHeadings: Bool) {
+    private func scheduleMetricsRefresh(
+        body: String,
+        includeMarkdownHeadings: Bool,
+        includeHeavyOutlines: Bool = true
+    ) {
         metricsTask?.cancel()
         metricsTask = Task { @MainActor in
             let snapshot = await Task.detached(priority: .utility) {
@@ -1746,16 +2085,19 @@ struct NoteDetailWorkspaceView: View {
             }
             if includeMarkdownHeadings {
                 let nextHeadings: [TOCItem]
-                if deterministicOutlineState.isEnabled {
+                if includeHeavyOutlines && deterministicOutlineState.isEnabled {
                     let result = await deterministicOutlineState.refresh(
                         pageId: pageId,
                         markdown: body,
                         fallbackHeadings: snapshot.headings
                     )
                     guard !Task.isCancelled else { return }
-                    nextHeadings = result.appliedCount > 0
-                        ? deterministicOutlineState.items
-                        : snapshot.headings
+                    if result.appliedCount > 0 {
+                        let notebookItems = TOCParser.notebookNavigationItems(in: body)
+                        nextHeadings = deterministicOutlineState.items + notebookItems
+                    } else {
+                        nextHeadings = snapshot.headings
+                    }
                 } else {
                     nextHeadings = snapshot.headings
                 }
@@ -1763,13 +2105,15 @@ struct NoteDetailWorkspaceView: View {
                     tocItems = nextHeadings
                 }
             }
-            // Slice 3 cutover (Option 1) — KC block outline for the panel's Blocks
-            // mode. Returns [] when the knowledgeCoreRuntimeV0 runtime is off, so
-            // this is inherently flag-gated and the panel keeps headings-only.
-            let nextBlocks = await KnowledgeCoreBlockOutline.items(pageId: pageId, markdown: body)
-            guard !Task.isCancelled else { return }
-            if blockOutlineItems != nextBlocks {
-                blockOutlineItems = nextBlocks
+            if includeHeavyOutlines {
+                // Slice 3 cutover (Option 1) — KC block outline for the panel's Blocks
+                // mode. Returns [] when the knowledgeCoreRuntimeV0 runtime is off, so
+                // this is inherently flag-gated and the panel keeps headings-only.
+                let nextBlocks = await KnowledgeCoreBlockOutline.items(pageId: pageId, markdown: body)
+                guard !Task.isCancelled else { return }
+                if blockOutlineItems != nextBlocks {
+                    blockOutlineItems = nextBlocks
+                }
             }
         }
     }
@@ -1857,6 +2201,27 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
+    private func navigateActiveOutline(to item: TOCItem) {
+        switch item.kind {
+        case .notebookTab(let tabID):
+            guard let page = pages.first else { return }
+            selectedNotebookTabID = tabID
+            if resolvedNoteMode(for: page) != .document {
+                setNoteMode(.document, for: page)
+            }
+        default:
+            navigateActiveOutline(to: item.charOffset)
+        }
+    }
+
+    private func resolvedNotebookTabID(for notebook: EpdocNotebookManifest) -> String {
+        let ids = notebook.selectableTabIDs
+        if ids.contains(selectedNotebookTabID) {
+            return selectedNotebookTabID
+        }
+        return EpdocNotebookManifest.bodyTabID
+    }
+
     // MARK: - Workspace Editor Restore
 
     private func applyEditorRestore(cursor: Int, scrollFraction: Double) {
@@ -1878,6 +2243,7 @@ struct NoteDetailWorkspaceView: View {
             guard !Task.isCancelled else { return }
             guard let page else {
                 persistedBody = ""
+                modeBodySnapshot = nil
                 return
             }
 
@@ -1887,7 +2253,11 @@ struct NoteDetailWorkspaceView: View {
             if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
                 guard persistedBody != liveBody else { return }
                 persistedBody = liveBody
-                scheduleMetricsRefresh(body: liveBody, includeMarkdownHeadings: true)
+                scheduleMetricsRefresh(
+                    body: liveBody,
+                    includeMarkdownHeadings: true,
+                    includeHeavyOutlines: shouldRunHeavyOutlineWork(for: page)
+                )
                 refreshModelDerivedSidecarBadge(for: page)
                 refreshLegacyRecoveryPresentation()
                 return
@@ -1905,12 +2275,34 @@ struct NoteDetailWorkspaceView: View {
             guard !Task.isCancelled,
                   pages.first?.id == pageId else { return }
             let body = loadedBody
+            clearCleanModeBodySnapshotIfStale(for: pageId, reloadedBody: body)
             guard persistedBody != body else { return }
             persistedBody = body
-            scheduleMetricsRefresh(body: body, includeMarkdownHeadings: true)
+            if let currentPage = pages.first {
+                scheduleMetricsRefresh(
+                    body: body,
+                    includeMarkdownHeadings: true,
+                    includeHeavyOutlines: shouldRunHeavyOutlineWork(for: currentPage)
+                )
+            } else {
+                scheduleMetricsRefresh(body: body, includeMarkdownHeadings: true)
+            }
             refreshModelDerivedSidecarBadge(for: pages.first)
             refreshLegacyRecoveryPresentation()
         }
+    }
+
+    private func clearCleanModeBodySnapshotIfStale(for pageId: String, reloadedBody: String) {
+        guard let snapshot = modeBodySnapshot,
+              snapshot.pageId == pageId,
+              snapshot.body != reloadedBody else {
+            return
+        }
+        let isEmptySnapshotOverLoadedBody = snapshot.body.isEmpty && !reloadedBody.isEmpty
+        guard isEmptySnapshotOverLoadedBody || !noteSession.state.needsWriteLease else {
+            return
+        }
+        modeBodySnapshot = nil
     }
 
     private func persistedBodyFor(_ page: SDPage) -> String {
@@ -1918,11 +2310,35 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func displayBody(for page: SDPage) -> String {
-        currentModeBodySnapshot(for: page.id) ?? currentEditorBody(for: page) ?? persistedBodyFor(page)
+        let persisted = persistedBodyFor(page)
+        if let snapshot = currentModeBodySnapshot(for: page.id),
+           !isSpuriousCleanEmptySnapshot(snapshot, persistedBody: persisted) {
+            return snapshot
+        }
+        if let liveBody = currentEditorBody(for: page),
+           !isSpuriousCleanEmptySnapshot(liveBody, persistedBody: persisted) {
+            return liveBody
+        }
+        return persisted
     }
 
     private func currentModeBodySnapshot(for pageId: String) -> String? {
         modeBodySnapshot?.body(ifMatches: pageId)
+    }
+
+    private func lensSwitchBody(candidate: String?, baseline: String) -> String {
+        guard let candidate else { return baseline }
+        if isSpuriousCleanEmptySnapshot(candidate, persistedBody: baseline) {
+            Log.notes.error(
+                "NoteDetailWorkspaceView: ignored empty editor snapshot during lens switch to protect non-empty persisted body"
+            )
+            return baseline
+        }
+        return candidate
+    }
+
+    private func isSpuriousCleanEmptySnapshot(_ body: String, persistedBody: String) -> Bool {
+        body.isEmpty && !persistedBody.isEmpty
     }
 
     /// Load code file content from live editor/cache state only. Disk reads are
@@ -1945,9 +2361,11 @@ struct NoteDetailWorkspaceView: View {
     /// Markdown Source mode prefers a source snapshot when available, but it
     /// must always be able to mount from the note-backed body used by Prose.
     private func cachedSourceEditorContent(page: SDPage, route: SourceEditorRoute) -> String {
-        if route.isMarkdown,
-           let cached = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) {
-            return cached
+        if route.isMarkdown {
+            if let cached = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) {
+                return cached
+            }
+            return markdownSourceFallbackContent(for: page, filePath: route.filePath)
         }
 
         return cachedCodeFileContent(page: page, filePath: route.filePath)
@@ -1993,9 +2411,13 @@ struct NoteDetailWorkspaceView: View {
         let modes = options.modes
         guard modes.contains(mode),
               resolvedNoteMode(for: page, options: options) != mode else { return }
-        flushCurrentEditor()
-        noteMode = mode
-        scheduleCodeFileBodyRefresh(for: page)
+        Task { @MainActor in
+            let flushResult = await flushCurrentEditor(reason: .lensSwitch)
+            guard flushResult != .blocked else { return }
+            noteSession.switchLens(to: NoteSessionLens(mode))
+            noteMode = mode
+            scheduleCodeFileBodyRefresh(for: page)
+        }
     }
 
     private func sourceFileRoute(for page: SDPage) -> SourceEditorRoute? {
@@ -2019,7 +2441,7 @@ struct NoteDetailWorkspaceView: View {
 
     /// DISPLAY-ONLY route for a note with no on-disk file yet. Anchored under the active vault
     /// only so the Source header/icon read a plausible location; NOTHING is written to this path
-    /// (see saveMarkdownSourceContent's noteBacked branch). No dedup here — the real path +
+    /// (see persistSourceEditorContent's note-backed path). No dedup here — the real path +
     /// page.filePath are assigned by VaultIndexActor.exportPage on the first save. (source-toggle 2026-07-01)
     private func noteBackedSourceRoute(for page: SDPage) -> SourceEditorRoute {
         let base = noteBackedSourceDisplayName(for: page)
@@ -2121,9 +2543,6 @@ struct NoteDetailWorkspaceView: View {
         }
 
         guard let vaultURL = vaultSync.vaultURL else {
-            Log.notes.error(
-                "NoteDetailWorkspaceView: refusing async code file read with no active vault for \(filePath, privacy: .private)"
-            )
             if !isMarkdownSource {
                 codeFileBodySnapshot = CodeFileBodySnapshot(
                     pageId: page.id,
@@ -2184,7 +2603,7 @@ struct NoteDetailWorkspaceView: View {
     private func currentSourceRouteMatches(pageId: String, filePath: String) -> Bool {
         guard let currentPage = pages.first,
               currentPage.id == pageId,
-              let currentRoute = sourceFileRoute(for: currentPage) else {
+              let currentRoute = sourceEditorRoute(for: currentPage) else {
             return false
         }
         return currentRoute.filePath == filePath
@@ -2199,6 +2618,16 @@ struct NoteDetailWorkspaceView: View {
             body: body
         )
         return body
+    }
+
+    private func refreshMarkdownSourceSnapshot(for page: SDPage) {
+        guard let route = sourceFileRoute(for: page),
+              route.isMarkdown else { return }
+        codeFileBodySnapshot = CodeFileBodySnapshot(
+            pageId: page.id,
+            filePath: route.filePath,
+            body: markdownSourceFallbackContent(for: page, filePath: route.filePath)
+        )
     }
 
     private func markdownSourceFallbackContent(for page: SDPage, filePath: String? = nil) -> String {
@@ -2240,52 +2669,96 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func currentEditorBody(for page: SDPage) -> String? {
-        if let responder = NoteEditorViewFinder.findEditorTextView(for: pageId) {
-            return responder.string
-        }
         switch resolvedNoteMode(for: page) {
+        case .edit:
+            return NoteEditorViewFinder.findEditorTextView(for: pageId)?.string
         case .document, .source, .preview:
             return currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page)
-        case .edit:
-            return nil
         }
     }
 
-    private func flushCurrentEditor() {
-        guard let page = pages.first else { return }
+    static func bodyChangeDisposition(
+        for notification: Notification,
+        currentEditorBody: String?
+    ) -> NoteBodyChangeDisposition {
+        guard NoteFileStorage.pageBodyChangeOrigin(for: notification) == .localEditorSave,
+              let savedBody = NoteFileStorage.savedBody(for: notification),
+              savedBody == currentEditorBody else {
+            return .externalChange
+        }
+        return .acceptLocalSave(savedBody)
+    }
+
+    @discardableResult
+    private func flushCurrentEditor(reason: NoteSessionSaveReason = .explicitSave) async -> NoteEditorFlushResult {
+        guard let page = pages.first else { return .noPage }
+        if let route = sourceEditorRoute(for: page) {
+            let hostContent = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath)
+                ?? cachedSourceEditorContent(page: page, route: route)
+            let liveContent = await MarkEditCoreEditorLiveTextRegistry.shared.fetchText(
+                for: sourceEditorLiveTextQueryKey
+            )
+            let hadDirtyLease = noteSession.state.needsWriteLease
+            if liveContent == nil, hadDirtyLease {
+                Log.notes.error(
+                    "NoteDetailWorkspaceView: refusing to close or switch dirty Source without a live editor snapshot"
+                )
+                return .blocked
+            }
+            let sourceContent = liveContent ?? hostContent
+            if sourceContent != hostContent {
+                recordSourceEditorSnapshot(
+                    page: page,
+                    filePath: route.filePath,
+                    content: sourceContent
+                )
+            }
+            guard hadDirtyLease || sourceContent != hostContent else {
+                return .unchanged
+            }
+            let saved = await enqueueSourceEditorPersistence(
+                page: page,
+                filePath: route.filePath,
+                content: sourceContent,
+                noteBacked: route.isNoteBacked,
+                reason: reason
+            ).value
+            return saved ? .staged : .blocked
+        }
+        if resolvedNoteMode(for: page) == .document,
+           let documentFlushResult = await MarkdownDocumentSurfaceSaveRegistry.shared.flush(pageId: page.id) {
+            return documentFlushResult ? .staged : .blocked
+        }
         let baseline = persistedBodyFor(page)
-        let fullText = currentEditorBody(for: page) ?? baseline
+        let fullText = reason == .lensSwitch
+            ? lensSwitchBody(candidate: currentEditorBody(for: page), baseline: baseline)
+            : (currentEditorBody(for: page) ?? baseline)
         modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: fullText)
         guard fullText != baseline else {
             persistedBody = fullText
-            return
+            return .unchanged
         }
         let pageId = page.id
-        guard stageBodyWrite(pageId: pageId, fullText: fullText) else { return }
+        guard beginNoteSessionWrite(reason: reason) else { return .blocked }
+        let saved = await vaultSync.savePageBodyFileFirst(pageId: pageId, body: fullText)
+        guard saved else {
+            noteSession.finishAutosave(succeeded: false)
+            return .blocked
+        }
         persistedBody = fullText
-        page.applyInteractiveDerivedState(from: fullText)
-        Task { @MainActor in
-            _ = await AppBootstrap.shared?.vaultSync.savePageBodyFileFirst(pageId: pageId, body: fullText)
+        refreshMarkdownSourceSnapshot(for: page)
+        noteSession.finishAutosave(succeeded: true)
+        return .staged
+    }
+
+    @discardableResult
+    private func beginNoteSessionWrite(reason: NoteSessionSaveReason) -> Bool {
+        switch noteSession.recordUserEdit(source: .user) {
+        case .accepted:
+            return noteSession.beginAutosave(reason: reason)
+        case .needsLeaseHandoff:
+            return false
         }
-        if let modelContainer = AppBootstrap.shared?.modelContainer {
-            Task {
-                await BlockMirrorSyncCoordinator.shared.scheduleSync(
-                    pageId: pageId,
-                    body: fullText,
-                    modelContainer: modelContainer
-                )
-            }
-        }
-        page.needsVaultSync = true
-        page.updatedAt = .now
-        do {
-            try modelContext.save()
-        } catch {
-            Log.notes.error(
-                "NoteDetailWorkspaceView: failed to persist flushed editor body for page \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-        }
-        AppBootstrap.shared?.graphState.needsRefresh = true
     }
 
     @discardableResult
@@ -2845,6 +3318,10 @@ struct NoteDetailWorkspaceView: View {
         let wordCount = currentBody.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
         let charCount = currentBody.count
         let readingTime = max(1, wordCount / 200)
+        let disclosureItems = LensFidelityDisclosure.items(
+            in: currentBody,
+            lens: resolvedNoteMode(for: page)
+        )
 
         return VStack(alignment: .leading, spacing: 8) {
             Text("Note Info")
@@ -2857,9 +3334,16 @@ struct NoteDetailWorkspaceView: View {
             Divider()
             infoRow("Created", page.createdAt.formatted(date: .abbreviated, time: .shortened))
             infoRow("Modified", page.updatedAt.formatted(date: .abbreviated, time: .shortened))
+            if !disclosureItems.isEmpty {
+                Divider()
+                LensFidelityDisclosureSection(items: disclosureItems) {
+                    setNoteMode(.document, for: page)
+                    showInfoPopover = false
+                }
+            }
         }
         .padding()
-        .frame(width: 220)
+        .frame(width: disclosureItems.isEmpty ? 220 : 380)
     }
 
     private func infoRow(_ label: String, _ value: String) -> some View {

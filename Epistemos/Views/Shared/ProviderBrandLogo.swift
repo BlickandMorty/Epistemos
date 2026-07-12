@@ -11,7 +11,9 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
     case chatGPT         // OpenAI
     case gemini          // Google
     case claudeCode      // Anthropic account runtime
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     case codex           // OpenAI account runtime
+    #endif
     case gemma           // local Google Gemma
     case qwen            // local Alibaba Qwen
     case apple           // Apple Intelligence
@@ -33,7 +35,9 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
         case .chatGPT: "ChatGPT"
         case .gemini: "Gemini"
         case .claudeCode: "Claude Code"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .codex: "Codex"
+        #endif
         case .gemma: "Gemma"
         case .qwen: "Qwen"
         case .apple: "Apple Intelligence"
@@ -59,7 +63,6 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
         case .chatGPT: "ProviderLogoOpenAI"
         case .gemini: "ProviderLogoGemini"
         case .claudeCode: "ProviderLogoClaudeCode"
-        case .codex: "ProviderLogoCodex"
         case .gemma: "ProviderLogoGemma"
         case .qwen: "ProviderLogoQwen"
         case .apple: "ProviderLogoApple"
@@ -82,7 +85,10 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
     var sfSymbolFallback: String {
         switch self {
         case .claude, .claudeCode: "sparkle"
-        case .chatGPT, .codex: "bubble.left.and.text.bubble.right"
+        case .chatGPT: "bubble.left.and.text.bubble.right"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .codex: "bubble.left.and.text.bubble.right"
+        #endif
         case .gemini: "diamond"
         case .gemma: "g.circle"
         case .qwen: "q.circle"
@@ -107,7 +113,11 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
     /// (OpenAI→Codex / Anthropic→Claude Code) when those runtimes are active.
     static func cloud(_ provider: CloudModelProvider, accountRuntime: Bool = false) -> ProviderBrand {
         switch provider {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAI: accountRuntime ? .codex : .chatGPT
+        #else
+        case .openAI: .chatGPT
+        #endif
         case .anthropic: accountRuntime ? .claudeCode : .claude
         case .google: .gemini
         case .kimi: .kimi
@@ -144,7 +154,9 @@ enum ProviderBrand: String, CaseIterable, Sendable, Equatable {
     static func fromLabel(_ label: String) -> ProviderBrand {
         let l = label.lowercased()
         if l.contains("claude code") { return .claudeCode }
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         if l.contains("codex") { return .codex }
+        #endif
         if l.contains("claude") { return .claude }
         if l.contains("gpt") || l.contains("chatgpt") || l.contains("openai") { return .chatGPT }
         if l.contains("gemini") { return .gemini }

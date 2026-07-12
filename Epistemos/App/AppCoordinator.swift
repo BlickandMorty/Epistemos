@@ -11,6 +11,7 @@ import os
 final class AppCoordinator {
     private unowned let bootstrap: AppBootstrap
     private let ambientManifestRefreshDriver = AmbientManifestRefreshDriver()
+    private var pageChangeManifestRefreshTask: Task<Void, Never>?
 
     private let eventBus: EventBus
     private let uiState: UIState
@@ -72,11 +73,13 @@ final class AppCoordinator {
             guard let self else { return }
             switch event {
             case .vaultChanged:
+                self.pageChangeManifestRefreshTask?.cancel()
+                self.pageChangeManifestRefreshTask = nil
                 self.refreshAmbientManifest()
                 self.bootstrap.noteInsightService.reindex()
                 self.bootstrap.refreshLiveNoteScheduler()
             case .vaultPageChanged(let pageId):
-                self.refreshAmbientManifest()
+                self.scheduleAmbientManifestRefreshAfterPageMutation()
                 self.bootstrap.noteInsightService.reanalyze(pageId: pageId)
             default:
                 break
@@ -215,6 +218,16 @@ final class AppCoordinator {
                     }
                 }
             )
+        }
+    }
+
+    private func scheduleAmbientManifestRefreshAfterPageMutation() {
+        pageChangeManifestRefreshTask?.cancel()
+        pageChangeManifestRefreshTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            self?.refreshAmbientManifest()
+            self?.pageChangeManifestRefreshTask = nil
         }
     }
 

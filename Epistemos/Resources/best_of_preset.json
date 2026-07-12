@@ -61,7 +61,7 @@
       "id": "context7",
       "installTarget": "https://mcp.context7.com/mcp",
       "kind": "remoteMCP",
-      "minDistribution": "coreAppStore",
+      "minDistribution": "proResearch",
       "why": "Add a hosted MCP server for current library documentation."
     },
     {

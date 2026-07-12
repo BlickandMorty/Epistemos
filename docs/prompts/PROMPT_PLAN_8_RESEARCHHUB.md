@@ -1,9 +1,17 @@
 # PLAN 8 — ResearchHub: a multi-source research feed, deeply wired to Notes + Agents
 
-**Date:** 2026-07-03 · **Status: CANONICAL (new plan)** · **Sequence: build AFTER the two
-agent builds** (Plan 1-PRO OpenChamber + Plan 1-MAS June/goose) — the payoff (agents that
-read the hub + mascot presence + note round-trips) needs the agents to exist first. The
-open-source *foundation* (§Phase A) is safe to start independently whenever.
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. ResearchHub now
+> targets MAS only. The dedicated native room, vault store, source adapters,
+> citations, monitoring, and agent tools must be driven by MAS/June +
+> in-process `agent_core`. Experimental/1Code/KINDRED readiness is no longer a
+> prerequisite. Mascot/status ideas may be salvaged only as MAS-June state.
+
+**Date:** 2026-07-03 · **Status: CANONICAL for MAS after 2026-07-07 pivot** ·
+**Sequence: build agent-facing phases after MAS/June is ready enough to consume tools.**
+OpenChamber/ProAgent/Experimental/KINDRED are not prerequisites. The payoff (June reads the
+hub + MAS-safe status/provenance + note round-trips) depends on the MAS agent seam. The
+open-source foundation (§Phase A) is safe to start independently whenever.
 
 **What this is, in one line:** generalize Plan 3's arXiv capability into a **dedicated
 "ResearchHub" room** that ingests many research sources (papers, X/Reddit/HN posts,
@@ -45,9 +53,9 @@ graph, and agents share it.
 3. **Dedicated room, not a demotion.** ResearchHub is its own room (like arXiv/Obscura),
    AND its powers are agent capabilities. Existing dedicated features (arXiv, Browser)
    are absorbed as *sources within* the hub while staying reachable as themselves.
-4. **Build-once, works-in-both-builds.** The adapters + feed + agent tool are shared
-   across Pro and MAS (URLSession + vault + agent_core — all sandbox-legal). Only the
-   BYO-OAuth secret handling differs (§7).
+4. **Build once for MAS.** The adapters + feed + agent tool are App Store-safe
+   (URLSession + vault + agent_core). Park Pro/Experimental variations unless a
+   later owner directive reopens them.
 5. **Legality is inherited from the dossier §2, non-negotiable:** never Sci-Hub/LibGen,
    never Google Scholar scraping/SerpApi, never Elsevier/Scopus/IEEE/Lens; OA papers
    resolve via the DOI→Unpaywall→PDF chain only; Reddit saves obey the 48h-delete rule;
@@ -118,11 +126,9 @@ struct ResearchItem: Sendable, Codable {   // the unified schema (dossier §1)
 
 ## §4 AGENT INTEGRATION — ResearchHub as a capability both agent builds consume
 
-**One implementation, both builds:** expose ResearchHub to agents as an **app-hosted MCP
-server** (the app already hosts MCP per the vault-as-MCP capability in Plan 3). Both the
-Pro agents (goose + OpenCode, which speak MCP) and the MAS agent (`agent_core`, whose
-tool allowlist per Plan 1-MAS §3.2 already permits HTTP MCP over a fixed allowlist)
-consume the SAME `researchhub` tool surface. No per-engine reimplementation.
+**One implementation, MAS surface:** expose ResearchHub to agents through the shared app tool
+surface. MAS/June consumes it through `agent_core`. No per-engine reimplementation and no
+OpenChamber, Experimental, or Kindred dependency.
 
 **Tool verbs (the agent plane):**
 - `search(query, sources?, since?)` — across the hub, returns normalized items.
@@ -171,8 +177,8 @@ profile + what it's currently doing in the hub.
   scholarly spine** adapters — OpenAlex, Crossref, Unpaywall (OA chain), Europe PMC, the
   **OSF one-adapter** (PsyArXiv/SocArXiv/EdArXiv/…), bioRxiv — + the adaptive-card feed
   room + save-to-vault. A useful dedicated research room on its own.
-- **Phase B — Agent capability (needs agents):** the `researchhub` app-hosted MCP wired
-  into both builds + mascot presence + "ask agent about this item."
+- **Phase B — Agent capability (needs MAS/June):** the `researchhub` app-hosted tool surface wired
+  into June/agent_core + MAS-safe status/provenance + "ask agent about this item."
 - **Phase C — Personal + open feeds + notes-deep:** Hacker News, HF Daily Papers,
   Wikipedia, OpenLibrary/Internet Archive, Gutendex, generic RSS/Atom; then BYO-credential
   GitHub / Reddit(OAuth) / Zotero / Readwise / Stack Exchange / Mastodon; X bookmarks
@@ -187,7 +193,7 @@ the dossier §5–§8; wire them as the search backend.
 
 ---
 
-## §7 MAS / PRO CONSIDERATIONS
+## §7 MAS CONSIDERATIONS
 
 - **Shared, sandbox-legal:** all adapters are URLSession + vault + agent_core tools — no
   subprocess, no local server → clean on MAS. The feed is native SwiftUI.
@@ -206,8 +212,8 @@ Per phase, each ends in a commit + owner-visual checkpoint:
 - **A done:** the open scholarly spine ingests into the vault; the adaptive-card feed
   renders papers + at least one social source beautifully, theme-aware, with save-to-vault
   and the DOI→OA-PDF one-tap working.
-- **B done:** an agent (both builds) can `search`/`read`/`related` the hub via the MCP,
-  the mascot appears on a source while the agent reads it, and "ask agent about this item"
+- **B done:** MAS/June can `search`/`read`/`related` the hub via the app-hosted tool surface,
+  MAS-safe status appears on a source while the agent reads it, and "ask agent about this item"
   works end-to-end.
 - **C done:** ≥3 personal BYO sources connect (Keychain), X bookmarks import works,
   create-note-from-item + highlight→block + `[[link]]` + graph edges all land.
@@ -223,8 +229,9 @@ Per phase, each ends in a commit + owner-visual checkpoint:
   dedicated rooms.
 - Never `git add -A`; keys in Keychain; Swift builds on isolated DerivedData
   (both schemes), BUILD SUCCEEDED before commit; no worktrees; commit per phase.
-- Don't start the agent-facing phases (B+) until Plan 1-PRO and Plan 1-MAS are
-  owner-verified — the mascot + tool integration needs real agents.
+- Don't start the agent-facing phases (B+) until MAS/June + in-process
+  `agent_core` are real enough to consume tools. Do not wait for or depend on
+  Experimental/1Code/KINDRED; those lanes are parked.
 
 ---
 

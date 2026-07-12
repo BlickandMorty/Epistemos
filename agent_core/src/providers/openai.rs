@@ -5,7 +5,9 @@
 
 use std::collections::HashMap;
 use std::env;
+#[cfg(not(feature = "mas-build"))]
 use std::fs;
+#[cfg(not(feature = "mas-build"))]
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -26,16 +28,23 @@ use crate::types::{
 };
 
 pub(crate) const OPENAI_RESPONSES_API: &str = "https://api.openai.com/v1/responses";
+#[cfg(not(feature = "mas-build"))]
 const OPENAI_CODEX_RESPONSES_API: &str = "https://chatgpt.com/backend-api/codex/responses";
+#[cfg(not(feature = "mas-build"))]
 const OPENAI_CODEX_AUTH_MODE_ENV: &str = "OPENAI_AUTH_MODE";
+#[cfg(not(feature = "mas-build"))]
 const OPENAI_CODEX_ACCESS_TOKEN_ENV: &str = "OPENAI_ACCESS_TOKEN";
+#[cfg(not(feature = "mas-build"))]
 const OPENAI_CODEX_CLIENT_VERSION_ENV: &str = "OPENAI_CLIENT_VERSION";
+#[cfg(not(feature = "mas-build"))]
 const OPENAI_CODEX_DEFAULT_CLIENT_VERSION: &str = "0.118.0";
+#[cfg(not(feature = "mas-build"))]
 const OPENAI_CODEX_AUTH_MODE: &str = "codex";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum OpenAIAuth {
     ApiKey(String),
+    #[cfg(not(feature = "mas-build"))]
     Codex {
         access_token: String,
         client_version: String,
@@ -47,6 +56,7 @@ enum OpenAIResponsesAuth {
     ApiKey {
         api_key: String,
     },
+    #[cfg(not(feature = "mas-build"))]
     Codex {
         access_token: String,
         client_version: String,
@@ -75,6 +85,13 @@ impl OpenAIProvider {
         }
     }
 
+    #[cfg(feature = "mas-build")]
+    fn from_env(api_model: &'static str, _codex_model: &'static str) -> Self {
+        let auth = resolve_openai_auth(env::var("OPENAI_API_KEY").unwrap_or_default());
+        Self::new(auth, api_model)
+    }
+
+    #[cfg(not(feature = "mas-build"))]
     fn from_env(api_model: &'static str, codex_model: &'static str) -> Self {
         let auth = resolve_openai_auth(
             env::var("OPENAI_API_KEY").unwrap_or_default(),
@@ -105,10 +122,12 @@ impl OpenAIProvider {
         Self::from_env("gpt-5.4-nano", "gpt-5.4-nano")
     }
 
+    #[cfg(not(feature = "mas-build"))]
     pub fn gpt53_codex() -> Self {
         Self::from_env("gpt-5.3-codex", "gpt-5.3-codex")
     }
 
+    #[cfg(not(feature = "mas-build"))]
     pub fn gpt53_codex_spark() -> Self {
         Self::from_env("gpt-5.3-codex-spark", "gpt-5.3-codex-spark")
     }
@@ -175,6 +194,7 @@ impl OpenAIProvider {
                             .post(OPENAI_RESPONSES_API)
                             .header("authorization", format!("Bearer {api_key}"))
                             .header("content-type", "application/json"),
+                        #[cfg(not(feature = "mas-build"))]
                         OpenAIResponsesAuth::Codex {
                             access_token,
                             client_version,
@@ -344,7 +364,7 @@ impl OpenAIProvider {
                             .get("response")
                             .and_then(|response| response.get("usage"))
                         {
-                            merge_codex_usage(&mut final_usage, usage);
+                            merge_response_usage(&mut final_usage, usage);
                         }
                     }
                     "response.failed" | "error" => {
@@ -439,6 +459,7 @@ impl AgentProvider for OpenAIProvider {
                 )
                 .await
             }
+            #[cfg(not(feature = "mas-build"))]
             OpenAIAuth::Codex {
                 access_token,
                 client_version,
@@ -472,7 +493,9 @@ impl AgentProvider for OpenAIProvider {
             "gpt-5.4" => (400_000, 128_000, 1.25, 10.00),
             "gpt-5.4-mini" => (400_000, 128_000, 0.25, 2.00),
             "gpt-5.4-nano" => (131_072, 64_000, 0.05, 0.40),
+            #[cfg(not(feature = "mas-build"))]
             "gpt-5.3-codex" => (400_000, 128_000, 1.25, 10.00),
+            #[cfg(not(feature = "mas-build"))]
             "gpt-5.3-codex-spark" => (400_000, 64_000, 0.25, 2.00),
             "gpt-5.2" => (1_048_576, 128_000, 1.25, 10.00),
             "gpt-4.1" => (128_000, 16_384, 2.00, 8.00),
@@ -484,24 +507,19 @@ impl AgentProvider for OpenAIProvider {
             _ => (128_000, 16_384, 2.50, 10.00),
         };
 
+        let supports_vision = match self.model {
+            "gpt-4o" | "gpt-4o-mini" | "gpt-5.5" | "gpt-5.4" | "gpt-5.4-mini" | "gpt-5.4-nano"
+            | "gpt-5.2" | "gpt-4.1" | "gpt-4.1-mini" => true,
+            #[cfg(not(feature = "mas-build"))]
+            "gpt-5.3-codex" | "gpt-5.3-codex-spark" => true,
+            _ => false,
+        };
+
         ProviderCapabilities {
             max_context_tokens: max_ctx,
             max_output_tokens: max_out,
             supports_thinking: openai_responses_model_supports_reasoning(self.model),
-            supports_vision: matches!(
-                self.model,
-                "gpt-4o"
-                    | "gpt-4o-mini"
-                    | "gpt-5.5"
-                    | "gpt-5.4"
-                    | "gpt-5.4-mini"
-                    | "gpt-5.4-nano"
-                    | "gpt-5.3-codex"
-                    | "gpt-5.3-codex-spark"
-                    | "gpt-5.2"
-                    | "gpt-4.1"
-                    | "gpt-4.1-mini"
-            ),
+            supports_vision,
             supports_web_search: false,
             supports_code_execution: false,
             supports_computer_use: matches!(self.model, "gpt-4o" | "gpt-5.4"),
@@ -696,6 +714,12 @@ fn build_openai_responses_body(
 // Helpers
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "mas-build")]
+fn resolve_openai_auth(api_key: String) -> OpenAIAuth {
+    OpenAIAuth::ApiKey(api_key.trim().to_string())
+}
+
+#[cfg(not(feature = "mas-build"))]
 fn resolve_openai_auth(
     api_key: String,
     access_token: String,
@@ -722,6 +746,7 @@ fn resolve_openai_auth(
     }
 }
 
+#[cfg(not(feature = "mas-build"))]
 fn load_codex_client_version() -> String {
     let from_cache = env::var("HOME")
         .ok()
@@ -754,19 +779,13 @@ fn openai_responses_reasoning_effort(config: &AgentConfig) -> &'static str {
 }
 
 fn openai_responses_model_supports_reasoning(model: &str) -> bool {
-    matches!(
-        model,
-        "gpt-5.5"
-            | "gpt-5.4"
-            | "gpt-5.4-mini"
-            | "gpt-5.4-nano"
-            | "gpt-5.3-codex"
-            | "gpt-5.3-codex-spark"
-            | "gpt-5.2"
-            | "o1"
-            | "o3"
-            | "o3-mini"
-    )
+    match model {
+        "gpt-5.5" | "gpt-5.4" | "gpt-5.4-mini" | "gpt-5.4-nano" | "gpt-5.2" | "o1" | "o3"
+        | "o3-mini" => true,
+        #[cfg(not(feature = "mas-build"))]
+        "gpt-5.3-codex" | "gpt-5.3-codex-spark" => true,
+        _ => false,
+    }
 }
 
 fn response_function_call_ids(item: &Value) -> Option<(String, String)> {
@@ -787,7 +806,7 @@ fn response_function_call_ids(item: &Value) -> Option<(String, String)> {
     Some((item_id, call_id))
 }
 
-fn merge_codex_usage(into: &mut TokenUsage, usage: &Value) {
+fn merge_response_usage(into: &mut TokenUsage, usage: &Value) {
     into.input_tokens = usage
         .get("input_tokens")
         .and_then(Value::as_u64)
@@ -930,6 +949,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn resolves_codex_auth_when_access_token_is_present() {
         let auth = resolve_openai_auth(
             "sk-openai".to_string(),
@@ -972,6 +992,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn provider_native_thinking_codex_constructor_uses_native_reasoning_model() {
         let provider = OpenAIProvider::gpt53_codex();
         let capabilities = provider.capabilities();

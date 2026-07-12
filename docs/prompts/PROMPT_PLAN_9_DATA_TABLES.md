@@ -1,8 +1,17 @@
-# PLAN 9 — The "Data" Tab: Agent-Native Spreadsheet+Database on IronCalc × silent-Univer
+# PLAN 9 — RECKONER: Agent-Native Vault Datasets on IronCalc × silent-Univer
 
-**Date:** 2026-07-03 · **Status: CANONICAL** · **Sequence: build AFTER the two agent
-builds** (Plan 1-PRO + Plan 1-MAS) — the agent chat/tools/mascot payoff needs real
-agents; the §9 Stage-0/1 foundation (data core + engine bridge) may start earlier.
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. RECKONER now
+> targets MAS only. Datasets remain vault artifacts, existing note-workspace
+> tabs, Epdoc embeds, Swift Charts, silent-Univer/IronCalc, and June-driven F2
+> tools through in-process `agent_core`. Experimental/1Code/KINDRED companion
+> presence is parked; no new chat room and no direct cell writes.
+
+**Date:** 2026-07-03 · **Status: CANONICAL WITH 2026-07-06 RECKONER RESHAPE + TRUTH-FLIP
+MERGED; MAS-only after 2026-07-07 pivot** · **Sequence: build agent-facing stages after
+MAS/June is ready enough to consume tools.** OpenChamber/ProAgent/Experimental/KINDRED are
+not prerequisites. The agent tools/status payoff needs the MAS agent seam; the §9 Stage-0/1 foundation (artifact-backed data core + engine
+bridge) may start earlier.
 
 **Verification basis (do not re-litigate without new evidence):** synthesized from a
 4-dossier corpus — 3 GPT singletons + **the owner's Claude synthesis (highest-compute
@@ -14,13 +23,13 @@ Owner intent frame: `docs/prompts/PROMPT_PLAN_9_DATA_TABLES_RESEARCH.md`.
 
 ---
 
-## §0 LOCKED DECISIONS
+## §0 LOCKED DECISIONS (MERGED CURRENT TRUTH)
 
-1. **A dedicated "Data" tab/room** — integrated like arXiv/Browser/Notes. One SQLite
-   data core, **four doors**: the tab · inline note embeds · the in-tab agent chat ·
-   the agent tools. Records are first-class vault objects (wikilinks, graph nodes).
-2. **Unified hybrid** — any table is an Excel-grade grid AND Airtable-style views
-   (grid + kanban + gallery + calendar + form all ship in v1). Real formula engine.
+1. **No dedicated Data tab/room.** RECKONER is the data piece of the MAS LUMENLENS + June cluster:
+   datasets open as tabs in the existing note/doc workspace, embed into notes, and are driven by
+   the F2 agent tools. Dataset artifacts are first-class vault objects (wikilinks, graph nodes).
+2. **Grid-first v1.** A table is an Excel-grade grid first. Kanban/gallery/calendar/form and
+   record-detail views are deferred phases, not v1 obligations. Real formula engine remains.
 3. **THE ARCHITECTURE — "silent-Univer":** **Univer OSS (Apache-2.0) is the grid
    RENDERER with its formula engine DISABLED** via `notExecuteFormula: true`
    [VERIFIED-CODE `packages/engine-formula/src/config/config.ts:32` +
@@ -31,37 +40,24 @@ Owner intent frame: `docs/prompts/PROMPT_PLAN_9_DATA_TABLES_RESEARCH.md`.
 4. **Engine placement:** **IronCalc compiled to WASM lives INSIDE the WKWebView**
    beside Univer (the type→compute→repaint hot loop never crosses the Swift bridge);
    **native IronCalc via UniFFI** (`epistemos_calc` wrapper crate, the `agent_core`
-   pattern) serves headless/agent calc on BOTH builds. Both load the same serialized
+   pattern) serves headless/agent calc for MAS/June. The web grid and native tool path load the same serialized
    model. [wasm binding verified: full engine, `bindings/wasm/src/lib.rs:116-137`.]
-5. **SQLite/GRDB is the single durable truth.** IronCalc/Univer are projections.
-   Sync at transaction boundaries via IronCalc `UserModel`'s verified surface:
-   `flush_send_queue() → Vec<u8>` bitcode diffs, `apply_external_diffs()`,
-   `to_bytes()/from_bytes()`, native `undo()/redo()`, `pause_evaluation()`
-   [VERIFIED-CODE `base/src/user_model/common.rs:259-392`].
-6. **Formula freedom = the dual-zone model:** the **record zone** (typed columns;
-   field-owned cells are read-only projections) + the **free zone** (arbitrary
-   formulas/scratch anywhere, stored in `cell_overlay`). Durable references into
-   record data go through **IronCalc defined names** (one per typed column, e.g.
-   `Invoices_Amount`) maintained by the app on insert/delete/reorder/rename —
-   Excel-`Table1[Column]`-equivalent durability without waiting for IronCalc's
-   roadmap [defined-names CRUD VERIFIED-CODE `model.rs:3521/3621/3644` +
-   `user_model/common.rs:2006-2025`]. Raw A1 refs into the record zone allowed but
-   UI-flagged fragile. **De-risk gate (synthesis threshold):** if the
-   reference-durability subsystem threatens v1, ship the conservative model first
-   (formula FIELDS + grid-only helper columns) behind a flag and layer free zones in
-   later — the schema below supports both.
-7. **Native ceiling (per the locked "native as far as full functionality"):** native
-   frame/toolbar/table-switcher/schema-inspector + **native kanban, gallery,
-   calendar, form, record-detail** + **native Swift Charts** + **a native, dedicated
-   AGENT CHAT PANEL docked in the Data tab** (owner-confirmed; all dossiers
-   converged). **WKWebView ONLY for the dense grid** — bundled local assets,
-   `loadFileURL`, script-message bridge, no server (the proven editor pattern).
-8. **Agents — deeply wired to BOTH builds, same seam as ResearchHub (Plan 8):** one
-   tool surface; **MAS = June driving in-process `agent_core`** (sandbox-legal, no
-   subprocess); **Pro = OpenChamber/goose/OpenCode via the app-hosted MCP**. The
-   in-tab chat and the main agent surfaces call the SAME tools. Every structural or
-   bulk op: **dry_run → schema-diff preview → confirm → apply → undo.** Mascot hook:
-   when an agent works the Data room, its mascot appears there (Plan 5 pattern).
+5. **Vault artifact is the single durable truth; GRDB is derived cache/working store.**
+   CSV (flat datasets), XLSX/`.icalc` (promoted workbooks), and `.dataset.md` metadata live in
+   the vault and outrank everything. A commit is one GRDB transaction plus synchronous vault
+   writeback; deferred writeback silently re-flips truth and is wrong.
+6. **Formula freedom = deferred dual-zone model:** the **record zone** (typed columns;
+   field-owned cells are read-only projections) + the **free zone** (arbitrary formulas/scratch
+   anywhere) with IronCalc defined names remains the post-v1 direction. V1 ships the conservative
+   grid-first model unless the defined-name/free-zone subsystem is proven without schedule risk.
+7. **Native ceiling (per the locked "native as far as full functionality"):** native dataset-tab
+   frame/toolbar/table-switcher/schema-inspector + **native Swift Charts**. No dedicated docked
+   agent chat. **WKWebView ONLY for the dense grid** — bundled local assets, `loadFileURL`,
+   script-message bridge, no server (the proven editor pattern).
+8. **Agents — MAS/June only:** one F2 tool surface; **MAS = June driving in-process
+   `agent_core`** (sandbox-legal, no subprocess). Park Experimental/1Code/KINDRED
+   routing. Every structural or bulk op: **dry_run → schema-diff preview → confirm → apply → undo.**
+   Status hook: when June works a dataset tab/embed, MAS-safe status/provenance follows that surface.
 9. **Never:** Univer Pro (commercial license + server + Node — verified boundary:
    Pro holds collab/history/**import-export**/print/charts/pivots; the OSS repo has
    NO `-pro` packages). No server, no Postgres, no subprocess on MAS, ever.
@@ -78,30 +74,32 @@ Owner intent frame: `docs/prompts/PROMPT_PLAN_9_DATA_TABLES_RESEARCH.md`.
 ## §1 VERIFIED ARCHITECTURE
 
 ```
-┌─ Data tab (native frame: toolbar · table switcher · view switcher · inspector) ─┐
+┌─ Dataset tab in existing note/doc workspace (toolbar · switcher · inspector) ──┐
 │                                                                                  │
-│  NATIVE views ─────────────┐   ┌─ WKWebView (grid view only; bundled assets) ─┐  │
-│  kanban · gallery ·        │   │  Univer OSS renderer (formula engine OFF via  │  │
-│  calendar · form ·         │   │  notExecuteFormula) + IronCalc-WASM co-       │  │
-│  record detail ·           │   │  resident = the ONLY computer. Hot loop stays │  │
-│  Swift Charts              │   │  in-page: edit → wasm setUserInput+evaluate → │  │
-│                            │   │  re-read dependents → push values into Univer │  │
-│  NATIVE agent chat panel ──┤   └───────────────┬───────────────────────────────┘  │
-│  (docked; drives the same  │            commit │ flush_send_queue() bitcode diff  │
-│   tool surface)            │                   ▼ (WKScriptMessageHandler)         │
+│  Native chrome +           │   ┌─ WKWebView (grid view only; bundled assets) ─┐  │
+│  Swift Charts              │   │  Univer OSS renderer (formula engine OFF via  │  │
+│  (other views deferred)    │   │  notExecuteFormula) + IronCalc-WASM co-       │  │
+│                            │   │  resident = the ONLY computer. Hot loop stays │  │
+│  No docked chat; MAS June  │   │  in-page: edit → wasm setUserInput+evaluate → │  │
+│  uses F2 tools             │   │  re-read dependents → push values into Univer │  │
+│                            │   └───────────────┬───────────────────────────────┘  │
+│                                                │ commit + synchronous writeback   │
+│                                                ▼ (WKScriptMessageHandler)         │
 └────────────────────────────┴──────────────────────────────────────────────────────┘
                     ▼
-     SQLite/GRDB — THE durable truth (typed records + overlay + views + op-log)
+     GRDB — derived working cache (typed records + overlay + views + op-log)
+                    ▼
+     Vault artifact — THE durable truth (CSV/XLSX-.icalc + .dataset.md)
                     ▲
      native IronCalc-UniFFI (epistemos_calc) — headless/agent calc, dry-runs, undo
                     ▲
-     agent tools: MAS = in-process agent_core · Pro = app-hosted MCP (OpenChamber/goose)
+     agent tools: MAS = June/agent_core
 ```
 
 Key verified facts a builder must not re-derive: Univer is isomorphic with separable
 formula/UI plugins (README:90, docs/ISOMORPHIC.md:18); conditional formatting /
 data-validation / tables / filter-sort ARE Univer OSS packages in-repo; IronCalc has
-**494 implemented functions**, frozen panes, defined names, `UserModel`
+**494 implemented functions**, frozen panes, defined names, native `UserModel`
 undo/redo/diff-queue — but **no dirty-cells accessor after `evaluate()`** (snapshot-
 diff the dependents you rendered; see §3) and **no merge-cells API** (struct exists
 for xlsx fidelity only). `CellValue = {None, String, Number, Boolean}` — no
@@ -109,10 +107,11 @@ Error/Empty variants; errors arrive via `Result` (fix any FFI sketch that assume
 otherwise). Conditional formatting is in IronCalc source at HEAD (base + webapp
 renderer) — ahead of its public roadmap; treat as available-pending-release.
 
-## §2 DATA MODEL (consolidated: synthesis dual-zone + singletons' view system)
+## §2 DATA MODEL (artifact truth + derived cache; dual-zone/view system staged)
 
-One SQLite store, four layers. (Full field-by-field DDL drafts live in the
-adjudication doc + raw corpus; this is the binding shape.)
+One vault artifact family plus a derived GRDB cache, four logical layers. (Full field-by-field
+DDL drafts live in the adjudication doc + raw corpus; this is a staged shape, not a license to
+make GRDB truth.)
 
 - **Typed layer:** `data_table` · `data_field` (kind: text/long-text/number/date/
   checkbox/single-select/multi-select/link/attachment/rating/formula/lookup/rollup;
@@ -146,32 +145,33 @@ extents **in the same transaction** as the schema change.
 
 1. **Boot:** WKWebView `loadFileURL` on bundled assets → init Univer with the
    formula plugin registered `{ notExecuteFormula: true }` → init IronCalc-WASM
-   (same 4-arg constructor as Rust: `new(name, locale, tz, lang)`) → hydrate both
-   from the serialized model / GRDB snapshot → paint.
+   (`new Model(name, locale, timezone, language_id)` on `@ironcalc/wasm` 0.7.0; no wasm
+   `UserModel`) → hydrate both from the serialized vault-backed model / GRDB cache → paint.
 2. **Edit loop (in-page, no native round trip):** Univer edit command → JS calls
    wasm `set_user_input(sheet,row,col,input)` + `evaluate()` → **re-read the
    dependent cells currently rendered** (snapshot-diff — there is no dirty-cell API;
    scope reads to the viewport + known dependents) → push plain values into Univer
    via the Facade (formula string stays visible in the formula bar).
-3. **Commit boundary:** JS calls `flush_send_queue()` → bitcode `Vec<u8>` →
-   `WKScriptMessageHandler` → Swift writes records/overlay/op-log to GRDB in ONE
-   transaction; periodically `to_bytes()` snapshot for fast reload.
-4. **Undo:** `UserModel.undo()` in-engine + the GRDB `operation_log` inverse ops —
-   both in the same user-facing undo action.
+3. **Commit boundary:** JS emits the app-owned dirty payload / snapshot digest over
+   `WKScriptMessageHandler` → Swift writes records/overlay/op-log to GRDB in ONE transaction and
+   synchronously writes the vault artifact; periodically `to_bytes()` snapshot for fast reload.
+4. **Undo:** IronCalc `undo()`/native facade undo where exposed + the GRDB `operation_log` inverse
+   ops + artifact rollback all present as the same user-facing undo action.
 5. **Native/agent path:** `epistemos_calc` (UniFFI, staticlib — mirror the
    `agent_core` build) loads the same bytes via `from_bytes()` for dry-runs, agent
-   edits, and headless recalc; its diffs flow back through the same GRDB commit path
-   and are pushed to the webview if open.
+   edits, and headless recalc; its diffs flow back through the same GRDB + vault-artifact commit
+   path and are pushed to the webview if open.
 6. **Fallback gate:** if measured webview cold-start/memory with Univer +
    IronCalc-WASM breaches the perf budget (§8), swap the renderer to **Glide Data
    Grid (MIT)** and build the minimal spreadsheet chrome on it; watchlist:
    `@ironcalc/workbook` (verified: a real React+canvas grid with formula
    bar/frozen panes/selection/clipboard — younger, but one-vendor purity).
 
-## §4 AGENT LAYER (both builds; the differentiator)
+## §4 AGENT LAYER (MAS/June; the differentiator)
 
 - **One tool schema, three modes** (`dry_run | apply | undo`), executed by a Swift
-  executor over GRDB with narrow Rust calc calls. **Structural ops:** create/rename/
+  executor over the DatasetStore/GRDB cache with narrow Rust calc calls and synchronous
+  vault-artifact writeback. **Structural ops:** create/rename/
   delete table · add/rename/delete field · change_field_type (coercion policy:
   strict/best_effort/null_on_failure) · add_link · create/update view ·
   populate_records · bounded bulk_transform · **promote_helper_column** (free-zone →
@@ -183,16 +183,11 @@ extents **in the same transaction** as the schema change.
   diff queue) → rendered as a native review sheet → explicit confirm → apply in one
   transaction → inverse ops persisted → undo replays them. Agent attribution on
   every op-log row.
-- **Wiring:** MAS = June's in-process `agent_core` calls the executor directly
-  (no socket, no subprocess). Pro = the same tools registered on the app-hosted MCP
-  for OpenChamber/goose/OpenCode. Identical semantics, transport-swapped — exactly
-  the ResearchHub (Plan 8) seam.
-- **The in-tab agent chat (owner-locked):** a native chat panel docked in the Data
-  tab, context-primed with the active table/view/selection; answers render as native
-  tables/diff cards; "do it" flows through the same dry-run→confirm pipeline. The
-  main agent surfaces (June Surface B / OpenChamber) reach the same tools for
-  cross-room work ("build me a table from this note"). Mascot presence on the Data
-  room while an agent works it (Plan 5).
+- **Wiring:** MAS = June's in-process `agent_core` calls the executor directly (no socket, no
+  subprocess). Experimental/1Code/KINDRED transport is parked.
+- **No new chat:** dataset context is injected into June. Answers
+  render as native tables/diff cards; "do it" flows through the same dry-run→confirm pipeline.
+  MAS-safe status/provenance follows the dataset tab/embed while June works it.
 
 ## §5 INGEST (all MAS-legal, on-device)
 
@@ -201,8 +196,8 @@ Receipt/image → **Vision `VNRecognizeTextRequest`** → agent proposes schema 
 macOS 26) → **preview → confirm → insert** + `ingest_source`/`record_provenance`
 rows (source file linked to every record it produced). PDF → PDFKit (+ Live Text for
 scans) / existing EdgeParse lane. CSV/JSON → native parse w/ field-type guessing.
-Messy paste → agent field-inference. Cloud OCR/parse = Pro-only enhancement, never
-the default.
+Messy paste → agent field-inference. Cloud OCR/parse outside the receipt-gated MAS proxy is parked,
+never the default.
 
 ## §6 VAULT INTEGRATION (the moat)
 
@@ -247,20 +242,20 @@ query results. One data core — tab, embed, chat, agent all point at it.
   paints in Univer with the formula visible in the bar; measure cold-start/bundle/
   memory against the Glide fallback gate. (b) `epistemos_calc` UniFFI crate: Swift
   loads a workbook `from_bytes`, sets a cell, evaluates, reads the value.
-- **Stage 1 — Data core + grid:** GRDB schema (§2) · field/view registries ·
-  operation_log · native frame + table/view switcher + schema inspector · the
-  silent-Univer grid over typed tables · formula FIELDS via template compilation ·
-  CSV/JSON import. *Accept:* create table → type data → formula field computes →
-  survives relaunch → undo works end-to-end.
-- **Stage 2 — Views + vault:** native kanban/gallery/calendar/form over the same
-  records · filters/sorts/groups · record detail · linked records + lookup/rollup ·
-  inline note embeds + graph binding · Swift Charts. *Accept:* one table, five
-  views, one embed, graph nodes visible.
-- **Stage 3 — Agent + chat (needs Plan 1 agents):** the tool surface on both builds ·
-  the in-tab chat panel · dry-run/confirm/undo UX · NL restructuring · ingest
-  (Vision/PDF/paste) with provenance · mascot hook. *Accept:* "restructure this
-  table" round-trips with a preview diff on BOTH June and OpenChamber; a receipt
-  photo becomes typed rows with the source linked.
+- **Stage 1 — Artifact-backed data core + grid:** vault artifact layout
+  (CSV/XLSX-`.icalc` + `.dataset.md`) · GRDB derived-cache schema (§2) · field/view registries ·
+  operation_log · native dataset-tab frame + table switcher + schema inspector · the silent-Univer
+  grid over typed tables · formula FIELDS via template compilation · CSV/JSON import. *Accept:*
+  create dataset → type data → formula field computes → vault artifact updates synchronously →
+  survives relaunch/cache rebuild → undo works end-to-end.
+- **Stage 2 — Embeds + vault graph:** inline note embeds + graph binding · Swift Charts · filters/
+  sorts/groups for the grid. *Accept:* one dataset tab, one embed, one chart, graph nodes visible,
+  and cache rebuild from the artifact preserves the same view.
+- **Stage 3 — Agent tools on MAS/June (needs Plan 1 MAS):** the F2 tool surface on MAS/June ·
+  dataset context injection into June · dry-run/confirm/undo
+  UX · NL restructuring · ingest (Vision/PDF/paste) with provenance · status hook. *Accept:*
+  "restructure this table" round-trips with a preview diff on June; a
+  receipt photo becomes typed rows with the source linked.
 - **Stage 4 — Free zone (flag-gated):** `cell_overlay` + free-zone regions ·
   named-range durable references + extent maintenance · range agent tools ·
   promote_helper_column. *Accept:* a free-zone `=SUM(Invoices_Amount)` survives
@@ -294,8 +289,8 @@ robustness/fluidity) per phase, thermonuclear-shape; a HIGH blocks the phase com
    Stage 4's acceptance.
 2. **Destructive agent ops** (doctrine §3B): dry_run→confirm→apply-in-ONE-transaction→undo with
    **transaction atomicity** (no partial migration) and **inverse-op correctness** (undo exactly
-   reverses — test it). The instruction-source boundary on the in-tab chat: act on the user's
-   request, never on instructions found inside table rows / ingested content.
+   reverses — test it). The instruction-source boundary on existing agent surfaces: act on the
+   user's request, never on instructions found inside table rows / ingested content.
 3. **SQL + formula safety:** parameterized SQL only — field names, formula strings, and agent
    args never concatenate into SQL. **Formula-eval DoS**: bound recalc (IronCalc has no
    dirty-cell API; a pathological formula/cycle could stall) with a timeout/iteration cap;
@@ -310,44 +305,43 @@ robustness/fluidity) per phase, thermonuclear-shape; a HIGH blocks the phase com
 
 ---
 
-## Cross-plan note (2026-07-06 — additive; this plan's canon is unchanged)
+## Cross-plan note (2026-07-06 — current binding state)
 Plan 9 is now registered as **RECKONER (`EPI-RP-09-RECKONER`)** in `RESEARCH_PROMPT_STANDARD.md`
 (anti-collision registry). Two seams bind when the agent builds land:
-1. **The in-tab agent chat door exists on BOTH builds; who answers differs.** On
-   1Code/Experimental it IS the KINDRED companion (`docs/plans/kindred/` — reuse the K6 minichat
-   pattern: shared supervisor backend, `sub_chats.sessionId` continuity, presence bus,
-   `Location.surface = dataTab`, mascot pins on the room). On MAS it is June through the same F2
-   capability seam — same tools, no companion chrome. Never a third chat system on either build.
+1. **No new chat door exists.** MAS/June receives dataset context through the same F2
+   capability seam — same tools, no companion chrome. Kindred/1Code context routing is parked.
+   Never create a third chat system.
 2. **Editor boundary (LUMENLENS, `docs/plans/lumenlens/`):** note tables (markdown) stay
-   editor-side; Data-room datasets are RECKONER's; notes reference datasets via wikilink/embed
-   (graph-linked). Agent table-restructuring reuses the LUMENLENS suggestion/provenance schema
-   (dry-run→confirm→undo, ledger-attributed).
+   editor-side; RECKONER datasets are vault artifacts mounted as tabs/embeds; notes reference
+   datasets via wikilink/embed (graph-linked). Agent table-restructuring reuses the LUMENLENS
+   suggestion/provenance schema (dry-run→confirm→undo, ledger-attributed).
 
 ---
 
-## RESHAPE (owner + review, 2026-07-06 — BINDING; re-weights §0.2's four doors, core unchanged)
+## RESHAPE (owner + review, 2026-07-06 — BINDING; merged into §0 above)
 
-**Verdict: KEEP the data core; CUT the standalone room.** RECKONER is the THIRD piece of the
-LUMENLENS+KINDRED cluster, not a fourth destination. §0–§2 (GRDB single truth · IronCalc sole calc
-authority · silent-Univer grid in WKWebView · dual-zone formulas/defined names) are unchanged.
+**Verdict: KEEP the data core; CUT the standalone room.** RECKONER is the MAS data piece of the
+LUMENLENS+June cluster, not a fourth destination. §0–§2 now mean vault-artifact truth · GRDB
+derived cache · IronCalc sole calc authority · silent-Univer grid in WKWebView · dual-zone/
+defined-names deferred post-v1.
 The doors re-weight:
-1. **PRIMARY door = the agents.** Datasets are created/restructured through the F2 capability from
-   the 1Code main agent, the KINDRED companion, and the Epdoc minichat ("track X", "make this
-   note's table real", "chart this") with dry-run→confirm→undo, ledger-attributed. On MAS the same
-   capability is June-driven. Data is something the agent DOES for you, not a place you go.
+1. **PRIMARY door = MAS/June.** Datasets are created/restructured through the F2 capability from
+   June and MAS-June Epdoc assist ("track X", "make this note's table real", "chart this")
+   with dry-run→confirm→undo, ledger-attributed. Data is something the MAS agent DOES for you,
+   not a place you go.
 2. **Datasets open as TABS in the note workspace** — reuse the existing native note/doc tab group
    (precedent: EpdocDocument windows already join `NoteWindowManager.noteTabbingIdentifier`,
    guard-tested). Same chrome as notes; zero new navigation surface. **Second mount (owner
    2026-07-06): sheets can ALSO be in-note tabs inside the Epdoc Notebook** (LUMENLENS §P-AMEND
-   11) — same GRDB truth, same grid seam, mounted inside a note beside chat tabs; the note's
-   `.md` holds only references (tab manifest). `RESEARCH_PROMPT_PLAN_9_RECKONER.md` D10 resolves
-   the double-mount + WebView-economics rules.
+   11) — same vault artifact truth, same GRDB cache, same grid seam, mounted inside a note beside
+   MAS-June assist tabs; the note's `.md` holds only references (tab manifest). `RESEARCH_PROMPT_PLAN_9_RECKONER.md`
+   D10 resolves the double-mount + WebView-economics rules.
 3. **Inline note embeds** — unchanged (the vault-integration moat, §6).
 4. **The dedicated top-level Data room/tab: CUT.** No room chrome. The native view system
    (kanban/gallery/calendar/form) is DEFERRED to a later phase — grid first.
-**No new chat of any kind**: the minichat/companion (Experimental) and June (MAS) are the chat,
-dataset-aware via presence (`Location.surface = dataTab`). Stage 0–1 (data core + engine spikes)
-remains startable early; everything agent-facing still lands after KINDRED K6.
+**No new chat of any kind**: MAS/June is the chat, dataset-aware through context and
+approval/provenance. Stage 0–1 (data core + engine spikes)
+remains startable early; agent-facing work lands after the MAS/June F2 seam is ready.
 
 **Exact §0 supersession map (this reshape is the new evidence §0 demands):**
 - §0.1 "dedicated Data tab/room" → SUPERSEDED: datasets open as tabs in the existing note/doc
@@ -355,14 +349,15 @@ remains startable early; everything agent-facing still lands after KINDRED K6.
 - §0.2 "grid + kanban + gallery + calendar + form all ship in v1" → SUPERSEDED: grid ships v1;
   the other views + record-detail are DEFERRED phases.
 - §0.7 "native, dedicated AGENT CHAT PANEL docked in the Data tab" → SUPERSEDED: no docked
-  panel, no new chat — the KINDRED minichat (Experimental) / June (MAS) serve dataset tabs
+  panel, no new chat — MAS/June serves dataset tabs
   through the same F2 tools. §0.7's native frame/toolbar/inspector ceiling otherwise stands
   for the dataset-tab chrome; Swift Charts stands.
-- §0.8 "Pro = OpenChamber/goose/OpenCode via app-hosted MCP" → STALE post-pivot: the surfaces
-  are June/MAS (in-process agent_core) + 1Code/Experimental (Node backend); one tool surface
+- Old §0.8 agent-surface wording → STALE post-pivot: the surface is June/MAS
+  (in-process agent_core); one tool surface
   + dry_run→confirm→apply→undo + the mascot hook all stand as written.
-- Everything else in §0 (silent-Univer, IronCalc sole authority, WASM placement, GRDB truth,
-  dual-zone/defined-names, xlsx via IronCalc, never Univer Pro, licensing) is UNCHANGED.
+- Everything else in §0 (silent-Univer, IronCalc sole authority, WASM placement, vault-artifact
+  truth + GRDB derived cache, dual-zone/defined-names deferred post-v1, xlsx via IronCalc, never
+  Univer Pro, licensing) is UNCHANGED from the merged current §0 above.
 
 ---
 
@@ -377,8 +372,8 @@ re-flip truth). Rationale + evidence: `docs/plans/reckoner/RECKONER_REVIEW_2026_
 with notes). This supersedes, by exact line: §0.1 "One SQLite data core" (core survives as cache),
 **§0.5 in full**, §1's diagram line "SQLite/GRDB — THE durable truth", §2's "binding shape" header,
 §3.1/§3.3/§3.5 commit-boundary phrasing, §4 "executor over GRDB", §9 Stage-1, the RESHAPE lines
-"GRDB single truth … unchanged" / "same GRDB truth", and the §0-supersession-map's "GRDB truth …
-UNCHANGED" token. The adjudication doc carries a superseded banner; raw corpora stay historical.
+that described GRDB as unchanged truth, and the matching §0-supersession-map token. The
+adjudication doc carries a superseded banner; raw corpora stay historical.
 
 **Also recorded here:**
 - **Charts re-affirmed per §0.9:** Swift Charts native block = PRIMARY (the wave's vchart-primary

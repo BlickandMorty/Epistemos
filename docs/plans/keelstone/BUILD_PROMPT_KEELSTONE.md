@@ -2,11 +2,19 @@
 
 ID: EPI-RP-07-KEELSTONE · Codename: KEELSTONE
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. KEELSTONE now
+> serves the single MAS/App Store product line. Collapse prior two-surface
+> language into App Store vault durability, security-scoped access, release
+> gates, and parked-lane leak/symbol checks. Do not add `EPISTEMOS_EXPERIMENTAL`
+> or `KINDRED_ENABLED` to active build settings unless the owner later reopens
+> those lanes.
+
 > Paste this to the implementing/reviewing agent. It is scoped to one plan and one ID. Do not absorb scope from any other plan (EPI-RP-02/04/05/06/08); cross-plan needs are named seams, not inline scope.
 
 ## Your job
 
-Implement the KEELSTONE spine for Epistemos — the vault-sync durability layer, the two-config build collapse, and the v1 release gate — against `PLAN_KEELSTONE_EPI-RP-07-KEELSTONE.md`. The spine files in `Epistemos/` and `config/` are your starting skeleton; extend them, don't reinvent them. When the plan and your instinct disagree, the plan wins unless you can show the plan is wrong, in which case flag it in the §1 ledger terms and stop for review.
+Implement the KEELSTONE spine for Epistemos — the vault-sync durability layer, the two-config build collapse, and the v1 release gate — against `PLAN_KEELSTONE_EPI-RP-07-KEELSTONE.md`. The spine files in `Epistemos/` and `config/` are your starting skeleton; extend them, don't reinvent them. When the plan and your instinct disagree, the plan wins unless current code evidence proves the plan is wrong. If evidence proves a plan line wrong, record the contradiction in the phase notes, choose the smallest non-destructive path that preserves the plan's intent, and keep going. Ask the owner only for a destructive, irreversible, or scope-changing choice; otherwise do not wait.
 
 ## Ground truth you must never violate
 
@@ -15,7 +23,11 @@ Implement the KEELSTONE spine for Epistemos — the vault-sync durability layer,
 3. **No proprietary sync server.** Coexist with iCloud/Dropbox/Syncthing; don't fight them.
 4. **MAS file discipline.** All vault IO through security-scoped bookmarks + `NSFileCoordinator`. Handle stale bookmarks, permission loss, volume unmount.
 5. **Never block `@MainActor`.** All vault IO and reconcile run off the main thread (actors). Secrets in Keychain. GRDB migrations forward-only; `eraseDatabaseOnSchemaChange` never enabled in a shipping build.
-6. **Two surfaces, no third.** The surface macro (`EPISTEMOS_EXPERIMENTAL` / `EPISTEMOS_APP_STORE`) is scoped to each target's `SWIFT_ACTIVE_COMPILATION_CONDITIONS` — never in shared base. A flag-less build must fail to compile.
+6. **One active MAS surface, no ghost base.** `EPISTEMOS_APP_STORE` is the only active shipping
+   surface while `MAS-ONLY-SHIP-LOCK-2026-07-07` is active. Parked macros such as
+   `EPISTEMOS_EXPERIMENTAL` and `KINDRED_ENABLED` must stay out of shared/base build settings and
+   out of the App Store archive unless the owner explicitly reopens those lanes. A flag-less build
+   must fail to compile instead of silently becoming a hidden third surface.
 
 ## Hard "do not" list (these are landmines, verified)
 
@@ -26,15 +38,44 @@ Implement the KEELSTONE spine for Epistemos — the vault-sync durability layer,
 - **Do NOT** hash every file on every event. Quick-field (size+mtime) first; hash only on a quick-field change or content-vs-metadata disambiguation. This is the difference between working and not working at 100k notes.
 - **Do NOT** put `EPISTEMOS_EXPERIMENTAL` in shared/base build settings — the App Store target inherits it via `$(inherited)` and you resurrect the ghost surface.
 
-## Excision safety (you confirmed OpenChamber/ProAgent is dead — verify anyway)
+## Deletion safety (owner-locked: OpenChamber/ProAgent are not kept)
 
-Before deleting anything, run the Phase 0 inventory: grep `OpenChamber`, `ProAgent`, `PRO_BUILD`, `openchamber` across sources, `project.yml`, scripts, tests. Produce a kill-list AND a keep-list of anything referenced by non-OpenChamber code. If the keep-list is non-empty, STOP and surface it — do not prune a feature that turns out to be load-bearing. Then follow §6.1's exact order: replace the live default path BEFORE removing the infrastructure behind it, `BUILD SUCCEEDED` after every step.
+Owner directive, 2026-07-06: **delete ProAgent/OpenChamber.** Before deleting files, run the Phase
+0 inventory: grep `OpenChamber`, `ProAgent`, `PRO_BUILD`, `openchamber` across sources,
+`project.yml`, scripts, tests. Produce a deletion plan with three buckets: immediate deletes,
+dependencies that must first be renamed/neutralized, and tests/scripts to rewrite or remove. Do
+not mark anything for preservation; references are work to remove, not a reason to preserve the branded
+surface. You may temporarily migrate reusable runtime primitives behind neutral names only to keep
+the build green on the way to deletion. Then follow §6.1's exact order: replace the live default
+path BEFORE removing the infrastructure behind it, neutralize shared dependencies, delete branded
+code/resources/scripts/tests, and prove `BUILD SUCCEEDED` after every step.
 
 ## Build in this order, and only check a box when the behavior is real
 
 Follow the Phase 0–8 tracker in the plan. Each phase's done-bar is a witnessable behavior — a passing `kill -9` soak, a convergence-equality assertion, a fired `#error`, a green archive lane — never "it compiles." Report each phase by demonstrating its bar.
 
-The gate (plan §9) is the finish line: it must block the archive lane exactly like a failing test, including the data-safety soak (external-edit storm + sync race + `kill -9` during write) and the first-run/upgrade matrix on both lanes.
+The gate (plan §9) is the finish line: it must block the MAS archive lane exactly like a failing test, including the data-safety soak (external-edit storm + sync race + `kill -9` during write), parked-lane leak checks, and the first-run/upgrade matrix on the MAS lane.
+
+## Continuing hardening loop (owner-locked)
+
+When Phase 0-8 and the release gate appear complete, do not stop at the last
+checked box. Invoke `deep-hardening-loop` and continue auditing, hardening,
+researching, testing, and improving the KEELSTONE scope until the owner
+explicitly stops or a real blocker prevents useful progress. Combine it with
+`thermo-nuclear-code-quality-review`, `Recursive App Audit`, `Epistemos Release
+Audit`, Playwright/browser/screenshot tooling where runtime evidence matters,
+and security/threat-model skills where persistence, permissions, or release
+risk warrants it. Keep the loop scoped to KEELSTONE seams, tests, evidence,
+docs, release risk, and regressions; do not absorb unrelated LUMENLENS,
+KINDRED, RECKONER, or Experimental renderer scope.
+
+Before each substantive KEELSTONE batch, keep a scoped owner-intent and
+verification-debt checkpoint in the phase notes: verbatim owner query/excerpt,
+interpreted intent, constraints, non-goals, acceptance checks, deferred
+commands, files touched, risk reason, expected proof, and checkpoint trigger.
+Edit surgically, re-read changed regions after editing, and batch builds/tests
+only at meaningful checkpoints unless risky/shared behavior needs an immediate
+narrow check.
 
 ## What to hand back
 
@@ -46,7 +87,8 @@ The gate (plan §9) is the finish line: it must block the archive lane exactly l
 
 ## Scale bar
 
-Design every path for 10k–100k+ notes under sustained external churn, on BOTH lanes. If a design only works at 1k notes, it's not done.
+Design every path for 10k-100k+ notes under sustained external churn on the MAS/App Store lane. If
+a design only works at 1k notes, it's not done.
 
 ---
 
@@ -55,13 +97,13 @@ Design every path for 10k–100k+ notes under sustained external churn, on BOTH 
 These amend the plan per §15 and bind like the "do not" list:
 
 1. **Do NOT replace `project.yml` with `spine/project-pattern.yml`.** The real file is ~23KB with
-   the Rust preBuild chain, local packages, widgets/tests targets, macOS 26.0, three configs. The
-   actual change: add `EPISTEMOS_EXPERIMENTAL` to the `Epistemos` target's Debug + Release configs
-   (preserving `DEBUG` + `EPISTEMOS_LINK_SUBSTRATE_RT`), keep the AppStore target as-is, keep
-   surface macros OUT of shared base. Then `xcodegen generate` (NEVER hand-edit the .xcodeproj).
-2. **Sequencing: scope the macros BEFORE landing AppSurface.swift** — Guard 2 otherwise #errors
-   every Debug build (Debug currently has no surface macro). Order: macros → showBuildSettings
-   verify → AppSurface → LandingView collapse → infra removal.
+   the Rust preBuild chain, local packages, widgets/tests targets, macOS 26.0, and existing configs.
+   The MAS-only pivot supersedes the older instruction to add `EPISTEMOS_EXPERIMENTAL`.
+   Current change shape: verify the AppStore target and MAS macro path, keep parked macros OUT of
+   shared base and active archive settings, then `xcodegen generate` (NEVER hand-edit the .xcodeproj).
+2. **Sequencing: prove MAS archive truth BEFORE landing guard/collapse changes.** Order:
+   showBuildSettings verify → AppSurface/MAS guard → LandingView MAS collapse → parked infra removal
+   → archive leak checks.
 3. **Refactor, don't duplicate:** `VaultSyncService` already runs FSEvents + watching
    (startWatching :2397) and `VaultIndexActor` already reconciles. Wire the spine INTO/OVER that
    path. One stream + one reconciler per vault. Same for the index: extend the existing GRDB
@@ -88,16 +130,11 @@ These amend the plan per §15 and bind like the "do not" list:
 
 Plan 2 (LUMENLENS, `docs/plans/lumenlens/`) was audited after you started. Three items now bind:
 
-1. **Add `KINDRED_ENABLED` while you're already scoping macros (§15.1).** In the same project.yml
-   edit where you add `EPISTEMOS_EXPERIMENTAL` to the `Epistemos` target's Debug/Release configs,
-   ALSO add `KINDRED_ENABLED` to that target's conditions (all its configs) — never on
-   `Epistemos-AppStore`, never in shared base. It is LUMENLENS's companion-edit feature flag,
-   subordinate to the surface macro (guards live in
-   `docs/plans/lumenlens/spine/CompanionEditGate.swift`, landed by the LUMENLENS agent — you only
-   place the flag). Include it in your `-showBuildSettings` verification, and extend the §9.4 CI
-   drift guardrails: assert `KINDRED_ENABLED` appears on the Epistemos target only. If you have
-   ALREADY passed the macro-scoping step: make this a small follow-up edit + `xcodegen generate`
-   at your next clean point — do not interrupt a mid-phase state.
+1. **Do not add parked-lane macros while MAS-only is active.** The older instruction to add
+   `KINDRED_ENABLED`/`EPISTEMOS_EXPERIMENTAL` is superseded by
+   `MAS-ONLY-SHIP-LOCK-2026-07-07`. Current verification is inverted: prove those macros and
+   companion symbols do not leak into `Epistemos-AppStore`; keep shared/base free of surface macros;
+   leave Kindred/Experimental guards as parked provenance unless the owner later reopens those lanes.
 2. **Keep `ActiveEditorBridge` a THIN protocol seam — do not build the editor side.** Implement
    only a minimal stub adapter over the current editor (enough to witness your Phase 4 conflict
    done-bar: dirty-never-clobbered / clean-reload). The REAL implementation is LUMENLENS's
@@ -111,7 +148,7 @@ Plan 2 (LUMENLENS, `docs/plans/lumenlens/`) was audited after you started. Three
    signature; don't add partial/streaming write variants.
 4. **Dataset artifacts (RECKONER, additive — fold in at your next clean point, do not interrupt a
    mid-phase state):** plan §15.10 — make the indexed-set/artifact routing EXTENSIBLE
-   (csv/xlsx/icalc → dataset hook; *.dataset.md → companion parser, not the note indexer), add the
+   (csv/xlsx/icalc -> dataset hook; *.dataset.md -> dataset metadata parser, not the note indexer), add the
    artifact conflict-delegation branch, extend the gate soak per §15.10(c), and give
    AtomicVaultWriter a Data overload. If you have already passed the reconciler phases, land the
    extensibility seam + overload now and leave the dataset-specific routes as clearly-marked stubs

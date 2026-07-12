@@ -1,12 +1,12 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+
 import Foundation
 import Observation
 import OSLog
 
-// Surface A router + view state (Plan 1-MAS §2). One calm column: the user
-// asks, an engine answers locally. Engine policy (§9.2 default): Apple FM
-// instantly when available; the GGUF lane is the reliability floor and the
-// guardrail fallback. Anti-mixing (§3.4): no tools, no approvals, no agent
-// furniture — local generation only, zero model egress.
+// Retained quick-chat controller. The App Store Landing entry point is parked;
+// MAS June is the active agent surface. Apple FM remains an on-device helper
+// lane, while GGUF is an unavailable adapter in this build.
 
 nonisolated struct QuickChatMessage: Identifiable, Equatable, Sendable {
     enum Role: Equatable, Sendable {
@@ -114,7 +114,7 @@ final class QuickChatController {
             } else {
                 messages.append(QuickChatMessage(
                     role: .notice,
-                    text: "Apple Intelligence declined this topic. Install a local model to answer questions like this privately."
+                    text: "Apple Intelligence declined this topic. Use MAS June with a configured cloud model for agent answers."
                 ))
             }
         } catch is CancellationError {
@@ -217,3 +217,5 @@ final class QuickChatController {
         return error.localizedDescription
     }
 }
+
+#endif

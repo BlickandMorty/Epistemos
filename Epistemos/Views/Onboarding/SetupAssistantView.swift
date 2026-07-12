@@ -82,9 +82,15 @@ struct SetupAssistantView: View {
             refreshKokoroStatus()
         }
         .onChange(of: kokoroDownloader.phase) { _, newPhase in
-            if case .installed = newPhase {
+            switch newPhase {
+            case .installed:
+                let status = KokoroVoiceGateStatus.status()
+                kokoroStatus = status
+                kokoroInstallMessage = installedKokoroMessage(for: status)
+            case .idle, .failed:
                 refreshKokoroStatus()
-                kokoroInstallMessage = installedKokoroMessage(for: kokoroStatus)
+            case .preparing, .downloading, .installing:
+                break
             }
         }
     }
@@ -196,10 +202,18 @@ struct SetupAssistantView: View {
     private var modelStep: some View {
         VStack(spacing: 16) {
             SetupPixelGlyph(kind: .vault, tint: .purple)
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            Text("June Foundation")
+            #else
             Text("Foundation Features")
+            #endif
                 .font(AppDisplayTypography.font(size: 20))
                 .foregroundStyle(theme.fontAccent)
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            Text("MAS June uses your vault, fast search, provenance, and approval-gated tools. Its model lanes are connected OpenAI or Anthropic models, Apple Intelligence when available, and your selected local GGUF models.")
+            #else
             Text("Epistemos keeps the native foundation focused on vault sync, fast search, provenance, skills, tools, and MCP connections. Model chat runs through the connected provider surfaces.")
+            #endif
                 .font(bodyFont)
                 .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -207,8 +221,13 @@ struct SetupAssistantView: View {
             VStack(alignment: .leading, spacing: 8) {
                 statusRow("Vault sync", done: true)
                 statusRow("Fast search", done: true)
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                statusRow("MAS June", done: true)
+                statusRow("Approval-gated tools", done: true)
+                #else
                 statusRow("Skills, tools, and MCP", done: true)
                 statusRow("Provenance foundation", done: true)
+                #endif
             }
             .padding()
             .background(theme.card.opacity(0.85))
@@ -272,9 +291,9 @@ struct SetupAssistantView: View {
                 KokoroVoiceDownloadControls(
                     selectedTier: $selectedKokoroTier,
                     isDisabled: false,
-                    idleButtonTitle: "Download Voice",
-                    idleButtonHelp: "Download and install a checked Kokoro read-aloud voice package",
-                    idleButtonAccessibilityLabel: "Download and install a checked Kokoro read-aloud voice package"
+                    idleButtonTitle: KokoroVoiceInstallPresentation.installTitle(for: selectedKokoroTier),
+                    idleButtonHelp: KokoroVoiceInstallPresentation.installHelp(for: selectedKokoroTier),
+                    idleButtonAccessibilityLabel: KokoroVoiceInstallPresentation.installHelp(for: selectedKokoroTier)
                 ) {
                     KokoroModelDownloadService.shared.startInstall(tier: selectedKokoroTier)
                 }

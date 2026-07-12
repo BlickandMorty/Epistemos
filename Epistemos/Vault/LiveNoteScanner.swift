@@ -125,7 +125,7 @@ final class LiveNoteScanner {
 
         for candidate in candidates {
             let body = loadBody(for: candidate)
-            guard body.contains("live_note: true") || body.contains("live_note:true") else {
+            guard isLiveNote(candidate: candidate, body: body) else {
                 continue
             }
 
@@ -146,7 +146,7 @@ final class LiveNoteScanner {
 
         for candidate in candidates {
             let body = await loadBodyAsync(for: candidate)
-            guard body.contains("live_note: true") || body.contains("live_note:true") else {
+            guard isLiveNote(candidate: candidate, body: body) else {
                 continue
             }
 
@@ -159,6 +159,42 @@ final class LiveNoteScanner {
         }
 
         return LiveNoteScanResult(tasks: tasks, pageCount: candidates.count)
+    }
+
+    private nonisolated static func isLiveNote(candidate: LiveNotePageSnapshot, body: String) -> Bool {
+        if containsLiveNoteMarker(body) {
+            return true
+        }
+        guard let filePath = candidate.filePath,
+              !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return false }
+        return vaultFileContainsLiveNoteFrontMatter(at: URL(fileURLWithPath: filePath))
+    }
+
+    private nonisolated static func vaultFileContainsLiveNoteFrontMatter(at fileURL: URL) -> Bool {
+        guard let data = try? Data(contentsOf: fileURL),
+              let decoded = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
+        else { return false }
+        let parsed = VaultIndexActor.shouldWriteMarkdownFrontMatter(to: fileURL)
+            ? VaultIndexActor.parseFrontMatter(decoded)
+            : ([:], decoded)
+        return isTruthyLiveNoteValue(parsed.0["live_note"])
+            || containsLiveNoteMarker(parsed.1)
+            || containsLiveNoteMarker(decoded)
+    }
+
+    private nonisolated static func containsLiveNoteMarker(_ body: String) -> Bool {
+        body.contains("live_note: true") || body.contains("live_note:true")
+    }
+
+    private nonisolated static func isTruthyLiveNoteValue(_ value: String?) -> Bool {
+        guard let value else { return false }
+        switch value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "true", "yes", "1":
+            return true
+        default:
+            return false
+        }
     }
 
     private nonisolated static func loadBody(for page: LiveNotePageSnapshot) -> String {

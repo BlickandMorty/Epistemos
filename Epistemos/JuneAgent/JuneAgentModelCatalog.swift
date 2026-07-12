@@ -3,7 +3,7 @@ import Foundation
 
 @MainActor
 enum JuneAgentModelCatalog {
-    static let directCloudProviders: [CloudModelProvider] = [.openAI, .anthropic, .google, .zai, .kimi]
+    static let directCloudProviders = CloudModelProvider.juneAgentProviders
 
     /// VeniceModelDto-shaped rows for `list_venice_models`.
     ///
@@ -15,7 +15,8 @@ enum JuneAgentModelCatalog {
     static func modelsPayload(
         localGGUFAvailable: Bool,
         downloads: QuickChatModelDownloadManager,
-        preferredConfiguredCloudModel: CloudTextModelID?
+        preferredConfiguredCloudModel: CloudTextModelID?,
+        cachedConfiguredCloudProviders: Set<CloudModelProvider>
     ) -> [[String: Any]] {
         var rows: [[String: Any]] = []
         if AppleFMQuickChatBackend.unavailability() == nil {
@@ -64,19 +65,19 @@ enum JuneAgentModelCatalog {
         rows.append([
             "provider": "epistemos", "id": JuneModelID.cloud,
             "name": "Cloud Agent", "modelType": "text",
-            "description": "Full agent capability through a configured OpenAI or Anthropic account in Settings. The receipt-gated Epistemos Cloud proxy is retained as scaffolding but is not the active MAS route yet.",
+            "description": "Full agent capability in June through a saved OpenAI or Anthropic API key. Prompts and selected context go directly to the chosen provider only after you enable its consent toggle in Settings.",
             "privacy": "provider-cloud", "traits": ["cloud", "configured-provider-required"],
             "capabilities": genericCloudCapabilities(preferredConfiguredCloudModel),
             "contextTokens": 200_000,
         ])
         for provider in directCloudProviders {
-            let configured = AppBootstrap.shared?.inferenceState.hasConfiguredCloudAccess(for: provider) == true
-            for model in CloudTextModelID.models(for: provider) {
+            let configured = cachedConfiguredCloudProviders.contains(provider)
+            for model in CloudTextModelID.juneAgentModels(for: provider) {
                 rows.append([
                     "provider": provider.rawValue, "id": model.rawValue,
                     "name": "\(provider.displayName) · \(model.displayName)", "modelType": "text",
                     "description": configured
-                        ? "\(model.aboutSheetPurposeSummary) Uses your saved \(provider.manualCredentialTitleLowercase) or account connection."
+                        ? "\(model.aboutSheetPurposeSummary) \(configuredCredentialDescription(for: provider))"
                         : "\(model.aboutSheetPurposeSummary) Configure \(provider.displayName) in Settings to use this model.",
                     "privacy": "provider-cloud", "traits": ["cloud", provider.rawValue],
                     "capabilities": cloudCapabilities(provider: provider, model: model),
@@ -107,10 +108,10 @@ enum JuneAgentModelCatalog {
     static func directCloudModelIDs(configuredOnly: Bool) -> [String] {
         let inference = AppBootstrap.shared?.inferenceState
         return directCloudProviders.flatMap { provider in
-            if configuredOnly, inference?.hasConfiguredCloudAccess(for: provider) != true {
+            if configuredOnly, inference?.hasCachedCloudAccess(for: provider) != true {
                 return [String]()
             }
-            return CloudTextModelID.models(for: provider).map(\.rawValue)
+            return CloudTextModelID.juneAgentModels(for: provider).map(\.rawValue)
         }
     }
 
@@ -119,6 +120,17 @@ enum JuneAgentModelCatalog {
             return ["supportsFunctionCalling"]
         }
         return cloudCapabilities(provider: model.provider, model: model)
+    }
+
+    private static func configuredCredentialDescription(for provider: CloudModelProvider) -> String {
+        switch provider {
+        case .openAI:
+            return "Uses your saved OpenAI API key."
+        case .anthropic:
+            return "Uses your saved Anthropic API key."
+        case .google, .zai, .kimi, .minimax, .deepseek:
+            return "Uses your configured provider credential."
+        }
     }
 
     private static func sizeText(_ bytes: Int64) -> String {

@@ -1,6 +1,6 @@
 # AI-Edit-Instructions Graft + Grammar-Unification Code Pack (Pass 9, 2026-06-27)
 
-> 🟢 **MOSTLY LIVE 2026-07-02.** The AI-edit-instructions + grammar-unification code is engine/backend-layer work, largely unaffected by the OpenChamber UI pivot. Re-anchor ONLY any "Goose-as-surface / reskin / Option 1" reference to: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🟢 **MOSTLY LIVE 2026-07-02.** The AI-edit-instructions + grammar-unification code is engine/backend-layer work, largely unaffected by the OpenChamber UI pivot. Re-anchor ONLY any "Goose-as-surface / reskin / Option 1" reference to: Current surfaces = Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > Two deepen-pass code packs. **9a** delivers the owner's explicit "study Tolaria down to **system prompts / AI-edit instructions / file+page context tracking** and SUPERSEDE it" goal as CODE (was behavioral-only in Pass 1b/3a). **9b** resolves Pass-8 finding #3 (Swift projector ⟂ JS reader grammar) with concrete diffs + a parity test. Both grounded in real files (paths inline).
 

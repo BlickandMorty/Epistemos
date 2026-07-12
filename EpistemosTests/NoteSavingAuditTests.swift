@@ -66,6 +66,13 @@ struct NoteSavingEdgeCaseTests {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
+
+    @Test("older durable Prose save cannot delete a newer recovery draft")
+    func proseDraftCleanupRequiresExactDurableBody() {
+        #expect(NoteDraftStore.draftMatchesDurableBody("First", durableBody: "First"))
+        #expect(!NoteDraftStore.draftMatchesDurableBody("Second", durableBody: "First"))
+        #expect(NoteDraftStore.draftMatchesDurableBody("", durableBody: ""))
+    }
     
     @Test("empty body saves correctly")
     func emptyBodySave() async throws {

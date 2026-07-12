@@ -113,6 +113,29 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(preview.contains("consoleHandlerInstalled = false"))
     }
 
+    @Test("App Store HTML Workspace hides Goose-backed regenerate toolbar action")
+    func appStoreHTMLWorkspaceHidesGooseBackedRegenerateToolbarAction() throws {
+        let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+        let regeneration = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorRegeneration.swift")
+        let appStoreGuard = try #require(editor.range(of: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
+        let regenerateAction = try #require(editor.range(
+            of: "openRegenerateSheet()",
+            range: appStoreGuard.upperBound..<editor.endIndex
+        ))
+        let appStoreGuardEnd = try #require(editor.range(
+            of: "#endif",
+            range: regenerateAction.upperBound..<editor.endIndex
+        ))
+
+        #expect(regenerateAction.lowerBound < appStoreGuardEnd.lowerBound)
+        #expect(editor.contains(#"Label("Regenerate", systemImage: isRegenerating ? "hourglass" : "wand.and.sparkles")"#))
+        #expect(regeneration.contains("private static let appStoreRegenerateParkedStatus"))
+        #expect(regeneration.contains("Use MAS June / Epdoc Assist."))
+        #expect(regeneration.contains("regenerateSheetPresented = false"))
+        #expect(regeneration.components(separatedBy: "#if EPISTEMOS_APP_STORE || MAS_SANDBOX").count >= 5)
+        #expect(regeneration.components(separatedBy: "parkRegenerateForAppStoreBuild()").count >= 5)
+    }
+
     @Test("the capability ledger honestly notes the bridge is wired but not live-proven")
     func ledgerNotesWiredBridgeAwaitingInAppProof() {
         let console = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name.contains("JS console") }

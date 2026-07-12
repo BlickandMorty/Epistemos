@@ -2,11 +2,13 @@ import Foundation
 import Observation
 import OSLog
 
-// Surface B — June agent workspace session state (Plan 1-MAS §3).
-// Drives agent_core DIRECTLY through GooseMASAgentCoreRunner (the §1
-// simplification: native SwiftUI → UniFFI, no ACP hop, no loopback listener,
-// no network.server). Every runner event becomes a timeline item; approvals
-// block the agent until the user decides (§3.3 approval sheet).
+// Legacy Surface B session state from the pre-June MAS plan. The App Store
+// build now ships MAS June as the only user-facing agent surface, so this
+// transcript/runtime wrapper stays out of MAS builds. `AgentApprovalGate`
+// remains below the guard because MAS June's approval registry still uses the
+// tiny synchronization primitive.
+
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 
 nonisolated enum AgentTimelineItem: Identifiable, Equatable, Sendable, Codable {
     struct ToolCall: Equatable, Sendable, Codable {
@@ -303,9 +305,12 @@ final class AgentWorkspaceSession {
     }
 }
 
+#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- legacy AgentWorkspaceSession parked in MAS
+
 // SAFETY: all mutable state (decisions) is guarded by the NSCondition on
-// every access; awaitDecision parks the runner's FFI thread (never main)
-// until deliver() signals from the main actor.
+// every access; awaitDecision parks the runner's FFI thread (never main) until
+// deliver() signals from the main actor. Shared by MAS June and the parked
+// legacy AgentWorkspace session.
 nonisolated final class AgentApprovalGate: @unchecked Sendable {
     private let condition = NSCondition()
     private var decisions: [String: Bool] = [:]

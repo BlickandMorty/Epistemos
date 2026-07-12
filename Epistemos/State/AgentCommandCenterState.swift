@@ -320,7 +320,7 @@ final class AgentCommandCenterState {
         brains.append(.appleIntelligence)
 
         // Cloud providers with configured keys
-        for provider in CloudModelProvider.allCases {
+        for provider in CloudModelProvider.activeProductProviders {
             if inference.configuredCloudProviders.contains(provider) {
                 brains.append(.cloud(provider: provider))
             }
@@ -580,7 +580,7 @@ final class AgentCommandCenterState {
              .ask, .summarize, .explain, .readBranch, .todo:
             // Cloud-only build: every command recommends the configured cloud
             // workhorse (Apple Intelligence remains selectable in the catalog).
-            return cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
+            return cloudBrain(preferredProviders: CloudModelProvider.activeProductProviders)
                 ?? availableBrains.first
         case .image:
             // Image gen runs through the `media.image_generate` tool, not a
@@ -1181,8 +1181,13 @@ enum ACCBrainSelection: Hashable, Identifiable {
         case .appleIntelligence:
             return [.fast]
         case .cloud(let provider):
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            let models = CloudTextModelID.juneAgentModels(for: provider)
+            #else
+            let models = CloudTextModelID.models(for: provider)
+            #endif
             let providerModes = Set(
-                CloudTextModelID.models(for: provider).flatMap(\.supportedOperatingModes)
+                models.flatMap(\.supportedOperatingModes)
             )
             return EpistemosOperatingMode.allCases.filter(providerModes.contains)
         }

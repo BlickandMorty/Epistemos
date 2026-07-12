@@ -46,12 +46,19 @@ struct SSQCGlobalVoiceTests {
         let section = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
         #expect(section.contains("ModelVoicePickerSection("))
         #expect(section.contains("EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)"))
+        #expect(section.contains("preview: \"Kokoro is ready.\""))
 
         let picker = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ModelVoicePickerSection.swift")
         #expect(picker.contains("unavailableTextToSpeechView"))
         #expect(picker.contains("EpistemosSpeechSynthesizer.isTextToSpeechAvailable()"))
         #expect(picker.contains("EpistemosSpeechSynthesizer.textToSpeechStatusMessage()"))
-        #expect(picker.contains("ToolbarCapsuleButton("))
+        #expect(picker.contains("EpistemosSpeechSynthesizer.installedEnglishKokoroVoices()"))
+        #expect(picker.contains("normalizeBoundVoiceIdentifier(against: englishVoices)"))
+        #expect(picker.contains("normalizedEnglishKokoroVoiceIdentifier("))
+        #expect(!picker.contains("voiceQualityHint()"))
+        #expect(!picker.contains("personalVoiceAuthorization"))
+        #expect(picker.contains("accessibilityIdentifier(\"settings.voice.modelPreview\")"))
+        #expect(picker.contains("previewText: String = \"Kokoro is ready.\""))
     }
 
     @Test("voicesGroupedByTier orders Premium > Enhanced > Default and drops empty tiers")
@@ -118,8 +125,7 @@ struct SSQCGlobalVoiceTests {
         #expect(src.contains("AVSpeechUtterance(string: text)"))
         #expect(src.contains("clampedRate(prosody?.rate ?? rate)"))
         #expect(src.contains("clampedPitch(prosody?.pitch ?? pitch)"))
-        #expect(src.contains("AVSpeechSynthesizer.personalVoiceAuthorizationStatus"))
-        #expect(src.contains("AVSpeechSynthesizer.requestPersonalVoiceAuthorization"))
+        #expect(!src.contains("_ = AVSpeechSynthesisVoice.speechVoices()"))
     }
 
     @Test("stale utterance completion cannot clear a newer speech state")

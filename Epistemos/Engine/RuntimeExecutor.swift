@@ -68,10 +68,18 @@ nonisolated public enum RuntimeLane: Hashable, Sendable, Codable {
         }
     }
 
-    /// The well-known lanes plus stub. The router always offers
-    /// these in Settings even if a given lane's executor is not yet
-    /// registered — that is the honest signal "lane present, no
-    /// executor wired" rather than a silent omission.
+    /// Active product lanes plus the internal stub. Parked provider lanes stay
+    /// available to direct builds without appearing in MAS Settings or router
+    /// state as if they belonged to June.
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+    public static let knownLanes: [RuntimeLane] = [
+        .appleIntelligence,
+        .gguf,
+        .cloud(provider: "claude"),
+        .cloud(provider: "openai"),
+        .stub,
+    ]
+    #else
     public static let knownLanes: [RuntimeLane] = [
         .appleIntelligence,
         .gguf,
@@ -83,6 +91,7 @@ nonisolated public enum RuntimeLane: Hashable, Sendable, Codable {
         .cloud(provider: "perplexity"),
         .stub,
     ]
+    #endif
 }
 
 // MARK: - ResidencyTier

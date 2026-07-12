@@ -66,6 +66,7 @@ public enum LocalChatEngineError: Error, Sendable, Equatable {
     case tokenizationFailed
     case promptTooLong(promptTokens: Int, contextTokens: Int)
     case decodeFailed(code: Int32)
+    case streamBackpressure
 }
 
 public protocol LocalChatEngine: AnyObject, Sendable {

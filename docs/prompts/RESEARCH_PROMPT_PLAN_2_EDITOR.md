@@ -2,13 +2,16 @@
 
 **ID:** `EPI-RP-02-LUMENLENS` · **Codename:** LUMENLENS · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: if reused,
+> research MAS-only LUMENLENS. Treat 1Code/KINDRED sidebar minichat as parked
+> provenance; redirect useful assist/edit/provenance patterns to MAS-June.
+
 > Paste everything below `─── BEGIN ───` into a top-tier deep-research model. Output = a
 > **build-ready dossier**. Same rigor as the agent-surface dossiers. Owner authored 2026-07-06.
 >
-> **Build split:** the **base editor lens model** ships in **both builds (MAS + 1Code)**. The
-> **Epdoc companion-edit sidebar minichat + streamed diff/trace editing** layer is **1Code-only**
-> (it is the editor side of Plan 5 Companions — hidden on MAS). Design the two layers so the base
-> is shared and the companion layer is a cleanly-gated 1Code addition.
+> **Build target after 2026-07-07:** MAS only. The base editor lens model ships in MAS. The
+> older Epdoc companion-edit sidebar minichat / streamed diff layer is parked as 1Code provenance;
+> redesign useful assist/edit/provenance behavior through MAS-June.
 
 ─── BEGIN RESEARCH BRIEF ───
 
@@ -29,12 +32,12 @@ vault** = the single source of truth. The editor shows one markdown file as **sy
 Switching lenses must never lose data — all edit the **same markdown body**. (Epdoc just became the
 default view for every note across the app.)
 
-Two builds: **MAS** (sandboxed, no subprocess) and **1Code/Experimental** (Developer ID). The
-**companion** (Plan 5) is a 1Code-only agent that will edit notes *through this editor*.
+Active build: **MAS** (sandboxed, no subprocess). The older 1Code companion premise is parked;
+MAS-June may edit notes only through reviewable suggestion/provenance seams.
 
 ## 2. Thesis
-**One markdown truth, several perfectly-synced lenses — plus, on 1Code, a docked companion that
-edits the live document with visible, reviewable, provenance-tracked changes.** The editor must be
+**One markdown truth, several perfectly-synced lenses — plus MAS-June assisted edits that
+enter the live document as visible, reviewable, provenance-tracked suggestions.** The editor must be
 (a) a rock-solid multi-lens markdown surface that never corrupts or de-syncs a note, and (b) the
 substrate that lets a Plan-5 companion stream edits into the doc as accept/reject tracked-changes
 while the user watches — the revived, superseded "Tolaria" editing experience.
@@ -47,7 +50,8 @@ while the user watches — the revived, superseded "Tolaria" editing experience.
    (a known past bug). Specify the load-vs-edit protocol on the bridge.
 3. **Agent edits via ProseMirror transactions** — never a shadow editor, never blind `setContent`
    that clobbers cursor/selection/unsaved work. Concurrent user typing must be safe.
-4. **Companion-edit layer is 1Code-only** and cleanly gated off on MAS.
+4. **Agent edit layer is MAS-June first.** Older companion-edit/1Code ideas are provenance only;
+   research the MAS-safe June + `agent_core` edit path.
 5. **WKWebView custom-scheme reality:** the editor is served through a custom scheme that does NOT
    auto-decompress `Content-Encoding: br` — assets are brotli-decompressed server-side. Respect the
    existing asset/bridge model; don't assume HTTPS behavior.
@@ -67,7 +71,7 @@ while the user watches — the revived, superseded "Tolaria" editing experience.
 - **PDF:** the master plan places the PDF viewer in this plan (see D5).
 
 ## 5. Research dimensions
-### D1 — The lens-sync engine (correctness core, both builds)
+### D1 — The lens-sync engine (MAS correctness core)
 - The canonical **markdown ⇄ ProseMirror-JSON** mapping for every block (headings, lists, tables,
   fenced code, math, images, task lists, callouts, wikilinks, highlights). Prove lossless round-trip;
   enumerate the lossy edge cases and how to preserve or quarantine them. Cite Tiptap/ProseMirror
@@ -79,7 +83,7 @@ while the user watches — the revived, superseded "Tolaria" editing experience.
   content-load never emits `contentDidChange`/autosave. Cite the existing `document-load-state.ts`
   concept and harden it.
 
-### D2 — Agent/companion editing into the live doc (1Code-only; partner to Plan 5 D2/D10)
+### D2 — MAS-June agent editing into the live doc
 - How agent edits enter a live Tiptap doc as **tracked-changes / suggestions** with inline diffs and
   per-change accept/reject: survey real ProseMirror track-changes implementations (prosemirror-
   changeset, prosemirror-suggest-changes, Tiptap Pro comments/track-changes, CKEditor). Verdict +
@@ -93,21 +97,23 @@ while the user watches — the revived, superseded "Tolaria" editing experience.
   `view.coordsAtPos` so a companion sprite can follow the words. Specify the coordinate/scroll API
   the presence layer consumes. Keep this a thin, documented seam — the mascot itself is Plan 5.
 
-### D3 — The Epdoc sidebar minichat dock (1Code-only)
-- Design the **docked mini-agent panel** inside Epdoc: layout, focus behavior, how it shares
-  session/context with the 1Code main agent (continuity, not a second chat), how a message becomes a
-  document edit, how it shows the diff/accept flow. Because Epdoc is a WebView you have full web
-  latitude — exploit it. Cite Tolaria/Cursor-Composer/Notion-AI side-panel patterns.
+### D3 — The Epdoc MAS-June assist seam
+- Research whether a **docked mini-agent panel** belongs in Epdoc for MAS, but
+  do not assume it must ship. If it does, it is MAS-June + `agent_core` only:
+  layout, focus behavior, same June conversation/context continuity, how a
+  message becomes a document edit, and how it shows the diff/accept flow. Cite
+  Tolaria/Cursor-Composer/Notion-AI side-panel patterns, then translate them to
+  App Store-safe architecture.
 - Cross-editor consistency: if the minichat exists, it must feel identical wherever Epdoc mounts
   (main pane, window, graph embed). Don't fragment.
 
-### D4 — Prose (native TextKit) & Source lenses (both builds)
+### D4 — Prose (native TextKit) & Source lenses (MAS)
 - Best practices for the native TextKit prose lens: performance on large notes, live markdown
   affordances, image handling, and staying in lock-step with the markdown truth. Where should Prose
   vs Epdoc each be the better tool? (owner made Epdoc default — validate/refine.)
 - Source lens for code files (CodeMirror-class): syntax, and how `.source` coexists with the md lens.
 
-### D5 — PDF viewing (both builds)
+### D5 — PDF viewing (MAS)
 - The PDFKit-based viewer for notes/attachments: annotation, text selection→note, provenance from a
   PDF into a note, performance on large PDFs, sandbox constraints. Cite PDFKit reality. How it
   relates to Plan 3's PDF→markdown capability (don't duplicate; define the boundary).
@@ -126,12 +132,12 @@ while the user watches — the revived, superseded "Tolaria" editing experience.
 The editor is where several fabric contracts meet — design them, don't stub:
 - **F1 vault:** every lens edits the one vault markdown file; changes reflect app-wide.
 - **F2 capability:** "edit / restructure / summarize / cite into this note" are agent capabilities
-  that drive the editor (June + 1Code companion), honestly gated. Define the tool schema.
+  that drive the editor through June + `agent_core`, honestly gated. Define the tool schema.
 - **F3 presence:** the companion mascot appears in Epdoc and (D2 embodied seam) follows the words.
 - **F4 graph:** typed wikilinks/edits update graph nodes/edges via the public API.
 - **F5 provenance:** agent edits are attributed, citable, and revertible through the ledger.
 - **F6 state bus:** streamed edits + live edit-position publish on the bus (feeds F3 word-following).
-State exactly which side (native / agent_core / 1Code / Tiptap JS) owns each seam. These six briefs
+State exactly which side (native / agent_core / Tiptap JS) owns each seam. These six briefs
 form a **single integrated product built one plan at a time**, not six apps.
 
 ## 6. Primary-source discipline
@@ -141,7 +147,7 @@ uncertain capabilities with a fallback. Distinguish observed vs inferred.
 ## 7. Deliverable
 1. Executive thesis. 2. **Lens-sync engine** (D1) — mapping tables + round-trip proof + state machine
 (longest base section). 3. **Companion editing engine** (D2) — mechanism, rejected alternatives,
-schemas, streaming, provenance, embodied-edit seam (longest 1Code section). 4. Minichat dock (D3).
+schemas, streaming, provenance, embodied-edit seam. 4. MAS-June assist seam (D3).
 5. Prose/Source lenses (D4). 6. PDF viewer (D5). 7. Perf + robustness/failure table (D6).
 8. Competitive table + novel edge (D7). 9. **Phased build order** (base lens hardening → load-vs-edit
 → companion tracked-changes → streaming → provenance → minichat → PDF), each with a *witnessable*

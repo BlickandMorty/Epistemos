@@ -441,7 +441,7 @@ nonisolated enum BestOfPreset {
             id: "context7",
             displayName: "Context7",
             why: "Add a hosted MCP server for current library documentation.",
-            minDistribution: .coreAppStore,
+            minDistribution: .proResearch,
             installTarget: "https://mcp.context7.com/mcp"
         ),
         BestOfPresetItem(

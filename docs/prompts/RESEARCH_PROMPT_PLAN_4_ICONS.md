@@ -2,10 +2,15 @@
 
 **ID:** `EPI-RP-04-SIGILRY` · **Codename:** SIGILRY · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: if reused,
+> research iconography for the MAS app only: June, native chrome, editor,
+> Reckoner, ResearchHub, Quick Capture, settings, and MAS-bundled web assets.
+> Treat 1Code/KINDRED mascot art as parked provenance.
+
 > Paste below `─── BEGIN ───` into a deep-research model. Output = build-ready dossier. Owner
-> authored 2026-07-06. **Build split: both builds (MAS + 1Code)** — but the *mascot* body-parts +
-> accessories + emote badges this system produces are consumed most heavily by the 1Code-only
-> Companion (Plan 5), so coordinate with Plan 5's D4b art-quality work.
+> authored 2026-07-06; after the 2026-07-07 pivot, research the MAS icon system only. Mascot
+> body-parts/accessories/emote badges for 1Code Companion are parked provenance; salvage only
+> MAS-safe status art.
 
 ─── BEGIN RESEARCH BRIEF ───
 

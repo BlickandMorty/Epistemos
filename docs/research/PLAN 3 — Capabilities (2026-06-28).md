@@ -1,6 +1,6 @@
 # PLAN 3 — Capabilities (2026-06-28)
 
-> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** Duplicate of `PLAN_3_CAPABILITIES_2026_06_28.md`. Capability SET still valid; "Plan 1 = Goose surface / reskin Goose / AI is Goose-only" framing STALE → Agent surface = OpenChamber (Pro) + goose/OpenCode engines; MAS = June + goose in-process; goose = one engine. arXiv + Obscura kept dedicated (Obscura automation-engine-vs-browser = open owner flag). Live prompt = `docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md`. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** Duplicate of `PLAN_3_CAPABILITIES_2026_06_28.md`. Capability SET still valid; "Plan 1 = Goose surface / reskin Goose / AI is Goose-only" framing STALE → Current surfaces = Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. arXiv + Obscura kept dedicated (Obscura automation-engine-vs-browser = open owner flag). Live prompt = `docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md`. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > **The THIRD plan. Standalone.** Sibling to — and NOT overlapping — the other two:
 > - **Plan 1 = Goose surface** (`GOOSE_MASTER_BUILD_PROMPT_2026_06_27.md` etc.) — untouched.

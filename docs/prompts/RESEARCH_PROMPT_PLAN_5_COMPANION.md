@@ -2,17 +2,21 @@
 
 **ID:** `EPI-RP-05-KINDRED` · **Codename:** KINDRED · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: this research
+> brief is parked as Kindred provenance. If reused, research only MAS-June-safe
+> status/provenance/approval patterns. Do not research or revive 1Code companion
+> runtime as an active build target.
+
 > **How to use this file.** Paste everything below the `─── BEGIN ───` line into a top-tier
 > deep-research model (Claude / GPT / Gemini deep-research mode). It is a *research* brief,
 > not a build brief: its job is to return a single **build-ready dossier** that a later
 > coding agent (with repo access) grounds in Epistemos's code. Calibrated to the same rigor
 > as the prior agent-surface research dossiers. Owner authored 2026-07-06.
-> **Surfaces today = MAS/June + 1Code/Experimental only; no live "Pro"/OpenChamber surface.**
->
-> **Scope lock:** Companions + the Epdoc sidebar minichat are **1Code-Experimental ONLY**
-> (hidden on MAS/June). This supersedes the 2026-07-02 canon in `PROMPT_PLAN_5_COMPANION.md`
-> that *deferred* the Epdoc "Note Companion" mini-chat ("the Tolaria mini-chat") — the owner
-> is now reviving it as the centerpiece. Reconcile with that reversal explicitly.
+> **MAS-only status:** active surface today = MAS/June only. Everything below that says
+> "MAS/June + 1Code/Experimental" or "1Code-Experimental ONLY" is historical parked context.
+> If this brief is reused, rewrite the research target to MAS-June-safe status/provenance,
+> approval, and note-edit history patterns. Do not revive a 1Code minichat, Kindred runtime,
+> Node backend, or second chat authority.
 
 ─── BEGIN RESEARCH BRIEF ───
 
@@ -34,15 +38,13 @@ say so and give the decision criteria.
 ## 1. Product context (ground truth — design against this)
 
 **Epistemos** is a macOS-native PKM: Swift 6 + Rust (`agent_core`, in-process via UniFFI FFI) +
-Metal + GRDB. One codebase ships two builds:
-- **MAS** (Mac App Store): sandboxed, hardened runtime, **no subprocess**. The agent surface here
-  is **June** (a cloned web agent UI in a WKWebView, backed by `agent_core` in-process).
-- **1Code / "Experimental"** (Developer ID): the advanced agent surface — **1Code** (an Electron
-  React app: React 19 + tRPC + Jotai/Zustand + node-pty + Claude-SDK/Codex-ACP) **embedded into a
-  WKWebView** with a headless Node backend; subprocess is allowed here.
+Metal + GRDB. The active product target is now **MAS** (Mac App Store): sandboxed, hardened runtime,
+**no subprocess**. The active agent surface is **June** (a cloned web agent UI in a WKWebView,
+backed by `agent_core` in-process).
 
-**Companions live only in the 1Code/Experimental build.** MAS/June must show **no companion UI
-at all** — design the feature so it is cleanly gated off, not stubbed.
+**KINDRED/1Code companions are parked provenance.** If this brief is used after the
+`MAS-ONLY-SHIP-LOCK-2026-07-07` pivot, research only MAS-June-safe status/provenance/approval
+patterns that do not introduce a second chat runtime, Node backend, or hidden non-MAS surface.
 
 **The editor ("Epdoc")** is the surface companions edit. It is **Tiptap (ProseMirror) running in
 a WKWebView**, with a Swift↔JS bridge (inbound/outbound message channels), rendering **one markdown

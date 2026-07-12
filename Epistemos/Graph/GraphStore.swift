@@ -553,32 +553,75 @@ final class GraphStore {
             estimatedEdgeCount: edgeRecords.count
         )
 
-        for record in nodeRecords where !Self.hiddenNodeTypes.contains(record.type) {
-            nodes[record.id] = record
-            registerSourceLookup(for: record)
-            registerTypeLookup(for: record)
-            let nodeIdx = assignNodeIndex(record.id)
-            addToTrigramIndex(nodeIdx: nodeIdx, label: record.label)
+        for record in nodeRecords {
+            insertBulkNodeRecord(record)
         }
         rebuildCreatedOrderIndex()
 
         ingestEdgeRecords(edgeRecords)
     }
 
+    /// Populate the store without monopolizing the MainActor during graph
+    /// load or a structural full-reload fallback. Fetch/conversion already happens in BackgroundGraphActor;
+    /// this bounds the remaining dictionary/index work between cooperative
+    /// scheduler yields so menus, window events, and the loading surface repaint.
+    func loadFromRecordsCooperatively(
+        nodeRecords: [GraphNodeRecord],
+        edgeRecords: [GraphEdgeRecord],
+        batchSize: Int = 256
+    ) async {
+        let createdOrderTask = Task.detached(priority: .utility) {
+            Self.createdOrderIDs(from: nodeRecords)
+        }
+        prepareForBulkLoad(
+            estimatedNodeCount: nodeRecords.count,
+            estimatedEdgeCount: edgeRecords.count
+        )
+        let boundedBatchSize = max(1, batchSize)
+
+        for (index, record) in nodeRecords.enumerated() {
+            insertBulkNodeRecord(record)
+            if index > 0, index.isMultiple(of: boundedBatchSize) {
+                await Task.yield()
+            }
+        }
+        _nodeIdsByCreatedAtDesc = await createdOrderTask.value
+
+        for (index, record) in edgeRecords.enumerated() {
+            insertBulkEdgeRecord(record)
+            if index > 0, index.isMultiple(of: boundedBatchSize) {
+                await Task.yield()
+            }
+        }
+    }
+
+    private func insertBulkNodeRecord(_ record: GraphNodeRecord) {
+        guard !Self.hiddenNodeTypes.contains(record.type) else { return }
+        nodes[record.id] = record
+        registerSourceLookup(for: record)
+        registerTypeLookup(for: record)
+        let nodeIdx = assignNodeIndex(record.id)
+        addToTrigramIndex(nodeIdx: nodeIdx, label: record.label)
+    }
+
     private func ingestEdgeRecords(_ edgeRecords: [GraphEdgeRecord]) {
         for record in edgeRecords {
-            guard record.type != .quotes else { continue }
-            guard let srcIdx = _nodeIdx[record.sourceNodeId],
-                  let tgtIdx = _nodeIdx[record.targetNodeId] else { continue }
-
-            edges[record.id] = record
-            let edgeIdx = assignEdgeIndex(record.id)
-
-            if !_neighbors[srcIdx].contains(tgtIdx) { _neighbors[srcIdx].append(tgtIdx) }
-            if !_neighbors[tgtIdx].contains(srcIdx) { _neighbors[tgtIdx].append(srcIdx) }
-            _edgesOf[srcIdx].append(edgeIdx)
-            _edgesOf[tgtIdx].append(edgeIdx)
+            insertBulkEdgeRecord(record)
         }
+    }
+
+    private func insertBulkEdgeRecord(_ record: GraphEdgeRecord) {
+        guard record.type != .quotes else { return }
+        guard let srcIdx = _nodeIdx[record.sourceNodeId],
+              let tgtIdx = _nodeIdx[record.targetNodeId] else { return }
+
+        edges[record.id] = record
+        let edgeIdx = assignEdgeIndex(record.id)
+
+        if !_neighbors[srcIdx].contains(tgtIdx) { _neighbors[srcIdx].append(tgtIdx) }
+        if !_neighbors[tgtIdx].contains(srcIdx) { _neighbors[tgtIdx].append(srcIdx) }
+        _edgesOf[srcIdx].append(edgeIdx)
+        _edgesOf[tgtIdx].append(edgeIdx)
     }
 
     private func ingestEdges(_ sdEdges: [SDGraphEdge]) {
@@ -1213,7 +1256,12 @@ final class GraphStore {
     }
 
     private func rebuildCreatedOrderIndex() {
-        _nodeIdsByCreatedAtDesc = nodes.values
+        _nodeIdsByCreatedAtDesc = Self.createdOrderIDs(from: Array(nodes.values))
+    }
+
+    nonisolated static func createdOrderIDs(from nodeRecords: [GraphNodeRecord]) -> [String] {
+        nodeRecords
+            .filter { !hiddenNodeTypes.contains($0.type) }
             .sorted { lhs, rhs in
                 if lhs.createdAt != rhs.createdAt {
                     return lhs.createdAt > rhs.createdAt

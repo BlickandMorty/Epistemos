@@ -3,27 +3,57 @@ import Testing
 
 @Suite("MAS Workspace agent source guards")
 nonisolated struct JuneWorkspaceAgentSourceGuardTests {
-    @Test("local model selection updates the visible session and remains selectable while downloading")
-    func localModelSelectionPersistsToCurrentSession() throws {
+    @Test("selected GGUF models stay in June and download only through the guarded lane")
+    func selectedGGUFModelsStayInJuneAndDownloadOnlyThroughGuardedLane() throws {
         let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
+        let sessionStore = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneSessionStore.swift")
+        let specificGGUFRoute = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "if let entry = GGUFModelCatalog.entry(id: modelID) {",
+            endingBefore: "// Legacy/unknown local id"
+        ))
+        let prepareSelectedModel = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private func prepareSelectedModel(_ id: String)",
+            endingBefore: "func modelsPayload()"
+        ))
 
-        #expect(gateway.contains("func setModel(sessionID: String, model: String?)"))
-        #expect(gateway.contains("store.setModel(sessionID: currentSessionID, model: id)"))
+        #expect(gateway.contains("func setDefaultModel(_ id: String) -> Bool"))
+        #expect(gateway.contains("store.setModel(sessionID: currentSessionID, model: selected)"))
         #expect(gateway.contains("func setSessionModel(_ id: String, for sessionID: String) -> Bool"))
+        #expect(gateway.contains("private func explicitlyAdmittedModelID(_ id: String) -> String?"))
+        #expect(gateway.contains("return \"\\(entry.displayName) is connected to June, but it can't run on this Mac."))
+        #expect(gateway.contains("return id\n        }\n        if let entry = GGUFModelCatalog.entry(id: id)"))
         #expect(gateway.contains("case \"command.dispatch\":"))
         #expect(gateway.contains("trimmed.hasPrefix(\"/model\")"))
         #expect(gateway.contains("modelID(fromModelCommand: command)"))
-        #expect(gateway.contains("startTurn(sessionID: sessionID, prompt: text, requestedModelID: requestedModel)"))
-        #expect(gateway.contains("selectableModelIDs().contains(model)"))
-        #expect(gateway.contains("selectableModelIDs().contains($0) ? $0 : nil"))
-        #expect(gateway.contains("row[\"model\"] = model"))
-        #expect(gateway.contains("downloads.beginDownload(entry)"))
-        #expect(gateway.contains("return available.first { $0 != JuneModelID.cloud } ?? JuneModelID.cloud"),
-                "Cloud must never be the silent default while a local lane is available.")
+        #expect(gateway.contains("!setSessionModel(requestedModel, for: sessionID)"))
+        #expect(gateway.contains("message: modelSelectionFailureMessage(requestedModel)"))
+        #expect(gateway.contains("startTurn(sessionID: sessionID, prompt: text)"))
+        #expect(!gateway.contains("_ = setSessionModel(requestedModelID, for: sessionID)"))
+        #expect(gateway.contains("guard let selected = explicitlyAdmittedModelID(model) else"))
+        #expect(gateway.contains("chosenModel = selected"))
+        #expect(!gateway.contains("private func validModelID(_ id: String)"))
+        #expect(sessionStore.contains("row[\"model\"] = model"))
+        #expect(gateway.contains("if localGGUF.isAvailableInThisBuild {\n            ids.append(contentsOf: GGUFModelCatalog.installedEntries().map(\\.id))"))
+        #expect(gateway.contains("if localGGUF.isAvailableInThisBuild {\n            ids.append(contentsOf: GGUFModelCatalog.entries.map(\\.id))"))
+        #expect(gateway.contains("localGGUFAvailable: localGGUF.isAvailableInThisBuild"))
+        #expect(
+            specificGGUFRoute.contains("guard localGGUF.isAvailableInThisBuild else")
+                && specificGGUFRoute.range(of: "guard localGGUF.isAvailableInThisBuild else")!.lowerBound
+                    < specificGGUFRoute.range(of: "downloads.beginDownload(entry)")!.lowerBound,
+            "GGUF model data must not download unless the in-process runtime is linked."
+        )
+        #expect(
+            prepareSelectedModel.contains("guard localGGUF.isAvailableInThisBuild else { return }")
+                && prepareSelectedModel.range(of: "guard localGGUF.isAvailableInThisBuild else { return }")!.lowerBound
+                    < prepareSelectedModel.range(of: "downloads.beginDownload(entry)")!.lowerBound,
+            "Direct model selection must pass runtime availability before starting model-data downloads."
+        )
     }
 
-    @Test("cloud routing is an exact lane, not the fallback for unknown local ids")
-    func cloudRoutingIsExactOnly() throws {
+    @Test("cloud routing is exact and legacy local ids remain on-device")
+    func cloudRoutingIsExactAndLegacyLocalIDsRemainOnDevice() throws {
         let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
         let cloudCaseStart = try #require(gateway.range(of: "case JuneModelID.cloud:"))
         let defaultStart = try #require(gateway.range(of: "default:", range: cloudCaseStart.lowerBound..<gateway.endIndex))
@@ -35,18 +65,20 @@ nonisolated struct JuneWorkspaceAgentSourceGuardTests {
         #expect(gateway.contains("streamGooseMASAgentCoreRun"))
         #expect(!fallbackBlock.contains("makeAgentCoreCloudStream"),
                 "Unknown or legacy local ids must fall back to on-device lanes, not cloud.")
-        #expect(fallbackBlock.contains("return localGGUF.stream"))
+        #expect(fallbackBlock.contains("guard localGGUF.isAvailableInThisBuild else"))
+        #expect(fallbackBlock.contains("Local GGUF chat isn't available in this build"))
+        #expect(fallbackBlock.contains("localGGUF.stream"))
     }
 
     @Test("local rows do not fake function calling to satisfy the picker")
     func localRowsDoNotFakeFunctionCalling() throws {
-        let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
+        let catalog = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentModelCatalog.swift")
 
-        #expect(!gateway.contains("localPickerCapabilities"))
-        #expect(!gateway.contains("\"capabilities\": Self.localPickerCapabilities"))
-        #expect(gateway.contains("modelSupportsTools"))
-        #expect(gateway.contains("epistemos-local-chat"))
-        #expect(gateway.contains("\"capabilities\": [String]()"))
+        #expect(!catalog.contains("localPickerCapabilities"))
+        #expect(!catalog.contains("\"capabilities\": Self.localPickerCapabilities"))
+        #expect(catalog.contains("modelSupportsTools"))
+        #expect(catalog.contains("epistemos-local-chat"))
+        #expect(catalog.contains("\"capabilities\": [String]()"))
     }
 
     @Test("June cloud stream maps agent_core events to native June event frames")
@@ -73,84 +105,80 @@ nonisolated struct JuneWorkspaceAgentSourceGuardTests {
                 "June cloud turns must not bypass agent_core with direct chat streaming.")
     }
 
-    @Test("catalog includes Phi and permissive Llama-family instruct GGUF rows")
-    func catalogIncludesRequestedPermissiveRows() throws {
+    @Test("catalog contains only the three selected permissive GGUF rows")
+    func catalogContainsOnlySelectedPermissiveRows() throws {
         let catalog = try loadMirroredSourceTextFile("Epistemos/QuickChat/GGUFModelCatalog.swift")
 
         for required in [
-            "case phi3",
-            "case llamaChat",
-            "phi-3.5-mini-instruct-q4km",
-            "bartowski/Phi-3.5-mini-instruct-GGUF",
-            "Phi-3.5-mini-instruct-Q4_K_M.gguf",
-            "license: \"MIT\"",
-            "tinyllama-1.1b-chat-q4km",
-            "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
-            "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
-            "template: .llamaChat",
+            "qwen3-4b-instruct-q4km",
+            "qwen3-8b-q4km",
+            "qwen2.5-7b-instruct-q4km",
+            "template: .chatML",
             "license: \"Apache-2.0\"",
         ] {
             #expect(catalog.contains(required), "Missing catalog contract: \(required)")
         }
 
-        #expect(catalog.contains("<|system|>\\n\\(instructions)<|end|>\\n"))
-        #expect(catalog.contains("<|user|>\\n\\(userPrompt)</s>\\n<|assistant|>\\n"))
+        #expect(catalog.components(separatedBy: "GGUFCatalogEntry(").count - 1 == 3)
+        #expect(!catalog.contains("phi-3.5-mini-instruct-q4km"))
+        #expect(!catalog.contains("tinyllama-1.1b-chat-q4km"))
         #expect(catalog.contains("Llama 3.x is deliberately excluded"))
     }
 
-    @Test("cloud testing seam mints or accepts real DEBUG proxy sessions only")
-    func debugCloudTestingSeamIsRealAndDebugOnly() throws {
+    @Test("legacy receipt proxy is parked outside the MAS June product")
+    func legacyReceiptProxyIsCompileParked() throws {
         let proxy = try loadMirroredSourceTextFile("Epistemos/AgentWorkspace/EpistemosProxyClient.swift")
+        let subscription = try loadMirroredSourceTextFile("Epistemos/AgentWorkspace/AgentSubscriptionService.swift")
         let cloud = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneCloudEngine.swift")
+        let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
+        let project = try loadMirroredSourceTextFile("project.yml")
 
-        #expect(proxy.contains("func sessionForCloudRequest() async throws -> EpistemosProxySession?"))
-        #expect(proxy.contains("#if DEBUG"))
-        #expect(proxy.contains("EPISTEMOS_PROXY_DEV_TOKEN"))
-        #expect(proxy.contains("EPISTEMOS_PROXY_DEV_SESSION_TOKEN"))
-        #expect(proxy.contains("v1/auth/dev-session"))
-        #expect(proxy.contains("[\"scope\": \"chat.completions\"]"))
-        #expect(cloud.contains("try await EpistemosProxyClient.shared.sessionForCloudRequest()"))
-        #expect(!cloud.contains("EpistemosProxyClient.shared.currentSession()"),
-                "Cloud lane should use the testable StoreKit-or-DEBUG session seam.")
+        for parked in [proxy, subscription, cloud] {
+            #expect(parked.hasPrefix("#if EPISTEMOS_LEGACY_RECEIPT_PROXY\n"))
+        }
+        #expect(!project.contains("EPISTEMOS_LEGACY_RECEIPT_PROXY"))
+        #expect(!gateway.contains("JuneCloudEngine"))
+        #expect(!gateway.contains("EpistemosProxyClient"))
+        #expect(gateway.contains("streamGooseMASAgentCoreRun"))
+        #expect(gateway.contains("requireCloudDataConsent"))
     }
 
-    @Test("Workspace overlay owns visible rebrand, pixel font, and chat layout fixes")
-    func workspaceOverlayContractsStayMounted() throws {
+    @Test("June overlay preserves June branding, display font, and chat layout fixes")
+    func juneOverlayContractsStayMounted() throws {
         let surface = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentSurfaceView.swift")
 
         for required in [
-            "Self.workspaceOverlayScript()",
-            "ChonkyPixels.ttf",
-            "Epistemos Workspace Pixel",
-            "replaceWorkspaceWords",
-            ".replace(/\\\\bJune\\\\b/g, \"Workspace\")",
+            "Self.juneOverlayScript()",
+            "juneFontFaceCSS()",
+            "juneDisplayFontDataURL()",
+            "MatrixDotsDemoRegular.ttf",
+            "Epistemos Matrix Dots",
             "agent-user-turn-body",
             "--epistemos-user-bubble-text",
             "--epistemos-user-bubble-bg",
             "caret-color: var(--foreground) !important",
-            "Ask Workspace anything, run / commands",
-            "data-placeholder",
+            "Ask June anything, run / commands",
             ".sidebar-brand::after",
-            "content: \"Workspace\" !important",
+            "content: \"June\" !important",
             "app-shell[data-sidebar=\"expanded\"] .main-column",
-            "Loading Workspace",
-            "The Workspace bundle is missing from this build.",
+            "Loading June",
+            "The June agent bundle is missing from this build.",
         ] {
-            #expect(surface.contains(required), "Missing Workspace overlay contract: \(required)")
+            #expect(surface.contains(required), "Missing June overlay contract: \(required)")
         }
 
+        #expect(!surface.contains("replaceWorkspaceWords"))
+        #expect(!surface.contains(".replace(/\\\\bJune\\\\b/g, \"Workspace\")"))
+        #expect(!surface.contains("Ask Workspace anything"))
+        #expect(!surface.contains("content: \"Workspace\" !important"))
         #expect(!surface.contains("app-shell[data-sidebar=\"collapsed\"] .agent-composer"))
         #expect(!surface.contains("--epistemos-composer-gutter"))
         #expect(!surface.contains("position: fixed !important"))
         #expect(!surface.contains("--sidebar-w-current"))
-
-        #expect(!surface.contains("The June agent bundle is missing from this build."))
-        #expect(!surface.contains("The June bridge shim could not be loaded."))
-        #expect(!surface.contains("The June entry URL is invalid."))
     }
 
-    @Test("Workspace web view delegate is installed before the first load")
-    func workspaceWebViewRevealsOnColdOpen() throws {
+    @Test("June web view delegate is installed before the first load")
+    func juneWebViewRevealsOnColdOpen() throws {
         let surface = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentSurfaceView.swift")
         let load = try #require(surface.range(of: "webView.load(URLRequest(url: entry))"))
         let delegate = try #require(surface.range(of: "webView.navigationDelegate = JuneNavigationDelegate.shared"))
@@ -168,6 +196,26 @@ nonisolated struct JuneWorkspaceAgentSourceGuardTests {
         #expect(surface.contains("didFailProvisionalNavigation"))
     }
 
+    @Test("MAS June web bundle is required and bundle-only")
+    func masJuneWebBundleIsRequiredAndBundleOnly() throws {
+        let project = try loadMirroredSourceTextFile("project.yml")
+        let bundler = try loadMirroredSourceTextFile("bundle-app-runtime-assets.sh")
+        let assets = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneWebAssets.swift")
+        let gate = try loadMirroredSourceTextFile("scripts/keelstone-release-gate.sh")
+
+        #expect(project.contains("build-june-web.sh"))
+        #expect(bundler.contains("is_complete_june_web_tree"))
+        #expect(bundler.contains("dist/index.html"))
+        #expect(bundler.contains("tauri-internals-shim.js"))
+        #expect(bundler.contains("App Store build requires staged JuneWeb files"))
+        #expect(assets.contains("Contents/Resources/JuneWeb"))
+        #expect(!assets.contains("EPISTEMOS_JUNE_WEBROOT"))
+        #expect(!assets.contains("devForkRoot"))
+        #expect(!assets.contains("ProcessInfo.processInfo.environment"))
+        #expect(gate.contains("Built App Store artifact includes JuneWeb/dist/index.html"))
+        #expect(gate.contains("Built App Store artifact includes JuneWeb/tauri-internals-shim.js"))
+    }
+
     @Test("user message text color follows the requested theme-pair matrix")
     func userMessageTextColorFollowsThemePairMatrix() throws {
         let theme = try loadMirroredSourceTextFile("Epistemos/Theme/EpistemosTheme.swift")
@@ -183,76 +231,102 @@ nonisolated struct JuneWorkspaceAgentSourceGuardTests {
             #expect(theme.contains(required), "Missing theme-pair mapping: \(required)")
         }
 
-        for (caseStart, expectedTextColor) in [
-            ("        case .systemLight:\n            return ResolvedTheme(", "userBubbleText: .hex(0xFFFFFF)"),
-            ("        case .systemDark:\n            return ResolvedTheme(", "userBubbleText: .hex(0x000000)"),
-            ("        case .light:\n            return ResolvedTheme(", "userBubbleText: .hex(0xFFFFFF)"),
-            ("        case .oled:\n            return ResolvedTheme(", "userBubbleText: .hex(0x000000)"),
-            ("        case .oledSoft:\n            return ResolvedTheme(", "userBubbleText: .hex(0x000000)"),
-            ("        case .tan:\n            return ResolvedTheme(", "userBubbleText: .hex(0xFFFFFF)"),
-            ("        case .ember:\n            return ResolvedTheme(", "userBubbleText: .hex(0xFFFFFF)"),
-            ("        case .platinumViolet:\n            return ResolvedTheme(", "userBubbleText: .hex(0xFFFFFF)"),
-            ("        case .platinumVioletDark:\n            return ResolvedTheme(", "userBubbleText: .hex(0xFFFFFF)"),
+        for (caseName, expectedTextColor) in [
+            (".systemLight", "userBubbleText: .hex(0xFFFFFF)"),
+            (".systemDark", "userBubbleText: .hex(0x000000)"),
+            (".light", "userBubbleText: .hex(0xFFFFFF)"),
+            (".oled", "userBubbleText: .hex(0x000000)"),
+            (".oledSoft", "userBubbleText: .hex(0x000000)"),
+            (".tan", "userBubbleText: .hex(0xFFFFFF)"),
+            (".ember", "userBubbleText: .hex(0xFFFFFF)"),
+            (".platinumViolet", "userBubbleText: .hex(0xFFFFFF)"),
+            (".platinumVioletDark", "userBubbleText: .hex(0xFFFFFF)"),
         ] {
-            let block = try resolvedThemeCaseBlock(in: theme, startingWith: caseStart)
-            #expect(block.contains(expectedTextColor), "Missing \(expectedTextColor) in \(caseStart)")
+            let block = try resolvedThemeCaseBlock(in: theme, caseName: caseName)
+            #expect(block.contains(expectedTextColor), "Missing \(expectedTextColor) in \(caseName)")
         }
     }
 
-    @Test("MAS toolbar pill exposes exactly the requested controls")
+    @Test("MAS toolbar exposes the requested controls")
     func toolbarPillHasOnlyRequestedControls() throws {
         let nav = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentNavBar.swift")
         let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
 
-        #expect(occurrences(of: "pillButton(title: \"", in: nav) == 3)
-        #expect(nav.contains("pillButton(title: \"Epistemos\""))
-        #expect(nav.contains("pillButton(title: \"New Chat\""))
-        #expect(nav.contains("pillButton(title: \"All Chats\""))
-        #expect(nav.contains("Font.custom(\"ChonkyPixels\""))
-        #expect(!nav.contains("speaker.wave.2"))
-        #expect(!nav.contains("EpistemosSpeechSynthesizer.shared"))
+        #expect(nav.contains("Button(action: onReturnHome)"))
+        #expect(occurrences(of: "Button {", in: nav) == 4)
+        #expect(nav.contains("JuneAgentIntents.newSession()"))
+        #expect(nav.contains("showingAllChats = true"))
+        #expect(nav.contains("JuneAllChatsSheet()"))
+        #expect(nav.contains("showingNotes = true"))
+        #expect(nav.contains("JuneNotesBrowserPopover()"))
+        #expect(nav.contains("EpistemosAgentReadAloud.speak"))
+        #expect(nav.contains("KokoroVoiceInstallPrompt()"))
+        #expect(nav.contains("Image(systemName: \"chevron.left\")"))
+        #expect(nav.contains("Image(systemName: \"plus.bubble\")"))
+        #expect(nav.contains("Image(systemName: \"list.bullet.rectangle\")"))
+        #expect(nav.contains("Image(systemName: \"sidebar.leading\")"))
+        #expect(nav.contains("return ttsAvailable ? \"speaker.wave.2\""))
+        #expect(!nav.contains("pillButton(title:"))
+        #expect(!nav.contains("Font.custom(\"ChonkyPixels\""))
         #expect(root.contains("&& ui.homeContent == .greeting"))
         #expect(root.contains("|| showJuneAgentToolbarControls"))
     }
 
-    @Test("native visible MAS copy says Workspace and chats")
-    func nativeVisibleCopyUsesWorkspace() throws {
+    @Test("native visible MAS copy consistently says June and chats")
+    func nativeVisibleCopyUsesJune() throws {
         let chrome = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentChrome.swift")
         let perf = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentPerf.swift")
+        let context = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentConversationContext.swift")
         let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
         let bridge = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentBridge.swift")
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingFeatureButtons.swift")
+        let landingView = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(chrome.contains("\"No chats yet\""))
-        #expect(chrome.contains("Text(\"Start a chat in Workspace and it will appear here.\")"))
-        #expect(chrome.contains(".navigationTitle(\"Workspace chats\")"))
+        #expect(chrome.contains("Text(\"Start a chat in June and it will appear here.\")"))
+        #expect(chrome.contains(".navigationTitle(\"June chats\")"))
         #expect(chrome.contains("Button(\"New Chat\")"))
-        #expect(perf.contains("LabeledContent(\"Workspace surface\")"))
-        #expect(gateway.contains("\"You are Workspace, a helpful on-device assistant inside Epistemos. \""))
+        #expect(perf.contains("LabeledContent(\"June surface\")"))
+        #expect(context.contains("\"You are June, a helpful assistant inside Epistemos. \""))
+        #expect(context.contains("\"You are June, a helpful on-device assistant inside Epistemos. \""))
+        #expect(context.contains("who = \"June\""))
         #expect(gateway.contains("let title = rawTitle == \"New session\" ? \"New chat\" : rawTitle"))
         #expect(bridge.contains("return derived.isEmpty ? \"New chat\" : derived"))
-        #expect(landing.contains("Workspace - chat with on-device models"))
+        #expect(landing.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n            \"june\""))
+        #expect(landing.contains("June — chat with Cloud Agent, Apple Intelligence, or your selected local models."))
+        #expect(landing.contains("June is unavailable in this build."))
+        #expect(landingView.contains("private var agentPageTitle: String"))
+        #expect(landingView.contains("HomeEmbeddedPage(title: agentPageTitle)"))
+        #expect(landingView.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        \"June\""))
     }
 
-    @Test("Workspace exposes direct provider cloud models for the five requested providers")
-    func workspaceExposesRequestedCloudProviders() throws {
+    @Test("June exposes direct provider cloud models only for configured agent-tier MAS lanes")
+    func juneExposesRequestedCloudProviders() throws {
         let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
+        let catalog = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentModelCatalog.swift")
         let inference = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
 
         for required in [
-            "private static let directCloudProviders: [CloudModelProvider]",
+            "static let directCloudProviders = CloudModelProvider.juneAgentProviders",
             ".openAI",
             ".anthropic",
-            ".google",
-            ".zai",
-            ".kimi",
-            "CloudTextModelID(rawValue: modelID)",
-            "makeAgentCoreCloudStream",
-            "CloudTextModelID.models(for: provider)",
+            "CloudTextModelID.juneAgentModels(for: provider)",
             "\"provider\": provider.rawValue",
             "\"name\": \"\\(provider.displayName) · \\(model.displayName)\"",
         ] {
-            #expect(gateway.contains(required), "Missing Workspace provider picker contract: \(required)")
+            #expect(catalog.contains(required), "Missing June provider picker contract: \(required)")
+        }
+        #expect(!catalog.contains("static let directCloudProviders: [CloudModelProvider] = [.openAI, .anthropic, .google"))
+
+        for required in [
+            "CloudTextModelID(rawValue: modelID)",
+            "makeAgentCoreCloudStream",
+            "cloudModel.provider.supportsAgentTier",
+            "CloudTextModelID.juneAgentModels(for: cloudModel.provider).contains(cloudModel)",
+            "is not connected to MAS June",
+            "JuneAgentModelCatalog.directCloudModelIDs(configuredOnly: true)",
+        ] {
+            #expect(gateway.contains(required), "Missing June provider routing contract: \(required)")
         }
 
         for required in [
@@ -282,7 +356,7 @@ nonisolated struct JuneWorkspaceAgentSourceGuardTests {
         for required in [
             "case cloudModels = \"Cloud Models\"",
             "case .cloudModels: CloudModelsSettingsView()",
-            "ForEach(CloudModelProvider.preferredOrder, id: \\.self)",
+            "ForEach(settingsProviders, id: \\.self)",
             "CloudProviderSettingsRow(",
             "OpenAIDeviceAuthorizationSheet",
             "signInToOpenAI",
@@ -293,7 +367,7 @@ nonisolated struct JuneWorkspaceAgentSourceGuardTests {
             "Retry Google OAuth",
             "Paste + Save",
             "Save Typed Key",
-            "CloudTextModelID.models(for: provider)",
+            "inference.cloudModels(for: provider)",
             "Choose Google OAuth JSON",
             "Clear Google OAuth JSON",
             "Google Cloud project ID (not project number)",
@@ -325,8 +399,9 @@ nonisolated struct JuneWorkspaceAgentSourceGuardTests {
         haystack.components(separatedBy: needle).count - 1
     }
 
-    private func resolvedThemeCaseBlock(in source: String, startingWith caseStart: String) throws -> String {
-        let start = try #require(source.range(of: caseStart))
+    private func resolvedThemeCaseBlock(in source: String, caseName: String) throws -> String {
+        let buildResolved = try #require(source.range(of: "nonisolated private func buildResolved() -> ResolvedTheme"))
+        let start = try #require(source.range(of: "\n        case \(caseName):", range: buildResolved.upperBound..<source.endIndex))
         let next = source.range(of: "\n        case .", range: start.upperBound..<source.endIndex)
         return String(source[start.lowerBound..<(next?.lowerBound ?? source.endIndex)])
     }

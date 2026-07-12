@@ -45,8 +45,6 @@ jobs:
             omega-ax -> target
             omega-mcp -> target
             agent_core -> target
-            epistemos-research -> target
-            epistemos-vault -> target
           cache-on-failure: true
 
       # Build Rust crates in dependency order
@@ -89,36 +87,6 @@ jobs:
       # xcodebuild.
       - name: Test agent_core (lsp-runtime feature)
         run: cd agent_core && cargo test --target aarch64-apple-darwin --features lsp-runtime
-
-      # B3 (canonical upgrade audit 2026-05-05): Pro-build feature
-      # surface (cli_passthrough, terminal, apple_apps, imessage,
-      # browser, etc.) is never compiled in CI under default features.
-      # Per MAS-First doctrine §3.1: "CI must run BOTH" the MAS + Pro
-      # build invocations.
-      - name: Build agent_core (Pro feature surface)
-        run: cd agent_core && cargo build --target aarch64-apple-darwin --no-default-features --features pro-build,lsp-runtime
-      - name: Test agent_core (Pro feature surface)
-        run: cd agent_core && cargo test --target aarch64-apple-darwin --no-default-features --features pro-build,lsp-runtime
-
-      # HELIOS V5 — agent_core compose tests under combined Pro +
-      # Research feature flags (Σ = [τ, δ, π, ρ, κ, η, λ] full
-      # 7-field composition per docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md §G).
-      - name: Test agent_core (Pro + Research compose surface)
-        run: cd agent_core && cargo test --target aarch64-apple-darwin --features pro-build,research
-
-      # HELIOS V5 W17/W18/W19 + E1-E7 substrate. Lane 3 research
-      # crate; never ships in MAS. Builds only under --features research.
-      - name: Build epistemos-research (Lane 3 research feature)
-        run: cd epistemos-research && cargo build --target aarch64-apple-darwin --features research
-      - name: Test epistemos-research (Lane 3 research feature)
-        run: cd epistemos-research && cargo test --target aarch64-apple-darwin --features research
-
-      # HELIOS V5 W20/W21/W22 + W16 + PCF-5/6/9/10 substrate. Lane 5
-      # vault crate; never ships in MAS. Builds only under --features vault.
-      - name: Build epistemos-vault (Lane 5 vault feature)
-        run: cd epistemos-vault && cargo build --target aarch64-apple-darwin --features vault
-      - name: Test epistemos-vault (Lane 5 vault feature)
-        run: cd epistemos-vault && cargo test --target aarch64-apple-darwin --features vault
 
       # B1 (canonical upgrade audit 2026-05-05): the doctrine linter is
       # the only mechanical enforcer of cognitive DAG doctrine §5
@@ -216,23 +184,29 @@ jobs:
             echo "::endgroup::"
           done
 
-      # HELIOS V5 — clippy on the new crates with their respective
-      # feature gates (no default-features path; both crates require
-      # explicit feature flags to compile any code).
-      - name: Clippy epistemos-research (research feature)
-        run: cd epistemos-research && cargo clippy --target aarch64-apple-darwin --features research -- -D warnings
-      - name: Clippy epistemos-vault (vault feature)
-        run: cd epistemos-vault && cargo clippy --target aarch64-apple-darwin --features vault -- -D warnings
-
       - name: Check Rust formatting
         run: |
-          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core epistemos-research epistemos-vault; do
+          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
             cd "$crate" && cargo fmt --check && cd ..
           done
 
       # Generate Xcode project and build Swift
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      - name: Cache pinned llama XCFramework
+        uses: actions/cache@v4
+        with:
+          path: LocalPackages/EpistemosLlama/Binary
+          key: ${{ runner.os }}-llama-b9870-xcframework-v1
+
+      - name: Fetch and verify pinned llama XCFramework
+        run: bash scripts/fetch-llama-xcframework.sh
+
+      - name: Validate source-tree JuneWeb
+        env:
+          EPISTEMOS_JUNE_FORK: ${{ runner.temp }}/missing-june-donor
+        run: bash build-june-web.sh
 
       - name: Generate UniFFI bindings
         run: |

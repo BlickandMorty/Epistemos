@@ -15,11 +15,20 @@ final class JuneAgentSurfaceHolder {
     static let shared = JuneAgentSurfaceHolder()
 
     private static let log = Logger(subsystem: "com.epistemos", category: "JuneAgentSurface")
+    private static let maxPendingBridgeJavaScriptCount = 256
+    private static let maxPendingBridgeJavaScriptBytes = 2 * 1_024 * 1_024
+    private static let bridgeJavaScriptBatchCount = 32
 
     private(set) var webView: WKWebView?
     private(set) var bridge: JuneAgentBridge?
     private(set) var loadStarted = false
     private(set) var loadStartedAt: Date?
+    private(set) var pageReady = false
+    private var activeNavigation: WKNavigation?
+    private var pendingBridgeJavaScript: [String] = []
+    private var pendingBridgeJavaScriptBytes = 0
+    private var bridgeJavaScriptEvaluationInFlight = false
+    private var bridgeJavaScriptDispatchGeneration = 0
     var failureMessage: String?
 
     private init() {}
@@ -33,11 +42,11 @@ final class JuneAgentSurfaceHolder {
         failureMessage = nil
         guard webView == nil else { return }
         guard let location = JuneWebAssets.resolve() else {
-            failureMessage = "The Workspace bundle is missing from this build."
+            failureMessage = "The June agent bundle is missing from this build."
             return
         }
         guard let shimSource = try? String(contentsOf: location.shimURL, encoding: .utf8) else {
-            failureMessage = "The Workspace bridge shim could not be loaded."
+            failureMessage = "The June bridge shim could not be loaded."
             return
         }
 
@@ -114,13 +123,12 @@ final class JuneAgentSurfaceHolder {
             """,
             injectionTime: .atDocumentEnd, forMainFrameOnly: true
         ))
-        // Workspace overlay (MAS-only, no June source edits): rebrands visible
-        // copy, keeps normal June/system UI fonts for body/sidebar/composer,
-        // reserves Matrix Dots for the large landing/page headers, and pins the
-        // chat layout fixes requested for light-mode bubbles, composer
-        // caret/word wrapping, and sidebar alignment.
+        // June overlay (MAS-only, no June source edits): keeps June's visible
+        // identity, applies the Epistemos typography, and pins the chat layout
+        // fixes requested for light-mode bubbles, composer caret/word wrapping,
+        // and sidebar alignment.
         ucc.addUserScript(WKUserScript(
-            source: Self.workspaceOverlayScript(),
+            source: Self.juneOverlayScript(),
             injectionTime: .atDocumentEnd, forMainFrameOnly: true
         ))
         // Read-aloud overlay (my injection, NOT June src): adds a speak button
@@ -298,30 +306,142 @@ final class JuneAgentSurfaceHolder {
         // Pin prefers-color-scheme to the theme's own darkness from the first
         // paint (the .task re-pin lands later in the same runloop turn).
         webView.appearance = NSAppearance(named: theme.resolved.isDark ? .darkAqua : .aqua)
-        bridge.runJS = { [weak webView] js in
-            webView?.evaluateJavaScript(js) { _, error in
-                if let error {
-                    Self.log.warning("bridge JS eval failed: \(error.localizedDescription, privacy: .public)")
-                }
+        bridge.runJS = { [weak self, weak webView] js in
+            guard let self, let webView else { return }
+            guard self.pageReady, !webView.isLoading else {
+                Self.log.debug("June bridge JavaScript dropped while the bundled page is not ready")
+                return
             }
+            self.enqueueBridgeJavaScript(js, in: webView)
         }
 
         self.bridge = bridge
         self.webView = webView
 
         guard let entry = JuneSchemeHandler.entryURL else {
-            failureMessage = "The Workspace entry URL is invalid."
+            failureMessage = "The June entry URL is invalid."
             return
         }
-        webView.load(URLRequest(url: entry))
+        activeNavigation = webView.load(URLRequest(url: entry))
         loadStarted = true
         loadStartedAt = Date()
         Self.log.info("June surface load started (root: \(location.distRoot.path, privacy: .public))")
     }
 
-    private static func workspaceOverlayScript() -> String {
+    func beginNavigation(_ navigation: WKNavigation?, in webView: WKWebView) {
+        guard let ownedWebView = self.webView, webView === ownedWebView else { return }
+        if let activeNavigation, navigation === activeNavigation {
+            pageReady = false
+            return
+        }
+        let replacedReadyDocument = pageReady
+        pageReady = false
+        activeNavigation = navigation
+        resetBridgeJavaScriptDispatch()
+        if replacedReadyDocument {
+            bridge?.gateway.cancelAllTurnsForSurfaceRecovery()
+        }
+    }
+
+    @discardableResult
+    func finishNavigation(_ navigation: WKNavigation?, succeeded: Bool) -> Bool {
+        guard let activeNavigation, navigation === activeNavigation else { return false }
+        self.activeNavigation = nil
+        pageReady = succeeded
+        if succeeded {
+            failureMessage = nil
+        } else {
+            resetBridgeJavaScriptDispatch()
+        }
+        return true
+    }
+
+    private func enqueueBridgeJavaScript(_ script: String, in webView: WKWebView) {
+        let byteCount = script.utf8.count
+        guard byteCount <= Self.maxPendingBridgeJavaScriptBytes,
+              pendingBridgeJavaScript.count < Self.maxPendingBridgeJavaScriptCount,
+              pendingBridgeJavaScriptBytes <= Self.maxPendingBridgeJavaScriptBytes - byteCount else {
+            recoverAfterBridgeJavaScriptFailure(
+                in: webView,
+                reason: "June native-to-web delivery exceeded its bounded queue"
+            )
+            return
+        }
+        pendingBridgeJavaScript.append(script)
+        pendingBridgeJavaScriptBytes += byteCount
+        flushBridgeJavaScript(in: webView)
+    }
+
+    private func flushBridgeJavaScript(in webView: WKWebView) {
+        guard pageReady,
+              !webView.isLoading,
+              !bridgeJavaScriptEvaluationInFlight,
+              !pendingBridgeJavaScript.isEmpty else { return }
+        let batchCount = min(
+            Self.bridgeJavaScriptBatchCount,
+            pendingBridgeJavaScript.count
+        )
+        let batch = Array(pendingBridgeJavaScript.prefix(batchCount))
+        pendingBridgeJavaScript.removeFirst(batchCount)
+        pendingBridgeJavaScriptBytes -= batch.reduce(into: 0) { total, script in
+            total += script.utf8.count
+        }
+        bridgeJavaScriptEvaluationInFlight = true
+        let generation = bridgeJavaScriptDispatchGeneration
+        let batchScript = batch.joined(separator: "\n;\n")
+        webView.evaluateJavaScript(batchScript) { [weak self, weak webView] _, error in
+            guard let self,
+                  let webView,
+                  generation == self.bridgeJavaScriptDispatchGeneration else { return }
+            self.bridgeJavaScriptEvaluationInFlight = false
+            if let error {
+                self.recoverAfterBridgeJavaScriptFailure(
+                    in: webView,
+                    reason: "June native-to-web delivery failed: \(error.localizedDescription)"
+                )
+                return
+            }
+            self.flushBridgeJavaScript(in: webView)
+        }
+    }
+
+    private func resetBridgeJavaScriptDispatch() {
+        bridgeJavaScriptDispatchGeneration &+= 1
+        pendingBridgeJavaScript.removeAll(keepingCapacity: true)
+        pendingBridgeJavaScriptBytes = 0
+        bridgeJavaScriptEvaluationInFlight = false
+    }
+
+    private func recoverAfterBridgeJavaScriptFailure(in webView: WKWebView, reason: String) {
+        reloadBundledJuneSurface(in: webView, reason: reason)
+    }
+
+    func recoverAfterWebContentProcessTermination(in webView: WKWebView) {
+        reloadBundledJuneSurface(
+            in: webView,
+            reason: "June web content process terminated; reloading the bundled June surface"
+        )
+    }
+
+    private func reloadBundledJuneSurface(in webView: WKWebView, reason: String) {
+        guard let ownedWebView = self.webView, webView === ownedWebView else { return }
+        pageReady = false
+        activeNavigation = nil
+        resetBridgeJavaScriptDispatch()
+        bridge?.gateway.cancelAllTurnsForSurfaceRecovery()
+        guard let entry = JuneSchemeHandler.entryURL else {
+            failureMessage = "The June entry URL is invalid after renderer recovery."
+            return
+        }
+        activeNavigation = webView.load(URLRequest(url: entry))
+        loadStarted = true
+        loadStartedAt = Date()
+        Self.log.error("\(reason, privacy: .public)")
+    }
+
+    private static func juneOverlayScript() -> String {
         let css = """
-        \(workspaceFontFaceCSS())
+        \(juneFontFaceCSS())
         :root {
           --epistemos-ui-font: "ABC Diatype", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
           --epistemos-display-font: "Epistemos Matrix Dots", "MatrixDotsDemoRegular", "MatrixTypeDisplay-Regular", var(--epistemos-ui-font);
@@ -405,7 +525,7 @@ final class JuneAgentSurfaceHolder {
           outline: none !important;
         }
         .agent-composer-editor p.is-editor-empty:first-child::before {
-          content: "Ask Workspace anything, run / commands" !important;
+          content: "Ask June anything, run / commands" !important;
         }
         .sidebar-brand {
           align-items: center !important;
@@ -416,7 +536,7 @@ final class JuneAgentSurfaceHolder {
           display: none !important;
         }
         .sidebar-brand::after {
-          content: "Workspace" !important;
+          content: "June" !important;
           color: currentColor !important;
           font-family: var(--epistemos-ui-font) !important;
           font-size: 13px !important;
@@ -432,7 +552,7 @@ final class JuneAgentSurfaceHolder {
         let cssLiteral = JuneAgentBridge.jsStringLiteral(css)
         return """
         (function () {
-          var styleId = "epistemos-workspace-overlay";
+          var styleId = "epistemos-june-overlay";
           function installStyle() {
             var style = document.getElementById(styleId);
             if (!style) {
@@ -441,54 +561,6 @@ final class JuneAgentSurfaceHolder {
               document.documentElement.appendChild(style);
             }
             style.textContent = \(cssLiteral);
-          }
-
-          function replaceWorkspaceWords(value) {
-            if (!value || value.indexOf("June") === -1 && value.indexOf("JUNE") === -1 && value.indexOf("june") === -1) return value;
-            return value
-              .replace(/\\bJUNE\\b/g, "WORKSPACE")
-              .replace(/\\bJune\\b/g, "Workspace")
-              .replace(/\\bjune\\b/g, "workspace");
-          }
-
-          var skipTags = { SCRIPT: true, STYLE: true, NOSCRIPT: true, CODE: true, PRE: true };
-          var watchedAttrs = ["aria-label", "title", "placeholder", "data-placeholder", "alt"];
-
-          function renameElement(el) {
-            if (!el || !el.getAttribute) return;
-            for (var i = 0; i < watchedAttrs.length; i++) {
-              var name = watchedAttrs[i];
-              var value = el.getAttribute(name);
-              var next = replaceWorkspaceWords(value);
-              if (next !== value) el.setAttribute(name, next);
-            }
-          }
-
-          function scan(root) {
-            if (!root) return;
-            if (root.nodeType === Node.TEXT_NODE) {
-              var nextText = replaceWorkspaceWords(root.nodeValue);
-              if (nextText !== root.nodeValue) root.nodeValue = nextText;
-              return;
-            }
-            if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return;
-            if (root.nodeType === Node.ELEMENT_NODE && skipTags[root.tagName]) return;
-            if (root.nodeType === Node.ELEMENT_NODE) renameElement(root);
-            var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
-              acceptNode: function (node) {
-                if (node.nodeType === Node.ELEMENT_NODE && skipTags[node.tagName]) return NodeFilter.FILTER_REJECT;
-                return NodeFilter.FILTER_ACCEPT;
-              }
-            });
-            var node;
-            while ((node = walker.nextNode())) {
-              if (node.nodeType === Node.TEXT_NODE) {
-                var next = replaceWorkspaceWords(node.nodeValue);
-                if (next !== node.nodeValue) node.nodeValue = next;
-              } else if (node.nodeType === Node.ELEMENT_NODE) {
-                renameElement(node);
-              }
-            }
           }
 
           function keepCaretInsideEditor(event) {
@@ -504,28 +576,10 @@ final class JuneAgentSurfaceHolder {
             selection.addRange(range);
           }
 
-          var scanScheduled = false;
-          function scanSoon(delay) {
-            window.setTimeout(function () {
-              if (scanScheduled) return;
-              scanScheduled = true;
-              window.requestAnimationFrame(function () {
-                scanScheduled = false;
-                installStyle();
-                scan(document.body || document.documentElement);
-              });
-            }, delay);
-          }
-
           function start() {
             installStyle();
-            scan(document.body || document.documentElement);
             document.addEventListener("input", keepCaretInsideEditor, true);
             document.addEventListener("keyup", keepCaretInsideEditor, true);
-            [120, 400, 1000, 2500, 5000].forEach(scanSoon);
-            document.addEventListener("visibilitychange", function () { scanSoon(0); });
-            window.addEventListener("focus", function () { scanSoon(0); });
-            window.addEventListener("popstate", function () { scanSoon(0); });
           }
 
           if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
@@ -534,14 +588,14 @@ final class JuneAgentSurfaceHolder {
         """
     }
 
-    private static func workspaceFontFaceCSS() -> String {
-        guard let dataURL = workspaceDisplayFontDataURL() else { return "" }
+    private static func juneFontFaceCSS() -> String {
+        guard let dataURL = juneDisplayFontDataURL() else { return "" }
         return """
         @font-face { font-family: "Epistemos Matrix Dots"; src: url("\(dataURL)") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
         """
     }
 
-    private static func workspaceDisplayFontDataURL() -> String? {
+    private static func juneDisplayFontDataURL() -> String? {
         let bundles = [Bundle.main, Bundle(for: JuneAgentSurfaceHolder.self)] + Bundle.allBundles + Bundle.allFrameworks
         var seenBundlePaths = Set<String>()
         for bundle in bundles {
@@ -555,7 +609,7 @@ final class JuneAgentSurfaceHolder {
                 return "data:font/ttf;base64,\(data.base64EncodedString())"
             }
         }
-        Self.log.warning("MatrixDotsDemoRegular.ttf not found for Workspace web overlay")
+        Self.log.warning("MatrixDotsDemoRegular.ttf not found for June web overlay")
         return nil
     }
 }
@@ -589,12 +643,24 @@ private final class JuneNavigationDelegate: NSObject, WKNavigationDelegate {
         decisionHandler(.cancel)
     }
 
+    func webView(
+        _ webView: WKWebView,
+        didStartProvisionalNavigation navigation: WKNavigation!
+    ) {
+        JuneAgentSurfaceHolder.shared.beginNavigation(navigation, in: webView)
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard JuneAgentSurfaceHolder.shared.finishNavigation(navigation, succeeded: true) else {
+            Self.log.debug("Ignored stale June navigation completion")
+            return
+        }
         Self.log.info("June surface navigation finished")
         onFirstPaint?()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        guard JuneAgentSurfaceHolder.shared.finishNavigation(navigation, succeeded: false) else { return }
         Self.log.error(
             "June surface navigation failed: \(error.localizedDescription, privacy: .public)"
         )
@@ -605,9 +671,14 @@ private final class JuneNavigationDelegate: NSObject, WKNavigationDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
+        guard JuneAgentSurfaceHolder.shared.finishNavigation(navigation, succeeded: false) else { return }
         Self.log.error(
             "June surface provisional navigation failed: \(error.localizedDescription, privacy: .public)"
         )
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        JuneAgentSurfaceHolder.shared.recoverAfterWebContentProcessTermination(in: webView)
     }
 }
 
@@ -768,13 +839,21 @@ struct JuneAgentSurfaceView: View {
                 ProgressView()
                     .controlSize(.small)
                     .tint(.secondary)
-                    .accessibilityLabel("Loading Workspace")
+                    .accessibilityLabel("Loading June")
             }
         }
         .onChange(of: ui.theme) { _, newTheme in
             Self.applyEpistemosTheme(newTheme)
         }
-        .onAppear { Self.refreshReadAloudAvailability() }
+        .onAppear {
+            Self.refreshReadAloudAvailability()
+            EpistemosVisibleReadAloudRegistry.shared.register(.juneLatestAssistantReply) {
+                JuneAgentSurfaceHolder.shared.bridge?.gateway.visibleAgentSurfaceReadAloudText()
+            }
+        }
+        .onDisappear {
+            EpistemosVisibleReadAloudRegistry.shared.unregister(.juneLatestAssistantReply)
+        }
         .task(id: retryAttempt) {
             let mountedAt = Date()
             let holder = JuneAgentSurfaceHolder.shared

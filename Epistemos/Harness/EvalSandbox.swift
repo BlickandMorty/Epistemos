@@ -1,4 +1,4 @@
-#if !EPISTEMOS_APP_STORE
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import Foundation
 import os
 
@@ -292,4 +292,4 @@ func sandboxedRunCommand(
         state.resume(returning: cancellationResult)
     }
 }
-#endif // !EPISTEMOS_APP_STORE -- Harness eval sandbox (subprocess spawning, Pro-only)
+#endif

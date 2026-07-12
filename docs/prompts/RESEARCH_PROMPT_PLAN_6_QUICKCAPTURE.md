@@ -2,9 +2,14 @@
 
 **ID:** `EPI-RP-06-EMBERCATCH` · **Codename:** EMBERCATCH · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: if reused,
+> research Quick Capture for MAS only. Park 1Code/Experimental/Developer-ID
+> variants and keep all capture, voice, routing, undo, and trace work App
+> Store-safe.
+
 > Paste below `─── BEGIN ───` into a deep-research model. Output = build-ready dossier. Owner
-> authored 2026-07-06. **Build split: both builds (MAS + 1Code).** MAS is the strict target — no
-> subprocess; on-device voice only.
+> authored 2026-07-06; after the 2026-07-07 pivot, research MAS only — no subprocess; on-device
+> voice only unless routed through an honest MAS-approved cloud/proxy path.
 
 ─── BEGIN RESEARCH BRIEF ───
 
@@ -19,9 +24,8 @@ files below.
 ## 1. Product context (ground truth)
 Epistemos = macOS-native PKM; the **vault** (markdown files) is the single source of truth. Capture
 must be **instant and forgiving**: the point is to get a thought/voice-memo/dropped-file into the
-vault with **zero ceremony**, never blocking on structure. Two builds: **MAS** (sandboxed, hardened,
-**no subprocess**, on-device voice only) and **1Code/Experimental** (Developer ID). This plan ships
-in **both**.
+vault with **zero ceremony**, never blocking on structure. Active build: **MAS** (sandboxed, hardened,
+**no subprocess**, on-device voice only unless honestly routed through a MAS-approved proxy).
 
 The owner's asks, verbatim intent:
 - Quick capture should be **more robust**.
@@ -62,7 +66,7 @@ promotion path from raw capture → structured Epdoc note.** Frictionless first;
 - Salvage context: memory `project_quick_capture_salvage_triage` (prior capture Rust tiers).
 
 ## 5. Research dimensions
-### D1 — Capture surfaces & instant entry (both builds)
+### D1 — Capture surfaces & instant entry (MAS)
 - The fastest entry patterns on macOS: global hotkey, menu-bar popover, a floating capture window,
   Shortcuts/App Intents, Control Center/widget, share-extension, drag-drop. Cite Apple APIs +
   best-in-class capture apps (Drafts, Bear, Obsidian capture, Reflect, mymind, MacWhisper). What's
@@ -78,7 +82,7 @@ promotion path from raw capture → structured Epdoc note.** Frictionless first;
 ### D3 — Voice capture (on-device, the "new voice models") ★
 - **Speech-to-text on-device**: Apple `Speech` / the newer `SpeechAnalyzer`/`SpeechTranscriber`
   (macOS 26) vs Whisper-class local models. Latency, accuracy, streaming/partial results, language
-  support, MAS-sandbox + privacy. Verdict for the MAS default + any 1Code-only upgrade. Cite the
+  support, MAS-sandbox + privacy. Verdict for the MAS default; non-MAS upgrades are parked. Cite the
   real APIs and their constraints (incl. the concurrency-crash caveat).
 - **Voice memo capture**: record → store audio in the Quick Capture folder → transcribe → keep both
   audio + transcript linked. Robustness: long recordings, interruptions, background.
@@ -95,7 +99,8 @@ promotion path from raw capture → structured Epdoc note.** Frictionless first;
 ### D5 — Intelligence (light, optional, honest)
 - Optional low-friction enrichment that never blocks capture: auto-title, tag suggestion, link
   candidates, "route to note X" — all **after** the capture is safely saved, opt-in, honestly gated
-  (on-device where possible; cloud only on 1Code with consent). Don't over-engineer; capture-first.
+  (on-device where possible; cloud only through the receipt-gated MAS proxy with explicit consent).
+  Don't over-engineer; capture-first.
 
 ### D6 — Competitive synthesis
 - Cited table: Drafts, Bear, Obsidian, Reflect, mymind, MacWhisper, Apple Notes quick-note,
@@ -104,8 +109,8 @@ promotion path from raw capture → structured Epdoc note.** Frictionless first;
 
 ### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
 - **F1 vault:** captures land in the Quick Capture vault folder as first-class notes.
-- **F2 capability:** "capture this" / "capture + route to note X" are agent capabilities (June + 1Code).
-- **F3 presence:** the companion shows when an agent processes/enriches/promotes a capture.
+- **F2 capability:** "capture this" / "capture + route to note X" are agent capabilities through June + `agent_core`.
+- **F3 presence/status:** MAS-safe status/provenance shows when an agent processes/enriches/promotes a capture; Kindred-style companion presence is parked.
 - **F4 graph:** captures link into the graph (auto link-candidates on promotion).
 - **F5 provenance:** capture origin (typed/voice/dropped, source audio) is recorded + citable.
 - **F6 state bus:** capture + transcription events publish on the bus.

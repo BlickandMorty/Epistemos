@@ -28,6 +28,21 @@ struct VaultBookmarkStartupValidation: Sendable {
     let bookmarkExists: Bool
     let isReadyForAutomaticRestore: Bool
     let failureReason: String?
+
+    nonisolated var isRetryableAutomaticRestorePreflightFailure: Bool {
+        guard bookmarkExists, !isReadyForAutomaticRestore, let failureReason else {
+            return false
+        }
+
+        return failureReason == "Saved vault bookmark points to a missing or unreadable directory."
+            || failureReason == "Saved vault bookmark lost security-scoped access."
+    }
+
+    nonisolated var shouldBlockAutomaticRestore: Bool {
+        bookmarkExists
+            && !isReadyForAutomaticRestore
+            && !isRetryableAutomaticRestorePreflightFailure
+    }
 }
 
 struct VaultHealthSnapshot: Sendable {
@@ -548,8 +563,18 @@ final class VaultSyncService {
     @ObservationIgnored
     private var powerModeObserverTask: Task<Void, Never>?
     private var inFlightDirtySaveTask: Task<Void, Never>?
+    @ObservationIgnored
+    private var fileFirstSaveTails: [String: Task<Bool, Never>] = [:]
+    @ObservationIgnored
+    private var fileFirstSaveGenerations: [String: UInt64] = [:]
+    @ObservationIgnored
+    private var graphPageMutationRefreshTask: Task<Void, Never>?
     private var pendingDirtySaveRequest = false
     private var initialImportCompleted = false
+    private var pendingStartupResolvedBookmark: (
+        bookmarkData: Data,
+        resolvedBookmark: ResolvedVaultBookmark
+    )?
 
     // MARK: - File Watching
     @ObservationIgnored
@@ -562,9 +587,33 @@ final class VaultSyncService {
         let usedSecurityScope: Bool
     }
 
-    private enum VaultBookmarkResolutionError: Error {
+    fileprivate struct PreparedVaultSelection: Sendable {
+        let bookmarkData: Data
+        let standardizedPath: String
+        let userConfirmedSuspiciousFolder: Bool
+    }
+
+    private enum VaultBookmarkResolutionError: Error, Sendable {
         case corrupted
         case timedOut
+    }
+
+    private nonisolated final class VaultBookmarkResolutionRace: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<ResolvedVaultBookmark, Error>?
+
+        init(continuation: CheckedContinuation<ResolvedVaultBookmark, Error>) {
+            self.continuation = continuation
+        }
+
+        func resume(_ result: Result<ResolvedVaultBookmark, Error>) {
+            let continuation = lock.withLock {
+                let pending = self.continuation
+                self.continuation = nil
+                return pending
+            }
+            continuation?.resume(with: result)
+        }
     }
 
     init(modelContainer: ModelContainer, userDefaults: UserDefaults? = nil) {
@@ -794,6 +843,53 @@ final class VaultSyncService {
         )
     }
 
+    func startupBookmarkValidationWithTimeout() async -> VaultBookmarkStartupValidation {
+        guard let bookmarkData = defaults.data(forKey: Self.bookmarkKey) else {
+            pendingStartupResolvedBookmark = nil
+            return VaultBookmarkStartupValidation(
+                bookmarkExists: false,
+                isReadyForAutomaticRestore: true,
+                failureReason: nil
+            )
+        }
+
+        let resolvedBookmark: ResolvedVaultBookmark
+        do {
+            resolvedBookmark = try await Self.resolveVaultBookmarkWithTimeout(bookmarkData)
+        } catch {
+            pendingStartupResolvedBookmark = nil
+            return Self.makeStartupBookmarkValidation(
+                bookmarkExists: true,
+                resolvedURL: nil,
+                isStale: false,
+                usedSecurityScope: false,
+                accessGranted: false,
+                isReadable: false,
+                requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess()
+            )
+        }
+        pendingStartupResolvedBookmark = (
+            bookmarkData: bookmarkData,
+            resolvedBookmark: resolvedBookmark
+        )
+        return Self.startupBookmarkValidation(
+            resolvedBookmark: resolvedBookmark,
+            accessSecurityScope: { url in
+                url.startAccessingSecurityScopedResource()
+            },
+            stopSecurityScope: { url in
+                url.stopAccessingSecurityScopedResource()
+            },
+            fileExists: { path in
+                FileManager.default.fileExists(atPath: path)
+            },
+            isReadableFile: { path in
+                FileManager.default.isReadableFile(atPath: path)
+            },
+            requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess()
+        )
+    }
+
     nonisolated static func startupBookmarkValidationForTesting(
         bookmarkExists: Bool,
         resolvedURL: URL?,
@@ -812,6 +908,30 @@ final class VaultSyncService {
             isReadable: isReadable,
             requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess
                 ?? Self.requiresSecurityScopedVaultAccess()
+        )
+    }
+
+    nonisolated static func scopedStartupBookmarkValidationForTesting(
+        resolvedURL: URL,
+        isStale: Bool,
+        usedSecurityScope: Bool,
+        accessSecurityScope: (URL) -> Bool,
+        stopSecurityScope: (URL) -> Void,
+        fileExists: (String) -> Bool,
+        isReadableFile: (String) -> Bool,
+        requiresSecurityScopedVaultAccess: Bool
+    ) -> VaultBookmarkStartupValidation {
+        startupBookmarkValidation(
+            resolvedBookmark: ResolvedVaultBookmark(
+                url: resolvedURL,
+                isStale: isStale,
+                usedSecurityScope: usedSecurityScope
+            ),
+            accessSecurityScope: accessSecurityScope,
+            stopSecurityScope: stopSecurityScope,
+            fileExists: fileExists,
+            isReadableFile: isReadableFile,
+            requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess
         )
     }
 
@@ -879,6 +999,7 @@ final class VaultSyncService {
 
     func clearPendingStartupRestore() {
         guard !isWatching else { return }
+        pendingStartupResolvedBookmark = nil
         isIndexing = false
         vaultActivityMessage = nil
         vaultImportProgress = nil
@@ -914,18 +1035,10 @@ final class VaultSyncService {
         lastVaultImportSummary = nil
     }
 
-    func persistVaultSelection(_ url: URL, userConfirmedSuspiciousFolder: Bool = false) {
-        defaults.set(url.path, forKey: Self.lastVaultPathKey)
-        // USER REPORT 2026-05-12 v2: mark the "has ever connected a
-        // vault" flag so the VaultReprompSheet (ISSUE-2026-05-12-002)
-        // only auto-prompts truly fresh users. Once a user has connected
-        // any vault, explicit disconnect should NOT re-trigger the
-        // prompt — disconnect was intentional, the user knows how to
-        // re-connect manually via Settings.
-        defaults.set(true, forKey: Self.hasEverConnectedVaultKey)
-        let standardizedPath = url.standardizedFileURL.path
-        var didPersistBookmark = false
-
+    fileprivate func prepareVaultSelection(
+        _ url: URL,
+        userConfirmedSuspiciousFolder: Bool = false
+    ) -> PreparedVaultSelection? {
         // USER REPORT 2026-05-12 v4: in DEV builds the app is not
         // sandboxed and security-scoped bookmark creation can fail with
         // "The file couldn't be opened" for paths the picker just
@@ -935,43 +1048,63 @@ final class VaultSyncService {
         // sandbox / App Store builds, security-scoped is required and
         // the existing strict path applies.
         let needsSecurityScope = requiresSecurityScopedVaultAccess()
+        let bookmark: Data
 
         if !needsSecurityScope {
             // Dev / Developer ID build — plain bookmark is sufficient.
             do {
-                let bookmark = try makeBookmarkData(for: url, options: [])
-                defaults.set(bookmark, forKey: Self.bookmarkKey)
-                didPersistBookmark = true
+                bookmark = try makeBookmarkData(for: url, options: [])
             } catch {
-                defaults.removeObject(forKey: Self.bookmarkKey)
                 log.error("Failed to persist plain vault bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return nil
             }
         } else {
             // Sandboxed build — security-scoped bookmark is required.
             do {
-                let bookmark = try makeBookmarkData(for: url, options: .withSecurityScope)
-                defaults.set(bookmark, forKey: Self.bookmarkKey)
-                didPersistBookmark = true
+                bookmark = try makeBookmarkData(for: url, options: .withSecurityScope)
             } catch {
-                defaults.removeObject(forKey: Self.bookmarkKey)
                 log.error(
                     """
                     Failed to persist required security-scoped vault bookmark for \(url.path, privacy: .public): \
                     \(error.localizedDescription, privacy: .public)
                     """
                 )
-                defaults.removeObject(forKey: Self.trustedSuspiciousVaultPathKey)
-                recoveryIssue = nil
-                return
+                return nil
             }
         }
 
-        if didPersistBookmark && userConfirmedSuspiciousFolder {
-            defaults.set(standardizedPath, forKey: Self.trustedSuspiciousVaultPathKey)
+        return PreparedVaultSelection(
+            bookmarkData: bookmark,
+            standardizedPath: url.standardizedFileURL.path,
+            userConfirmedSuspiciousFolder: userConfirmedSuspiciousFolder
+        )
+    }
+
+    fileprivate func commitPreparedVaultSelection(_ selection: PreparedVaultSelection) {
+        defaults.set(selection.bookmarkData, forKey: Self.bookmarkKey)
+        defaults.set(selection.standardizedPath, forKey: Self.lastVaultPathKey)
+        // Mark the "has ever connected a vault" flag only after relaunch
+        // permission is ready to commit. A failed bookmark preparation must
+        // leave the previous persisted vault selection completely untouched.
+        defaults.set(true, forKey: Self.hasEverConnectedVaultKey)
+        if selection.userConfirmedSuspiciousFolder {
+            defaults.set(selection.standardizedPath, forKey: Self.trustedSuspiciousVaultPathKey)
         } else {
             defaults.removeObject(forKey: Self.trustedSuspiciousVaultPathKey)
         }
         recoveryIssue = nil
+    }
+
+    @discardableResult
+    func persistVaultSelection(_ url: URL, userConfirmedSuspiciousFolder: Bool = false) -> Bool {
+        guard let selection = prepareVaultSelection(
+            url,
+            userConfirmedSuspiciousFolder: userConfirmedSuspiciousFolder
+        ) else {
+            return false
+        }
+        commitPreparedVaultSelection(selection)
+        return true
     }
 
     func clearPersistedVaultSelection() {
@@ -1015,11 +1148,27 @@ final class VaultSyncService {
         vaultActivityMessage = "Recovering vault \"\(vaultURL.lastPathComponent)\"..."
         initialImportCompleted = false
 
+        guard let preparedSelection = prepareVaultSelection(vaultURL) else {
+            isRecoveringLocalState = false
+            isIndexing = false
+            vaultActivityMessage = nil
+            let snapshot = await buildVaultHealthSnapshot(
+                candidateVaultURL: vaultURL,
+                bookmarkExists: defaults.data(forKey: Self.bookmarkKey) != nil,
+                restoreFailed: true
+            )
+            recoveryIssue = VaultRecoveryIssue(
+                snapshot: snapshot,
+                reason: "Epistemos could not save permission to restore this vault on relaunch. Select the folder again."
+            )
+            return false
+        }
+
         do {
             try await snapshotLocalStateOffMain()
             stopWatching(preserveData: true)
             await clearDerivedLocalStateForRecovery()
-            persistVaultSelection(vaultURL)
+            commitPreparedVaultSelection(preparedSelection)
             startWatching(vaultURL: vaultURL)
             await importTask?.value
             let issue = await detectRecoveryIssue(
@@ -1355,7 +1504,7 @@ final class VaultSyncService {
 
     private func createAPFSSafetySnapshotIfPossible(reason: String) {
         guard let manifestURL = apfsSnapshotManifestURL() else { return }
-        #if EPISTEMOS_APP_STORE
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         // The App Store sandbox cannot spawn /usr/bin/tmutil. APFS
         // safety snapshots are an optional Pro/direct maintenance
         // layer on top of the file-copy recovery snapshots, which
@@ -1385,7 +1534,7 @@ final class VaultSyncService {
               FileManager.default.fileExists(atPath: manifestURL.path) else {
             return
         }
-        #if EPISTEMOS_APP_STORE
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         // Same MAS-sandbox rationale as createAPFSSafetySnapshotIfPossible.
         if tmutilCommandRunnerOverride == nil { return }
         #endif
@@ -1427,18 +1576,48 @@ final class VaultSyncService {
             )
         }
 
+        return startupBookmarkValidation(
+            resolvedBookmark: resolvedBookmark,
+            accessSecurityScope: { url in
+                url.startAccessingSecurityScopedResource()
+            },
+            stopSecurityScope: { url in
+                url.stopAccessingSecurityScopedResource()
+            },
+            fileExists: { path in
+                FileManager.default.fileExists(atPath: path)
+            },
+            isReadableFile: { path in
+                FileManager.default.isReadableFile(atPath: path)
+            },
+            requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess()
+        )
+    }
+
+    private nonisolated static func startupBookmarkValidation(
+        resolvedBookmark: ResolvedVaultBookmark,
+        accessSecurityScope: (URL) -> Bool,
+        stopSecurityScope: (URL) -> Void,
+        fileExists: (String) -> Bool,
+        isReadableFile: (String) -> Bool,
+        requiresSecurityScopedVaultAccess: Bool
+    ) -> VaultBookmarkStartupValidation {
         let accessGranted: Bool
+        let isReadable: Bool
+        let resolvedPath = resolvedBookmark.url.path
+
         if resolvedBookmark.usedSecurityScope {
-            accessGranted = resolvedBookmark.url.startAccessingSecurityScopedResource()
+            accessGranted = accessSecurityScope(resolvedBookmark.url)
             if accessGranted {
-                resolvedBookmark.url.stopAccessingSecurityScopedResource()
+                defer { stopSecurityScope(resolvedBookmark.url) }
+                isReadable = fileExists(resolvedPath) && isReadableFile(resolvedPath)
+            } else {
+                isReadable = false
             }
         } else {
-            accessGranted = FileManager.default.isReadableFile(atPath: resolvedBookmark.url.path)
+            isReadable = fileExists(resolvedPath) && isReadableFile(resolvedPath)
+            accessGranted = isReadable
         }
-
-        let isReadable = FileManager.default.fileExists(atPath: resolvedBookmark.url.path)
-            && FileManager.default.isReadableFile(atPath: resolvedBookmark.url.path)
 
         return makeStartupBookmarkValidation(
             bookmarkExists: true,
@@ -1447,7 +1626,7 @@ final class VaultSyncService {
             usedSecurityScope: resolvedBookmark.usedSecurityScope,
             accessGranted: accessGranted,
             isReadable: isReadable,
-            requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess()
+            requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess
         )
     }
 
@@ -1783,7 +1962,7 @@ final class VaultSyncService {
     }
 
     private nonisolated static func runTMUtilCommand(_ arguments: [String]) throws -> String {
-        #if !EPISTEMOS_APP_STORE
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/tmutil")
         process.arguments = arguments
@@ -1818,7 +1997,7 @@ final class VaultSyncService {
         // safety snapshots are a Pro/direct maintenance feature, not
         // part of core vault sync; `createAPFSSafetySnapshotIfPossible`
         // and `pruneAPFSSafetySnapshotsIfNeeded` early-return under
-        // EPISTEMOS_APP_STORE before reaching this helper, so this
+        // EPISTEMOS_APP_STORE or MAS_SANDBOX before reaching this helper, so this
         // throw is defense-in-depth in case a future caller wires up
         // a path that bypasses those guards. Tests that need real
         // tmutil semantics inject a custom `TMUtilCommandRunner` via
@@ -2044,24 +2223,19 @@ final class VaultSyncService {
         _ bookmarkData: Data,
         timeout: Duration = .seconds(5)
     ) async throws -> ResolvedVaultBookmark {
-        try await withThrowingTaskGroup(of: ResolvedVaultBookmark.self) { group in
-            group.addTask {
+        try await withCheckedThrowingContinuation { continuation in
+            let race = VaultBookmarkResolutionRace(continuation: continuation)
+            Task.detached(priority: .userInitiated) {
                 guard let resolved = resolveVaultBookmark(bookmarkData) else {
-                    throw VaultBookmarkResolutionError.corrupted
+                    race.resume(.failure(VaultBookmarkResolutionError.corrupted))
+                    return
                 }
-                return resolved
+                race.resume(.success(resolved))
             }
-
-            group.addTask {
-                try await Task.sleep(for: timeout)
-                throw VaultBookmarkResolutionError.timedOut
+            Task.detached(priority: .utility) {
+                try? await Task.sleep(for: timeout)
+                race.resume(.failure(VaultBookmarkResolutionError.timedOut))
             }
-
-            guard let result = try await group.next() else {
-                throw VaultBookmarkResolutionError.timedOut
-            }
-            group.cancelAll()
-            return result
         }
     }
 
@@ -2188,7 +2362,9 @@ final class VaultSyncService {
                 self.recoveryIssue = issue
             } else {
                 self.recoveryIssue = nil
-                self.clearVaultData()
+                Log.vault.warning(
+                    "Vault restore failed before a recovery issue was detected; preserving local vault state."
+                )
             }
             log.warning("\(reason, privacy: .public)")
         }
@@ -2315,21 +2491,30 @@ final class VaultSyncService {
         }
         log.info("📦 Resolving bookmark (\(data.count) bytes)")
         let resolvedBookmark: ResolvedVaultBookmark
-        do {
-            resolvedBookmark = try await Self.resolveVaultBookmarkWithTimeout(data)
-        } catch VaultBookmarkResolutionError.timedOut {
-            handleRestoreFailure(
-                reason: "Vault bookmark resolution timed out — please reattach the vault folder",
-                bookmarkExists: true
-            )
-            return
-        } catch {
-            defaults.removeObject(forKey: Self.bookmarkKey)
-            handleRestoreFailure(
-                reason: "📦 Failed to resolve vault bookmark",
-                bookmarkExists: true
-            )
-            return
+        if let cached = pendingStartupResolvedBookmark,
+           cached.bookmarkData == data {
+            resolvedBookmark = cached.resolvedBookmark
+            pendingStartupResolvedBookmark = nil
+        } else {
+            pendingStartupResolvedBookmark = nil
+            do {
+                resolvedBookmark = try await Self.resolveVaultBookmarkWithTimeout(data)
+            } catch VaultBookmarkResolutionError.timedOut {
+                handleRestoreFailure(
+                    reason: "Vault bookmark resolution timed out — please reattach the vault folder",
+                    bookmarkExists: true
+                )
+                return
+            } catch {
+                log.error(
+                    "Failed to resolve the saved vault bookmark; preserving the saved vault selection for retry"
+                )
+                handleRestoreFailure(
+                    reason: "📦 Failed to resolve vault bookmark",
+                    bookmarkExists: true
+                )
+                return
+            }
         }
         let url = resolvedBookmark.url
         let isStale = resolvedBookmark.isStale
@@ -2339,7 +2524,9 @@ final class VaultSyncService {
         )
 
         if requiresSecurityScopedVaultAccess() && !usedSecurityScope {
-            defaults.removeObject(forKey: Self.bookmarkKey)
+            log.warning(
+                "Saved vault bookmark is not security-scoped; preserving the saved vault selection for retry"
+            )
             handleRestoreFailure(
                 reason: "Saved vault bookmark is not security-scoped and must be re-selected",
                 bookmarkExists: true
@@ -2374,7 +2561,6 @@ final class VaultSyncService {
             }
         }
         if !gained {
-            defaults.removeObject(forKey: Self.bookmarkKey)
             handleRestoreFailure(
                 reason: "Security scope not granted for vault bookmark",
                 bookmarkExists: true
@@ -2382,12 +2568,11 @@ final class VaultSyncService {
             return
         }
 
-        let exists = FileManager.default.fileExists(atPath: url.path)
-        if !exists {
+        let isReadableVault = await readableVaultURLAfterSecurityScopeSettle(url)
+        if !isReadableVault {
             url.stopAccessingSecurityScopedResource()
-            defaults.removeObject(forKey: Self.bookmarkKey)
             handleRestoreFailure(
-                reason: "Vault directory not found at \(url.path)",
+                reason: "Vault directory not found or readable at \(url.path)",
                 bookmarkExists: true
             )
             return
@@ -2409,7 +2594,6 @@ final class VaultSyncService {
                     if usedSecurityScope {
                         url.stopAccessingSecurityScopedResource()
                     }
-                    defaults.removeObject(forKey: Self.bookmarkKey)
                     handleRestoreFailure(
                         reason: "Saved vault bookmark is stale and could not be refreshed; please reattach the vault folder",
                         bookmarkExists: true
@@ -2431,11 +2615,10 @@ final class VaultSyncService {
             if usedSecurityScope {
                 url.stopAccessingSecurityScopedResource()
             }
-            defaults.removeObject(forKey: Self.bookmarkKey)
             defaults.removeObject(forKey: Self.trustedSuspiciousVaultPathKey)
             handleRestoreFailure(
                 reason: reason,
-                bookmarkExists: false
+                bookmarkExists: true
             )
             return
         }
@@ -2656,6 +2839,30 @@ final class VaultSyncService {
         return true
     }
 
+    private func readableVaultURLAfterSecurityScopeSettle(_ url: URL) async -> Bool {
+        let delaysNanoseconds: [UInt64] = [0, 75_000_000, 150_000_000, 300_000_000, 600_000_000]
+        for delay in delaysNanoseconds {
+            if delay > 0 {
+                try? await Task.sleep(nanoseconds: delay)
+            }
+            if Self.isReadableVaultDirectory(url) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private nonisolated static func isReadableVaultDirectory(_ url: URL) -> Bool {
+        let path = url.path
+        let fileManager = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return false
+        }
+        return fileManager.isReadableFile(atPath: path)
+    }
+
     /// Stop watching and release resources.
     /// - Parameter preserveData: When `true`, keeps SwiftData models intact so the
     ///   next launch can do an incremental import (~instant) instead of a full reimport (~13s).
@@ -2813,7 +3020,7 @@ final class VaultSyncService {
     }
 
     /// Delete all vault pages/folders AND graph data from SwiftData.
-    /// Called on every vault transition and startup failure to prevent stale ghost data.
+    /// Called on explicit vault transitions/resets after recovery safeguards run.
     private func clearVaultData() {
         let context = modelContainer.mainContext
         do {
@@ -3358,6 +3565,7 @@ final class VaultSyncService {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
                     if let result = exportResult,
                        let page = self.fetchFirst(desc, in: context, label: "saved page sync tracking") {
+                        page.filePath = result.path
                         let currentHash = SDPage.bodyHash(
                             self.latestAvailableBody(for: page, pageId: pageId)
                         )
@@ -3442,8 +3650,40 @@ final class VaultSyncService {
         return page.loadBody(mapped: true)
     }
 
+    private func scheduleBlockMirrorSync(pageId: String, body: String) {
+        guard !pageId.isEmpty else { return }
+        let container = modelContainer
+        Task {
+            await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                pageId: pageId,
+                body: body,
+                modelContainer: container
+            )
+        }
+    }
+
     @discardableResult
     func savePageBodyFileFirst(pageId: String, body: String) async -> Bool {
+        let predecessor = fileFirstSaveTails[pageId]
+        let generation = (fileFirstSaveGenerations[pageId] ?? 0) &+ 1
+        fileFirstSaveGenerations[pageId] = generation
+        let task = Task { @MainActor [weak self] in
+            if let predecessor {
+                _ = await predecessor.value
+            }
+            guard let self else { return false }
+            return await self.performPageBodyFileFirstSave(pageId: pageId, body: body)
+        }
+        fileFirstSaveTails[pageId] = task
+        let result = await task.value
+        if fileFirstSaveGenerations[pageId] == generation {
+            fileFirstSaveTails.removeValue(forKey: pageId)
+            fileFirstSaveGenerations.removeValue(forKey: pageId)
+        }
+        return result
+    }
+
+    private func performPageBodyFileFirstSave(pageId: String, body: String) async -> Bool {
         guard let vaultURL else {
             log.warning("Cannot save page body: no vault URL")
             return false
@@ -3458,24 +3698,6 @@ final class VaultSyncService {
         guard let stagedBody = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: body) else {
             return false
         }
-        page.applyInteractiveDerivedState(from: stagedBody)
-        BlockMirror.sync(pageId: pageId, body: stagedBody, modelContext: context)
-        ProseEditorView.syncNoteTitleIfNeeded(
-            from: stagedBody,
-            for: page,
-            modelContext: context
-        ) { [weak self] resolvedPageId, newTitle in
-            self?.renamePageFile(pageId: resolvedPageId, newTitle: newTitle)
-        }
-        page.needsVaultSync = true
-
-        do {
-            try context.save()
-        } catch {
-            Log.vault.error("Failed to save metadata before file-first body write (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
-            return false
-        }
-
         suppressFileWatcherForSelfOriginatedChange()
 
         do {
@@ -3483,6 +3705,23 @@ final class VaultSyncService {
                 return false
             }
             let currentHash = SDPage.bodyHash(stagedBody)
+            page.filePath = result.path
+            page.applyInteractiveDerivedState(from: stagedBody)
+            page.updatedAt = .now
+            var titleRenameTask: Task<String?, Never>?
+            ProseEditorView.syncNoteTitleIfNeeded(
+                from: stagedBody,
+                for: page,
+                modelContext: context
+            ) { resolvedPageId, newTitle in
+                titleRenameTask = self.renamePageFile(
+                    pageId: resolvedPageId,
+                    newTitle: newTitle
+                )
+            }
+            if let titleRenameTask {
+                _ = await titleRenameTask.value
+            }
             if currentHash == result.bodyHash {
                 page.lastSyncedBodyHash = currentHash
                 page.lastSyncedAt = .now
@@ -3492,6 +3731,7 @@ final class VaultSyncService {
                 page.needsVaultSync = true
             }
             try context.save()
+            scheduleBlockMirrorSync(pageId: pageId, body: stagedBody)
             publishVaultMutation(.vaultPageChanged(pageId: pageId))
             return currentHash == result.bodyHash
         } catch {
@@ -3500,6 +3740,26 @@ final class VaultSyncService {
             log.error("Failed file-first body save for \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return false
         }
+    }
+
+    func drainFileFirstSaveTails() async -> Bool {
+        var allSaved = true
+        while !fileFirstSaveTails.isEmpty {
+            let snapshot = fileFirstSaveTails.compactMap { pageId, task in
+                fileFirstSaveGenerations[pageId].map { (pageId, $0, task) }
+            }
+            guard !snapshot.isEmpty else { break }
+            for (pageId, generation, task) in snapshot {
+                if !(await task.value) {
+                    allSaved = false
+                }
+                if fileFirstSaveGenerations[pageId] == generation {
+                    fileFirstSaveTails.removeValue(forKey: pageId)
+                    fileFirstSaveGenerations.removeValue(forKey: pageId)
+                }
+            }
+        }
+        return allSaved
     }
 
     @discardableResult
@@ -3593,6 +3853,7 @@ final class VaultSyncService {
 
             struct SuccessfulExport {
                 let pageId: String
+                let path: String
                 let bodyHash: String
             }
             var successfulExports: [SuccessfulExport] = []
@@ -3610,7 +3871,13 @@ final class VaultSyncService {
                         return self.latestAvailableBody(for: page, pageId: pageId)
                     }
                     if let result = try await exportPage(pageId: pageId, to: batch.vaultURL, bodyOverride: body) {
-                        successfulExports.append(SuccessfulExport(pageId: pageId, bodyHash: result.bodyHash))
+                        successfulExports.append(
+                            SuccessfulExport(
+                                pageId: pageId,
+                                path: result.path,
+                                bodyHash: result.bodyHash
+                            )
+                        )
                     }
                 } catch {
                     exportFailures += 1
@@ -3638,6 +3905,7 @@ final class VaultSyncService {
                     continue
                 }
 
+                page.filePath = export.path
                 let currentHash = SDPage.bodyHash(
                     latestAvailableBody(for: page, pageId: pid)
                 )
@@ -3802,8 +4070,27 @@ final class VaultSyncService {
     /// the idle path stays quiet.
     private func publishVaultMutation(_ event: AppEvent) {
         vaultMutationEpoch &+= 1
-        AppBootstrap.shared?.graphState.needsRefresh = true
+        switch event {
+        case .vaultChanged:
+            graphPageMutationRefreshTask?.cancel()
+            graphPageMutationRefreshTask = nil
+            AppBootstrap.shared?.graphState.needsRefresh = true
+        case .vaultPageChanged:
+            scheduleGraphRefreshAfterPageMutation()
+        default:
+            break
+        }
         eventBus?.emit(event)
+    }
+
+    private func scheduleGraphRefreshAfterPageMutation() {
+        graphPageMutationRefreshTask?.cancel()
+        graphPageMutationRefreshTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            AppBootstrap.shared?.graphState.needsRefresh = true
+            self?.graphPageMutationRefreshTask = nil
+        }
     }
 
     /// Exposed to external mutation paths (file watcher) that refresh
@@ -4598,11 +4885,36 @@ final class VaultSyncService {
             log.warning("Cannot rename page file: no vault URL")
             return nil
         }
-        let actor = indexActor
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate { $0.id == pageId }
+        )
+        let context = modelContainer.mainContext
+        guard let page = fetchFirst(
+            descriptor,
+            in: context,
+            label: "page selected for live file rename"
+        ), let oldPath = page.filePath else {
+            log.warning("Cannot rename page file: page or file path unavailable")
+            return nil
+        }
         suppressFileWatcherForSelfOriginatedChange()
         let task = Task { () -> String? in
             do {
-                return try await actor?.renamePageFile(pageId: pageId, newTitle: newTitle, vaultURL: vaultURL)
+                let renameTask = Task.detached(priority: .userInitiated) {
+                    try VaultIndexActor.renamePageFileOnDisk(
+                        oldPath: oldPath,
+                        newTitle: newTitle,
+                        vaultURL: vaultURL
+                    )
+                }
+                guard let renamedPath = try await renameTask.value else { return nil }
+
+                page.filePath = renamedPath
+                try context.save()
+                log.info(
+                    "Renamed page file: \(URL(fileURLWithPath: oldPath).lastPathComponent, privacy: .public) → \(URL(fileURLWithPath: renamedPath).lastPathComponent, privacy: .public)"
+                )
+                return renamedPath
             } catch {
                 log.error("Failed to rename page file: \(error.localizedDescription, privacy: .public)")
                 return nil
@@ -4760,16 +5072,27 @@ enum VaultConnectionActions {
             return false
         }
 
+        guard let preparedSelection = vaultSync.prepareVaultSelection(
+            url,
+            userConfirmedSuspiciousFolder: assessment.shouldConfirmSelection
+        ) else {
+            AppBootstrap.shared?.uiState.showToast(
+                "Epistemos could not save permission to restore this vault on relaunch. Select the folder again.",
+                type: .error
+            )
+            vaultSync.vaultActivityMessage = nil
+            vaultSync.isIndexing = false
+            return false
+        }
+
         vaultSync.vaultActivityMessage = "Opening vault \"\(url.lastPathComponent)\"..."
         let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)
         if didSwitch {
-            // Reset UI only after successful switch
+            vaultSync.commitPreparedVaultSelection(preparedSelection)
+
+            // Reset UI only after successful switch and persisted relaunch permission.
             beforeSwitch()
             NoteWindowManager.shared.resetForVaultRebuild()
-            vaultSync.persistVaultSelection(
-                url,
-                userConfirmedSuspiciousFolder: assessment.shouldConfirmSelection
-            )
             return true
         }
 

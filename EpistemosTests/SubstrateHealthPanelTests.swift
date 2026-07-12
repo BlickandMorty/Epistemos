@@ -13,6 +13,7 @@ struct SubstrateHealthPanelTests {
         )
 
         #expect(panel.contains("foundationSection(\"Foundation Features\")"))
+        #expect(panel.contains("June Tools and Safety"))
         #expect(panel.contains("Skills, Tools, and MCP"))
         #expect(panel.contains("Halo, Shadow, and Fast Search"))
         #expect(panel.contains("Provenance and Answer Witnesses"))
@@ -20,11 +21,14 @@ struct SubstrateHealthPanelTests {
         #expect(panel.contains("VaultRecallHealthRow()"))
         #expect(panel.contains("SearchFusionHealthRow()"))
         #expect(panel.contains("EditorBundleHealthRow()"))
+        #expect(panel.contains("FrictionHealthRow()"))
         #expect(panel.contains("FalsifierArtifactsHealthRow()"))
         #expect(panel.contains("AnswerPacketHealthRow()"))
-        #expect(panel.contains("WorkOpenCodeShellHealthRow()"))
-        #expect(panel.contains("WorkBackendHealthRow()"))
+        #expect(panel.contains("JuneAgentHealthRow()"))
         #expect(panel.contains("LiteParseImportHealthRow()"))
+        #expect(panel.contains("LiteParseSettingsImportRow()"))
+        #expect(!panel.contains("WorkOpenCodeShellHealthRow()"))
+        #expect(!panel.contains("WorkBackendHealthRow()"))
 
         let retiredRows = [
             "LatticeWBOHealthRow()",

@@ -15,7 +15,7 @@ pub struct JsonRpcRequest {
 
 /// JSON-RPC 2.0 response. A response carries EITHER `result` OR `error`, never both — so each is
 /// skipped when None. (Owner 2026-06-24: a success response serialized `"error":null` alongside `result`,
-/// which strict MCP clients — OpenCode's SDK — REJECT → "epistemos-vault Failed to get tools". Omitting the
+/// which strict protocol clients reject. Omitting the
 /// null field makes the envelope spec-compliant.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcResponse {

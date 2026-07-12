@@ -1,6 +1,6 @@
 # Claude → next session handoff · 2026-04-20 · remaining runtime work
 
-> 🟢 **MOSTLY LIVE 2026-07-02 (historical).** Runtime/backend remaining-work handoff, predates the UI pivot. Re-anchor ONLY any "Goose-as-surface / reskin / Option 1" reference to: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🟢 **MOSTLY LIVE 2026-07-02 (historical).** Runtime/backend remaining-work handoff, predates the UI pivot. Re-anchor ONLY any "Goose-as-surface / reskin / Option 1" reference to: Current surfaces = Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md).

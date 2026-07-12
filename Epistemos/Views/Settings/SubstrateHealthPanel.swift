@@ -12,8 +12,8 @@ public struct SubstrateHealthPanel: View {
                 header
                 foundationSection("Foundation Features") {
                     foundationFeature(
-                        title: "Skills, Tools, and MCP",
-                        detail: "Native capability plane exposed through app-owned tools and bridge contracts."
+                        title: Self.capabilityPlaneTitle,
+                        detail: Self.capabilityPlaneDetail
                     )
                     foundationFeature(
                         title: "Halo, Shadow, and Fast Search",
@@ -66,17 +66,18 @@ public struct SubstrateHealthPanel: View {
         }
     }
 
+    private static let capabilityPlaneTitle = "June Tools and Safety"
+    private static let capabilityPlaneDetail = "Fixed, app-owned capabilities admitted through June's in-process policy boundary."
+
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let foundationCopy = """
+            App-side IP that stays native: search, citation grounding, vault memory, \
+            June tools, provenance, verification, and MAS-safe June bridges.
+            """
+        return VStack(alignment: .leading, spacing: 4) {
             Text("Epistemos Foundation")
                 .font(.system(size: 18, weight: .semibold, design: .monospaced))
-            SettingsDescriptionText(
-                text: """
-                App-side IP that stays native: search, citation grounding, vault memory, \
-                tools/MCP, provenance, and verification. Generation engines live in \
-                surface-specific bridges such as June, Experimental, and OpenCode-style tools.
-                """
-            )
+            SettingsDescriptionText(text: foundationCopy)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

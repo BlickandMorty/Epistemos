@@ -550,6 +550,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode
     ) async throws -> String {
+        try requireActiveProductModel(model)
         let runID = "cloud-llm-\(UUID().uuidString)"
         let toolCallID = "cloud-llm-generate:1"
         let actor = AgentProvenanceActor.agent(
@@ -797,6 +798,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         argumentsJSON: String,
         metadata: [String: String]
     ) async throws -> (startedAt: Date, upstream: AsyncThrowingStream<String, Error>) {
+        try requireActiveProductModel(model)
         recordCloudLLMToolEvent(
             runID: runID,
             kind: .toolCallRequested,
@@ -884,6 +886,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         schema: CloudJSONSchema,
         type: T.Type
     ) async throws -> StructuredGenerationResult<T> {
+        try requireActiveProductModel(model)
         let runID = "cloud-llm-\(UUID().uuidString)"
         let toolCallID = "cloud-llm-generate-structured:1"
         let actor = AgentProvenanceActor.agent(
@@ -1032,8 +1035,14 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         model: CloudTextModelID? = nil
     ) async -> ConnectionTestResult {
         do {
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            guard CloudModelProvider.activeProductProviders.contains(provider) else {
+                throw CloudLLMError.modelNotConnectedToJune(provider.displayName)
+            }
+            #endif
             let credential = try await resolvedCredential(for: provider)
             if let model {
+                try requireActiveProductModel(model)
                 try await testModelConnection(provider: provider, credential: credential, model: model)
                 return ConnectionTestResult(
                     success: true,
@@ -1065,6 +1074,14 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             throw CloudLLMError.modelRequired
         }
         return model
+    }
+
+    private func requireActiveProductModel(_ model: CloudTextModelID) throws {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard CloudTextModelID.juneAgentModels(for: model.provider).contains(model) else {
+            throw CloudLLMError.modelNotConnectedToJune(model.displayName)
+        }
+        #endif
     }
 
     private func cloudLLMGenerateArgumentsJSON(
@@ -1201,6 +1218,14 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     }
 
     private func resolvedCredential(for provider: CloudModelProvider) async throws -> CloudProviderResolvedCredential {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard CloudModelProvider.activeProductProviders.contains(provider) else {
+            throw CloudLLMError.modelNotConnectedToJune(provider.displayName)
+        }
+        guard AgentCloudConsentStore.shared.hasConsent(for: provider) else {
+            throw CloudLLMError.cloudConsentRequired(provider.displayName)
+        }
+        #endif
         do {
             return try await inference.resolvedCloudCredential(for: provider)
         } catch let error as CloudProviderAuthError {
@@ -1349,7 +1374,12 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         in json: [String: Any],
         provider: CloudModelProvider
     ) -> Int {
-        let supportedModelIDs = Set(CloudTextModelID.models(for: provider).map(\.vendorModelID))
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        let models = CloudTextModelID.juneAgentModels(for: provider)
+        #else
+        let models = CloudTextModelID.models(for: provider)
+        #endif
+        let supportedModelIDs = Set(models.map(\.vendorModelID))
         let availableModelIDs = availableProviderModelIDs(in: json, provider: provider)
         guard !availableModelIDs.isEmpty else { return 0 }
         return supportedModelIDs.intersection(availableModelIDs).count
@@ -1366,8 +1396,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             if !responseIDs.isEmpty {
                 return Set(responseIDs)
             }
-            let codexModels = json["models"] as? [[String: Any]] ?? []
-            return Set(codexModels.compactMap { $0["slug"] as? String })
+            let accountModels = json["models"] as? [[String: Any]] ?? []
+            return Set(accountModels.compactMap { $0["slug"] as? String })
         case .anthropic, .zai, .kimi, .deepseek:
             let models = json["data"] as? [[String: Any]] ?? []
             return Set(models.compactMap { $0["id"] as? String })
@@ -1399,6 +1429,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             )
         ]]
 
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         if case .openAICodex = credential {
             return try await collectOpenAIResponseTextWithReasoningRetry { reasoningCompatibilityFallback in
                 try makeOpenAIResponsesRequest(
@@ -1413,6 +1444,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 )
             }
         }
+        #endif
 
         let json = try await sendOpenAIResponsesJSON { reasoningCompatibilityFallback in
             try makeOpenAIResponsesRequest(
@@ -1450,6 +1482,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             )
         ]]
 
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         if case .openAICodex = credential {
             let rawText = try await collectOpenAIResponseTextWithReasoningRetry { reasoningCompatibilityFallback in
                 try makeOpenAIResponsesRequest(
@@ -1474,6 +1507,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: rawText)
             }
         }
+        #endif
 
         let json = try await sendOpenAIResponsesJSON { reasoningCompatibilityFallback in
             try makeOpenAIResponsesRequest(
@@ -2065,11 +2099,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
 
     private func openAIBaseURL(for credential: CloudProviderResolvedCredential) -> String {
         switch credential {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAICodex:
             "https://chatgpt.com/backend-api/codex"
-        case .apiKey:
-            "https://api.openai.com/v1"
         case .anthropicOAuth, .googleOAuth:
+            "https://api.openai.com/v1"
+        #endif
+        case .apiKey:
             "https://api.openai.com/v1"
         }
     }
@@ -2080,9 +2116,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     ) -> URL? {
         let urlString = openAIBaseURL(for: credential) + path
         switch credential {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAICodex:
             return OpenAICodexRuntimeMetadata.url(appendingClientVersionTo: urlString)
-        case .apiKey, .anthropicOAuth, .googleOAuth:
+        case .anthropicOAuth, .googleOAuth:
+            return URL(string: urlString)
+        #endif
+        case .apiKey:
             return URL(string: urlString)
         }
     }
@@ -2111,11 +2151,14 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
 
     private func openAIAuthorizationHeader(for credential: CloudProviderResolvedCredential) -> String {
         switch credential {
-        case .apiKey(let token),
-             .openAICodex(let token):
+        case .apiKey(let token):
+            "Bearer \(token)"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .openAICodex(let token):
             "Bearer \(token)"
         case .anthropicOAuth, .googleOAuth:
             "Bearer "
+        #endif
         }
     }
 
@@ -2123,8 +2166,12 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         switch credential {
         case .apiKey(let token):
             "Bearer \(token)"
-        case .openAICodex, .anthropicOAuth, .googleOAuth:
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .openAICodex:
             "Bearer "
+        case .anthropicOAuth, .googleOAuth:
+            "Bearer "
+        #endif
         }
     }
 
@@ -2166,6 +2213,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                     forHTTPHeaderField: "anthropic-beta"
                 )
             }
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .anthropicOAuth(let accessToken):
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             var betas = [
@@ -2186,8 +2234,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             request.setValue(betas.joined(separator: ","), forHTTPHeaderField: "anthropic-beta")
             request.setValue("claude-cli/2.1.74 (external, cli)", forHTTPHeaderField: "User-Agent")
             request.setValue("cli", forHTTPHeaderField: "x-app")
-        case .openAICodex, .googleOAuth:
+        case .openAICodex:
             break
+        case .googleOAuth:
+            break
+        #endif
         }
     }
 
@@ -2404,6 +2455,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
             return request
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .googleOAuth(let accessToken, let projectID):
             guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models") else {
                 throw CloudLLMError.invalidResponse
@@ -2413,8 +2465,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             request.setValue(projectID, forHTTPHeaderField: "x-goog-user-project")
             return request
-        case .openAICodex, .anthropicOAuth:
+        case .openAICodex:
             throw CloudLLMError.invalidResponse
+        case .anthropicOAuth:
+            throw CloudLLMError.invalidResponse
+        #endif
         }
     }
 
@@ -2431,6 +2486,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             return request
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .googleOAuth(let accessToken, let projectID):
             guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelID)\(suffix)") else {
                 throw CloudLLMError.invalidResponse
@@ -2440,8 +2496,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             request.setValue(projectID, forHTTPHeaderField: "x-goog-user-project")
             return request
-        case .openAICodex, .anthropicOAuth:
+        case .openAICodex:
             throw CloudLLMError.invalidResponse
+        case .anthropicOAuth:
+            throw CloudLLMError.invalidResponse
+        #endif
         }
     }
 
@@ -2458,6 +2517,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             request.httpMethod = "POST"
             request.setValue(token, forHTTPHeaderField: "x-goog-api-key")
             return request
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .googleOAuth(let accessToken, let projectID):
             guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelID):streamGenerateContent?alt=sse") else {
                 throw CloudLLMError.invalidResponse
@@ -2467,8 +2527,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             request.setValue(projectID, forHTTPHeaderField: "x-goog-user-project")
             return request
-        case .openAICodex, .anthropicOAuth:
+        case .openAICodex:
             throw CloudLLMError.invalidResponse
+        case .anthropicOAuth:
+            throw CloudLLMError.invalidResponse
+        #endif
         }
     }
 
@@ -2658,7 +2721,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             // Heavy-tier safety: reasoning needs budget AND answer
             // needs budget AFTER it. Use the resolver that auto-
             // expands for reasoning tiers so the answer always has
-            // room. Codex OAuth skips this because the endpoint
+            // room. Direct account OAuth skips this because the endpoint
             // enforces its own cap.
             body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(
                 userRequested: maxTokens,
@@ -2698,10 +2761,14 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         credential: CloudProviderResolvedCredential
     ) -> OpenAIResponseControls? {
         switch credential {
-        case .apiKey, .openAICodex:
+        case .apiKey:
+            break
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .openAICodex:
             break
         case .anthropicOAuth, .googleOAuth:
             return nil
+        #endif
         }
 
         // Non-reasoning models (GPT-4o, GPT-4.1, o3-*) hard-400 on reasoning.effort
@@ -2943,11 +3010,15 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
 
         switch credential {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAICodex:
-            // The ChatGPT Codex responses backend rejects requests that omit
+            // The direct account responses backend rejects requests that omit
             // the top-level instructions field entirely.
             return "You are a helpful assistant."
-        case .apiKey, .anthropicOAuth, .googleOAuth:
+        case .anthropicOAuth, .googleOAuth:
+            return nil
+        #endif
+        case .apiKey:
             return nil
         }
     }
@@ -2956,6 +3027,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         _ model: CloudTextModelID,
         credential: CloudProviderResolvedCredential
     ) -> CloudTextModelID {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         guard case .openAICodex = credential else {
             return model
         }
@@ -2970,6 +3042,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         default:
             return model
         }
+        #else
+        return model
+        #endif
     }
 
     /// Resolves the `max_output_tokens` cap for an OpenAI Responses
@@ -3125,6 +3200,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
 
 nonisolated enum CloudLLMError: LocalizedError {
     case modelRequired
+    case modelNotConnectedToJune(String)
+    case cloudConsentRequired(String)
     case missingAccess(String)
     case invalidResponse
     case runtimeUnavailable
@@ -3134,8 +3211,16 @@ nonisolated enum CloudLLMError: LocalizedError {
         switch self {
         case .modelRequired:
             "No cloud model is selected."
+        case .modelNotConnectedToJune(let model):
+            "\(model) is not connected to MAS June. Pick a model shown in June or MAS Settings."
+        case .cloudConsentRequired(let provider):
+            "Cloud data consent is off for \(provider). Enable it in Settings > June Models and retry. Nothing was sent."
         case .missingAccess(let provider):
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "\(provider) access is missing. Add an API key in MAS Settings."
+            #else
             "\(provider) access is missing. Connect an account or add an API key in Settings."
+            #endif
         case .invalidResponse:
             "The cloud provider returned an unreadable response."
         case .runtimeUnavailable:

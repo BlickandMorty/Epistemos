@@ -14,6 +14,34 @@ struct TOCItem: Identifiable, Equatable, Sendable {
         case citation
         case source
         case block   // KnowledgeCore block-outline row (every block, not just headings)
+        case notebookTab(tabID: String)
+        case embed(referenceID: String, type: String)
+
+        var isPrimaryOutlineItem: Bool {
+            switch self {
+            case .heading, .notebookTab, .embed:
+                true
+            case .citation, .source, .block:
+                false
+            }
+        }
+
+        var symbolName: String {
+            switch self {
+            case .heading:
+                "textformat.size"
+            case .citation:
+                "quote.bubble"
+            case .source:
+                "link"
+            case .block:
+                "square.stack.3d.up"
+            case .notebookTab:
+                "rectangle.on.rectangle"
+            case .embed:
+                "point.3.connected.trianglepath.dotted"
+            }
+        }
     }
 
     static func == (lhs: TOCItem, rhs: TOCItem) -> Bool {
@@ -46,6 +74,48 @@ enum TOCParser {
             }
 
             charOffset += line.utf16.count + 1 // +1 for newline
+        }
+
+        items.append(contentsOf: notebookNavigationItems(in: markdown))
+        return items.sorted { lhs, rhs in
+            if lhs.charOffset == rhs.charOffset { return lhs.level < rhs.level }
+            return lhs.charOffset < rhs.charOffset
+        }
+    }
+
+    nonisolated static func notebookNavigationItems(in markdown: String) -> [TOCItem] {
+        var items: [TOCItem] = []
+        let manifest = EpdocNotebookManifest.parse(in: markdown)
+        if manifest.hasReferenceTabs {
+            items.append(
+                TOCItem(
+                    level: 1,
+                    title: EpdocNotebookManifest.bodyTab.title,
+                    charOffset: 0,
+                    kind: .notebookTab(tabID: EpdocNotebookManifest.bodyTabID)
+                )
+            )
+            for tab in manifest.tabs {
+                items.append(
+                    TOCItem(
+                        level: 1,
+                        title: tab.title,
+                        charOffset: tab.charOffset,
+                        kind: .notebookTab(tabID: tab.id)
+                    )
+                )
+            }
+        }
+
+        for embed in EpdocNotebookReferenceParser.blockEmbeds(in: markdown) {
+            items.append(
+                TOCItem(
+                    level: 2,
+                    title: embed.title,
+                    charOffset: embed.charOffset,
+                    kind: .embed(referenceID: embed.id, type: embed.kind.rawValue)
+                )
+            )
         }
 
         return items
@@ -272,6 +342,7 @@ struct NoteOutlineOverlay: View {
     let markdown: String
     let theme: EpistemosTheme
     let onNavigate: (Int) -> Void
+    var onNavigateItem: ((TOCItem) -> Void)? = nil
     var externalItems: [TOCItem]? = nil
     /// KC block-outline rows (Slice 3 cutover). When non-empty, a Headings ⇄ Blocks
     /// toggle appears and Blocks mode renders KC's projection. nil/empty → headings only.
@@ -285,7 +356,7 @@ struct NoteOutlineOverlay: View {
     @State private var mode: OutlineMode = .headings
 
     private var headings: [TOCItem] {
-        (externalItems ?? items).filter { $0.kind == .heading }
+        (externalItems ?? items).filter { $0.kind.isPrimaryOutlineItem }
     }
 
     private var blocks: [TOCItem] { blockItems ?? [] }
@@ -380,19 +451,29 @@ struct NoteOutlineOverlay: View {
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(displayedItems) { item in
                         Button {
-                            onNavigate(item.charOffset)
+                            if let onNavigateItem {
+                                onNavigateItem(item)
+                            } else {
+                                onNavigate(item.charOffset)
+                            }
                         } label: {
-                            Text(item.title)
-                                .font(.system(size: tocFontSize(for: item.level),
-                                              weight: item.level <= 2 ? .medium : .regular))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .foregroundStyle(.primary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 3)
-                                .padding(.leading, CGFloat(item.level - 1) * 10)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
+                            HStack(spacing: 5) {
+                                Image(systemName: item.kind.symbolName)
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 12)
+                                Text(item.title)
+                                    .font(.system(size: tocFontSize(for: item.level),
+                                                  weight: item.level <= 2 ? .medium : .regular))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .foregroundStyle(.primary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 3)
+                            .padding(.leading, CGFloat(item.level - 1) * 10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }

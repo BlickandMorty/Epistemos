@@ -18,6 +18,8 @@
 	<string>1.0.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Epistemos uses the microphone to dictate quick captures and transcribe meetings on-device.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

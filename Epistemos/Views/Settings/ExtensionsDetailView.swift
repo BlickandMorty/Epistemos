@@ -1,3 +1,4 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import SwiftUI
 
 struct ExtensionsDetailView: View {
@@ -763,3 +764,4 @@ private extension BestOfPresetStatus {
         }
     }
 }
+#endif

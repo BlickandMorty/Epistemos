@@ -757,9 +757,11 @@ final class GraphState {
         }
 
         switch node.type {
-        case .note:
+        case .note, .person, .project, .topic, .decision, .event, .resource:
+            selectNode(nil)
             openNote(resolvedId)
         case .folder:
+            selectNode(nil)
             openFolder(resolvedId)
         default:
             selectNode(id)
@@ -1156,6 +1158,14 @@ final class GraphState {
 
     /// Set to true when the rebuild button is pressed while graph is visible.
     var pendingRebuild = false
+
+    /// Preserve first-open responsiveness by showing persisted graph data first
+    /// and letting the Metal render loop trigger the existing background rebuild.
+    func deferStructuralRefreshUntilGraphIsVisible() {
+        needsRefresh = false
+        pendingRebuild = true
+        shouldSnapNextGlobalRecommitCamera = true
+    }
 
     /// Clear every visible and engine-backed graph surface when the active vault changes.
     func resetForVaultLifecycle() {
@@ -2650,13 +2660,21 @@ final class GraphState {
             return
         }
 
-        store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)
+        await store.loadFromRecordsCooperatively(
+            nodeRecords: records.nodes,
+            edgeRecords: records.edges
+        )
 
-        // If empty or explicitly dirty, rebuild structural data through
-        // the background actor path too.
-        if (needsRefresh || store.nodeCount == 0), !isBuildingStructural {
+        // If there is no persisted graph, build once so first open is useful.
+        // If persisted graph data exists but is dirty, show it immediately and
+        // let the render loop perform the background refresh after the canvas is
+        // alive. Rebuilding here makes graph startup feel blocked after edits.
+        if store.nodeCount == 0, !isBuildingStructural {
             _ = await refreshStructuralDataAsync(container: container)
         } else {
+            if needsRefresh {
+                deferStructuralRefreshUntilGraphIsVisible()
+            }
             isLoaded = true
         }
 
@@ -2674,9 +2692,12 @@ final class GraphState {
             Log.app.error("GraphState: failed to load graph: \(error.localizedDescription, privacy: .public)")
             return
         }
-        if (needsRefresh || store.nodeCount == 0), !isBuildingStructural {
+        if store.nodeCount == 0, !isBuildingStructural {
             buildStructuralGraph(context: context)
             return
+        }
+        if needsRefresh {
+            deferStructuralRefreshUntilGraphIsVisible()
         }
         isLoaded = true
         requestRecommit()
@@ -2724,7 +2745,10 @@ final class GraphState {
         do {
             let records = try await actor.rebuildStructural(positionHints: hints)
             if !applyIncrementalStructuralRefresh(nodeRecords: records.nodes, edgeRecords: records.edges) {
-                store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)
+                await store.loadFromRecordsCooperatively(
+                    nodeRecords: records.nodes,
+                    edgeRecords: records.edges
+                )
                 isLoaded = true
                 isBuildingStructural = false
                 return false

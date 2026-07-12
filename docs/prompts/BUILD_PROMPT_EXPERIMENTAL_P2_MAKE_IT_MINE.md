@@ -1,5 +1,19 @@
 # Build Prompt — Experimental Surface, Phase 2: MAKE IT LOOK AND BOOT LIKE EPISTEMOS
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: this prompt is
+> parked. Do not start, resume, or reprompt Experimental/1Code work while
+> MAS-only is active. Preserve this file as historical provenance and salvage
+> useful ideas only through MAS-June/App Store-safe architecture.
+
+> OWNER OVERRIDE — 2026-07-07: This older Phase 2 prompt is superseded for
+> current 1Code V2 UI work by `docs/plans/1code-v2/**`. Preserve behavior,
+> engine, transport, and information layout, but do **not** preserve donor
+> 1Code/Goose visible components. Replace shell, workspace rail, sidebar rows,
+> composer, status strip, command palette, buttons, cards, popovers,
+> transcript viewport, and tool/action surfaces with Epistemos-owned
+> components or owned CSS surfaces. Wrapper-only, skin-only,
+> token/package-only, or slight-tint work does not satisfy the owner intent.
+
 **Read this whole file before touching anything. It is short on purpose — execute all of it.**
 
 You are continuing an in-progress build (the Experimental agent surface = embedded 1Code). The
@@ -90,8 +104,9 @@ last-used project; only show a chooser if there is genuinely nothing. **Never bl
 folder dialog.** Verify: cold launch → composer focused, no picker → screenshot = DoD-1.
 
 ## TASK 2 — Wear the Epistemos theme (DoD-2) — biggest visible win, lowest risk
-**Reuse the proven pattern in `Epistemos/ProAgent/ProAgentThemeBridge.swift`** (it already does exactly
-this for the other web surface): inject Epistemos theme tokens as **inline `!important` CSS custom
+Use the neutral AgentSurface/Experimental theme-injection pattern; do **not** depend on
+`Epistemos/ProAgent/ProAgentThemeBridge.swift`, because ProAgent/OpenChamber are deletion targets.
+Inject Epistemos theme tokens as **inline `!important` CSS custom
 properties on `:root`/`documentElement` via a `WKUserScript` at `.atDocumentStart`**, plus a
 `MutationObserver` that re-asserts them, plus a live light/dark switch (`page.callJavaScript`). Source the
 token values from `Epistemos/Theme/EpistemosTheme.swift`. Add this as a SECOND user script in

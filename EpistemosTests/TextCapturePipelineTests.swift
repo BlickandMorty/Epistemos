@@ -965,6 +965,18 @@ struct TextCapturePipelineTests {
         #expect(!source.contains("auto-dismiss or open note"))
     }
 
+    @Test("Quick Capture preview scanning stays off the keystroke render path")
+    func quickCapturePreviewSignalsAreDebouncedOffMain() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
+
+        #expect(source.contains("private static let previewSignalQuietWindow: Duration = .milliseconds(120)"))
+        #expect(source.contains("@State private var previewSignals = PreviewSignals(text: \"\")"))
+        #expect(source.contains("schedulePreviewSignals(for: newValue)"))
+        #expect(source.contains("let nextSignals = await Task.detached(priority: .utility)"))
+        #expect(source.contains("guard !Task.isCancelled, captureText == text else { return }"))
+        #expect(!source.contains("private var previewSignals: PreviewSignals"))
+    }
+
     @Test("Quick Capture uses the home overlay path instead of a sheet")
     func quickCaptureUsesHomeOverlayInsteadOfSheet() throws {
         let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")

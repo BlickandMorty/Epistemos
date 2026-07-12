@@ -36,15 +36,32 @@ public struct DeploymentProfileHealthRow: View {
         #endif
     }
 
-    /// Capabilities that differ between profiles. Each entry says
-    /// what's on in Pro and off in MAS. MAS sandbox blocks subprocess
-    /// execution and AX scraping, so those surfaces are Pro-only.
-    private static let proOnlyFeatures: [String] = [
-        "CLI passthrough (claude / codex / gemini / kimi)",
-        "Skills",
-        "AX / AXorcist screen reading (computer-use)",
-        "Bash / MultiEdit / WebFetch local tools",
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+    private static let activeMASBoundaries: [String] = [
+        "June in-process agent (OpenAI / Anthropic API keys)",
+        "Apple Intelligence / selected local GGUF chat lanes inside June",
+        "Security-scoped, user-selected vault access",
+        "No subprocess, CLI passthrough, local server, or terminal execution",
     ]
+    #else
+    private static let proOnlyFeatures: [String] = {
+        let cliPassthroughLabel = "CLI passthrough (claude / codex / gemini / kimi)"
+        return [
+            cliPassthroughLabel,
+            "Skills",
+            "AX / AXorcist screen reading (computer-use)",
+            "Bash / MultiEdit / WebFetch local tools",
+        ]
+    }()
+    #endif
+
+    private var profileTruth: String {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        "MAS Settings describes the active June product boundary only."
+        #else
+        "Compile-time Developer ID profile is visible in Settings."
+        #endif
+    }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -72,20 +89,20 @@ public struct DeploymentProfileHealthRow: View {
                 productionWired: false,
                 falsifierPassed: false,
                 falsifier: "docs/audits/SETTINGS_TRUTH_FLOOR_2026_05_25.md",
-                wiredToday: "Compile-time MAS/Pro profile is visible in Settings.",
+                wiredToday: profileTruth,
                 stillStub: "Build-profile visibility is not a substrate production PASS claim."
             )
 
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             VStack(alignment: .leading, spacing: 4) {
-                Text("Not available in this build:")
+                Text("Active MAS June boundaries:")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
-                ForEach(Self.proOnlyFeatures, id: \.self) { name in
+                ForEach(Self.activeMASBoundaries, id: \.self) { name in
                     HStack(spacing: 6) {
-                        Image(systemName: "minus.circle")
+                        Image(systemName: "checkmark.circle")
                             .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.green.opacity(0.7))
                         Text(name)
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.secondary)

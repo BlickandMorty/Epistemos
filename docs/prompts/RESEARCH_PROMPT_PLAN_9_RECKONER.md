@@ -2,28 +2,34 @@
 
 **ID:** `EPI-RP-09-RECKONER` · **Codename:** RECKONER · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: if reused,
+> research RECKONER for MAS/June only. Treat KINDRED/1Code as parked provenance;
+> the active agent caller is June through in-process `agent_core`.
+
 > **How to use this file.** Give the research model four inputs, in this order:
 > 1. `INTEGRATION_FABRIC.md` (whole file).
 > 2. `RESEARCH_PROMPT_STANDARD.md` (whole file).
 > 3. `PROMPT_PLAN_9_DATA_TABLES.md` §0, §1-§11, Cross-plan note, and especially the BINDING
->    `RESHAPE` + `Exact §0 supersession map`.
+>    `RESHAPE`, `Exact §0 supersession map`, and `TRUTH-FLIP SUPERSESSION`.
 > 4. Everything below `─── BEGIN ───` in this file.
 >
-> Output = a **build-ready dossier + implementation spine** hardening the RESHAPED direction
-> (2026-07-06) against the dual plan (LUMENLENS `EPI-RP-02` + KINDRED `EPI-RP-05`). Owner authored
+> Output = a **build-ready dossier + implementation spine** hardening the RESHAPED MAS direction
+> (2026-07-06 plus 2026-07-07 MAS pivot) against LUMENLENS `EPI-RP-02`; KINDRED `EPI-RP-05` is parked. Owner authored
 > 2026-07-06. This is a research brief, not a build brief: the researcher returns the dossier,
 > schemas, seams, file-tree/skeleton proposals, contradiction sweep, self-score, and self-critique.
 >
-> **Build split: both builds.** The data core, tools, tabs, and embeds ship on MAS + Experimental;
-> only the companion/minichat *presence chrome* is 1Code-only (June answers the same tools on MAS).
+> **Build target: MAS only.** The data core, tools, tabs, and embeds ship on MAS. The older
+> companion/minichat presence chrome is parked; June answers the active tools on MAS.
 >
 > **This is a RE-RESEARCH of direction, not of engine keystones.** The 2026-07-03 canon
 > (`PROMPT_PLAN_9_DATA_TABLES.md` + `PLAN9_ADJUDICATION_WORKING_2026_07_03.md`) clone-verified the
-> engine architecture — silent-Univer renderer × IronCalc sole calc authority × GRDB single truth ×
-> dual-zone/defined-names — against fresh clones (ironcalc/univer/teable/baserow). DO NOT
-> re-litigate those keystones. What changed is the PRODUCT SHAPE (the canon's RESHAPE + §0
-> supersession map): the standalone Data room is CUT; the docked chat panel is CUT; five-views-v1
-> is deferred to grid-first. Your job: make the new shape as hard as the old engine.
+> engine architecture — silent-Univer renderer × IronCalc sole calc authority × vault-artifact
+> truth with GRDB as derived cache × dual-zone/defined-names deferred post-v1 — against fresh
+> clones (ironcalc/univer/teable/baserow) and the 2026-07-06 audit. DO NOT re-litigate those
+> keystones. What changed is the PRODUCT SHAPE (the canon's RESHAPE + §0 supersession map +
+> truth-flip): the standalone Data room is CUT; the docked chat panel is CUT; five-views-v1 is
+> deferred to grid-first; the vault artifact outranks GRDB. Your job: make the new shape as hard
+> as the old engine without resurrecting stale pre-wave wording.
 
 ─── BEGIN RESEARCH BRIEF ───
 
@@ -47,18 +53,18 @@ adjudication instead of re-deriving. No invented APIs; unknowns flagged with fal
    rewrite any section that fails the rubric before returning.
 
 ## 1. Product context (ground truth — design against this)
-Epistemos = macOS-native PKM (Swift 6 + Rust agent_core/UniFFI + GRDB + WKWebView). Two builds:
-MAS (sandboxed, June agent, in-process agent_core, no subprocess) and 1Code/Experimental
-(Developer ID, embedded 1Code Node backend, the KINDRED companion). Notes = markdown files in a
+Epistemos = macOS-native PKM (Swift 6 + Rust agent_core/UniFFI + GRDB + WKWebView). Active build:
+MAS (sandboxed, June agent, in-process agent_core, no subprocess). 1Code/Experimental/Kindred are
+parked. Notes = markdown files in a
 vault (file-truth, KEELSTONE `EPI-RP-07`); the editor = four synced lenses with Epdoc
 (Tiptap-in-WKWebView) as default (LUMENLENS `EPI-RP-02`); ONE companion identity works across
-surfaces with an Epdoc sidebar minichat (KINDRED `EPI-RP-05`, 1Code-only).
+surfaces through MAS-June context/provenance, not through Kindred runtime.
 
 **RECKONER after the reshape — the triad's third piece, not a fourth room:**
 1. **Primary door = the agents.** Datasets are created/restructured/queried through an F2
    capability ("track my reading list," "make this note's table real," "chart this") with
-   dry-run → schema-diff preview → confirm → apply → undo, ledger-attributed. The KINDRED
-   companion/minichat drives it on Experimental; June drives the SAME tools on MAS. **No new chat
+   dry-run → schema-diff preview → confirm → apply → undo, ledger-attributed. June drives the
+   active MAS tools. **No new chat
    anywhere. No docked chat panel.**
 2. **Datasets open as TABS in the existing note workspace tab group** (direct precedent:
    `.epdoc` documents already join `NoteWindowManager.noteTabbingIdentifier`). Native chrome
@@ -68,15 +74,15 @@ surfaces with an Epdoc sidebar minichat (KINDRED `EPI-RP-05`, 1Code-only).
 4. **CUT/deferred:** the dedicated room + chrome; kanban/gallery/calendar/form + record-detail
    views (deferred phases — grid first).
 
-**Locked engine keystones (cite the adjudication; do not re-derive):** Univer OSS = silent grid
-renderer (`notExecuteFormula: true`); IronCalc = the ONLY calc authority (WASM co-resident in the
-WebView for the hot loop; native via UniFFI `epistemos_calc` for headless/agent calc on both
-builds); SQLite/GRDB = the single durable truth, synced at transaction boundaries via IronCalc
-`UserModel` (`flush_send_queue()` bitcode diffs / `apply_external_diffs()` / `to_bytes()` /
-`undo()/redo()`); dual-zone model (typed record zone + free formula zone) with per-column IronCalc
-defined names; xlsx via IronCalc; never Univer Pro; Teable = AGPL behavior-reference only;
-IronCalc has NO dirty-cells accessor after evaluate() (snapshot-diff dependents) and NO
-merge-cells API; `CellValue = {None, String, Number, Boolean}`.
+**Locked engine keystones (cite the adjudication + 2026-07-06 audit; do not re-derive):** Univer
+OSS = silent grid renderer (`notExecuteFormula: true`); IronCalc = the ONLY calc authority (WASM
+co-resident in the WebView for the hot loop; native via UniFFI `epistemos_calc` for headless/agent
+calc for MAS/June); dataset truth = the vault artifact (CSV for flat datasets, XLSX/`.icalc`
+for workbooks, plus `.dataset.md` metadata); GRDB = derived working cache/index, rebuilt from the
+vault and synchronously written back on commits; dual-zone/defined-names is deferred post-v1, not
+killed; xlsx via IronCalc; never Univer Pro; Teable = AGPL behavior-reference only; IronCalc has
+NO dirty-cells accessor after evaluate() (snapshot-diff dependents) and NO merge-cells API;
+`CellValue = {None, String, Number, Boolean}`.
 
 ## 2. Thesis
 **Data is something the agent does FOR you, that you can then open like a document and embed like
@@ -87,10 +93,12 @@ structural change attributed and revertible. Harden that loop until it is boring
 
 ## 3. Hard constraints (a design violating these is wrong)
 1. Engine keystones above are LOCKED (new evidence required to touch them).
-2. **No new chat; no room.** Agent access = KINDRED minichat/main agent (Experimental) + June
-   (MAS) through ONE F2 tool surface. Presence chrome 1Code-only.
-3. **One truth per domain:** notes = vault files; datasets = GRDB. Cross-domain = references
-   (wikilink/embed/graph), NEVER row duplication into markdown.
+2. **No new chat; no room.** Agent access = June (MAS) through ONE F2 tool
+   surface backed by in-process `agent_core`. KINDRED minichat/main-agent and
+   presence chrome are parked provenance.
+3. **One truth per domain:** notes = vault files; datasets = vault artifacts
+   (CSV/XLSX-`.icalc` + `.dataset.md`); GRDB is a derived cache/working store. Cross-domain =
+   references (wikilink/embed/graph), NEVER row duplication into markdown.
 3b. **Nothing lost, nothing hidden (owner directive 2026-07-06):** Epdoc is the richest lens; when
    the user switches to Prose or Source, any content those lenses cannot render — INCLUDING
    dataset embeds and notebook tabs (3c) — must surface through LUMENLENS's **Lens-Fidelity
@@ -102,14 +110,15 @@ structural change attributed and revertible. Harden that loop until it is boring
    RECKONER embeds/tabs REGISTER preview+export providers; RECKONER does not build its own
    disclosure UI.
 3c. **The Epdoc Notebook (owner directive 2026-07-06):** a single note file, opened in Epdoc, can
-   host EMBEDDED TABS — the markdown body plus sheet tabs (RECKONER datasets) and chat tabs
-   (KINDRED minichat sessions with their context). The `.md` file stays the SOLE note truth
+   host EMBEDDED TABS — the markdown body plus sheet tabs (RECKONER datasets)
+   and, only if separately proven MAS-safe, June assist references. The `.md`
+   file stays the SOLE note truth
    (KEELSTONE Phase 4.5): tabs are persisted as REFERENCES in the markdown (a Tier-B tab
-   manifest), never embedded blobs — dataset truth stays GRDB, chat truth stays the 1Code
-   session store. Seam ownership: LUMENLENS owns the tab container + manifest + round-trip;
-   RECKONER owns the sheet-tab content (same grid seam as D2/D3, second mount point); KINDRED
-   owns the chat-tab content (K6 minichat mounted in-note; 1Code-only — on MAS chat tabs appear
-   via disclosure as degraded, sheet tabs render fully).
+   manifest), never embedded blobs — dataset truth stays the RECKONER vault artifact. Seam ownership: LUMENLENS owns the tab container + manifest +
+   round-trip;
+   RECKONER owns the sheet-tab content (same grid seam as D2/D3, second mount point).
+   KINDRED/1Code chat tabs are parked; MAS renders sheet tabs fully and may
+   later add June assist references only after a separate MAS-safe proof.
 4. Every structural/bulk agent op: dry_run → schema-diff preview → confirm → apply → undo, with
    attribution through the LUMENLENS provenance schema (its span metadata is payload-agnostic BY
    DESIGN for this reason — `docs/plans/lumenlens/` §P-AMEND 9).
@@ -122,13 +131,14 @@ structural change attributed and revertible. Harden that loop until it is boring
 ## 4. What exists (design to extend)
 - The canon + adjudication (engine verification, DDL drafts, donor map, §8 perf guardrails,
   §11 hardening) — your inheritance, minus the superseded shape items.
-- The dual-plan packages: `docs/plans/lumenlens/` (SuggestionAdapter, provenance schema, epoch
-  bridge, tiered serializer) + `docs/plans/kindred/` (presence bus via /host ws, K6 minichat
-  extraction, gating) + `docs/plans/keelstone/` (AtomicVaultWriter, reconciler, two-config schema).
+- The plan packages: `docs/plans/lumenlens/` (SuggestionAdapter, provenance schema, epoch
+  bridge, tiered serializer) + `docs/plans/keelstone/` (AtomicVaultWriter, reconciler, MAS
+  leak-proof schema). `docs/plans/kindred/` remains parked provenance only.
 - Repo precedents: the note/doc tab group (EpdocDocument tabbing, guard-tested); the Epdoc
   WKWebView patterns (custom scheme `epistemos-doc://` + brotli, script-message bridge, process
   pooling, teardown discipline); the existing per-vault GRDB (SearchIndexService etc.); the F2
-  capability registry concept (`INTEGRATION_FABRIC.md`); 1Code `sub_chats.sessionId`/`stream_id`.
+  capability registry concept (`INTEGRATION_FABRIC.md`). 1Code `sub_chats.sessionId`/`stream_id`
+  are historical references only.
 
 **Researcher reality check:** You may not have repo access. Treat these file paths as design targets
 and mark each claim as **observed from provided canon**, **inferred from provided canon**, or
@@ -146,8 +156,8 @@ identifier, bridge handler names, or 1Code store columns), give the verification
   split), each attributed. How is per-ROW/CELL provenance stored without bloating the op-log?
 - The F2 tool schema itself: enumerate the tools (create_dataset, alter_schema, upsert_rows,
   query, chart, import) with typed params, honest gating (which are per-turn approved), and
-  IDENTICAL semantics driven by June (agent_core) and the 1Code backend. One tool surface, two
-  drivers — specify the seam.
+  IDENTICAL semantics driven by June (`agent_core`). One tool surface, one
+  active MAS driver — specify the seam.
 - Return a **tool-contract spine**: JSON schemas for each dry-run/apply/undo command, the preview
   hash/inverse-op requirement, per-turn approval classification, redaction rules for row/cell
   context sent to agents, and the exact failure envelope (ambiguous intent, coercion warning,
@@ -157,11 +167,12 @@ identifier, bridge handler names, or 1Code store columns), give the verification
   (silent restructuring, no undo, hallucinated schemas) → your guardrails.
 
 ### D2 — Datasets as workspace-tab documents
-- The document model: a dataset "opens" as a tab in the note/doc tab group. But GRDB truth is
-  LIVE — there is no dirty/save cycle like notes. Define tab semantics: commits at IronCalc
-  transaction boundaries (UserModel flush), native undo/redo mapping, close = just close.
+- The document model: a dataset "opens" as a tab in the note/doc tab group. The vault artifact is
+  truth and GRDB is the live derived working copy — there is no manual dirty/save cycle like
+  notes. Define tab semantics: commits produce a GRDB transaction plus synchronous vault writeback,
+  native undo/redo mapping, close = just close.
 - Multiple tabs/windows on ONE dataset: reuse LUMENLENS Fork C's write-lease/follower model, or
-  is GRDB-serialized writing enough (last-write at row level)? Verdict with rationale.
+  is cache-serialized writing plus artifact-level conflict routing enough? Verdict with rationale.
 - Chrome: the native toolbar/table-switcher/schema-inspector ceiling (kept from §0.7) around the
   grid WebView; Swift Charts placement; how a dataset tab title/icon lives in the tab group.
 - WebView economics: one WKWebView per dataset tab vs a pooled/single grid view re-pointed —
@@ -180,8 +191,9 @@ identifier, bridge handler names, or 1Code store columns), give the verification
   workbook load, edit/evaluate, diff flush, snapshot save, undo/redo, reload after WebView crash,
   and headless agent dry-run. Keep Univer as renderer and IronCalc as sole calc authority in every
   sketch.
-- Failure modes: crash mid-commit (op-log replay), WebView reload (re-hydrate from GRDB +
-  to_bytes snapshot), WASM OOM, formula cycles, the free-zone/record-zone conflict cases.
+- Failure modes: crash mid-commit (op-log replay + vault writeback reconciliation), WebView reload
+  (re-hydrate from the vault artifact through GRDB cache + to_bytes snapshot), WASM OOM, formula
+  cycles, the free-zone/record-zone conflict cases.
 
 ### D4 — Embeds in notes (the moat, now sharper)
 - The embed node: a LUMENLENS Tier-B markdown construct (wikilink-style reference + optional view
@@ -198,28 +210,28 @@ identifier, bridge handler names, or 1Code store columns), give the verification
   tombstone behavior, minimal-diff edit rules, graph edge emission, preview/export provider shape,
   and examples of the raw markdown an external editor would see.
 
-### D5 — Dataset-aware chat (no new chat — the parameterization ask on K6)
-- What the KINDRED minichat needs to serve a dataset tab: focused-dataset context injection
-  (schema + selection + view state into the session), `Location.surface = dataTab` presence, and
-  the SAME session continuity (`sub_chats.sessionId`). Specify the context payload + size bounds.
-- MAS parity: June receives the same context through agent_core — specify where that context is
-  assembled natively so both drivers see one shape.
-- Return a **dataset-context packet** shared by both agent drivers: bounded schema summary,
+### D5 — Dataset-aware MAS-June context (no new chat)
+- What June needs to serve a dataset tab: focused-dataset context injection
+  (schema + selection + view state into the session) with MAS-safe status/provenance.
+  Specify the context payload + size bounds.
+- Parked provenance: older KINDRED minichat/session-continuity ideas may inform
+  the context shape, but do not require `sub_chats.sessionId`, presence, or a
+  second chat runtime.
+- Return a **dataset-context packet** for MAS/June: bounded schema summary,
   selected rows/cells digest, visible view state, provenance handles, privacy/redaction policy, and
   escalation behavior when the context is too large.
 
-### D6 — Storage placement + KEELSTONE alignment ★ (open fork — resolve with evidence)
-- WHERE does the data-core SQLite live? Options: (a) inside the vault directory (portable,
-  user-visible, but exposed to third-party sync writing SQLite mid-transaction — KEELSTONE's
-  nightmare); (b) app container keyed to the vault (safe, NOT portable — breaks "my vault is my
-  data"); (c) vault-adjacent with explicit export/import (.reckoner package? xlsx via IronCalc?).
-  Resolve with cited evidence on SQLite-under-file-sync corruption (WAL + Dropbox/iCloud), and
-  define the backup/portability story either way. This is the dossier's hardest call.
-- One DB per vault (datasets + op-log + views in the data core) vs folding into the EXISTING
-  per-vault GRDB (KEELSTONE B4 forbids a second DERIVED db — but the data core is TRUTH, not
-  derived; does the exemption hold?). Verdict + migration/teardown implications.
-- Datasets in the release gate: what KEELSTONE §9 soak cases must extend to cover the data core
-  (kill -9 mid-commit, sync-storm around the DB file, op-log replay equivalence).
+### D6 — Storage placement + KEELSTONE alignment ★ (accepted truth-flip — harden the cache path)
+- Dataset artifacts live in the vault as the portable truth: CSV for flat datasets,
+  XLSX/`.icalc` for promoted workbooks, plus `.dataset.md` metadata. Research the exact artifact
+  layout, writeback envelope, and external-editor/sync behavior; do not move truth back to
+  SQLite/GRDB.
+- GRDB is derived cache/working store. Fold into the existing per-vault GRDB family where possible;
+  if a separate cache is proposed, it must satisfy KEELSTONE B4 as a derived index, not claim a
+  truth exemption. Verdict + migration/teardown implications.
+- Datasets in the release gate: what KEELSTONE §9 soak cases must extend to cover artifact
+  writeback and cache rebuild (kill -9 mid-commit, sync-storm around the artifact + metadata,
+  op-log replay equivalence, stale-cache invalidation).
 - Return an explicit **KEELSTONE handoff card**: what, if anything, the sync/release agent must be
   reprompted with; if no reprompt is needed, say so and justify by seam ownership.
 
@@ -264,14 +276,14 @@ honest:
   in-body embeds relate to tabs (an embed can be "promoted" to a tab? research the UX, don't
   assume).
 - **Sheet tabs = the second mount of the same grid seam:** one dataset can be open as a workspace
-  tab (D2) AND as an in-note tab — same GRDB truth, same IronCalc/Univer instance rules. Resolve:
-  WebView economics for N in-note tabs (lazy-mount only the active tab?), what happens when the
-  same dataset is mounted twice, and how in-note sheet state (active view, scroll) is or isn't
-  persisted in the manifest.
-- **Chat tabs (1Code-only):** a KINDRED minichat session mounted as a tab — the SAME session
-  store (`sub_chats.sessionId` reference in the manifest), full context preserved, presence-aware
-  (`Location.surface` distinguishes in-note chat vs dataTab). NO new chat system; on MAS, chat
-  tabs surface via disclosure (degraded, exportable transcript) since companions are 1Code-only.
+  tab (D2) AND as an in-note tab — same vault artifact truth, same GRDB derived cache, same
+  IronCalc/Univer instance rules. Resolve: WebView economics for N in-note tabs (lazy-mount only
+  the active tab?), what happens when the same dataset is mounted twice, and how in-note sheet
+  state (active view, scroll) is or isn't persisted in the manifest.
+- **Chat tabs (parked):** KINDRED/1Code minichat tabs are not active MAS scope.
+  If a future assist tab is needed, research a MAS-June reference that preserves
+  context through `agent_core` without a new chat system, hidden session store,
+  or companion runtime.
 - **The "+ new tab" launcher:** an in-note landing pane (add sheet — new or existing dataset;
   start a chat; candidates from research below). Scope guard: it is a launcher INSIDE the note,
   not a room; quiet, native-feeling, no navigation weight.
@@ -292,9 +304,9 @@ honest:
 ### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
 - **F1 vault:** records are first-class vault objects via references; embeds live in notes;
   datasets never duplicate into markdown. **F2 capability:** RECKONER is the exemplar F2 citizen —
-  one tool surface, two drivers (June/agent_core + 1Code backend), honest per-turn gating.
-  **F3 presence:** `dataTab` surface; the mascot pins on the dataset it restructures
-  (1Code-only). **F4 graph:** records/datasets as nodes; embed links auto-edge. **F5 provenance:**
+  one tool surface, one active MAS driver (June/agent_core), honest per-turn gating.
+  **F3 status:** MAS-safe state/provenance shows dataset work without Kindred presence.
+  **F4 graph:** records/datasets as nodes; embed links auto-edge. **F5 provenance:**
   every structural op attributed through the shared ledger (payload-agnostic spans); "what did
   the companion change in my data this week" is answerable. **F6 state bus:** calc/refresh/commit
   states stream to all surfaces; embeds show staleness honestly.
@@ -322,9 +334,9 @@ D8, and D10: tool JSON schemas, DDL, UniFFI/Swift/TS interfaces, bridge payloads
 reference grammar, preview/export provider protocols, notebook manifest examples, failure table,
 and perf-budget TOML snippet. 14. **Phased build order** (data core → native IronCalc/UniFFI → grid
 seam → tab documents → F2 tools + dry-run loop → embeds → notebook tabs + launcher →
-dataset-aware chat → ingest), each phase with a WITNESSABLE done-bar; flag dependencies (KEELSTONE
-0-4; LUMENLENS L1/L5 + the tab container; KINDRED K6). 15. **Contradiction sweep** against the old
-Plan 9 room/chat/five-view wording and against LUMENLENS/KINDRED ownership; include verdicts.
+dataset-aware MAS-June context → ingest), each phase with a WITNESSABLE done-bar; flag dependencies (KEELSTONE
+0-4; LUMENLENS L1/L5 + the tab container). 15. **Contradiction sweep** against the old
+Plan 9 room/chat/five-view wording and against LUMENLENS/parked-KINDRED ownership; include verdicts.
 16. Open questions preserved (not silently resolved). 17. Self-critique + rubric scores (§3 of the
 standard; iterate any axis <4). If any axis remains below 4, the dossier is not done.
 
@@ -336,20 +348,20 @@ system on any build. No silent agent restructuring — every structural op previ
 revertible. Do not absorb LUMENLENS/KINDRED scope; name their seams by ID. Do not leave the
 storage-placement fork unresolved — it gets a verdict with evidence. Notebook tabs are REFERENCES
 in the markdown, never embedded blobs (the `.md` stays sole note truth and stays readable
-everywhere); chat tabs mount EXISTING minichat sessions, never a new chat; the "+ new tab"
+everywhere); chat/assist tabs are parked unless rebuilt as MAS-June references, never a new chat runtime; the "+ new tab"
 launcher stays inside the note — it is not a room; do not add tab types the earn-a-tab survey
 can't defend. Do not return a dossier without an implementation spine, contradiction sweep,
-phase-by-phase done-bars, and explicit handoff cards for KEELSTONE, LUMENLENS, and KINDRED.
+phase-by-phase done-bars, and explicit handoff cards for KEELSTONE, LUMENLENS, and parked-KINDRED seams.
 
 ─── END RESEARCH BRIEF ───
 
 ---
 
 ## POST-WAVE ANNOTATION (2026-07-06 — the wave returned; audit #4 accepted with amendments)
-This brief's "datasets = GRDB truth" lines (constraint 3/3c, the locked-keystones §0.5 echo, D2's
-"GRDB truth is LIVE", D6, D10) are SUPERSEDED by the accepted truth-flip: vault artifact = truth,
-GRDB = derived cache (see the canon's TRUTH-FLIP SUPERSESSION + `docs/plans/reckoner/`). D6's
-"data core is TRUTH so B4's exemption holds" argument therefore collapses — the reckoner GRDB is
-DERIVED, B4 binds, and the pool joins SearchIndexService's existing DB. OQ-1/OQ-2 (IronCalc wasm
-surface) were settled empirically during the audit (=0.7.0, 4-arg ctor, no UserModel in wasm).
-The build-ready package + full amendment set: `docs/plans/reckoner/`.
+The accepted truth-flip is now merged into this brief: vault artifact = truth, GRDB = derived
+cache (see the canon's TRUTH-FLIP SUPERSESSION + `docs/plans/reckoner/`). The old "data core is
+TRUTH so B4's exemption holds" argument is invalid — the reckoner GRDB is DERIVED, B4 binds, and
+the pool joins SearchIndexService's existing DB unless a measured derived-cache exception is
+documented. OQ-1/OQ-2 (IronCalc wasm surface) were settled empirically during the audit (=0.7.0,
+4-arg ctor, no UserModel in wasm). The build-ready package + full amendment set:
+`docs/plans/reckoner/`.

@@ -117,17 +117,32 @@ public struct EpdocCopilotDockView: View {
     public let dispatch: @Sendable @MainActor (EpdocEditorCommand) -> Void
     public let freeformAgentEnabled: Bool
     public let aiDiffDraft: EpdocAIDiffReviewDraft?
+    public let assistContext: JuneEpdocAssistContext?
+    public let submitAssist: (@MainActor (String, JuneEpdocAssistContext) -> JuneEpdocAssistSubmissionResult)?
+    public let stageAssistSuggestion: (@MainActor (String, JuneEpdocAssistContext) -> JuneEpdocAssistSuggestionStageResult)?
+
+    @State private var isAssistOpen = false
+    @State private var assistPrompt = ""
+    @State private var assistStatus: String?
+    @State private var assistSessionID: String?
+    @State private var assistSuggestionDraft: EpdocSuggestionReviewDraft?
 
     public init(
         wordCount: Int,
         dispatch: @escaping @Sendable @MainActor (EpdocEditorCommand) -> Void,
         freeformAgentEnabled: Bool = false,
-        aiDiffDraft: EpdocAIDiffReviewDraft? = nil
+        aiDiffDraft: EpdocAIDiffReviewDraft? = nil,
+        assistContext: JuneEpdocAssistContext? = nil,
+        submitAssist: (@MainActor (String, JuneEpdocAssistContext) -> JuneEpdocAssistSubmissionResult)? = nil,
+        stageAssistSuggestion: (@MainActor (String, JuneEpdocAssistContext) -> JuneEpdocAssistSuggestionStageResult)? = nil
     ) {
         self.wordCount = wordCount
         self.dispatch = dispatch
         self.freeformAgentEnabled = freeformAgentEnabled
         self.aiDiffDraft = aiDiffDraft
+        self.assistContext = assistContext
+        self.submitAssist = submitAssist
+        self.stageAssistSuggestion = stageAssistSuggestion
     }
 
     public var body: some View {
@@ -140,44 +155,168 @@ public struct EpdocCopilotDockView: View {
     }
 
     private var quickActions: some View {
-        HStack(spacing: 7) {
-            ForEach([EpdocCopilotTransform.frontmatter]) { transform in
-                dockButton(
-                    title: transform.title,
-                    symbol: transform.symbol,
-                    help: transform.response
-                ) {
-                    dispatch(transform.command)
+        VStack(alignment: .trailing, spacing: 8) {
+            if isAssistOpen {
+                HStack(spacing: 8) {
+                    TextField("Ask June", text: $assistPrompt)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .frame(width: 260)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(.thinMaterial, in: Capsule())
+                        .onSubmit(submitAssistPrompt)
+                    iconButton(
+                        symbol: "paperplane.fill",
+                        label: "Ask June",
+                        help: "Send the note-scoped prompt to June."
+                    ) {
+                        submitAssistPrompt()
+                    }
+                    if assistSessionID != nil {
+                        iconButton(
+                            symbol: "sparkles",
+                            label: "Stage June suggestion",
+                            help: "Stage the latest structured June suggestion for review."
+                        ) {
+                            stageLatestAssistSuggestion()
+                        }
+                    }
+                }
+                if let assistStatus {
+                    Text(assistStatus)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: 320, alignment: .trailing)
+                }
+                if let assistSuggestionDraft {
+                    HStack(spacing: 7) {
+                        Text(assistSuggestionDraft.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        iconButton(
+                            symbol: "checkmark",
+                            label: "Accept June suggestion",
+                            help: assistSuggestionDraft.summary
+                        ) {
+                            acceptAssistSuggestion()
+                        }
+                        iconButton(
+                            symbol: "xmark",
+                            label: "Reject June suggestion",
+                            help: assistSuggestionDraft.summary
+                        ) {
+                            rejectAssistSuggestion()
+                        }
+                    }
                 }
             }
 
-            if let aiDiffDraft {
-                Divider()
-                    .frame(height: 22)
-                    .opacity(0.58)
-                dockButton(
-                    title: "Review edit",
-                    symbol: "sparkles",
-                    help: aiDiffDraft.summary
-                ) {
-                    dispatch(aiDiffDraft.previewCommand)
+            HStack(spacing: 7) {
+                if assistContext != nil {
+                    iconButton(
+                        symbol: isAssistOpen ? "chevron.down" : "message.badge.waveform",
+                        label: "June Epdoc Assist",
+                        help: "Open June Epdoc Assist."
+                    ) {
+                        isAssistOpen.toggle()
+                    }
                 }
-                iconButton(
-                    symbol: "checkmark",
-                    label: "Accept AI edit",
-                    help: "Apply the staged AI edit preview."
-                ) {
-                    dispatch(aiDiffDraft.acceptCommand)
+
+                ForEach([EpdocCopilotTransform.frontmatter]) { transform in
+                    dockButton(
+                        title: transform.title,
+                        symbol: transform.symbol,
+                        help: transform.response
+                    ) {
+                        dispatch(transform.command)
+                    }
                 }
-                iconButton(
-                    symbol: "xmark",
-                    label: "Reject AI edit",
-                    help: "Discard the staged AI edit preview."
-                ) {
-                    dispatch(aiDiffDraft.rejectCommand)
+
+                if let aiDiffDraft {
+                    Divider()
+                        .frame(height: 22)
+                        .opacity(0.58)
+                    dockButton(
+                        title: "Review edit",
+                        symbol: "sparkles",
+                        help: aiDiffDraft.summary
+                    ) {
+                        dispatch(aiDiffDraft.previewCommand)
+                    }
+                    iconButton(
+                        symbol: "checkmark",
+                        label: "Accept AI edit",
+                        help: "Apply the staged AI edit preview."
+                    ) {
+                        dispatch(aiDiffDraft.acceptCommand)
+                    }
+                    iconButton(
+                        symbol: "xmark",
+                        label: "Reject AI edit",
+                        help: "Discard the staged AI edit preview."
+                    ) {
+                        dispatch(aiDiffDraft.rejectCommand)
+                    }
                 }
             }
         }
+    }
+
+    private func submitAssistPrompt() {
+        guard let assistContext, let submitAssist else {
+            assistStatus = "June unavailable"
+            return
+        }
+        let prompt = assistPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else { return }
+        switch submitAssist(prompt, assistContext) {
+        case .submitted(let sessionID):
+            assistSessionID = sessionID
+            assistSuggestionDraft = nil
+            assistPrompt = ""
+            assistStatus = "Sent to June"
+        case .busy(let sessionID):
+            assistSessionID = sessionID
+            assistStatus = "June is busy"
+        case .unavailable(let message):
+            assistStatus = message
+        }
+    }
+
+    private func stageLatestAssistSuggestion() {
+        guard let assistContext,
+              let stageAssistSuggestion,
+              let assistSessionID else {
+            assistStatus = "No June session"
+            return
+        }
+        switch stageAssistSuggestion(assistSessionID, assistContext) {
+        case .staged(let draft):
+            dispatch(draft.stageCommand)
+            assistSuggestionDraft = draft
+            assistStatus = "Suggestion staged"
+        case .busy:
+            assistStatus = "June is still responding"
+        case .unavailable(let message):
+            assistStatus = message
+        }
+    }
+
+    private func acceptAssistSuggestion() {
+        guard let draft = assistSuggestionDraft else { return }
+        dispatch(draft.acceptCommand)
+        assistSuggestionDraft = nil
+        assistStatus = "Accept requested"
+    }
+
+    private func rejectAssistSuggestion() {
+        guard let draft = assistSuggestionDraft else { return }
+        dispatch(draft.rejectCommand)
+        assistSuggestionDraft = nil
+        assistStatus = "Reject requested"
     }
 
     private func dockButton(

@@ -31,7 +31,25 @@ extension HTMLWorkspaceEditorView {
             && pendingRegenerateExpectedContentHash == package.currentContentHash
     }
 
+    private static let appStoreRegenerateParkedStatus =
+        "HTML Workspace regenerate is parked in the App Store build. Use MAS June / Epdoc Assist."
+
+    private func parkRegenerateForAppStoreBuild() {
+        regenerateTask?.cancel()
+        regenerateTask = nil
+        isRegenerating = false
+        regenerateSheetPresented = false
+        clearPendingRegeneratePreview()
+        regenerateStreamText = ""
+        regenerateErrorText = nil
+        regenerateContextStatusText = Self.appStoreRegenerateParkedStatus
+        statusText = Self.appStoreRegenerateParkedStatus
+    }
+
     func openRegenerateSheet() {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        parkRegenerateForAppStoreBuild()
+        #else
         regenerateErrorText = nil
         regenerateStreamText = ""
         if let feedQuery = package.manifest.dataFeed?.normalizedQuery, !feedQuery.isEmpty {
@@ -43,6 +61,7 @@ extension HTMLWorkspaceEditorView {
             ?? HTMLWorkspaceDataFeedStatus.compactLine(for: package)
         clearPendingRegeneratePreview()
         regenerateSheetPresented = true
+        #endif
     }
 
     func refreshRegenerateVaultContext() {
@@ -191,12 +210,16 @@ extension HTMLWorkspaceEditorView {
 
     func startRegenerateWithContextDirective(_ directive: String, status: String) {
         regenerateErrorText = nil
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        parkRegenerateForAppStoreBuild()
+        #else
         let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         regenerateInstruction = current.isEmpty ? directive : current + "\n" + directive
         regenerateSheetPresented = true
         regenerateContextStatusText = status
         statusText = status
         beginRegenerateSurface(instructionOverride: regenerateInstruction)
+        #endif
     }
 
     func selectedPreviewTargetDirective() -> String {
@@ -253,12 +276,16 @@ extension HTMLWorkspaceEditorView {
     }
 
     func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        parkRegenerateForAppStoreBuild()
+        #else
         regenerateInstruction = preset.instruction
         if preset.family == .vaultData {
             runVaultDataRegeneratePreset(preset)
             return
         }
         beginRegenerateSurfaceAttachingContextIfNeeded(instructionOverride: preset.instruction)
+        #endif
     }
 
     func runVaultDataRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
@@ -307,6 +334,9 @@ extension HTMLWorkspaceEditorView {
     }
 
     func beginRegenerateSurfaceAttachingContextIfNeeded(instructionOverride: String?) {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        parkRegenerateForAppStoreBuild()
+        #else
         guard !isRegenerating else { return }
         let sourceInstruction = instructionOverride ?? regenerateInstruction
         let instruction = sourceInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -329,6 +359,7 @@ extension HTMLWorkspaceEditorView {
         ) {
             beginRegenerateSurface(instructionOverride: instructionOverride)
         }
+        #endif
     }
 
     func shouldAttachRegenerateContextBeforeStreaming(
@@ -351,6 +382,9 @@ extension HTMLWorkspaceEditorView {
     }
 
     func beginRegenerateSurface(instructionOverride: String?) {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        parkRegenerateForAppStoreBuild()
+        #else
         guard !isRegenerating else { return }
         let sourceInstruction = instructionOverride ?? regenerateInstruction
         let instruction = sourceInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -456,6 +490,7 @@ extension HTMLWorkspaceEditorView {
                 statusText = failedStatus("Regenerate", error: error)
             }
         }
+        #endif
     }
 
     func clearPendingRegeneratePreview() {

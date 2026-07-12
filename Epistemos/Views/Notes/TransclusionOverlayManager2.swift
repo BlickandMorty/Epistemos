@@ -30,6 +30,7 @@ final class TransclusionOverlayManager2 {
     private var missingPageIds: Set<String> = []
     private var documentMayContainBlockRefs = false
     private var scrollRefreshTask: Task<Void, Never>?
+    private var textChangeRefreshTask: Task<Void, Never>?
     private var bufferedVisibleCharacterRange: NSRange?
     private var pendingBufferedCharacterRange: NSRange?
 
@@ -50,11 +51,17 @@ final class TransclusionOverlayManager2 {
     // MARK: - Refresh
 
     func refreshAfterTextChange() {
-        scrollRefreshTask?.cancel()
-        scrollRefreshTask = nil
-        pendingBufferedCharacterRange = nil
-        bufferedVisibleCharacterRange = nil
-        refresh(recalculateDocumentState: true)
+        textChangeRefreshTask?.cancel()
+        textChangeRefreshTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: NoteEditorPerformancePolicy.transclusionOverlayRefreshDelay)
+            guard let self, !Task.isCancelled else { return }
+            self.textChangeRefreshTask = nil
+            self.scrollRefreshTask?.cancel()
+            self.scrollRefreshTask = nil
+            self.pendingBufferedCharacterRange = nil
+            self.bufferedVisibleCharacterRange = nil
+            self.refresh(recalculateDocumentState: true)
+        }
     }
 
     func refreshForScroll() {
@@ -260,6 +267,8 @@ final class TransclusionOverlayManager2 {
 
     /// Remove all overlays (called on page switch or dealloc).
     func removeAll() {
+        textChangeRefreshTask?.cancel()
+        textChangeRefreshTask = nil
         scrollRefreshTask?.cancel()
         scrollRefreshTask = nil
         for (_, overlay) in overlays {

@@ -1,6 +1,9 @@
 # Knowledge-Core Shadow → Production Cutover Plan (2026-06-13)
 
-> 🟢 **MOSTLY LIVE 2026-07-02.** Knowledge-Core is backend/engine-layer work, unaffected by the OpenChamber UI pivot. Re-anchor ONLY any "Goose-as-surface / reskin / Option 1" reference to: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **RE-ANCHORED 2026-07-06.** Knowledge-Core is backend/engine-layer work and must not
+> revive a deleted UI surface. Re-anchor any "Goose-as-surface / reskin / Option 1 /
+> OpenChamber / ProAgent" reference to the current two surfaces: MAS/June and
+> Experimental/1Code. OpenChamber/ProAgent are KEELSTONE deletion targets.
 
 **Status:** PLAN / SCOPING. `state:candidate` per the Canon-Hardening Protocol —
 **implementation past Slice 0 requires explicit owner sign-off.** This document is

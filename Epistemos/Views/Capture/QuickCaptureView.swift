@@ -71,6 +71,8 @@ nonisolated enum QuickCaptureDiagnostics {
 
 @MainActor
 struct QuickCaptureView: View {
+    private static let previewSignalQuietWindow: Duration = .milliseconds(120)
+
     @Environment(UIState.self) private var ui
     @Environment(TextCapturePipeline.self) private var pipeline
     @Environment(\.modelContext) private var modelContext
@@ -94,16 +96,9 @@ struct QuickCaptureView: View {
     // sentence is read once, never repeatedly). Only active when the pref is .auto.
     @State private var readBackTask: Task<Void, Never>?
     @State private var lastSpokenSentence = ""
+    @State private var previewSignals = PreviewSignals(text: "")
+    @State private var previewSignalTask: Task<Void, Never>?
     private var theme: EpistemosTheme { ui.theme }
-
-    /// Cheap client-side preview of what the AFM @Generable extraction
-    /// will probably surface — counts hashtags, @-mentions, and lines
-    /// starting with "- [ ]" so the user sees structured chips
-    /// updating in real time as they type. The authoritative parse
-    /// still happens in TextCapturePipeline on submit.
-    private var previewSignals: PreviewSignals {
-        PreviewSignals(text: captureText)
-    }
 
     private var headerSubtitle: String {
         if isProcessing {
@@ -184,6 +179,7 @@ struct QuickCaptureView: View {
         .animation(reduceMotion ? .none : .smooth(duration: 0.32), value: captureResult != nil)
         .animation(reduceMotion ? .none : .smooth(duration: 0.24), value: isTraceInspectorPresented)
         .onAppear {
+            registerQuickCaptureReadAloudProvider()
             Task { @MainActor in
                 await PixelStepMotion.play(reduceMotion: reduceMotion) { frame in
                     appearFrame = frame
@@ -200,10 +196,19 @@ struct QuickCaptureView: View {
             }
         }
         .onDisappear {
+            EpistemosVisibleReadAloudRegistry.shared.unregister(.quickCapture)
             cleanupTransientCaptureState()
         }
         .onChange(of: captureText) { _, newValue in
+            registerQuickCaptureReadAloudProvider()
             scheduleQuickCaptureReadBack(for: newValue)
+            schedulePreviewSignals(for: newValue)
+        }
+    }
+
+    private func registerQuickCaptureReadAloudProvider() {
+        EpistemosVisibleReadAloudRegistry.shared.register(.quickCapture) {
+            EpistemosSpeechSynthesizer.plainTextForSpeech(fromMarkdown: captureText)
         }
     }
 
@@ -404,12 +409,13 @@ struct QuickCaptureView: View {
                 .disabled(isProcessing || isTranscribing)
 
                 // Plan 3 owner update 2026-06-30: TTS is Kokoro-only. The
-                // read-aloud affordance remains visible but disabled until
-                // native Kokoro synthesis is wired; no Apple voice picker or
-                // AVSpeech fallback is surfaced here.
+                // read-aloud affordance remains visible and opens the Kokoro
+                // installer when the checked runtime is unavailable; no Apple
+                // voice picker or AVSpeech fallback is surfaced here.
                 ReadAloudButton(
                     text: EpistemosSpeechSynthesizer.plainTextForSpeech(fromMarkdown: captureText),
-                    style: .iconWithProgress
+                    style: .iconWithProgress,
+                    surface: .quickCapture
                 )
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
@@ -565,6 +571,7 @@ struct QuickCaptureView: View {
             _ = audioRecorder.stopRecording()
         }
         readBackTask?.cancel()
+        previewSignalTask?.cancel()
         EpistemosSpeechSynthesizer.shared.stop()
         isTextFieldFocused = false
         isTraceInspectorPresented = false
@@ -584,6 +591,25 @@ struct QuickCaptureView: View {
                   sentence != lastSpokenSentence else { return }
             lastSpokenSentence = sentence
             _ = EpistemosSpeechSynthesizer.shared.speak(sentence)
+        }
+    }
+
+    private func schedulePreviewSignals(for text: String) {
+        previewSignalTask?.cancel()
+        guard !text.isEmpty else {
+            previewSignals = PreviewSignals(text: "")
+            previewSignalTask = nil
+            return
+        }
+        previewSignalTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.previewSignalQuietWindow)
+            guard !Task.isCancelled else { return }
+            let nextSignals = await Task.detached(priority: .utility) {
+                PreviewSignals(text: text)
+            }.value
+            guard !Task.isCancelled, captureText == text else { return }
+            previewSignals = nextSignals
+            previewSignalTask = nil
         }
     }
 
@@ -779,7 +805,7 @@ struct QuickCaptureView: View {
 // time while typing — instead of waiting for the post-submit
 // confirmation card.
 
-private struct PreviewSignals {
+private struct PreviewSignals: Sendable {
     let hashtagCount: Int
     let mentionCount: Int
     let taskCount: Int

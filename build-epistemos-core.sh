@@ -13,14 +13,19 @@ fi
 
 cd "$(dirname "$0")/epistemos-core"
 
+FEATURE_FLAGS=()
+if [ "${TARGET_NAME:-}" = "Epistemos-AppStore" ] || [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" = "com.epistemos.appstore" ] || [ "${MAS_SANDBOX:-0}" = "1" ]; then
+    FEATURE_FLAGS+=(--features mas-sandbox)
+fi
+
 if [ "$CONFIGURATION" = "Debug" ]; then
-    cargo build --target aarch64-apple-darwin
-    cargo build --target x86_64-apple-darwin
+    cargo build "${FEATURE_FLAGS[@]}" --target aarch64-apple-darwin
+    cargo build "${FEATURE_FLAGS[@]}" --target x86_64-apple-darwin
     ARM64_LIB_PATH="target/aarch64-apple-darwin/debug/libepistemos_core.dylib"
     X86_64_LIB_PATH="target/x86_64-apple-darwin/debug/libepistemos_core.dylib"
 else
-    cargo build --release --target aarch64-apple-darwin
-    cargo build --release --target x86_64-apple-darwin
+    cargo build "${FEATURE_FLAGS[@]}" --release --target aarch64-apple-darwin
+    cargo build "${FEATURE_FLAGS[@]}" --release --target x86_64-apple-darwin
     ARM64_LIB_PATH="target/aarch64-apple-darwin/release/libepistemos_core.dylib"
     X86_64_LIB_PATH="target/x86_64-apple-darwin/release/libepistemos_core.dylib"
 fi

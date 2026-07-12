@@ -69,6 +69,7 @@ pub enum ProviderPolicy {
 #[serde(rename_all = "snake_case")]
 pub enum CliAdapter {
     ClaudeCode,
+    #[cfg(any(test, not(feature = "mas-build")))]
     Codex,
     Goose,
     Aider,

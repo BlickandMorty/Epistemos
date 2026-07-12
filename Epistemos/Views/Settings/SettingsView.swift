@@ -9,6 +9,10 @@ import agent_coreFFI
 
 private let settingsViewLogger = Logger(subsystem: "Epistemos", category: "SettingsView")
 
+enum SettingsDetailNavigationPolicy {
+    static let debounceMilliseconds = 120
+}
+
 enum SettingsViewDestructiveActionSovereignGate {
     enum Target: Equatable {
         case savedWorkspace(name: String)
@@ -51,10 +55,13 @@ enum SettingsViewDestructiveActionSovereignGate {
 struct SettingsView: View {
     @Environment(UIState.self) private var ui
     @State private var selection: SettingsSection?
+    @State private var detailSelection: SettingsSection?
     @State private var settingsSearchQuery = ""
 
     init(initialSelection: SettingsSection? = .general) {
-        _selection = State(initialValue: SettingsSection.safeDetailSelection(for: initialSelection))
+        let safeSelection = SettingsSection.safeDetailSelection(for: initialSelection)
+        _selection = State(initialValue: safeSelection)
+        _detailSelection = State(initialValue: safeSelection)
     }
 
     // MARK: - Settings Categories (Phase 7 Step 7)
@@ -105,6 +112,17 @@ struct SettingsView: View {
 
         var id: String { rawValue }
 
+        var displayTitle: String {
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            switch self {
+            case .cloudModels: "June Models"
+            default: rawValue
+            }
+            #else
+            rawValue
+            #endif
+        }
+
         /// Sidebar-visible sections. Deleted agent/model-stack entries are
         /// intentionally absent rather than hidden behind deep links.
         static var visibleSections: [SettingsSection] {
@@ -112,9 +130,11 @@ struct SettingsView: View {
                 .general,
                 .ambientFrequencies,
                 .voice,
-                .skills,
                 .cloudModels,
             ]
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+            sections.insert(.skills, at: 3)
+            #endif
             sections += [
                 .landing,
                 .appearance,
@@ -127,7 +147,12 @@ struct SettingsView: View {
         }
 
         static func safeDetailSelection(for section: SettingsSection?) -> SettingsSection? {
-            section
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            if section == .skills {
+                return .general
+            }
+            #endif
+            return section
         }
 
         var icon: String {
@@ -190,9 +215,17 @@ struct SettingsView: View {
             case .voice:
                 "Speech, dictation, read-aloud, and premium voice defaults."
             case .skills:
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                "App Store builds manage agent capabilities through MAS June."
+                #else
                 "Skills, MCP servers, connectors, and presets."
+                #endif
             case .cloudModels:
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                "OpenAI and Anthropic models connected to MAS June."
+                #else
                 "Provider accounts, API keys, and GPT, Claude, Gemini, GLM, Kimi models."
+                #endif
             case .landing:
                 "Greeting, quick capture, and landing canvas behavior."
             case .appearance:
@@ -204,7 +237,11 @@ struct SettingsView: View {
             case .provenance:
                 "Read-only audit trail for graph, tool, and mutation projections."
             case .substrateHealth:
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                "Native foundation: search, June tools, provenance, and safety."
+                #else
                 "Native foundation IP: search, tools, MCP, provenance, and safety."
+                #endif
             }
         }
 
@@ -219,7 +256,11 @@ struct SettingsView: View {
             case .skills:
                 ["skills", "manifest", "activation", "plugin", "tools"]
             case .cloudModels:
-                ["cloud", "models", "provider", "openai", "gpt", "codex", "anthropic", "claude", "google", "gemini", "glm", "zai", "kimi", "moonshot", "oauth", "api key"]
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                ["june", "cloud", "models", "provider", "openai", "gpt", "anthropic", "claude", "api key"]
+                #else
+                ["cloud", "models", "provider", "openai", "gpt", "anthropic", "claude", "google", "gemini", "glm", "zai", "kimi", "moonshot", "oauth", "api key"]
+                #endif
             case .landing:
                 ["landing", "greeting", "quick capture", "home", "welcome"]
             case .appearance:
@@ -231,7 +272,11 @@ struct SettingsView: View {
             case .provenance:
                 ["provenance", "event", "run", "mutation", "audit", "console"]
             case .substrateHealth:
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                ["foundation", "june", "tools", "eidos", "halo", "search", "provenance", "answerpacket", "safety"]
+                #else
                 ["foundation", "ip", "tools", "mcp", "eidos", "halo", "search", "provenance", "answerpacket", "safety"]
+                #endif
             }
         }
     }
@@ -292,6 +337,23 @@ struct SettingsView: View {
                 selection = safeSelection
             }
         }
+        .task(id: selection) {
+            let nextSelection = SettingsSection.safeDetailSelection(for: selection)
+            guard nextSelection != detailSelection else { return }
+            do {
+                try await Task.sleep(
+                    for: .milliseconds(SettingsDetailNavigationPolicy.debounceMilliseconds)
+                )
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                detailSelection = nextSelection
+            }
+        }
         .onChange(of: settingsSearchQuery) { _, _ in
             normalizeSelectionForVisibleSearchResults()
         }
@@ -348,11 +410,15 @@ struct SettingsView: View {
 
     private var settingsDetail: some View {
         Group {
-            switch SettingsSection.safeDetailSelection(for: selection) {
+            switch SettingsSection.safeDetailSelection(for: detailSelection) {
             case .general: GeneralDetailView()
             case .ambientFrequencies: AmbientFrequencySettingsView()
             case .voice: VoiceSettingsDetailView()
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            case .skills: GeneralDetailView()
+            #else
             case .skills: ExtensionsDetailView()
+            #endif
             case .cloudModels: CloudModelsSettingsView()
             case .landing: LandingDetailView()
             case .appearance: AppearanceDetailView()
@@ -386,7 +452,7 @@ extension Notification.Name {
 private extension SettingsView.SettingsSection {
     func matchesSettingsSearch(_ query: String) -> Bool {
         guard !query.isEmpty else { return true }
-        let haystack = ([rawValue, rowDescription, category.rawValue] + searchKeywords)
+        let haystack = ([displayTitle, rowDescription, category.rawValue] + searchKeywords)
             .joined(separator: " ")
             .lowercased()
         let tokens = query
@@ -470,7 +536,7 @@ private struct SettingsSidebarRow: View {
             sidebarBadge
                 .frame(width: 24, height: 24)
             VStack(alignment: .leading, spacing: 2) {
-                Text(section.rawValue)
+                Text(section.displayTitle)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .lineLimit(1)
                 Text(section.rowDescription)
@@ -652,10 +718,12 @@ private struct CloudHintPopover: View {
 private struct CloudModelsSettingsView: View {
     @Environment(UIState.self) private var ui
     @State private var apiKeyDrafts: [CloudModelProvider: String] = [:]
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     @State private var openAIDeviceAuthorization: OpenAIDeviceAuthorization?
     @State private var googleOAuthProjectID = CloudProviderSetupAutomation.loadGoogleOAuthProjectIDDraft()
     @State private var googleOAuthClientFilename = CloudProviderSetupAutomation.loadGoogleOAuthClientFilename()
     @State private var googleOAuthStatusMessage: String?
+    #endif
 
     private var theme: EpistemosTheme {
         ui.theme.surfaceVariant(.other)
@@ -663,12 +731,16 @@ private struct CloudModelsSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Cloud Provider Setup") {
-                SettingsDescriptionText(
-                    text: "Connect account access where the provider supports it, or save an API key fallback for GPT/Codex, Claude, Gemini, GLM, and Kimi."
-                )
+            Section(providerSetupTitle) {
+                SettingsDescriptionText(text: providerSetupDescription)
 
-                ForEach(CloudModelProvider.preferredOrder, id: \.self) { provider in
+                ForEach(settingsProviders, id: \.self) { provider in
+                    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                    CloudProviderSettingsRow(
+                        provider: provider,
+                        apiKeyDraft: apiKeyBinding(for: provider)
+                    )
+                    #else
                     CloudProviderSettingsRow(
                         provider: provider,
                         apiKeyDraft: apiKeyBinding(for: provider),
@@ -677,12 +749,14 @@ private struct CloudModelsSettingsView: View {
                         googleOAuthClientFilename: $googleOAuthClientFilename,
                         googleOAuthStatusMessage: $googleOAuthStatusMessage
                     )
+                    #endif
                     .padding(.vertical, 6)
                 }
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         .sheet(item: $openAIDeviceAuthorization) { authorization in
             OpenAIDeviceAuthorizationSheet(authorization: authorization) {
                 openAIDeviceAuthorization = nil
@@ -692,6 +766,7 @@ private struct CloudModelsSettingsView: View {
             googleOAuthProjectID = CloudProviderSetupAutomation.loadGoogleOAuthProjectIDDraft()
             googleOAuthClientFilename = CloudProviderSetupAutomation.loadGoogleOAuthClientFilename()
         }
+        #endif
     }
 
     private func apiKeyBinding(for provider: CloudModelProvider) -> Binding<String> {
@@ -700,22 +775,58 @@ private struct CloudModelsSettingsView: View {
             set: { apiKeyDrafts[provider] = $0 }
         )
     }
+
+    private var settingsProviders: [CloudModelProvider] {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        CloudModelProvider.juneAgentProviders
+        #else
+        CloudModelProvider.preferredOrder
+        #endif
+    }
+
+    private var providerSetupDescription: String {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        "Save an OpenAI or Anthropic API key in Apple Keychain for MAS June. Only providers connected to June appear here."
+        #else
+        "Connect account access where the provider supports it, or save an API key fallback for GPT/Codex, Claude, Gemini, GLM, and Kimi."
+        #endif
+    }
+
+    private var providerSetupTitle: String {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        "June Provider Setup"
+        #else
+        "Cloud Provider Setup"
+        #endif
+    }
 }
 
 private struct CloudProviderSettingsRow: View {
     let provider: CloudModelProvider
     @Binding var apiKeyDraft: String
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     @Binding var openAIDeviceAuthorization: OpenAIDeviceAuthorization?
     @Binding var googleOAuthProjectID: String
     @Binding var googleOAuthClientFilename: String
     @Binding var googleOAuthStatusMessage: String?
+    #endif
 
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+    @State private var consentStore = AgentCloudConsentStore.shared
+    #endif
     @State private var showAPIKeyTools: Bool
     @State private var isWorking = false
     @State private var actionResult: String?
 
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+    init(provider: CloudModelProvider, apiKeyDraft: Binding<String>) {
+        self.provider = provider
+        _apiKeyDraft = apiKeyDraft
+        _showAPIKeyTools = State(initialValue: true)
+    }
+    #else
     init(
         provider: CloudModelProvider,
         apiKeyDraft: Binding<String>,
@@ -732,6 +843,7 @@ private struct CloudProviderSettingsRow: View {
         _googleOAuthStatusMessage = googleOAuthStatusMessage
         _showAPIKeyTools = State(initialValue: !provider.supportsAccountConnection)
     }
+    #endif
 
     private var theme: EpistemosTheme {
         ui.theme.surfaceVariant(.other)
@@ -745,11 +857,16 @@ private struct CloudProviderSettingsRow: View {
         inference.apiKey(for: provider) != nil
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private var oauthCredential: CloudProviderOAuthCredential? {
         inference.oauthCredential(for: provider)
     }
+    #endif
 
     private var accountActionTitle: String {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        provider.accountActionTitle
+        #else
         switch provider {
         case .openAI:
             if case .invalid = validationState { return "Retry OpenAI Sign In" }
@@ -763,6 +880,7 @@ private struct CloudProviderSettingsRow: View {
         case .zai, .kimi, .minimax, .deepseek:
             return provider.accountActionTitle
         }
+        #endif
     }
 
     var body: some View {
@@ -771,6 +889,11 @@ private struct CloudProviderSettingsRow: View {
 
             SettingsDescriptionText(text: provider.setupHelpText)
 
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            cloudDataConsentControl
+            #endif
+
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             if let summary = provider.accountConnectionSummary(
                 oauthCredential: oauthCredential,
                 hasSavedAPIKey: hasSavedAPIKey,
@@ -788,7 +911,9 @@ private struct CloudProviderSettingsRow: View {
             if let guidance = provider.accountGuidanceText(validationState: validationState) {
                 CloudProviderGuidanceRow(text: guidance, theme: theme)
             }
+            #endif
 
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             if provider == .kimi {
                 CloudProviderGuidanceRow(
                     text: "Kimi Code OAuth is available in Kimi CLI, but the documented direct Kimi API route for Epistemos is still the Moonshot/Kimi API key path.",
@@ -797,10 +922,13 @@ private struct CloudProviderSettingsRow: View {
                     tint: theme.resolved.accent.color
                 )
             }
+            #endif
 
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             if provider == .google {
                 googleOAuthControls
             }
+            #endif
 
             modelPicker
 
@@ -854,12 +982,40 @@ private struct CloudProviderSettingsRow: View {
         }
     }
 
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+    private var cloudDataConsentControl: some View {
+        let descriptor = AgentCloudProviderDescriptor.descriptor(for: provider)
+        return VStack(alignment: .leading, spacing: 6) {
+            Toggle(
+                "Allow June to send prompts and selected context to \(provider.displayName)",
+                isOn: Binding(
+                    get: { consentStore.hasConsent(for: provider) },
+                    set: { AgentCloudConsentStore.shared.setConsent($0, for: provider) }
+                )
+            )
+            .toggleStyle(.switch)
+
+            Text(
+                "Off by default. When enabled, June may send the current prompt, bounded chat history, approved tool context, and selected vault context to \(descriptor.dataDestination). Your API key stays in macOS Keychain and is used only for that provider request. Turn this off anytime."
+            )
+            .font(.caption)
+            .foregroundStyle(theme.resolved.mutedForeground.color)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(theme.resolved.background.color.opacity(0.35))
+        )
+    }
+    #endif
+
     private var modelPicker: some View {
         Picker("Default model", selection: Binding(
             get: { inference.preferredCloudModel(for: provider) },
             set: { inference.setPreferredCloudModel($0) }
         )) {
-            ForEach(CloudTextModelID.models(for: provider), id: \.self) { model in
+            ForEach(inference.cloudModels(for: provider), id: \.self) { model in
                 Text(model.displayName).tag(model)
             }
         }
@@ -879,6 +1035,7 @@ private struct CloudProviderSettingsRow: View {
             .buttonStyle(.borderedProminent)
             .disabled(isWorking)
 
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             if provider == .openAI {
                 Button("Import Codex CLI") {
                     runProviderAction {
@@ -887,6 +1044,7 @@ private struct CloudProviderSettingsRow: View {
                 }
                 .disabled(isWorking)
             }
+            #endif
 
             if let url = provider.documentationURL {
                 Button(provider.documentationActionTitle) {
@@ -897,6 +1055,7 @@ private struct CloudProviderSettingsRow: View {
         }
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private var googleOAuthControls: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -941,6 +1100,7 @@ private struct CloudProviderSettingsRow: View {
             }
         }
     }
+    #endif
 
     private var apiKeyControls: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -950,14 +1110,11 @@ private struct CloudProviderSettingsRow: View {
             HStack(spacing: 8) {
                 Button("Paste + Save") {
                     runProviderAction {
-                        let didSave = await CloudProviderSetupAutomation.pasteAndSave(
+                        let result = await CloudProviderSetupAutomation.pasteAndSave(
                             provider: provider,
                             inference: inference
                         )
-                        return ConnectionTestResult(
-                            success: didSave,
-                            message: inference.cloudValidationState(for: provider).statusText
-                        )
+                        return result
                     }
                 }
                 .disabled(isWorking)
@@ -1002,6 +1159,7 @@ private struct CloudProviderSettingsRow: View {
             }
             .disabled(!validationState.isVerified)
 
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             if provider.supportsAccountConnection, oauthCredential != nil {
                 Button("Disconnect Account") {
                     _ = inference.setOAuthCredential(nil, for: provider)
@@ -1009,6 +1167,7 @@ private struct CloudProviderSettingsRow: View {
                 }
                 .disabled(isWorking)
             }
+            #endif
         }
         .overlay(alignment: .bottomLeading) {
             Text("Verify live access before making this provider active.")
@@ -1020,6 +1179,11 @@ private struct CloudProviderSettingsRow: View {
     }
 
     private func runAccountAction() {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        if let url = provider.credentialManagementURL {
+            NSWorkspace.shared.open(url)
+        }
+        #else
         switch provider {
         case .openAI:
             runProviderAction {
@@ -1038,6 +1202,7 @@ private struct CloudProviderSettingsRow: View {
                 NSWorkspace.shared.open(url)
             }
         }
+        #endif
     }
 
     private func runProviderAction(
@@ -1075,6 +1240,7 @@ private struct CloudProviderSettingsRow: View {
         }
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private func connectGoogleOAuth() {
         guard CloudProviderSetupAutomation.loadGoogleOAuthClientConfigData() != nil else {
             let result = inference.recordCloudProviderValidationFailure(
@@ -1143,6 +1309,7 @@ private struct CloudProviderSettingsRow: View {
             )
         }
     }
+    #endif
 }
 
 private struct CloudProviderStatusBadge: View {
@@ -2799,12 +2966,6 @@ private struct VaultDetailView: View {
                     .controlSize(.small)
                 }
             }
-
-            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-            Section("Read-Only MCP Server") {
-                VaultMCPServerSettingsRow(vaultRoot: vaultSync.vaultURL)
-            }
-            #endif
 
             if vaultSync.vaultURL != nil {
                 Section("Search Index") {

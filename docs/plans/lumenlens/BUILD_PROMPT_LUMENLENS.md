@@ -1,13 +1,22 @@
 # BUILD PROMPT — LUMENLENS
 ID: EPI-RP-02-LUMENLENS · doubles as a proposal for reviewing agents AND an instruction set for a coding agent (Claude Code)
+
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. LUMENLENS is
+> active only as MAS editor/provenance infrastructure. The active agent producer
+> is MAS/June via in-process `agent_core`; 1Code/Experimental and KINDRED
+> companion runtime are parked. Keep SuggestionAdapter, provenance, minimal-diff
+> writeback, Epdoc Notebook, and note-context seams, but route chat/assist use
+> through MAS-June only.
+
 **READ FIRST: the REPO REALITY ADDENDUM at the bottom binds like the phase list. Research base:**
 `../kindred/RESEARCH_DUAL_KINDRED_LUMENLENS_2026_07_06.md`. Spine: `spine/` (audited copies — use these).
 
 ## Context you inherit
 Stack: Swift 6 + Rust agent_core (UniFFI) + GRDB + WKWebView + Tiptap/ProseMirror + CodeMirror6
-+ PDFKit, Apple Silicon. Two builds: MAS (sandboxed, no subprocess, June agent, NO companion)
-and 1Code/Experimental (Developer ID, everything). The LUMENLENS_SPINE scaffold carries the
-binding contracts; extend those exact files, don't invent parallel ones.
++ PDFKit, Apple Silicon. Active build: MAS (sandboxed, no subprocess, June agent, no Kindred
+runtime). Previous 1Code/Experimental assumptions are parked by the 2026-07-07 MAS-only lock.
+The LUMENLENS_SPINE scaffold carries the binding contracts; extend those exact files, don't invent parallel ones.
 
 ## Coding-agent — build phase by phase (each ends at a witnessable done-bar)
 1. **L0 Bridge spine.** Implement `js-editor/src/bridge/document-load-state.ts` fully; wire
@@ -59,6 +68,28 @@ No generic rich-text-editor boilerplate. No invented ProseMirror APIs. No design
 fidelity, clobbers the user on load/edit, builds a shadow editor, or leaks the companion layer
 onto MAS. Don't silently override Epdoc-as-default (validate, note trade-offs).
 
+## Continuing hardening loop (owner-locked)
+
+When L0-L6 and their repo-audited amendments appear complete, do not stop at the
+last checked box. Invoke `deep-hardening-loop` and continue auditing,
+hardening, researching, testing, and improving the LUMENLENS scope until the
+owner explicitly stops or a real blocker prevents useful progress. Combine it
+with `thermo-nuclear-code-quality-review`, `Recursive App Audit`, `Epistemos
+Release Audit` when release claims matter, Playwright/browser/screenshot
+tooling for visual/editor evidence, and security/threat-model skills where
+permissions, persistence, or data-loss risk warrants it. Keep the loop scoped
+to LUMENLENS seams, tests, evidence, docs, editor fidelity, release risk, and
+regressions; do not absorb KINDRED companion internals, RECKONER dataset
+internals, or KEELSTONE storage ownership beyond named seams.
+
+Before each substantive LUMENLENS batch, keep a scoped owner-intent and
+verification-debt checkpoint in the phase notes: verbatim owner query/excerpt,
+interpreted intent, constraints, non-goals, acceptance checks, deferred
+commands, files touched, risk reason, expected proof, and checkpoint trigger.
+Edit surgically, re-read changed regions after editing, and batch builds/tests
+only at meaningful checkpoints unless risky/shared behavior needs an immediate
+narrow check.
+
 ---
 
 ## REPO REALITY ADDENDUM (verified against the live repo 2026-07-06 — binds like the phase list)
@@ -109,13 +140,14 @@ onto MAS. Don't silently override Epdoc-as-default (validate, note trade-offs).
    download/export actions (dataset → xlsx/CSV via IronCalc; chart → image; chat tab →
    markdown transcript; quarantine → raw bytes) — working exports are part of the L2 bar.
 11. **The Epdoc Notebook (owner-mandated, plan §P-AMEND 11 — new phase L6):** a note hosts tabs
-   (body + RECKONER sheet tabs + KINDRED chat tabs + a "+ new tab" launcher pane). You own the
-   CONTAINER: the Tier-B tab manifest (references only — dataset/session ids; the `.md` stays
+   (body + RECKONER sheet tabs + a "+ new tab" launcher pane; future MAS-June assist references
+   only after separate MAS-safe proof). You own the
+   CONTAINER: the Tier-B tab manifest (references only — dataset/assist ids; the `.md` stays
    sole note truth per KEELSTONE 4.5; legible in vim; Fork-B byte-stable), the tab chrome, the
    launcher, tombstone-tab UX for dangling references, and disclosure integration (tabs surface
-   through the robust popovers on Prose/Source; chat tabs are 1Code-only — degraded+exportable
-   on MAS). Content mounts come from RECKONER (grid, second mount) and KINDRED (K6 minichat) —
-   consume their seams by ID; do not build sheet/chat internals. L6 done-bar per the plan.
+   through the robust popovers on Prose/Source; no 1Code chat-tab runtime ships on MAS).
+   Content mounts come from RECKONER (grid, second mount) and optional future MAS-June assist seams —
+   consume their seams by ID; do not build sheet/assist internals. L6 done-bar per the plan.
 12. **Block-embeds + navigation + enterprise-MD rules (plan §P-AMEND 12 — joins L6):** block-level
    embeds join the outline/TOC (extend the existing `TOCItem` infra) with jump-between +
    click-through; every reference = stable UUID + type + version; unknown types degrade to

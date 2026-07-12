@@ -353,6 +353,34 @@ html, body {
   box-shadow: 0 0 0 1.5px var(--epdoc-chart-amber);
 }
 
+.ProseMirror ins[data-id] {
+  color: inherit;
+  background: color-mix(in srgb, var(--epdoc-chart-teal) 22%, transparent);
+  border-bottom: 1.5px solid color-mix(in srgb, var(--epdoc-chart-teal) 72%, transparent);
+  border-radius: 3px;
+  text-decoration: none;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.ProseMirror del[data-id] {
+  color: color-mix(in srgb, var(--epdoc-text-color) 70%, transparent);
+  background: color-mix(in srgb, var(--epdoc-callout-danger-bg) 82%, transparent);
+  border-radius: 3px;
+  text-decoration-line: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--epdoc-callout-danger-border);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.ProseMirror [data-type="modification"] {
+  outline: 1px solid color-mix(in srgb, var(--epdoc-chart-amber) 64%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--epdoc-chart-amber) 18%, transparent);
+}
+
 .ProseMirror table {
   border-collapse: collapse;
   table-layout: fixed;
@@ -445,6 +473,15 @@ html, body {
 .epdoc-chart-syntax {
   color: var(--epdoc-muted);
   font: 0.72em/1.2 "SF Mono", ui-monospace, monospace;
+}
+.epdoc-chart-provenance {
+  color: var(--epdoc-muted);
+  font: 0.72em/1.2 "SF Mono", ui-monospace, monospace;
+  margin-left: auto;
+  max-width: min(42ch, 48%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .epdoc-chart-preview {
   min-height: 260px;

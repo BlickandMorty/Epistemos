@@ -14,7 +14,9 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     case remoteMCP
     case skillRepo
     case bundledSkills
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     case codexSkills
+    #endif
     case localSkill
     case rawSkill
     case context7
@@ -34,7 +36,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     case extensions
     case vaultMCP
     case browser
-    case browserUse
     case meetingNote
     case voice
     case appleNative
@@ -50,7 +51,9 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .remoteMCP: "Remote MCP"
         case .skillRepo: "Skill Repository"
         case .bundledSkills: "Bundled Skills"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .codexSkills: "Codex Skills"
+        #endif
         case .localSkill: "Local Skill"
         case .rawSkill: "Raw Skill"
         case .context7: "Context7"
@@ -70,7 +73,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .extensions: "Extensions"
         case .vaultMCP: "Vault MCP"
         case .browser: "Browser"
-        case .browserUse: "browser-use Pro"
         case .meetingNote: "Meeting Note"
         case .voice: "Voice"
         case .appleNative: "Apple Native"
@@ -92,7 +94,9 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .remoteMCP, .vaultMCP: "server.rack"
         case .skillRepo: "wand.and.stars"
         case .bundledSkills: "shippingbox"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .codexSkills: "terminal"
+        #endif
         case .localSkill: "folder"
         case .rawSkill: "doc.plaintext"
         case .context7: "book.pages"
@@ -111,7 +115,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .provenance: "checkmark.seal"
         case .extensions: "puzzlepiece.extension"
         case .browser: "safari"
-        case .browserUse: "sparkle.magnifyingglass"
         case .meetingNote: "waveform"
         case .voice: "waveform.and.mic"
         case .appleNative: "apple.logo"
@@ -128,7 +131,9 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .glama: "GL"
         case .github: "GH"
         case .bundledSkills: "BS"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .codexSkills: "CX"
+        #endif
         case .localSkill: "LS"
         case .rawSkill: "MD"
         case .slack: "SL"
@@ -144,9 +149,13 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     var usesMonogramFallback: Bool {
         switch self {
         case .context7, .anthropicSkills, .smithery, .mcpSO, .glama, .github,
-             .bundledSkills, .codexSkills, .localSkill, .rawSkill,
+             .bundledSkills, .localSkill, .rawSkill,
              .slack, .gmail, .googleDrive, .huggingFace, .notion:
             return true
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .codexSkills:
+            return true
+        #endif
         default:
             return false
         }
@@ -167,9 +176,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     static func mcpRegistry(source: String, installKind: String, name: String) -> IntegrationBrand {
-        if isBrowserUse(normalizedHaystack(source, installKind, name)) {
-            return .browserUse
-        }
         let named = installedMCPServer(name: name, host: "")
         if named != .remoteMCP {
             return named
@@ -200,7 +206,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
 
     static func bestOfPreset(kind: String, id: String, displayName: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(id, displayName)
-        if isBrowserUse(haystack) { return .browserUse }
         if haystack.contains("context7") { return .context7 }
         if haystack.contains("anthropic") && haystack.contains("skill") { return .anthropicSkills }
         if isHuggingFace(haystack) { return .huggingFace }
@@ -231,14 +236,15 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
 
     static func skillDiscovery(source: String, identifier: String, category: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(identifier, category)
-        if isBrowserUse(normalizedHaystack(source, identifier, category)) { return .browserUse }
         if isHuggingFace(normalizedHaystack(source, identifier, category)) { return .huggingFace }
         if haystack.contains("anthropic") { return .anthropicSkills }
         if haystack.contains("github") { return .github }
 
         switch normalized(source) {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case "codex":
             return .codexSkills
+        #endif
         case "bundled":
             return .bundledSkills
         default:
@@ -261,11 +267,12 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
 
     static func skillInventory(identifier: String, description: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(identifier, description)
-        if isBrowserUse(haystack) { return .browserUse }
         if isHuggingFace(haystack) { return .huggingFace }
         if haystack.contains("anthropic") { return .anthropicSkills }
         if haystack.contains("github") { return .github }
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         if haystack.contains("codex") { return .codexSkills }
+        #endif
         return .skillRepo
     }
 
@@ -277,7 +284,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case "extensions": .extensions
         case "vaultMCP": .vaultMCP
         case "browser": .browser
-        case "browserUsePro": .browserUse
+        case "browserUsePro": .browser
         case "meetingNote": .meetingNote
         case "voice": .voice
         default: .generic
@@ -286,12 +293,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
 
     private static func normalizedHaystack(_ values: String...) -> String {
         values.map(normalized).joined(separator: " ")
-    }
-
-    private static func isBrowserUse(_ haystack: String) -> Bool {
-        haystack.contains("browser-use")
-            || haystack.contains("browseruse")
-            || haystack.contains("browser use")
     }
 
     private static func isHuggingFace(_ haystack: String) -> Bool {

@@ -172,8 +172,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(readAloud.contains("@State private var downloader = KokoroModelDownloadService.shared"))
         #expect(readAloud.contains("@State private var isShowingKokoroInstallPrompt = false"))
         #expect(readAloud.contains("KokoroVoiceInstallPrompt()"))
-        #expect(readAloud.contains("guard isTextToSpeechInputSupported else { return }"))
+        #expect(readAloud.contains("EpistemosSpeechSynthesizer.logTextToSpeechReadiness("))
+        #expect(readAloud.contains("EpistemosAgentReadAloud.responsiveReadVisibleText("))
         #expect(readAloud.contains("isShowingKokoroInstallPrompt = true\n            return"))
+        #expect(readAloud.contains("EpistemosReadAloudDiagnostics.showInputExcerptToast()"))
         #expect(readAloud.contains("ui.theme.resolved.accent.color"))
         #expect(readAloud.contains("ui.theme.resolved.foreground.color.opacity"))
         #expect(!readAloud.contains(".buttonStyle(.borderless)"))
@@ -289,11 +291,15 @@ struct VoiceCodepackPlan3Tests {
         #expect(preferences.contains("case robot"))
         #expect(preferences.contains("public static let readAloudEffect"))
         #expect(preferences.contains("public var readAloudEffect: VoiceEffect"))
+        #expect(preferences.contains("public nonisolated static var allowsReadAloudEffects"))
+        #expect(preferences.contains("public nonisolated static func shippedReadAloudEffect"))
 
         #expect(synth.contains("effect: VoiceEffect? = nil"))
-        #expect(synth.contains("let selectedVoice = Self.effectiveVoiceIdentifier("))
+        #expect(synth.contains("let selectedVoice = Self.effectiveKokoroVoiceIdentifier("))
         #expect(synth.contains("globalDefault: Self.globalDefaultVoiceIdentifier()"))
-        #expect(synth.contains("let selectedEffect = effect ?? VoicePreferences.shared.readAloudEffect"))
+        #expect(synth.contains("let requestedEffect = effect ?? VoicePreferences.shared.readAloudEffect"))
+        #expect(synth.contains("let selectedEffect = VoicePreferences.shippedReadAloudEffect(requestedEffect)"))
+        #expect(synth.contains("Kokoro TTS using clean MAS effect requested="))
         #expect(synth.contains("applyVoiceEffect("))
         #expect(synth.contains("AmbientFrequencyAudioGenerator.bitCrush"))
         #expect(synth.contains("guard effect != .clean else { return rendered.samples }"))
@@ -302,8 +308,9 @@ struct VoiceCodepackPlan3Tests {
         #expect(agentReadAloud.contains("EpistemosSpeechSynthesizer.globalDefaultVoiceIdentifier()"))
         #expect(agentReadAloud.contains("VoicePreferences.shared.readAloudEffect"))
         #expect(agentReadAloud.contains("EpistemosSpeechSynthesizer.maxTextToSpeechInputCharacters"))
-        #expect(juneBridge.contains("EpistemosAgentReadAloud.speak(text, synthesizer: synth)"))
-        #expect(juneNav.contains("EpistemosAgentReadAloud.speak(text, synthesizer: speech)"))
+        #expect(juneBridge.contains("EpistemosAgentReadAloud.speak(text, synthesizer: synth, surface: .juneLatestAssistantReply)"))
+        #expect(juneNav.contains("EpistemosAgentReadAloud.readVisibleSurface("))
+        #expect(juneNav.contains("preferred: .juneLatestAssistantReply"))
         #expect(experimental.contains("EpistemosAgentReadAloud.speak(text, synthesizer: synth)"))
         #expect(experimental.contains("@State private var kokoroDownloader = KokoroModelDownloadService.shared"))
         #expect(experimental.contains("@State private var showingKokoroInstallPrompt = false"))
@@ -348,20 +355,23 @@ struct VoiceCodepackPlan3Tests {
         #expect(experimental.contains("showingKokoroInstallPrompt = false"))
     }
 
-    @Test("shared read-aloud button exposes effect picker everywhere it is mounted")
-    func sharedReadAloudButtonExposesEffectPickerEverywhereItIsMounted() throws {
+    @Test("shared read-aloud button parks effect picker behind release policy")
+    func sharedReadAloudButtonParksEffectPickerBehindReleasePolicy() throws {
         let readAloud = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ReadAloudButton.swift")
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
 
         #expect(readAloud.contains("@State private var prefs = VoicePreferences.shared"))
         #expect(readAloud.contains("Menu {"))
+        #expect(readAloud.contains("if VoicePreferences.allowsReadAloudEffects"))
         #expect(readAloud.contains("ForEach(VoiceEffect.allCases)"))
         #expect(readAloud.contains("prefs.readAloudEffect = effect"))
         #expect(readAloud.contains("systemImage: prefs.readAloudEffect.systemImage"))
         #expect(readAloud.contains("voiceEffectMenu"))
-        #expect(readAloud.contains("synth.speak(text, voiceIdentifier: voiceIdentifier, rate: rate, pitch: pitch, effect: prefs.readAloudEffect)"))
+        #expect(readAloud.contains("let utteranceID = synth.speak("))
+        #expect(readAloud.contains("EpistemosReadAloudDiagnostics.showFailureToast"))
         #expect(readAloud.contains("Button(\"Effect: \\(prefs.readAloudEffect.label)\""))
 
+        #expect(settings.contains("if VoicePreferences.allowsReadAloudEffects"))
         #expect(settings.contains("Picker(\"Read-aloud filter\", selection: $prefs.readAloudEffect)"))
         #expect(settings.contains("ForEach(VoiceEffect.allCases)"))
     }
@@ -372,17 +382,89 @@ struct VoiceCodepackPlan3Tests {
         let readAloud = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ReadAloudButton.swift")
 
         #expect(epdoc.contains("if !selectedText.isEmpty {"))
-        #expect(epdoc.contains("ReadAloudButton(text: selectedText, style: .icon)"))
+        #expect(epdoc.contains("ReadAloudButton(text: selectedText, style: .icon, surface: .epdocSelection)"))
         #expect(!epdoc.contains("if EpistemosSpeechSynthesizer.isTextToSpeechAvailable(), !selectedText.isEmpty"))
         #expect(!epdoc.contains("EpistemosSpeechSynthesizer.shared.speak(selectedText)"))
-        #expect(readAloud.contains("private var disabled: Bool {\n        !isTextToSpeechInputSupported\n    }"))
+        #expect(readAloud.contains("private var disabled: Bool {\n        false\n    }"))
         #expect(readAloud.contains("KokoroVoiceInstallPresentation.sheetTitle"))
         #expect(readAloud.contains("KokoroVoiceInstallPresentation.installSystemImage"))
         #expect(readAloud.contains(".sheet(isPresented: $isShowingKokoroInstallPrompt)"))
-        #expect(readAloud.contains("guard isTextToSpeechInputSupported else { return }"))
-        #expect(readAloud.contains("guard isTextToSpeechAvailable else {\n            isShowingKokoroInstallPrompt = true\n            return\n        }"))
+        #expect(readAloud.contains("EpistemosSpeechSynthesizer.logTextToSpeechReadiness("))
+        #expect(readAloud.contains("EpistemosReadAloudDiagnostics.showUnavailableToast()"))
+        #expect(readAloud.contains("EpistemosAgentReadAloud.responsiveReadVisibleText("))
+        #expect(readAloud.contains("EpistemosReadAloudDiagnostics.showExcerptToast(surface: surface)"))
+        #expect(readAloud.contains("isShowingKokoroInstallPrompt = true\n            return"))
         #expect(readAloud.contains("guard isTextToSpeechAvailable else { return KokoroVoiceInstallPresentation.unavailableLabel }"))
         #expect(!readAloud.contains("!isTextToSpeechAvailable || !isTextToSpeechInputSupported"))
+    }
+
+    @Test("MAS read visible surface path is native, surface-specific, and not button-only proof")
+    func masReadVisibleSurfacePathIsNativeSurfaceSpecificAndNotButtonOnlyProof() throws {
+        let registry = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosVisibleReadAloud.swift")
+        let helper = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosAgentReadAloud.swift")
+        let readAloud = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ReadAloudButton.swift")
+        let juneSurface = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentSurfaceView.swift")
+        let juneNav = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentNavBar.swift")
+        let juneBridge = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentBridge.swift")
+        let prose = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let epdoc = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocBubbleMenuView.swift")
+        let quickCapture = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
+        let meeting = try loadMirroredSourceTextFile("Epistemos/Views/Meeting/MeetingNoteView.swift")
+        let htmlWorkspace = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
+
+        #expect(registry.contains("enum EpistemosVisibleReadAloudSurface"))
+        for surface in [
+            "case landingHome",
+            "case juneLatestAssistantReply",
+            "case proseNoteBody",
+            "case epdocSelection",
+            "case quickCapture",
+            "case meetingTranscript",
+            "case htmlWorkspaceSource"
+        ] {
+            #expect(registry.contains(surface))
+        }
+        #expect(registry.contains("final class EpistemosVisibleReadAloudRegistry"))
+        #expect(registry.contains("func visibleText("))
+        #expect(registry.contains("enum EpistemosReadAloudDiagnostics"))
+        #expect(registry.contains("AppBootstrap.shared?.uiState.showToast"))
+        #expect(!registry.contains("CGWindowList"))
+        #expect(!registry.contains("screencapture"))
+        #expect(!registry.contains("OCR"))
+
+        #expect(helper.contains("static func readVisibleSurface("))
+        #expect(helper.contains("Read visible surface requested preferred="))
+        #expect(helper.contains("EpistemosVisibleReadAloudRegistry.shared.visibleText"))
+        #expect(helper.contains("maxResponsiveReadVisibleCharacters"))
+        #expect(helper.contains("responsiveReadVisibleText"))
+        #expect(helper.contains("EpistemosReadAloudDiagnostics.showUnavailableToast"))
+        #expect(helper.contains("EpistemosReadAloudDiagnostics.showFailureToast"))
+        #expect(registry.contains("activate: Bool = true"))
+        #expect(registry.contains("showExcerptToast(surface:"))
+        #expect(readAloud.contains("public let surface: EpistemosVisibleReadAloudSurface?"))
+        #expect(readAloud.contains("EpistemosReadAloudDiagnostics.showNoVisibleTextToast(surface: surface)"))
+        #expect(readAloud.contains("EpistemosReadAloudDiagnostics.showUnavailableToast()"))
+        #expect(readAloud.contains("EpistemosSpeechSynthesizer.logTextToSpeechReadiness("))
+        #expect(readAloud.contains("EpistemosAgentReadAloud.responsiveReadVisibleText("))
+
+        #expect(landing.contains("register(.landingHome)"))
+        #expect(landing.contains("landingVisibleReadAloudText()"))
+        #expect(landing.contains("unregister(.landingHome)"))
+        #expect(juneSurface.contains("register(.juneLatestAssistantReply)"))
+        #expect(juneSurface.contains("gateway.visibleAgentSurfaceReadAloudText()"))
+        #expect(juneNav.contains("readVisibleSurface("))
+        #expect(juneBridge.contains("surface: .juneLatestAssistantReply"))
+        #expect(prose.contains("register(.proseNoteBody)"))
+        #expect(prose.contains("currentEditorBody(for: page) ?? persistedBodyFor(page)"))
+        #expect(epdoc.contains("register(.epdocSelection)"))
+        #expect(quickCapture.contains("register(.quickCapture)"))
+        #expect(meeting.contains("register(.meetingTranscript)"))
+        #expect(htmlWorkspace.contains("register(.htmlWorkspaceSource)"))
+        #expect(htmlWorkspace.contains("HTMLWorkspaceReadAloudText.plainVisibleText"))
+        #expect(htmlWorkspace.contains("unregister(.htmlWorkspaceSource)"))
+        #expect(settings.contains("EpistemosAgentReadAloud.speak(preview)"))
     }
 
     @Test("voice diagnostics redact path-leaking external errors")
@@ -435,6 +517,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(settings.contains("KokoroVoiceInstallPresentation.installHelp("))
         #expect(settings.contains("KokoroVoiceInstallPresentation.unavailableLabel"))
         #expect(settings.contains("KokoroVoiceInstallPresentation.installSystemImage"))
+        #expect(settings.contains("accessibilityIdentifier(\"settings.voice.preview.\\(key)\")"))
         #expect(settings.contains("showingKokoroInstallPrompt = true"))
         #expect(settings.contains(".onChange(of: kokoroDownloader.phase)"))
         #expect(settings.contains("showingKokoroInstallPrompt = false"))
@@ -452,8 +535,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(!preferences.contains("system " + "default voice"))
     }
 
-    @Test("model voice picker exposes Personal Voice access on native theme chrome")
-    func modelVoicePickerExposesPersonalVoiceAccessOnNativeThemeChrome() throws {
+    @Test("model voice picker stays Kokoro-only and avoids Apple Personal Voice side effects")
+    func modelVoicePickerStaysKokoroOnlyAndAvoidsApplePersonalVoiceSideEffects() throws {
         let picker = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ModelVoicePickerSection.swift")
         let synth = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
 
@@ -464,15 +547,24 @@ struct VoiceCodepackPlan3Tests {
         #expect(synth.contains("if #available(macOS 14.0, *)"))
         #expect(synth.contains("Shipped text-to-speech remains Kokoro-only"))
         #expect(synth.contains("AVSpeech is not used as a fallback"))
+        #expect(!synth.contains("_ = AVSpeechSynthesisVoice.speechVoices()"))
         #expect(!synth.contains("highest-" + "quality TTS"))
         #expect(!synth.contains("For higher quality" + ", install"))
         #expect(!synth.contains("download an Enhanced" + " or Premium voice"))
         #expect(picker.contains("@Environment(UIState.self)"))
-        #expect(picker.contains("personalVoiceAccessView"))
-        #expect(picker.contains("personalVoiceAuthorization = EpistemosSpeechSynthesizer.personalVoiceAuthorization()"))
-        #expect(picker.contains("await EpistemosSpeechSynthesizer.requestPersonalVoiceAuthorization()"))
+        #expect(picker.contains("EpistemosSpeechSynthesizer.installedEnglishKokoroVoices()"))
+        #expect(picker.contains("normalizeBoundVoiceIdentifier(against: englishVoices)"))
+        #expect(picker.contains("normalizedEnglishKokoroVoiceIdentifier("))
+        #expect(picker.contains("kokoroQualityHint(for: voices)"))
+        #expect(!picker.contains("personalVoiceAccessView"))
+        #expect(!picker.contains("personalVoiceAuthorization"))
+        #expect(!picker.contains("requestPersonalVoiceAuthorization"))
+        #expect(!picker.contains("voiceQualityHint()"))
+        #expect(!picker.contains("AVSpeechUtteranceMinimumSpeechRate"))
+        #expect(!picker.contains("x-apple.systempreferences"))
         #expect(picker.contains("refreshVoicesAndHints()"))
-        #expect(picker.contains("ToolbarCapsuleButton("))
+        #expect(picker.contains("accessibilityIdentifier(\"settings.voice.modelPreview\")"))
+        #expect(picker.contains("logTextToSpeechReadiness(context: \"settings-voice-model-preview\")"))
         #expect(picker.contains("ui.theme.resolved.headingAccent.color"))
         #expect(picker.contains("ui.theme.resolved.mutedForeground.color"))
         #expect(!picker.contains(".buttonStyle(.bordered)"))
@@ -517,7 +609,17 @@ struct VoiceCodepackPlan3Tests {
             "case unavailable",
             "case missingModel",
             "case packageReady",
-            "FeatureGateOverride.resolved(overrideKey: flagName",
+            "FeatureGateOverride.resolved(",
+            "hasInstalledPackageCandidate(",
+            "legacyGateEnabled || installedPackageCandidate",
+            "defaults: UserDefaults = .standard",
+            "defaultStatusCacheLock",
+            "cachedDefaultStatus",
+            "usesDefaultStatusCache(",
+            "computedStatus(",
+            "invalidateDefaultStatusCache()",
+            "replaceDefaultStatusCache(",
+            "Kokoro voice: not installed",
             "modelDirectoryName = \"kokoro-82m-coreml\"",
             "manifestFileName = \"KokoroRuntimeManifest.json\"",
             "hostedManifestFileName = \"HostedManifest.json\"",
@@ -613,6 +715,7 @@ struct VoiceCodepackPlan3Tests {
         let loader = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroCoreMLRuntimeLoader.swift")
         let bridge = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroCoreMLSynthesizer.swift")
         let synthesizer = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
+        let pipeline = try loadMirroredSourceTextFile("LocalPackages/KokoroPipeline/Sources/KokoroPipeline/KokoroPipeline.swift")
         let project = try loadMirroredSourceTextFile("project.yml")
         let appStoreScheme = try loadMirroredSourceTextFile("Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme")
         let experimentalScheme = try loadMirroredSourceTextFile("Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-Experimental.xcscheme")
@@ -643,27 +746,50 @@ struct VoiceCodepackPlan3Tests {
             "CFBooleanGetTypeID",
             "runtimeNotLinked",
             "KokoroCoreMLRuntimeLoader.isLinked",
+            "KokoroCoreMLPipelineCache",
+            "pipelineCache.pipeline(for: resources)",
             "static func renderRawText(",
+            "private static let synthesisExecutionLock = NSLock()",
+            "try Task.checkCancellation()",
+            "for chunk in chunks",
             "rawVocabularyChunks(",
+            "responsiveDurationTokenCeiling = 32",
+            "responsiveDurationTokenLimit(from: resources.durationTokenSizes)",
             "replacementSymbols(for:",
             "return Array(\" percent \").map(String.init)",
             "return Array(\" slash \").map(String.init)",
             "attentionMask",
             "KokoroCoreMLSynthesizer.renderRawText",
+            "withTaskCancellationHandler",
+            "renderTask.cancel()",
             "PcmJoiner.join",
             "AVAudioEngine",
             "AVAudioPlayerNode",
             "scheduleBuffer",
+            "Kokoro TTS render started",
+            "Kokoro TTS render finished",
+            "Kokoro TTS playback started",
+            "Kokoro TTS playback completed",
+            "kokoroFailureUserMessage(error)",
+            "VoiceCapturePresentationBounds.statusMessage(",
             "kokoroProgressTask",
             "startKokoroProgressUpdates(",
             "updateKokoroPlaybackProgress(",
             "playerTime(forNodeTime:",
-            "charactersSpoken: spoken"
+            "charactersSpoken: spoken",
+            "Core ML models are loaded lazily on first use",
+            "private var durationModels: [String: MLModel] = [:]",
+            "private static func loadModel(at url: URL, computeUnits: MLComputeUnits) throws -> MLModel"
         ] {
             let source: String
             if [
                 "static func renderRawText(",
+                "private static let synthesisExecutionLock = NSLock()",
+                "try Task.checkCancellation()",
+                "for chunk in chunks",
                 "rawVocabularyChunks(",
+                "responsiveDurationTokenCeiling = 32",
+                "responsiveDurationTokenLimit(from: resources.durationTokenSizes)",
                 "replacementSymbols(for:",
                 "return Array(\" percent \").map(String.init)",
                 "return Array(\" slash \").map(String.init)",
@@ -674,9 +800,17 @@ struct VoiceCodepackPlan3Tests {
             } else if [
                 "KokoroCoreMLRuntimeLoader.isLinked",
                 "KokoroCoreMLSynthesizer.renderRawText",
+                "withTaskCancellationHandler",
+                "renderTask.cancel()",
                 "AVAudioEngine",
                 "AVAudioPlayerNode",
                 "scheduleBuffer",
+                "Kokoro TTS render started",
+                "Kokoro TTS render finished",
+                "Kokoro TTS playback started",
+                "Kokoro TTS playback completed",
+                "kokoroFailureUserMessage(error)",
+                "VoiceCapturePresentationBounds.statusMessage(",
                 "kokoroProgressTask",
                 "startKokoroProgressUpdates(",
                 "updateKokoroPlaybackProgress(",
@@ -684,6 +818,12 @@ struct VoiceCodepackPlan3Tests {
                 "charactersSpoken: spoken"
             ].contains(required) {
                 source = synthesizer
+            } else if [
+                "Core ML models are loaded lazily on first use",
+                "private var durationModels: [String: MLModel] = [:]",
+                "private static func loadModel(at url: URL, computeUnits: MLComputeUnits) throws -> MLModel"
+            ].contains(required) {
+                source = pipeline
             } else {
                 source = loader
             }
@@ -733,6 +873,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(section.contains("Section(\"Kokoro Voice\")"))
         #expect(section.contains("KokoroVoiceDownloadControls("))
         #expect(section.contains("nonisolated enum KokoroVoiceInstallPresentation"))
+        #expect(section.contains("static let voiceSystemImage = \"waveform\""))
+        #expect(!section.contains("waveform.badge.sparkles"))
         #expect(section.contains("static let sheetTitle = \"Install Kokoro Voice\""))
         #expect(section.contains("static func installHelp(statusMessage: String) -> String"))
         #expect(section.contains("static func installTitle(for tier: KokoroModelDownloadService.Tier) -> String"))
@@ -746,6 +888,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(section.contains("KokoroVoiceInstallPresentation.installHelp(for: selectedDownloadTier)"))
         #expect(section.contains("struct KokoroVoiceInstallPrompt: View"))
         #expect(section.contains("Kokoro read-aloud is ready."))
+        #expect(section.contains("Refresh Kokoro voice status"))
+        #expect(!section.contains("Refresh Pro voice status"))
         #expect(section.contains("Install Starter Voice"))
         #expect(section.contains("Install Highest Quality Voice"))
         #expect(section.contains("private var actionButtonTitle: String"))
@@ -774,9 +918,13 @@ struct VoiceCodepackPlan3Tests {
         #expect(section.contains("startAccessingSecurityScopedResource()"))
         #expect(section.contains("KokoroVoicePackageInstaller.installCheckedPackage"))
         #expect(section.contains("KokoroVoicePackageInstaller.removeInstalledPackage"))
+        #expect(section.contains("logTextToSpeechReadiness(context: \"voice-settings-kokoro-section\")"))
+        #expect(section.contains("logTextToSpeechReadiness(context: \"kokoro-install-prompt\")"))
         #expect(section.contains("packageEvidenceSummary"))
         #expect(section.contains("installedPackageMessage(for:"))
         #expect(section.contains("evidence.settingsSummary"))
+        #expect(installer.contains("KokoroVoiceGateStatus.invalidateDefaultStatusCache()"))
+        #expect(installer.contains("KokoroVoiceGateStatus.replaceDefaultStatusCache("))
         #expect(downloader.contains("case starter"))
         #expect(downloader.contains("case standard"))
         #expect(downloader.contains("case highestQuality"))
@@ -803,6 +951,13 @@ struct VoiceCodepackPlan3Tests {
         #expect(downloader.contains("revision: \"main\""))
         #expect(downloader.contains("requestID: http.value(forHTTPHeaderField: \"X-Request-Id\")"))
         #expect(downloader.contains("checksum verification below still rejects stale or tampered bytes"))
+        #expect(downloader.contains("case byteCountMismatch(path: String, expected: Int64, actual: Int64)"))
+        #expect(downloader.contains("guard actualBytes == expectedBytes else"))
+        #expect(downloader.contains("isSafeRelativeRepositoryPath(path)"))
+        #expect(downloader.contains("isSHA256Hex(digest)"))
+        #expect(downloader.contains("boundedDeclaredTotalBytes("))
+        #expect(downloader.contains("maxDeclaredFileCount"))
+        #expect(downloader.contains("precomposedStringWithCanonicalMapping.lowercased()"))
         #expect(
             !downloader.contains("manifest[\"hf_revision\"]"),
             "Hosted Kokoro manifests can carry stale hf_revision values; downloads must use the resolved main commit."
@@ -848,6 +1003,24 @@ struct VoiceCodepackPlan3Tests {
         #expect(!installer.contains("Process("))
         #expect(!installer.contains("NSTask"))
         #expect(!installer.contains("Python"))
+    }
+
+    @Test("Kokoro remote manifest paths, digests, and byte totals fail closed")
+    func kokoroRemoteManifestValidationFailsClosed() {
+        #expect(KokoroModelDownloadService.isSafeRelativeRepositoryPath("models/model.mlmodelc/weights.bin"))
+        #expect(!KokoroModelDownloadService.isSafeRelativeRepositoryPath("../escape.bin"))
+        #expect(!KokoroModelDownloadService.isSafeRelativeRepositoryPath("/absolute.bin"))
+        #expect(!KokoroModelDownloadService.isSafeRelativeRepositoryPath("models//weights.bin"))
+        #expect(!KokoroModelDownloadService.isSafeRelativeRepositoryPath("models\\weights.bin"))
+
+        #expect(KokoroModelDownloadService.isSHA256Hex(String(repeating: "a", count: 64)))
+        #expect(!KokoroModelDownloadService.isSHA256Hex(String(repeating: "a", count: 63)))
+        #expect(!KokoroModelDownloadService.isSHA256Hex(String(repeating: "z", count: 64)))
+
+        #expect(KokoroModelDownloadService.boundedDeclaredTotalBytes([1, 2, 3], maximum: 6) == 6)
+        #expect(KokoroModelDownloadService.boundedDeclaredTotalBytes([1, 2, 3], maximum: 5) == nil)
+        #expect(KokoroModelDownloadService.boundedDeclaredTotalBytes([Int64.max, 1], maximum: Int64.max) == nil)
+        #expect(KokoroModelDownloadService.boundedDeclaredTotalBytes([0], maximum: 1) == nil)
     }
 
     @Test("voice live smoke exercises Kokoro checked package install removal")
@@ -1050,19 +1223,26 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro gate package-ready detail does not expose the local model root and enables runtime")
-    func kokoroGatePackageReadyDetailDoesNotExposeLocalModelRootAndEnablesRuntime() throws {
+    @Test("Kokoro gate reactivates an installed checked package without a legacy feature override")
+    func kokoroGateReactivatesInstalledCheckedPackageWithoutLegacyOverride() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-ready-\(UUID().uuidString)", isDirectory: true)
         let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let suiteName = "test.kokoro-installed-reactivation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: root)
+        }
 
         try writeValidKokoroPackage(at: modelDirectory)
+        #expect(FeatureGateOverride.value(forKey: KokoroVoiceGateStatus.flagName, defaults: defaults) == nil)
 
         let status = KokoroVoiceGateStatus.status(
-            environment: [KokoroVoiceGateStatus.flagName: "1"],
-            modelRoot: root
+            environment: [:],
+            modelRoot: root,
+            defaults: defaults
         )
 
         #expect(status.isReady)

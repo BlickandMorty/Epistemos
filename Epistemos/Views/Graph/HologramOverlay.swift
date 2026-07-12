@@ -914,9 +914,7 @@ final class HologramOverlay {
         // Commit graph data after the panel is laid out.
         Task { @MainActor [weak self] in
             guard let self, self.graphState.isLoaded else { return }
-            graphView.setGraphMode(0) // global mode
-            graphView.commitGraphData()
-            graphView.lastGraphDataVersion = self.graphState.graphDataVersion
+            graphView.scheduleGraphDataCommitIfNeeded(isPageMode: false)
         }
 
         // Observe system appearance changes.
@@ -1466,6 +1464,10 @@ final class HologramOverlay {
     }
 
     private func startPinnedPanelTimer() {
+        guard graphState.currentRoute.isCanvas else {
+            stopPinnedPanelTimer()
+            return
+        }
         pinnedPanelTimer?.invalidate()
         // Use RunLoop-scheduled timer (fires on main thread directly,
         // no Task hop). Runs at 30fps to keep pinned panels tracking
@@ -1759,6 +1761,7 @@ final class HologramOverlay {
         let transitionDuration: TimeInterval = reduceMotion ? 0 : 0.25
 
         if isCanvas {
+            startPinnedPanelTimer()
             // Returning to canvas — start hidden+transparent, then fade nodes in.
             if let metalView {
                 metalView.alphaValue = 0.0
@@ -1781,6 +1784,9 @@ final class HologramOverlay {
         graphOpenStartTask = nil
         graphState.cancelOverlayPhysicsCycle()
         metalView?.pauseEngine()
+        graphState.selectNode(nil)
+        inspectorState.clearSelection()
+        stopPinnedPanelTimer()
 
         // Leaving canvas (note / folder route) — fade nodes out, then hide.
         let shouldAnimateLeavingCanvas = previousIsCanvas && !reduceMotion
@@ -2316,18 +2322,16 @@ final class HologramOverlay {
                 if case .page = self.graphState.mode { return true }
                 return false
             }()
-            graphView.setGraphMode(isPageMode ? 1 : 0)
-            graphView.commitGraphData()
-
-            // Sync version so render loop doesn't double-commit.
-            graphView.lastGraphDataVersion = self.graphState.graphDataVersion
 
             if isPageMode {
                 if let frame = self.noteWindowFrame {
                     graphView.setAnchorRect(frame)
                 }
-                graphView.zoomInClose()
             }
+            graphView.scheduleGraphDataCommitIfNeeded(
+                isPageMode: isPageMode,
+                zoomToPageAfterCommit: isPageMode
+            )
         }
 
         // Observe system appearance changes so the graph reacts to light/dark mode switches.

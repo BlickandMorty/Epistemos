@@ -1,4 +1,0 @@
-interface:
-  display_name: "ProShell Subprocess Env Hardening"
-  short_description: "Harden Pro-shell child process environments"
-  default_prompt: "Use $proshell-subprocess-env-hardening to harden an Epistemos Pro/OpenChamber subprocess launch seam."

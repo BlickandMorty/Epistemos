@@ -524,7 +524,7 @@ private actor VaultMutationIO {
         )
         try VaultVerifiedFileWriter.writeUTF8(diff.after, to: diff.fileURL)
 
-        #if !EPISTEMOS_APP_STORE
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         try await ensureGitRepository(at: diff.repositoryRootURL)
         _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "add", relativePath], in: diff.repositoryRootURL)
         _ = try await runGitOffMain(
@@ -740,7 +740,7 @@ private actor VaultMutationIO {
     }
 
     private nonisolated func runGitOffMain(arguments: [String], in currentDirectoryURL: URL) async throws -> String {
-        #if !EPISTEMOS_APP_STORE
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let timeoutSeconds = 15.0
         let state = ThrowingProcessContinuationState<String>()
         return try await withTaskCancellationHandler {

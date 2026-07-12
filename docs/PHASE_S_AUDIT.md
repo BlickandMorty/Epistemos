@@ -80,14 +80,28 @@ Practical difference: under (1a) the code genuinely does not exist in the binary
 
 - `NSPrivacyTracking = false` -- no ad/attribution tracking.
 - `NSPrivacyTrackingDomains = []` -- no tracking SDK domains.
-- `NSPrivacyCollectedDataTypes = []` -- zero user-data collection categories.
+- `NSPrivacyCollectedDataTypes` declares the optional, explicit-consent June
+  cloud lane:
+  - `NSPrivacyCollectedDataTypeOtherUserContent` -- linked, not tracking,
+    `NSPrivacyCollectedDataTypePurposeAppFunctionality` (prompts, bounded chat
+    history, approved tool context, and selected vault context sent to the
+    chosen OpenAI or Anthropic API).
+  - `NSPrivacyCollectedDataTypeUserID` -- linked, not tracking,
+    `NSPrivacyCollectedDataTypePurposeAppFunctionality` (the provider account
+    identity represented by the user-supplied API key).
 - `NSPrivacyAccessedAPITypes` -- 4 required-reason APIs declared:
-  - `NSPrivacyAccessedAPICategoryFileTimestamp` / reason `C617.1` (display timestamps to user).
+  - `NSPrivacyAccessedAPICategoryFileTimestamp` / reasons `C617.1` (app-container files) and `3B52.1` (files or directories the user specifically grants access to).
   - `NSPrivacyAccessedAPICategorySystemBootTime` / reason `35F9.1` (measure elapsed time for a user interaction).
   - `NSPrivacyAccessedAPICategoryDiskSpace` / reason `E174.1` (show storage info to user).
   - `NSPrivacyAccessedAPICategoryUserDefaults` / reason `CA92.1` (read/write app-local defaults).
 
-**Audit result:** manifest is minimal and App-Store-submission-ready. Any future code path that calls a fifth required-reason API must be added here with a valid reason code at the time the call lands.
+**Audit result:** the source manifest now matches the active direct-provider
+architecture and Apple's definition of retained off-device collection. Local
+Apple/GGUF/Kokoro use transmits none of these data types. App Store Connect
+privacy answers must match these two non-tracking App Functionality categories,
+and a current exact archive must prove the bundled manifest before submission.
+Any future code path that calls a fifth required-reason API must be added here
+with a valid reason code at the time the call lands.
 
 ---
 

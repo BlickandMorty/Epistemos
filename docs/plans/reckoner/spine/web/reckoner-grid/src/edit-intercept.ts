@@ -9,8 +9,8 @@
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // ID: EPI-RP-09-RECKONER · Codename: RECKONER
 // Every mutation that can change a cell value routes through IronCalc. Univer's
-// command system is the interception boundary: onBeforeCommandExecute can cancel
-// by throwing (Univer docs demonstrate read-only sheets this way).
+// command system is the interception boundary: use the pinned addEvent
+// Event.BeforeCommandExecute path and prove its cancel behavior at R0.
 // OPEN QUESTION OQ-3 (hard-constraint-2 risk): the command allowlist below must
 // be EXHAUSTIVELY enumerated — paste, fill/autofill, cut, clear, structural
 // row/col ops. A single missed command = a value trusted from Univer = breach.
@@ -28,11 +28,11 @@ export const VALUE_MUTATING_COMMANDS = new Set<string>([
 ]);
 
 export function installEditIntercept(univerAPI: FUniver): void {
-  univerAPI.onBeforeCommandExecute((command) => {
+  univerAPI.addEvent(univerAPI.Event.BeforeCommandExecute, (command: { id: string; params?: unknown }) => {
     if (isSuppressed()) return;                          // paint-back re-entry guard
     if (!VALUE_MUTATING_COMMANDS.has(command.id)) return;
     const intent = extractIntent(command);               // raw value or "=formula"
-    if (intent === null) return;
+    if (intent === null) throw new CancelledByReckoner("Unparsed value mutation");
     // Cancel Univer's own commit for computed content; RECKONER owns the commit path.
     routeToCalc(intent);                                 // → IronCalc → GRDB → paint-back
     throw new CancelledByReckoner();                     // throwing cancels the command

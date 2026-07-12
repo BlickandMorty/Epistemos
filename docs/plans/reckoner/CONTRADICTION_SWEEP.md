@@ -4,11 +4,11 @@ Cycle-3 coherence pass. Each item: the potential contradiction, verdict, resolut
 
 **1. Bridge/epoch model.** A grid load emitting change/autosave would break the locked load-vs-edit invariant. Real risk — resolved: loads run inside GridLoadEpoch with a suppression window; paint-back is re-entry guarded (`paint-back.ts`, `GridBridge.swift`). Phase-2 done-bar witnesses zero events on load.
 
-**2. Suggestion schema fork.** Inventing a tabular provenance schema would fracture the ledger. Resolved: `tabular_suggestion.rs` reuses author/turn/ranges/before-after/rationale/source/accept-state field-for-field, ranges as A1. No parallel schema exists anywhere in the spine.
+**2. Suggestion schema fork.** Inventing a tabular provenance schema would fracture the ledger. Resolved after audit amendment: `tabular_suggestion.rs` now follows the locked LUMENLENS shape with typed `Author`, `AcceptState {Pending, Accepted, Rejected}`, `updated_at_ms`, and append-only staged/resolved events; ranges stay A1 as RECKONER's payload form. No parallel schema exists anywhere in the spine.
 
-**3. Presence channel fork.** A separate grid-presence channel would double the truth. Resolved: `ReckonerRunState.swift` publishes onto the existing companion bus, maps onto the existing run-state enum, invents no states.
+**3. Presence channel fork.** A separate grid-presence channel would double the truth. Amended by the 2026-07-07 MAS-only pivot: companion presence is parked; MAS-safe status/provenance must derive from real June/agent_core state and invent no new channel.
 
-**4. Gating leak.** Grid presence on MAS would violate the both-builds rule. Resolved: all presence behind KINDRED_ENABLED; June invokes identical tools with no presence (`dataset_ops.rs` run_in_process vs run_streamed). Phase-5 bar: zero presence symbols in the MAS build.
+**4. Gating leak.** Grid presence on MAS would violate the MAS-only rule. Resolution: do not activate Kindred presence; June invokes identical tools with no presence, and the phase bar is zero presence/Kindred symbols in the MAS build.
 
 **5. Vault-truth inversion.** GRDB-as-authority would violate F1. Resolved in cycle 2: CSV (flat) / XLSX-.icalc (workbook) in the vault is truth; GRDB is derived cache (`VaultArtifact.swift`, `DatasetStore.swift` headers state it).
 

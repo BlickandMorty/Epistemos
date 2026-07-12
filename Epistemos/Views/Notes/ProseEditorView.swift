@@ -40,6 +40,7 @@ struct ProseEditorView: View {
     let initialBodyOverride: String?
     let navigationContext: ProseEditorNavigationContext
     let themeOverride: EpistemosTheme?
+    let onEditStarted: @MainActor () -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Environment(UIState.self) private var ui
@@ -74,13 +75,15 @@ struct ProseEditorView: View {
         isEditable: Bool = true,
         initialBodyOverride: String? = nil,
         navigationContext: ProseEditorNavigationContext = .notes,
-        themeOverride: EpistemosTheme? = nil
+        themeOverride: EpistemosTheme? = nil,
+        onEditStarted: @escaping @MainActor () -> Void = {}
     ) {
         self.page = page
         self.isEditable = isEditable
         self.initialBodyOverride = initialBodyOverride
         self.navigationContext = navigationContext
         self.themeOverride = themeOverride
+        self.onEditStarted = onEditStarted
         if let initialBodyOverride {
             let body = Self.stripOrphanedInlineAIResponse(in: initialBodyOverride, page: page)
             _bodyText = State(initialValue: body)
@@ -107,7 +110,10 @@ struct ProseEditorView: View {
         guard lastAutoReadNoteId != noteId else { return }
         lastAutoReadNoteId = noteId
         guard VoicePreferences.shared.noteReadAloud == .auto, body.count > 500 else { return }
-        _ = EpistemosSpeechSynthesizer.shared.speak(MarkdownRippleTextExtractor.displayText(from: body))
+        _ = EpistemosAgentReadAloud.speak(
+            MarkdownRippleTextExtractor.displayText(from: body),
+            surface: .proseNoteBody
+        )
     }
 
     private static func stripOrphanedInlineAIResponse(in body: String, page: SDPage) -> String {
@@ -374,6 +380,7 @@ struct ProseEditorView: View {
         .onChange(of: bodyText) { _, newValue in
             guard loadedBodyPageId == page.id else { return }
             guard newValue != lastPersistedBody else { return }
+            onEditStarted()
             debouncedSave(newValue)
             scheduleDraftWrite(newValue)  // NOTE-4: crash-recovery draft on a shorter debounce
         }
@@ -498,16 +505,8 @@ struct ProseEditorView: View {
             guard newValue != lastPersistedBody else {
                 return
             }
-            Self.syncNoteTitleIfNeeded(
-                from: newValue,
-                for: page,
-                modelContext: modelContext
-            ) { pageId, newTitle in
-                vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
-            }
-            page.applyInteractiveDerivedState(from: newValue)
             // Vault write FIRST — the .md file is source of truth. Must complete before
-            // modelContext.save() so any @Query cascade reads correct content.
+            // local view bookkeeping advances, so service-owned metadata work runs once.
             guard await vaultSync.savePageBodyFileFirst(pageId: pageId, body: newValue) else {
                 Self.log.error("Failed to persist editor body for \(pageId, privacy: .public); keeping model state unchanged")
                 withAnimation { saveError = true }  // NOTE-8: surface the disk-write failure
@@ -515,12 +514,8 @@ struct ProseEditorView: View {
             }
             if saveError { withAnimation { saveError = false } }  // NOTE-8: durable write recovered
             if externalChangeDeferred { withAnimation { externalChangeDeferred = false } }  // NOTE-3: conflict resolved (our version is now durable)
-            scheduleBlockMirrorSync(pageId: pageId, body: newValue)
             lastPersistedBody = newValue
-            NoteDraftStore.delete(pageId: pageId)  // NOTE-4: durable body is current; clear the crash draft
-            // Metadata persists after the vault write so loadBody() returns the new content
-            // if @Query refetch triggers view re-evaluation.
-            saveModelContext(reason: "debounced save for page \(pageId)")
+            _ = NoteDraftStore.deleteIfMatching(pageId: pageId, durableBody: newValue)
             // NOTE-5: periodic version snapshot for prose-only editing — the code-editor path
             // captures versions but prose didn't, leaving prose users with no recovery
             // history. Throttled to ~90s (captureVersionIfNeeded self-dedups on unchanged body).
@@ -533,11 +528,7 @@ struct ProseEditorView: View {
             // sibling reloads it (reads DISK via preferDisk), a DIRTY sibling defers and keeps
             // its edits (NOTE-3 guard). Our own editor no-ops via the skip-unchanged guard
             // (disk == our just-saved bodyText), so this can't loop.
-            NotificationCenter.default.post(
-                name: NoteFileStorage.pageBodyDidChange,
-                object: nil,
-                userInfo: ["pageId": pageId]
-            )
+            NoteFileStorage.notifyLocalBodySaved(pageId: pageId, body: newValue)
         }
     }
 

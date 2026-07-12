@@ -55,8 +55,12 @@ nonisolated struct GGUFCatalogEntry: Sendable, Equatable, Identifiable {
     let subtitle: String
     /// Hugging Face repo the GGUF is fetched from.
     let huggingFaceRepo: String
+    /// Immutable repository commit containing the selected model bytes.
+    let revision: String
     /// Exact filename inside the repo (also the on-disk name).
     let fileName: String
+    /// Pinned Hugging Face LFS object digest for the exact file.
+    let sha256: String
     let approxDownloadBytes: Int64
     /// FP16 KV cache bytes per context token (drives the window math).
     let kvBytesPerToken: Int
@@ -70,14 +74,7 @@ nonisolated struct GGUFCatalogEntry: Sendable, Equatable, Identifiable {
     let isDefaultDownload: Bool
 
     var downloadURL: URL {
-        URL(string: "https://huggingface.co/\(huggingFaceRepo)/resolve/main/\(fileName)?download=true")!
-    }
-
-    /// HF LFS metadata endpoint that carries the file's published sha256
-    /// (checksum pinned at download time from the same origin, verified
-    /// before install; delete-on-corrupt).
-    var metadataURL: URL {
-        URL(string: "https://huggingface.co/api/models/\(huggingFaceRepo)/tree/main?recursive=false")!
+        URL(string: "https://huggingface.co/\(huggingFaceRepo)/resolve/\(revision)/\(fileName)?download=true")!
     }
 }
 
@@ -85,8 +82,8 @@ nonisolated enum GGUFModelCatalog {
     /// §9.1 MAS catalog: permissive-license, single-file instruct/chat GGUFs
     /// only. Exact file sizes/licenses were checked against the Hugging Face API
     /// on 2026-07-05; Llama 3.x is deliberately excluded because its custom
-    /// Llama license is not Apache/MIT/permissive. TinyLlama Chat is the
-    /// permissive Llama-family instruct row.
+    /// Llama license is not Apache/MIT/permissive. Keep this to the three local
+    /// models already proven through June instead of expanding the picker.
     static let entries: [GGUFCatalogEntry] = [
         GGUFCatalogEntry(
             id: "qwen3-4b-instruct-q4km",
@@ -96,7 +93,9 @@ nonisolated enum GGUFModelCatalog {
             // publishes the single-file Q4_K_M here; the "-Instruct-2507-GGUF"
             // variant is community-only and would 404.
             huggingFaceRepo: "Qwen/Qwen3-4B-GGUF",
+            revision: "bc640142c66e1fdd12af0bd68f40445458f3869b",
             fileName: "Qwen3-4B-Q4_K_M.gguf",
+            sha256: "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
             approxDownloadBytes: 2_497_280_256,
             kvBytesPerToken: 147_456,
             minimumPhysicalMemoryGB: 8,
@@ -111,7 +110,9 @@ nonisolated enum GGUFModelCatalog {
             displayName: "Qwen3 8B Instruct",
             subtitle: "Stronger answers — the 7B-class flagship",
             huggingFaceRepo: "Qwen/Qwen3-8B-GGUF",
+            revision: "7c41481f57cb95916b40956ab2f0b139b296d974",
             fileName: "Qwen3-8B-Q4_K_M.gguf",
+            sha256: "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
             approxDownloadBytes: 5_027_783_488,
             kvBytesPerToken: 147_456,
             minimumPhysicalMemoryGB: 16,
@@ -130,43 +131,15 @@ nonisolated enum GGUFModelCatalog {
             // bartowski publishes a verified single-file Q4_K_M (Apache-2.0
             // weights, MIT quant tooling). Verified 2026-07-03 via HF API.
             huggingFaceRepo: "bartowski/Qwen2.5-7B-Instruct-GGUF",
+            revision: "8911e8a47f92bac19d6f5c64a2e2095bd2f7d031",
             fileName: "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+            sha256: "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423",
             approxDownloadBytes: 4_683_074_240,
             kvBytesPerToken: 57_344,
             minimumPhysicalMemoryGB: 16,
             estimatedWorkingSetGB: 6.8,
             defaultContextTokens: 32_768,
             template: .chatML,
-            license: "Apache-2.0",
-            isDefaultDownload: false
-        ),
-        GGUFCatalogEntry(
-            id: "phi-3.5-mini-instruct-q4km",
-            displayName: "Phi-3.5 Mini Instruct",
-            subtitle: "Compact Microsoft instruct model — fast reasoning with higher KV memory",
-            huggingFaceRepo: "bartowski/Phi-3.5-mini-instruct-GGUF",
-            fileName: "Phi-3.5-mini-instruct-Q4_K_M.gguf",
-            approxDownloadBytes: 2_393_232_672,
-            kvBytesPerToken: 393_216,
-            minimumPhysicalMemoryGB: 16,
-            estimatedWorkingSetGB: 6.3,
-            defaultContextTokens: 8_192,
-            template: .phi3,
-            license: "MIT",
-            isDefaultDownload: false
-        ),
-        GGUFCatalogEntry(
-            id: "tinyllama-1.1b-chat-q4km",
-            displayName: "TinyLlama 1.1B Chat",
-            subtitle: "Smallest permissive Llama-family chat model — fastest download",
-            huggingFaceRepo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
-            fileName: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
-            approxDownloadBytes: 668_788_096,
-            kvBytesPerToken: 22_528,
-            minimumPhysicalMemoryGB: 8,
-            estimatedWorkingSetGB: 1.2,
-            defaultContextTokens: 2_048,
-            template: .llamaChat,
             license: "Apache-2.0",
             isDefaultDownload: false
         ),
@@ -194,10 +167,21 @@ nonisolated enum GGUFModelCatalog {
         return directory
     }
 
-    static func installedURL(for entry: GGUFCatalogEntry) -> URL? {
+    static func unverifiedModelURL(for entry: GGUFCatalogEntry) -> URL? {
         guard let directory = try? modelsDirectory() else { return nil }
         let url = directory.appendingPathComponent(entry.fileName)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    static func installedURL(for entry: GGUFCatalogEntry) -> URL? {
+        guard let url = unverifiedModelURL(for: entry),
+              QuickChatModelDownloadManager.hasValidVerificationReceipt(
+                  for: entry,
+                  modelURL: url
+              ) else {
+            return nil
+        }
+        return url
     }
 
     static func installedEntries() -> [GGUFCatalogEntry] {

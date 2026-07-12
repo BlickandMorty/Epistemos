@@ -504,6 +504,20 @@ struct GraphWorkspaceRouteOpenNodeDispatchTests {
         #expect(source.contains("Open Document"),
                 "Document graph nodes need an explicit editable .epdoc action instead of falling through to idea-style selection.")
     }
+
+    @Test("Metal graph node menu routes note-like nodes to editable graph pages")
+    func nodeMenuRoutesNoteLikeNodesToEditableGraphPages() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/MetalGraphView.swift"
+        )
+
+        #expect(source.contains("GraphSurfaceInlineEditability.opensInlineToday(node.type)"))
+        #expect(source.contains("@objc private func contextOpenNode"))
+        #expect(source.contains("graphState?.openNode(nodeId)"))
+        #expect(source.contains("graphState?.openNode(uuid)"))
+        #expect(!source.contains("graphState?.requestEditorMode = true\n        graphState?.selectNode(uuid)"),
+                "Graph edit actions must open the editable route, not swap the inspector into read-only preview mode.")
+    }
 }
 
 @Suite("Graph Workspace Route — Change Notification")

@@ -38,9 +38,12 @@ public struct ReadAloudButton: View {
     public let rate: Float
     public let pitch: Float
     public let style: Style
+    public let surface: EpistemosVisibleReadAloudSurface?
 
     @State private var synth = EpistemosSpeechSynthesizer.shared
     @State private var prefs = VoicePreferences.shared
+    @State private var downloader = KokoroModelDownloadService.shared
+    @State private var isShowingKokoroInstallPrompt = false
     @Environment(UIState.self) private var ui
 
     public init(
@@ -48,13 +51,15 @@ public struct ReadAloudButton: View {
         voiceIdentifier: String? = nil,
         rate: Float = AVSpeechUtteranceDefaultSpeechRate,
         pitch: Float = 1.0,
-        style: Style = .icon
+        style: Style = .icon,
+        surface: EpistemosVisibleReadAloudSurface? = nil
     ) {
         self.text = text
         self.voiceIdentifier = voiceIdentifier
         self.rate = rate
         self.pitch = pitch
         self.style = style
+        self.surface = surface
     }
 
     public var body: some View {
@@ -64,6 +69,15 @@ public struct ReadAloudButton: View {
             voiceEffectMenu
         }
         .contextMenu { contextActions }
+        .sheet(isPresented: $isShowingKokoroInstallPrompt) {
+            KokoroVoiceInstallPrompt()
+                .environment(ui)
+        }
+        .onChange(of: downloader.phase) { _, newPhase in
+            if case .installed = newPhase, isTextToSpeechAvailable {
+                isShowingKokoroInstallPrompt = false
+            }
+        }
     }
 
     @ViewBuilder
@@ -110,19 +124,27 @@ public struct ReadAloudButton: View {
 
     @ViewBuilder
     private var contextActions: some View {
-        Button("Effect: \(prefs.readAloudEffect.label)", systemImage: prefs.readAloudEffect.systemImage) {}
-            .disabled(true)
-        ForEach(VoiceEffect.allCases) { effect in
-            Button(effect.label, systemImage: effect == prefs.readAloudEffect ? "checkmark" : effect.systemImage) {
-                prefs.readAloudEffect = effect
+        if VoicePreferences.allowsReadAloudEffects {
+            Button("Effect: \(prefs.readAloudEffect.label)", systemImage: prefs.readAloudEffect.systemImage) {}
+                .disabled(true)
+            ForEach(VoiceEffect.allCases) { effect in
+                Button(effect.label, systemImage: effect == prefs.readAloudEffect ? "checkmark" : effect.systemImage) {
+                    prefs.readAloudEffect = effect
+                }
             }
+            Divider()
         }
-        Divider()
 
-        if !isTextToSpeechAvailable {
-            Text(EpistemosSpeechSynthesizer.textToSpeechStatusMessage())
-        } else if !isTextToSpeechInputSupported {
+        if !isTextToSpeechInputSupported {
             Text(EpistemosSpeechSynthesizer.textToSpeechStatusMessage(for: text))
+        } else if !isTextToSpeechAvailable {
+            Text(EpistemosSpeechSynthesizer.textToSpeechStatusMessage())
+            Button(
+                KokoroVoiceInstallPresentation.sheetTitle,
+                systemImage: KokoroVoiceInstallPresentation.installSystemImage
+            ) {
+                isShowingKokoroInstallPrompt = true
+            }
         } else if synth.state.isActive {
             Button("Stop", systemImage: "stop.fill") { synth.stop() }
             switch synth.state {
@@ -140,28 +162,31 @@ public struct ReadAloudButton: View {
         }
     }
 
+    @ViewBuilder
     private var voiceEffectMenu: some View {
-        Menu {
-            ForEach(VoiceEffect.allCases) { effect in
-                Button(effect.label, systemImage: effect == prefs.readAloudEffect ? "checkmark" : effect.systemImage) {
-                    prefs.readAloudEffect = effect
+        if VoicePreferences.allowsReadAloudEffects {
+            Menu {
+                ForEach(VoiceEffect.allCases) { effect in
+                    Button(effect.label, systemImage: effect == prefs.readAloudEffect ? "checkmark" : effect.systemImage) {
+                        prefs.readAloudEffect = effect
+                    }
                 }
+            } label: {
+                Image(systemName: prefs.readAloudEffect.systemImage)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(ui.theme.resolved.mutedForeground.color)
+                    .frame(width: 28, height: 28)
+                    .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             }
-        } label: {
-            Image(systemName: prefs.readAloudEffect.systemImage)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(ui.theme.resolved.mutedForeground.color)
-                .frame(width: 28, height: 28)
-                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .help("Read-aloud filter: \(prefs.readAloudEffect.label)")
+            .accessibilityLabel("Read-aloud filter: \(prefs.readAloudEffect.label)")
         }
-        .help("Read-aloud filter: \(prefs.readAloudEffect.label)")
-        .accessibilityLabel("Read-aloud filter: \(prefs.readAloudEffect.label)")
     }
 
     // MARK: - Derived
 
     private var disabled: Bool {
-        !isTextToSpeechAvailable || !isTextToSpeechInputSupported
+        false
     }
 
     private var isActive: Bool { synth.state.isActive }
@@ -192,6 +217,7 @@ public struct ReadAloudButton: View {
     }
 
     private var glyph: String {
+        guard isTextToSpeechAvailable else { return KokoroVoiceInstallPresentation.installSystemImage }
         switch synth.state {
         case .idle:    return "speaker.wave.2"
         case .speaking: return "pause.circle.fill"
@@ -200,7 +226,7 @@ public struct ReadAloudButton: View {
     }
 
     private var label: String {
-        guard isTextToSpeechAvailable else { return "TTS unavailable" }
+        guard isTextToSpeechAvailable else { return KokoroVoiceInstallPresentation.unavailableLabel }
         switch synth.state {
         case .idle:     return "Speak"
         case .speaking: return "Pause"
@@ -210,10 +236,12 @@ public struct ReadAloudButton: View {
 
     private var help: String {
         guard isTextToSpeechAvailable else {
-            return EpistemosSpeechSynthesizer.textToSpeechStatusMessage()
+            return KokoroVoiceInstallPresentation.installHelp(
+                statusMessage: EpistemosSpeechSynthesizer.textToSpeechStatusMessage()
+            )
         }
         guard isTextToSpeechInputSupported else {
-            return EpistemosSpeechSynthesizer.textToSpeechStatusMessage(for: text)
+            return "Read aloud the first supported passage"
         }
         switch synth.state {
         case .idle:     return "Read aloud"
@@ -225,7 +253,6 @@ public struct ReadAloudButton: View {
     // MARK: - Action
 
     private func toggle() {
-        guard isTextToSpeechAvailable, isTextToSpeechInputSupported else { return }
         switch synth.state {
         case .idle:
             speakCurrentText()
@@ -237,16 +264,61 @@ public struct ReadAloudButton: View {
     }
 
     private func speakCurrentText() {
-        synth.speak(text, voiceIdentifier: voiceIdentifier, rate: rate, pitch: pitch, effect: prefs.readAloudEffect)
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else {
+            EpistemosReadAloudDiagnostics.showNoVisibleTextToast(surface: surface)
+            return
+        }
+        EpistemosSpeechSynthesizer.logTextToSpeechReadiness(
+            context: surface?.rawValue ?? "read-aloud-button"
+        )
+        guard EpistemosSpeechSynthesizer.isTextToSpeechAvailable() else {
+            EpistemosReadAloudDiagnostics.showUnavailableToast()
+            isShowingKokoroInstallPrompt = true
+            return
+        }
+
+        var speechText = cleaned
+        if !EpistemosSpeechSynthesizer.isTextToSpeechInputSupported(cleaned) {
+            let prepared = EpistemosAgentReadAloud.responsiveReadVisibleText(
+                cleaned,
+                surface: surface
+            )
+            speechText = prepared.text
+            if let surface {
+                EpistemosReadAloudDiagnostics.showExcerptToast(surface: surface)
+            } else {
+                EpistemosReadAloudDiagnostics.showInputExcerptToast()
+            }
+        }
+
+        guard EpistemosSpeechSynthesizer.isTextToSpeechInputSupported(speechText) else {
+            EpistemosReadAloudDiagnostics.showUnavailableToast(
+                EpistemosSpeechSynthesizer.textToSpeechStatusMessage(for: speechText)
+            )
+            return
+        }
+        let utteranceID = synth.speak(
+            speechText,
+            voiceIdentifier: voiceIdentifier,
+            rate: rate,
+            pitch: pitch,
+            effect: prefs.readAloudEffect
+        )
+        if utteranceID != nil {
+            EpistemosReadAloudDiagnostics.showQueuedToast(surface: surface)
+        } else {
+            EpistemosReadAloudDiagnostics.showFailureToast("Kokoro read-aloud could not start. Check Settings > Voice.")
+        }
     }
 }
 
 #if DEBUG
 #Preview("ReadAloudButton — three styles") {
     VStack(spacing: 12) {
-        ReadAloudButton(text: "Wave 9 lands AVSpeechSynthesizer.")
+        ReadAloudButton(text: "Kokoro read-aloud is installable from this button.")
         ReadAloudButton(
-            text: "Wave 9 lands AVSpeechSynthesizer with per-model voices.",
+            text: "Kokoro read-aloud stays local and model-gated.",
             style: .labeled
         )
         ReadAloudButton(

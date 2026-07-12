@@ -7,6 +7,9 @@ struct AppStoreJuneSubstrateHardeningTests {
     func appStoreJuneModelCatalogKeepsLocalChatAndCloudThinkingHonest() throws {
         let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
         let source = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentModelCatalog.swift")
+        let ggufCatalog = try loadMirroredSourceTextFile("Epistemos/QuickChat/GGUFModelCatalog.swift")
+        let ggufBackend = try loadMirroredSourceTextFile("Epistemos/QuickChat/LocalGGUFQuickChatBackend.swift")
+        let ggufDownloads = try loadMirroredSourceTextFile("Epistemos/QuickChat/QuickChatModelDownloadManager.swift")
         let inference = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
         let modelsPayload = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: source,
@@ -18,6 +21,46 @@ struct AppStoreJuneSubstrateHardeningTests {
             modelsPayload.contains(#""capabilities": [String](),"#),
             "MAS local Apple/GGUF rows must stay chat-tier and must not advertise tool/function-calling capabilities."
         )
+        #expect(ggufCatalog.components(separatedBy: "GGUFCatalogEntry(").count - 1 == 3)
+        #expect(ggufCatalog.contains(#"id: "qwen3-4b-instruct-q4km""#))
+        #expect(ggufCatalog.contains(#"id: "qwen3-8b-q4km""#))
+        #expect(ggufCatalog.contains(#"id: "qwen2.5-7b-instruct-q4km""#))
+        #expect(!ggufCatalog.contains("phi-3.5-mini-instruct-q4km"))
+        #expect(!ggufCatalog.contains("tinyllama-1.1b-chat-q4km"))
+        #expect(ggufCatalog.contains("let revision: String"))
+        #expect(ggufCatalog.contains("let sha256: String"))
+        #expect(ggufCatalog.contains(#"revision: "bc640142c66e1fdd12af0bd68f40445458f3869b""#))
+        #expect(ggufCatalog.contains(#"sha256: "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5""#))
+        #expect(ggufCatalog.contains(#"revision: "7c41481f57cb95916b40956ab2f0b139b296d974""#))
+        #expect(ggufCatalog.contains(#"sha256: "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785""#))
+        #expect(ggufCatalog.contains(#"revision: "8911e8a47f92bac19d6f5c64a2e2095bd2f7d031""#))
+        #expect(ggufCatalog.contains(#"sha256: "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423""#))
+        #expect(ggufCatalog.contains("resolve/\\(revision)/\\(fileName)"))
+        #expect(!ggufCatalog.contains("resolve/main"))
+        #expect(ggufDownloads.contains("let expected = entry.sha256"))
+        #expect(!ggufDownloads.contains("fetchPublishedSHA256"))
+        #expect(ggufDownloads.contains("private struct VerificationReceipt: Codable"))
+        #expect(ggufDownloads.contains("verifyExistingModel(entry, at: candidate)"))
+        #expect(ggufDownloads.contains("case .installed, .downloading, .verifying:"))
+        #expect(ggufDownloads.contains("guard byteCount == entry.approxDownloadBytes else"))
+        #expect(ggufDownloads.contains("totalBytesWritten > entry.approxDownloadBytes"))
+        let progressDelegate = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: ggufDownloads,
+            startingAt: "didWriteData bytesWritten: Int64,",
+            endingBefore: "nonisolated func urlSession(\n        _ session: URLSession,\n        task: URLSessionTask,"
+        ))
+        let progressEntry = try #require(progressDelegate.range(of: "guard let entryID = downloadTask.taskDescription else"))
+        let absoluteCap = try #require(progressDelegate.range(of: "totalBytesWritten > entry.approxDownloadBytes"))
+        let progressLengthGate = try #require(progressDelegate.range(of: "guard totalBytesExpectedToWrite > 0 else"))
+        #expect(progressEntry.lowerBound < absoluteCap.lowerBound)
+        #expect(absoluteCap.lowerBound < progressLengthGate.lowerBound)
+        #expect(ggufDownloads.contains("if case .failed = states[entryID]"))
+        #expect(ggufDownloads.contains("resumeData[entryID] = nil"))
+        #expect(ggufCatalog.contains("static func unverifiedModelURL(for entry: GGUFCatalogEntry)"))
+        #expect(ggufCatalog.contains("QuickChatModelDownloadManager.hasValidVerificationReceipt("))
+        #expect(ggufBackend.contains("private let engine = LlamaLocalChatEngine()"))
+        #expect(ggufBackend.contains("var isAvailableInThisBuild: Bool { true }"))
+        #expect(!ggufBackend.contains("Retired local GGUF backend"))
         #expect(
             modelsPayload.contains(#""compact-context""#),
             "MAS local rows must carry the compact-context trait so Prompt Forge/UI can optimize for lower context windows."
@@ -36,23 +79,39 @@ struct AppStoreJuneSubstrateHardeningTests {
                 && source.contains("model.supportsNativeReasoningEffortControl")
                 && source.contains("private static func genericCloudCapabilities(")
                 && source.contains(#""capabilities": genericCloudCapabilities(preferredConfiguredCloudModel)"#)
-                && gateway.contains("preferredConfiguredCloudModel()?.rawValue")
+                && gateway.contains("preferredCachedConfiguredCloudModel()?.rawValue")
                 && source.contains(#"return ["supportsFunctionCalling"]"#),
             "June cloud model rows must expose thinking/reasoning from the Swift model truth source, not from descriptive copy."
         )
         #expect(
-            gateway.contains("preferredConfiguredCloudModelID() ?? JuneModelID.cloud")
-                && gateway.contains("first send fails honestly with cloudNotConfigured")
+            gateway.contains("preferredCachedConfiguredCloudModelID() ?? preferredLocalDefaultModelID() ?? JuneModelID.cloud")
+                && gateway.contains("AppleFMQuickChatBackend.unavailability() == nil ? JuneModelID.appleFM : nil")
+                && gateway.contains("clean App Store installs either produce an answer or surface one clear")
                 && !gateway.contains("Best runnable local lane first"),
-            "June's MAS default must stay cloud-first; local chat is the secondary privacy/offline lane and must not be the silent default."
+            "June's MAS default must use configured cloud first, then a runnable Apple Intelligence lane, with a clear cloud/configuration fallback."
+        )
+        #expect(
+            gateway.contains("hasCachedCloudAccess(for: provider)")
+                && gateway.contains("cachedConfiguredCloudProviders()")
+                && source.contains("cachedConfiguredCloudProviders: Set<CloudModelProvider>")
+                && source.contains("inference?.hasCachedCloudAccess(for: provider)")
+                && inference.contains("func hasCachedCloudAccess(for provider: CloudModelProvider) -> Bool")
+                && inference.contains("must never fall through to")
+                && inference.contains("SecItemCopyMatching"),
+            "June startup/model-catalog invokes must not synchronously read Keychain on the main actor while the webview is booting."
         )
         #expect(
             modelsPayload.contains(#""name": "Cloud Agent""#)
-                && modelsPayload.contains("configured OpenAI or Anthropic account")
-                && modelsPayload.contains("receipt-gated Epistemos Cloud proxy is retained as scaffolding")
+                && modelsPayload.contains("saved OpenAI or Anthropic API key")
+                && modelsPayload.contains("go directly to the chosen provider")
+                && modelsPayload.contains("enable its consent toggle in Settings")
+                && !modelsPayload.contains("receipt-gated Epistemos Cloud proxy")
                 && !modelsPayload.contains("Requires an active subscription"),
-            "The generic June cloud row must not advertise the retained receipt-gated proxy as the active MAS route."
+            "The generic June cloud row must describe only the active BYOK and consent-gated MAS route."
         )
+        #expect(source.contains("Uses your saved OpenAI API key."))
+        #expect(source.contains("Uses your saved Anthropic API key."))
+        #expect(!source.contains("Uses your saved \\(provider.manualCredentialTitleLowercase) or account connection."))
         #expect(
             inference.contains("case .zaiGLM52, .zaiGLM5, .zaiGLM5Turbo, .zaiGLM47, .zaiGLM47Flash,")
                 && inference.contains(".zaiGLM45Flash:")
@@ -62,31 +121,402 @@ struct AppStoreJuneSubstrateHardeningTests {
         )
     }
 
+    @Test("June cloud consent is off by default, provider-specific, persistent, and revocable")
+    @MainActor
+    func juneCloudConsentIsProviderSpecificPersistentAndRevocable() throws {
+        let suiteName = "EpistemosTests.JuneCloudConsent.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = AgentCloudConsentStore(defaults: defaults)
+        #expect(!store.hasConsent(for: .openAI))
+        #expect(!store.hasConsent(for: .anthropic))
+
+        store.setConsent(true, for: .openAI)
+        #expect(store.hasConsent(for: .openAI))
+        #expect(!store.hasConsent(for: .anthropic))
+        #expect(AgentCloudConsentStore(defaults: defaults).hasConsent(for: .openAI))
+
+        store.setConsent(false, for: .openAI)
+        #expect(!store.hasConsent(for: .openAI))
+        #expect(!AgentCloudConsentStore(defaults: defaults).hasConsent(for: .openAI))
+    }
+
+    @Test("App Store cloud setup uses Keychain API keys only")
+    func appStoreCloudSetupUsesKeychainAPIKeysOnly() throws {
+        let auth = try loadMirroredSourceTextFile("Epistemos/Engine/CloudProviderAuthService.swift")
+        let llm = try loadMirroredSourceTextFile("Epistemos/Engine/LLMService.swift")
+        let inference = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
+        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let cloudSetup = try loadMirroredSourceTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
+        let gatewayTypes = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneGatewayTypes.swift")
+        let catalog = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentModelCatalog.swift")
+        let juneBridge = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentBridge.swift")
+        let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
+        let consent = try loadMirroredSourceTextFile("Epistemos/AgentWorkspace/AgentCloudConsent.swift")
+        let juneBuildScript = try loadMirroredSourceTextFile("build-june-web.sh")
+        let releaseGate = try loadMirroredSourceTextFile("scripts/keelstone-release-gate.sh")
+        let ci = try loadMirroredSourceTextFile(".github/workflows/ci.yml")
+        let bundleScan = try loadMirroredSourceTextFile("scripts/scan_appstore_bundle.sh")
+        let claudeProvider = try loadMirroredSourceTextFile("agent_core/src/providers/claude.rs")
+        let agentCoreBridge = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
+        let privacy = try loadMirroredSourceTextFile("Epistemos/Views/Settings/PrivacyDetailView.swift")
+        let deployment = try loadMirroredSourceTextFile("Epistemos/Views/Settings/DeploymentProfileHealthRow.swift")
+        let commandCenter = try loadMirroredSourceTextFile("Epistemos/State/AgentCommandCenterState.swift")
+        let voiceDetail = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoiceSettingsDetailView.swift")
+        let voicePicker = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ModelVoicePickerSection.swift")
+        let reviewNotes = try loadMirroredSourceTextFile("docs/MAS_APP_REVIEW_NOTES_2026_07_03.md")
+
+        let resolvedCredentialType = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: auth,
+            startingAt: "nonisolated enum CloudProviderResolvedCredential",
+            endingBefore: "nonisolated enum AnthropicClaudeCodeImportResult"
+        ))
+
+        let resolvedCredential = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: auth,
+            startingAt: "func resolvedCredential(",
+            endingBefore: "    func importOpenAICodexCLIIfPresent()"
+        ))
+        let anthropicImport = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: auth,
+            startingAt: "func importAnthropicClaudeCodeCredentials()",
+            endingBefore: "    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"
+        ))
+        let accountSupport = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: inference,
+            startingAt: "var supportsAccountConnection: Bool",
+            endingBefore: "    var manualCredentialTitle: String"
+        ))
+        let credentialSnapshot = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: inference,
+            startingAt: "private nonisolated static func loadCloudCredentialSnapshot(",
+            endingBefore: "    private struct CloudCredentialSnapshot"
+        ))
+        let oauthLookup = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: inference,
+            startingAt: "func oauthCredential(for provider: CloudModelProvider)",
+            endingBefore: "    func resolvedCloudCredential("
+        ))
+        let validation = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: inference,
+            startingAt: "func validateCloudAccess(for provider: CloudModelProvider) async -> ConnectionTestResult",
+            endingBefore: "    private func withCloudValidationTimeout("
+        ))
+        let environmentOverrides = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: bootstrap,
+            startingAt: "nonisolated static func agentCoreEnvironmentOverrides(",
+            endingBefore: "    nonisolated static func agentCoreKeychainKey("
+        ))
+        let environmentMappings = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: bootstrap,
+            startingAt: "private nonisolated static let agentCoreEnvironmentKeyMappings",
+            endingBefore: "    private nonisolated static let agentCoreEnvironmentScopeGate"
+        ))
+        let settingsAccountAction = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: settings,
+            startingAt: "private func runAccountAction()",
+            endingBefore: "    private func runProviderAction("
+        ))
+        let anthropicAuthorization = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: llm,
+            startingAt: "private func applyAnthropicAuthorization(",
+            endingBefore: "    /// Collects every enabled Anthropic server-side tool"
+        ))
+        let googleModelsRequest = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: llm,
+            startingAt: "private func googleModelsRequest(",
+            endingBefore: "    private func googleContentRequest("
+        ))
+        let juneProviders = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: inference,
+            startingAt: "nonisolated static let juneAgentProviders",
+            endingBefore: "    /// Whether a plain CHAT turn"
+        ))
+        let settingsProviders = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: settings,
+            startingAt: "private var settingsProviders: [CloudModelProvider]",
+            endingBefore: "    private var providerSetupDescription"
+        ))
+        let juneModels = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: inference,
+            startingAt: "nonisolated static func juneAgentModels(for provider: CloudModelProvider)",
+            endingBefore: "    nonisolated static func from(rawValueOrVendorID value: String)"
+        ))
+        let supportedModels = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: inference,
+            startingAt: "private func supportedCloudModels(for provider: CloudModelProvider)",
+            endingBefore: "    private var openAIUsesCodexAccountRuntime"
+        ))
+        let modelAdmission = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private func agentCoreProviderName(modelID: String, cloudModel: CloudTextModelID?) throws -> String",
+            endingBefore: "    private static func agentCoreSlug("
+        ))
+        let juneSettingsModelCommands = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: juneBridge,
+            startingAt: "case \"list_venice_models\":",
+            endingBefore: "        case \"check_recording_source_readiness\":"
+        ))
+        let juneModelSelectionHandler = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: juneBridge,
+            startingAt: "private func handleSetVeniceModelInvoke(callId: Int, args: [String: Any])",
+            endingBefore: "    private func resolveInvoke(callId: Int, result: Any?)"
+        ))
+        let claudeAuth = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: claudeProvider,
+            startingAt: "enum ClaudeAuth",
+            endingBefore: "pub struct ClaudeProvider"
+        ))
+        let claudeFromEnvironment = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: claudeProvider,
+            startingAt: "fn from_env(model: &'static str) -> Self",
+            endingBefore: "    pub fn opus()"
+        ))
+        let claudeAuthenticatedRequest = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: claudeProvider,
+            startingAt: "fn authenticated_request(client: &Client, auth: &ClaudeAuth)",
+            endingBefore: "fn message_to_api_json("
+        ))
+        let cloudStream = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private func makeAgentCoreCloudStream(",
+            endingBefore: "    /// Engine routing"
+        ))
+        let cloudProviderAdmission = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private func agentCoreProviderName(modelID: String, cloudModel: CloudTextModelID?) throws -> String",
+            endingBefore: "    private static func agentCoreSlug("
+        ))
+        let turnModelResolution = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private func startTurn(sessionID: String, prompt: String)",
+            endingBefore: "        // Give the engine the conversation"
+        ))
+        let defaultModelRepair = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private func repairedDefaultModelID(_ id: String) -> String?",
+            endingBefore: "    private func explicitlyAdmittedModelID"
+        ))
+        let streamRouting = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private func makeStream(",
+            endingBefore: "    private static func textEventStream("
+        ))
+
+        #expect(accountSupport.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        false"))
+        #expect(inference.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        return nil\n        #else\n        guard supportsAccountConnection else { return nil }"))
+        #expect(credentialSnapshot.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n            missingOAuthProviders.insert(provider)"))
+        #expect(oauthLookup.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        nil"))
+        #expect(inference.contains("guard CloudModelProvider.activeProductProviders.contains(provider), credential == nil else { return false }"))
+        #expect(consent.contains("static let shared = AgentCloudConsentStore()"))
+        #expect(consent.contains("case .openAI") && consent.contains("api.openai.com (OpenAI)"))
+        #expect(consent.contains("case .anthropic") && consent.contains("api.anthropic.com (Anthropic)"))
+        #expect(consent.contains("func hasConsent(for provider: CloudModelProvider) -> Bool"))
+        #expect(consent.contains("func setConsent(_ isGranted: Bool, for provider: CloudModelProvider)"))
+        #expect(validation.contains("AgentCloudConsentStore.shared.hasConsent(for: provider)"))
+        #expect(validation.contains("Nothing was sent."))
+        #expect(llm.contains("guard AgentCloudConsentStore.shared.hasConsent(for: provider) else"))
+        #expect(llm.contains("throw CloudLLMError.cloudConsentRequired(provider.displayName)"))
+        #expect(llm.contains("case cloudConsentRequired(String)"))
+        #expect(cloudSetup.contains(") async -> ConnectionTestResult"))
+        #expect(cloudSetup.contains("return await inference.validateAPIKey(for: provider)"))
+        #expect(!cloudSetup.contains("_ = await inference.validateAPIKey(for: provider)"))
+        #expect(settings.contains("let result = await CloudProviderSetupAutomation.pasteAndSave("))
+        #expect(!settings.contains("let didSave = await CloudProviderSetupAutomation.pasteAndSave("))
+        #expect(settings.contains("private var cloudDataConsentControl: some View"))
+        #expect(settings.contains("Allow June to send prompts and selected context to"))
+        #expect(settings.contains("AgentCloudConsentStore.shared.setConsent"))
+        #expect(cloudProviderAdmission.contains("try requireCloudDataConsent(for:"))
+        #expect(cloudStream.contains("let providerName = try agentCoreProviderName"))
+        #expect(cloudStream.contains("agentCoreRunner.streamGooseMASAgentCoreRun"))
+        #expect(gatewayTypes.contains("Cloud data consent is off for"))
+        #expect(gatewayTypes.contains("Settings > June Models"))
+        #expect(privacy.contains("Provider-specific cloud consent is off by default and revocable"))
+        #expect(reviewNotes.contains("Optional GGUF and Kokoro packages are model data, not executable code."))
+        #expect(reviewNotes.contains("user-supplied OpenAI and Anthropic API keys are stored in macOS Keychain"))
+        #expect(!reviewNotes.contains("does **not** include local model downloads, GGUF/llama"))
+        #expect(resolvedCredential.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
+        #expect(resolvedCredential.contains("return .apiKey(trimmedAPIKey)"))
+        #expect(resolvedCredentialType.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
+        #expect(resolvedCredentialType.contains("case googleOAuth(accessToken: String, projectID: String)"))
+        #expect(resolvedCredentialType.contains("case anthropicOAuth(accessToken: String)"))
+        #expect(anthropicImport.contains("Anthropic account-session import is unavailable in the App Store build. Use an Anthropic API key."))
+        #expect(anthropicImport.contains("#else\n        let credentialsURL"))
+        #expect(anthropicImport.contains(#".appendingPathComponent(".claude/.credentials.json")"#))
+        #expect(auth.contains("No \\(provider.displayName) API key is saved yet."))
+        #expect(environmentOverrides.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
+        #expect(environmentOverrides.contains("overrides[\"ANTHROPIC_AUTH_MODE\"] = \"oauth\""))
+        #expect(environmentOverrides.contains("overrides[\"GOOGLE_AUTH_MODE\"] = \"oauth\""))
+        #expect(environmentMappings.contains("ANTHROPIC_API_KEY"))
+        #expect(environmentMappings.contains("OPENAI_API_KEY"))
+        #expect(environmentMappings.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        mappings.append(contentsOf:"))
+        #expect(environmentMappings.contains("GOOGLE_API_KEY"))
+        #expect(environmentMappings.contains("KIMI_API_KEY"))
+        #expect(settings.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n            if provider == .google"))
+        #expect(settingsAccountAction.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
+        #expect(settingsAccountAction.contains("provider.credentialManagementURL"))
+        #expect(juneProviders.contains("allCases.filter(\\.supportsAgentTier)"))
+        #expect(!juneProviders.contains(".google"))
+        #expect(catalog.contains("directCloudProviders = CloudModelProvider.juneAgentProviders"))
+        #expect(catalog.contains("CloudTextModelID.juneAgentModels(for: provider)"))
+        #expect(juneBridge.contains("CloudModelProvider.juneAgentProviders.contains { provider in"))
+        #expect(juneBridge.contains("hasCachedCloudAccess(for: provider) == true"))
+        #expect(juneBridge.contains("\"providerConfigured\": providerConfigured"))
+        #expect(!juneBridge.contains("\"providerConfigured\": true"))
+        #expect(settings.contains("ForEach(settingsProviders, id: \\.self)"))
+        #expect(settingsProviders.contains("CloudModelProvider.juneAgentProviders"))
+        #expect(settings.contains("inference.cloudModels(for: provider)"))
+        #expect(settings.contains("Only providers connected to June appear here."))
+        #expect(inference.contains("Use an OpenAI API key with MAS June. The key is stored in Apple Keychain."))
+        #expect(inference.contains("Use an Anthropic API key with MAS June. The key is stored in Apple Keychain."))
+        #expect(inference.contains("Google is not connected to MAS June."))
+        #expect(!inference.contains("Local account/session import is parked outside the MAS product."))
+        #expect(!inference.contains("Claude Code account-session import is parked outside the MAS product."))
+        #expect(settings.contains("case .cloudModels: \"June Models\""))
+        #expect(settings.contains("Text(section.displayTitle)"))
+        #expect(settings.contains("Section(providerSetupTitle)"))
+        #expect(settings.contains("\"June Provider Setup\""))
+        #expect(juneModels.contains(".openAIGPT55"))
+        #expect(juneModels.contains(".openAIO3Mini"))
+        #expect(!juneModels.contains(".openAIO3,"))
+        #expect(juneModels.contains(".anthropicClaudeSonnet46"))
+        #expect(juneModels.contains(".anthropicClaudeOpus47"))
+        #expect(juneModels.contains(".anthropicClaudeHaiku45"))
+        #expect(juneModels.contains("case .google, .zai, .kimi, .minimax, .deepseek:\n            return []"))
+        #expect(supportedModels.contains("CloudTextModelID.juneAgentModels(for: provider)"))
+        #expect(modelAdmission.contains("CloudTextModelID.juneAgentModels(for: cloudModel.provider).contains(cloudModel)"))
+        #expect(modelAdmission.contains("is not connected to MAS June"))
+        #expect(juneSettingsModelCommands.contains("switch mode"))
+        #expect(juneSettingsModelCommands.contains("case \"generation\":"))
+        #expect(juneSettingsModelCommands.contains("\"models\": gateway.modelsPayload()"))
+        #expect(juneSettingsModelCommands.contains("case \"transcription\":"))
+        #expect(juneSettingsModelCommands.contains("\"name\": \"On-device dictation\""))
+        #expect(juneBridge.contains("\"localDev\": true"))
+        #expect(juneSettingsModelCommands.contains("default:"))
+        #expect(juneSettingsModelCommands.contains("\"models\": [[String: Any]]()"))
+        #expect(juneBridge.contains("if cmd == \"set_venice_model\""))
+        #expect(juneModelSelectionHandler.contains("case \"generation\":"))
+        #expect(juneModelSelectionHandler.contains("guard gateway.setDefaultModel(modelID) else"))
+        #expect(juneModelSelectionHandler.contains("gateway.modelSelectionFailureMessage(modelID)"))
+        #expect(gateway.contains("is connected to June, but it can't run on this Mac"))
+        #expect(gateway.contains("Configure \\(cloudModel.provider.displayName) in Settings before selecting"))
+        #expect(gateway.contains("!setSessionModel(requestedModel, for: sessionID)"))
+        #expect(!gateway.contains("_ = setSessionModel(requestedModelID, for: sessionID)"))
+        #expect(turnModelResolution.contains("store.model(for: sessionID)"))
+        #expect(turnModelResolution.contains("let modelID = persisted ?? currentDefaultModelID()"))
+        #expect(!turnModelResolution.contains("selectableModelIDs().contains"))
+        #expect(!gateway.contains("private func repairedTurnModelID"))
+        #expect(defaultModelRepair.contains("CloudTextModelID.juneAgentModels(for: cloudModel.provider).contains(cloudModel)"))
+        #expect(defaultModelRepair.contains("return cloudModel.rawValue"))
+        #expect(!defaultModelRepair.contains("preferredCloudModel(for: cloudModel.provider)"))
+        #expect(streamRouting.contains("The selected model (\\(boundedID)) is not connected to MAS June."))
+        #expect(!streamRouting.contains("Legacy/unknown local id"))
+        #expect(juneModelSelectionHandler.contains("case \"transcription\":"))
+        #expect(juneModelSelectionHandler.contains("guard modelID == \"local\" else"))
+        #expect(juneModelSelectionHandler.contains("This model category is unavailable in MAS June."))
+        #expect(juneBridge.contains("\"imageModel\": \"\""))
+        #expect(juneBuildScript.contains("const imageGenerationAvailable = providerSettings.imageModel.trim().length > 0;"))
+        #expect(juneBuildScript.contains("MAS_HOST_HIDDEN_SETTINGS_TABS"))
+        #expect(juneBuildScript.contains("account.localDev ? \"June models\" : \"AI models\""))
+        #expect(juneBuildScript.contains("label: \"June models\""))
+        #expect(juneBuildScript.contains("using checked-in staged JuneWeb"))
+        #expect(juneBuildScript.contains("bun install --frozen-lockfile --silent"))
+        #expect(!juneBuildScript.contains("printf '*\\n' > \"$STAGE/.gitignore\""))
+        #expect(releaseGate.contains("require_tree_contains()"))
+        #expect(releaseGate.contains("Source checkout includes staged JuneWeb index"))
+        #expect(releaseGate.contains("Source checkout includes staged JuneWeb shim"))
+        #expect(ci.contains("Validate source-tree JuneWeb"))
+        #expect(ci.contains("EPISTEMOS_JUNE_FORK: ${{ runner.temp }}/missing-june-donor"))
+        #expect(releaseGate.contains("Staged JuneWeb visibly identifies the MAS model catalog as June models"))
+        #expect(releaseGate.contains("Built App Store JuneWeb visibly identifies the MAS model catalog as June models"))
+        #expect(releaseGate.contains("require_appstore_local_gguf_runtime"))
+        #expect(releaseGate.contains("Contents/Frameworks/llama.framework/Versions/A/llama"))
+        #expect(releaseGate.contains("otool -L"))
+        #expect(releaseGate.contains("Built App Store artifact embeds June's in-process llama runtime"))
+        #expect(releaseGate.contains("Built App Store executable links June's in-process llama runtime"))
+        #expect(inference.contains("CloudModelProvider.juneAgentProviders.contains(provider) ? provider : .openAI"))
+        #expect(inference.contains("nonisolated static let activeProductProviders = juneAgentProviders"))
+        #expect(inference.contains("CloudModelProvider.juneAgentProviders.map { AIProviderSelection(cloudProvider: $0) }"))
+        #expect(inference.contains("for provider in CloudModelProvider.activeProductProviders"))
+        #expect(inference.contains("guard CloudModelProvider.activeProductProviders.contains(provider) else { return nil }"))
+        #expect(inference.contains("guard CloudModelProvider.activeProductProviders.contains(provider) else { return false }"))
+        #expect(inference.contains("return connectedModels.contains(model) ? model : model.provider.defaultChatModel"))
+        #expect(inference.contains(".anthropicClaudeSonnet46\n            #else\n            .anthropicClaudeSonnet5"))
+        #expect(anthropicAuthorization.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        case .anthropicOAuth"))
+        #expect(googleModelsRequest.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        case .googleOAuth"))
+        #expect(inference.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n    /// Whether a plain CHAT turn"))
+        #expect(llm.contains("private func requireActiveProductModel(_ model: CloudTextModelID) throws"))
+        #expect(llm.contains("CloudTextModelID.juneAgentModels(for: model.provider).contains(model)"))
+        #expect(llm.contains("throw CloudLLMError.modelNotConnectedToJune(model.displayName)"))
+        #expect(llm.contains("is not connected to MAS June. Pick a model shown in June or MAS Settings."))
+        #expect(llm.contains("access is missing. Add an API key in MAS Settings."))
+        #expect(bundleScan.contains(#"\.claude/\.credentials\.json"#))
+        #expect(bundleScan.contains("claude-cli/[0-9]"))
+        #expect(bundleScan.contains(#"platform\.claude\.com/v1/oauth/token"#))
+        #expect(claudeProvider.contains("#[cfg(not(feature = \"mas-build\"))]\nconst ANTHROPIC_OAUTH_BETA_HEADER"))
+        #expect(claudeAuth.contains("#[cfg(not(feature = \"mas-build\"))]\n    OAuthAccessToken(String)"))
+        #expect(claudeFromEnvironment.contains("#[cfg(feature = \"mas-build\")]\n        let auth = ClaudeAuth::ApiKey(api_key);"))
+        #expect(claudeFromEnvironment.contains("#[cfg(not(feature = \"mas-build\"))]\n        let auth = resolve_claude_auth("))
+        #expect(claudeAuthenticatedRequest.contains("#[cfg(not(feature = \"mas-build\"))]\n        ClaudeAuth::OAuthAccessToken"))
+        #expect(claudeProvider.contains("#[cfg(not(feature = \"mas-build\"))]\nfn resolve_claude_auth("))
+        #expect(agentCoreBridge.contains("#[cfg(feature = \"mas-build\")]\nfn instantiate_provider("))
+        #expect(agentCoreBridge.contains("Unsupported MAS June provider/model:"))
+        #expect(agentCoreBridge.contains("MAS June requires an explicit model from its OpenAI or Anthropic catalog."))
+        #expect(agentCoreBridge.contains("is not connected to MAS June."))
+        #expect(agentCoreBridge.contains("mas_provider_admission_matches_the_exact_june_catalog"))
+        #expect(privacy.contains("June cloud-model API requests, only when you select an OpenAI or Anthropic model connected to June."))
+        #expect(deployment.contains("private static let activeMASBoundaries"))
+        #expect(deployment.contains("June in-process agent (OpenAI / Anthropic API keys)"))
+        #expect(deployment.contains("Apple Intelligence / selected local GGUF chat lanes inside June"))
+        #expect(deployment.contains("Active MAS June boundaries:"))
+        #expect(commandCenter.contains("cloudBrain(preferredProviders: CloudModelProvider.activeProductProviders)"))
+        #expect(!commandCenter.contains("preferredProviders: [.openAI, .anthropic, .google]"))
+        #expect(voiceDetail.contains("KokoroVoiceProSettingsSection()"))
+        #expect(voicePicker.contains("EpistemosSpeechSynthesizer.installedEnglishKokoroVoices()"))
+        #expect(gatewayTypes.contains("Add an OpenAI or Anthropic API key in Settings"))
+        #expect(catalog.contains("saved OpenAI or Anthropic API key"))
+        #expect(catalog.contains("Uses your saved Anthropic API key."))
+    }
+
     @Test("App Store June RuntimeRouter is cloud-first, witnessed, and local-chat honest")
     func appStoreJuneRuntimeRouterIsCloudFirstWitnessedAndLocalChatHonest() throws {
         let router = try loadMirroredSourceTextFile("Epistemos/LocalAgent/RuntimeRouter.swift")
+        let executor = try loadMirroredSourceTextFile("Epistemos/Engine/RuntimeExecutor.swift")
         let confidence = try loadMirroredSourceTextFile("Epistemos/LocalAgent/ConfidenceRouter.swift")
         let routeProfiles = try loadMirroredSourceTextFile("Epistemos/State/InferenceState+RouteProfiles.swift")
         let lanesSection = try loadMirroredSourceTextFile("Epistemos/Views/Settings/RuntimeLanesSection.swift")
         let policyOrderGuard = try loadMirroredSourceTextFile("agent_core/tests/runtime_router_policy_order_source_guard.rs")
-        let toolCaller = try #require(AppStoreJuneSourceGuard.sourceSection(
+        let masPreferenceTable = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: router,
-            startingAt: "case .toolCaller:",
-            endingBefore: "case .trivial:"
+            startingAt: "#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n    nonisolated public static let modelPreferenceTable",
+            endingBefore: "    #else"
         ))
-        let openAI = try #require(toolCaller.range(of: #".cloud(provider: "openai")"#))
-        let claude = try #require(toolCaller.range(of: #".cloud(provider: "claude")"#))
-        let apple = try #require(toolCaller.range(of: ".appleIntelligence"))
-        let gguf = try #require(toolCaller.range(of: ".gguf"))
+        let masAgentChain = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: masPreferenceTable,
+            startingAt: "\"june.cloud-first.agent\": [",
+            endingBefore: "        \"june.cloud-first.reasoning\": ["
+        ))
+        let openAI = try #require(masAgentChain.range(of: #".cloud(provider: "openai")"#))
+        let claude = try #require(masAgentChain.range(of: #".cloud(provider: "claude")"#))
+        let apple = try #require(masAgentChain.range(of: ".appleIntelligence"))
+        let gguf = try #require(masAgentChain.range(of: ".gguf"))
+        let stub = try #require(masAgentChain.range(of: ".stub"))
+        let masKnownLanes = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: executor,
+            startingAt: "#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n    public static let knownLanes: [RuntimeLane]",
+            endingBefore: "    #else"
+        ))
 
         #expect(
             router.contains("modelPreferenceTable")
                 && router.contains(#""june.cloud-first.agent""#)
                 && openAI.lowerBound < apple.lowerBound
                 && claude.lowerBound < apple.lowerBound
-                && openAI.lowerBound < gguf.lowerBound
-                && claude.lowerBound < gguf.lowerBound,
-            "June's RuntimeRouter must prefer agentic cloud lanes before local chat fallback."
+                && apple.lowerBound < gguf.lowerBound
+                && gguf.lowerBound < stub.lowerBound,
+            "June's MAS RuntimeRouter must prefer agentic cloud lanes before its admitted Apple Intelligence and GGUF chat fallbacks."
         )
         #expect(
             router.contains("toolCallMode: .none")
@@ -116,21 +546,37 @@ struct AppStoreJuneSubstrateHardeningTests {
                 && lanesSection.contains("router.setLaneEnabled(lane, newValue)"),
             "Diagnostics and lane toggles must read the router's policy table instead of maintaining placeholders."
         )
+        #expect(masKnownLanes.contains(#".cloud(provider: "openai")"#))
+        #expect(masKnownLanes.contains(#".cloud(provider: "claude")"#))
+        #expect(masKnownLanes.contains(".appleIntelligence"))
+        #expect(masKnownLanes.contains(".gguf"))
+        #expect(!masKnownLanes.contains("gemini"))
+        #expect(!masKnownLanes.contains("zai"))
+        #expect(!masKnownLanes.contains("kimi"))
+        #expect(!masKnownLanes.contains("perplexity"))
+        #expect(lanesSection.contains("Apple Intelligence and GGUF are chat-only; OpenAI and Anthropic drive June's agent loop."))
         #expect(
-            policyOrderGuard.contains("tool_caller_chain_keeps_agentic_cloud_before_local_chat_fallback")
-                && policyOrderGuard.contains("current MAS routing must not reintroduce local MLX tool lanes"),
-            "Rust source guards must enforce the current cloud-first MAS mandate, not the retired local-first tool-caller chain."
+            policyOrderGuard.contains("mas_agent_chain_keeps_agentic_cloud_before_local_chat_fallbacks")
+                && policyOrderGuard.contains("GGUF must stay after Apple Intelligence and before the internal stub"),
+            "Rust source guards must enforce cloud-first MAS routing with the admitted local chat fallbacks."
         )
     }
 
     @Test("App Store June agent_core cloud path preserves native thinking deltas")
     func appStoreJuneAgentCoreCloudPathPreservesNativeThinkingDeltas() throws {
-        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
+        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
+        let providerSlug = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreProviderSlug.swift")
+        let inference = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
         let bridge = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
         let openAI = try loadMirroredSourceTextFile("agent_core/src/providers/openai.rs")
         let claude = try loadMirroredSourceTextFile("agent_core/src/providers/claude.rs")
         let gemini = try loadMirroredSourceTextFile("agent_core/src/providers/gemini.rs")
         let openAICompatible = try loadMirroredSourceTextFile("agent_core/src/providers/openai_compatible.rs")
+        let juneModels = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: inference,
+            startingAt: "nonisolated static func juneAgentModels(for provider: CloudModelProvider)",
+            endingBefore: "    nonisolated static func from(rawValueOrVendorID value: String)"
+        ))
 
         #expect(
             runner.contains("enableThinking: true")
@@ -144,6 +590,58 @@ struct AppStoreJuneSubstrateHardeningTests {
                 && bridge.contains("delegate.on_thinking_delta(text)"),
             "agent_core bridge must forward provider thinking stream events to the Swift delegate."
         )
+        for required in [
+            ".openAIGPT55", ".openAIGPT54", ".openAIGPT54Mini", ".openAIGPT54Nano",
+            ".openAIGPT52", ".openAIGPT41", ".openAIGPT41Mini", ".openAIO3Mini",
+            ".anthropicClaudeSonnet46", ".anthropicClaudeOpus47", ".anthropicClaudeHaiku45",
+        ] {
+            #expect(juneModels.contains(required), "MAS June allowlist is missing exact model case: \(required)")
+        }
+        for required in [
+            #"if lower.contains("gpt-5.5") { return "openai_gpt55" }"#,
+            #"if lower.contains("gpt-5.4-nano") { return "openai_gpt54_nano" }"#,
+            #"if lower.contains("gpt-5.4-mini") { return "openai_gpt54_mini" }"#,
+            #"if lower.contains("gpt-5.4") { return "openai_gpt54" }"#,
+            #"if lower.contains("gpt-5.2") { return "openai_gpt52" }"#,
+            #"if lower.contains("gpt-4.1-mini") { return "openai_gpt41_mini" }"#,
+            #"if lower.contains("gpt-4.1") { return "openai_gpt41" }"#,
+            #"if lower.hasPrefix("o3-mini") || lower.contains(":o3-mini") { return "openai_o3_mini" }"#,
+            #"if lower.contains("opus") { return "claude_opus" }"#,
+            #"if lower.contains("sonnet") { return "claude_sonnet" }"#,
+            #"if lower.contains("haiku") { return "claude_haiku" }"#,
+        ] {
+            #expect(providerSlug.contains(required), "MAS June model has no Swift agent_core slug mapping: \(required)")
+        }
+        for required in [
+            #""openai" | "openai_gpt54" => Ok(Arc::new(OpenAIProvider::gpt54()))"#,
+            #""openai_gpt55" => Ok(Arc::new(OpenAIProvider::gpt55()))"#,
+            #""openai_gpt54_mini" => Ok(Arc::new(OpenAIProvider::gpt54_mini()))"#,
+            #""openai_gpt54_nano" => Ok(Arc::new(OpenAIProvider::gpt54_nano()))"#,
+            #""openai_gpt52" => Ok(Arc::new(OpenAIProvider::gpt52()))"#,
+            #""openai_gpt41" => Ok(Arc::new(OpenAIProvider::gpt41()))"#,
+            #""openai_gpt41_mini" => Ok(Arc::new(OpenAIProvider::gpt41_mini()))"#,
+            #""openai_o3_mini" => Ok(Arc::new(OpenAIProvider::o3_mini()))"#,
+            #""claude_sonnet" => Ok(Arc::new(ClaudeProvider::sonnet()))"#,
+            #""claude_opus" => Ok(Arc::new(ClaudeProvider::opus()))"#,
+            #""claude_haiku" => Ok(Arc::new(ClaudeProvider::haiku()))"#,
+        ] {
+            #expect(bridge.contains(required), "MAS June slug has no fixed agent_core constructor: \(required)")
+        }
+        for required in [
+            #"Self::from_env("gpt-5.5", "gpt-5.5")"#,
+            #"Self::from_env("gpt-5.4", "gpt-5.4")"#,
+            #"Self::from_env("gpt-5.4-mini", "gpt-5.4-mini")"#,
+            #"Self::from_env("gpt-5.4-nano", "gpt-5.4-nano")"#,
+            #"Self::from_env("gpt-5.2", "gpt-5.2")"#,
+            #"Self::from_env("gpt-4.1", "gpt-4.1")"#,
+            #"Self::from_env("gpt-4.1-mini", "gpt-4.1-mini")"#,
+            #"Self::from_env("o3-mini", "gpt-4o")"#,
+        ] {
+            #expect(openAI.contains(required), "MAS June OpenAI constructor changed its API-key model: \(required)")
+        }
+        #expect(claude.contains(#"Self::from_env("claude-sonnet-4-6")"#))
+        #expect(claude.contains(#"Self::from_env("claude-opus-4-7")"#))
+        #expect(claude.contains(#"Self::from_env("claude-haiku-4-5")"#))
         #expect(
             openAI.contains("response.reasoning_summary_text.delta")
                 && openAI.contains("visible_reasoning_delta_ignores_raw_responses_reasoning_text"),
@@ -154,7 +652,7 @@ struct AppStoreJuneSubstrateHardeningTests {
                 && openAI.contains(#""gpt-5.3-codex""#)
                 && openAI.contains("provider_native_thinking_gpt5_request_body_includes_summary_controls")
                 && bridge.contains(#""openai_gpt53_codex" => Ok(Arc::new(OpenAIProvider::gpt53_codex()))"#)
-                && runner.contains(#"if lower.contains("gpt-5.3-codex") { return "openai_gpt53_codex" }"#),
+                && providerSlug.contains(#"if lower.contains("gpt-5.3-codex") { return "openai_gpt53_codex" }"#),
             "Codex/GPT-5 model picker rows must route to native OpenAI reasoning models, not collapse to a legacy GPT-4o alias."
         )
         #expect(
@@ -178,7 +676,7 @@ struct AppStoreJuneSubstrateHardeningTests {
             "Kimi/ZAI/OpenAI-compatible reasoning fields must be routed into thinking deltas when providers emit them."
         )
         #expect(
-            runner.contains(#"return lower.contains("reasoner") ? "deepseek_reasoner" : "deepseek""#)
+            providerSlug.contains(#"return lower.contains("reasoner") ? "deepseek_reasoner" : "deepseek""#)
                 && bridge.contains(#""deepseek_reasoner""#)
                 && bridge.contains("provider_native_thinking_explicit_deepseek_reasoner_override_is_supported")
                 && openAICompatible.contains("pub fn deepseek_reasoner()")
@@ -186,6 +684,49 @@ struct AppStoreJuneSubstrateHardeningTests {
                 && openAICompatible.contains("provider_native_thinking_deepseek_chat_and_reasoner_are_distinct"),
             "DeepSeek Reasoner rows must route to the reasoning constructor instead of collapsing to the generic non-thinking DeepSeek chat model."
         )
+    }
+
+    @Test("App Store June agent callbacks expose only MAS June product truth")
+    func appStoreJuneAgentCallbacksExposeOnlyMASJuneProductTruth() throws {
+        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
+
+        #expect(runner.contains("Epistemos/JuneAgentCore/agent-core-scratch"))
+        #expect(runner.contains("Computer-use is unavailable in MAS June."))
+        #expect(runner.contains("Background model training is unavailable in MAS June."))
+        #expect(runner.contains("MAS June agent run failed"))
+        #expect(!runner.contains("Epistemos/GooseMASAgentCore/agent-core-scratch"))
+        #expect(!runner.contains("Pro-only"))
+        #expect(!runner.contains("App Store Goose backend"))
+        #expect(!runner.contains("NightBrain is unavailable"))
+    }
+
+    @Test("App Store June Swift provider slug admission is exact")
+    func appStoreJuneSwiftProviderSlugAdmissionIsExact() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreProviderSlug.swift")
+        let masBranch = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: source,
+            startingAt: "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
+            endingBefore: "        #else"
+        ))
+
+        for required in [
+            #"case "openai:gpt-5.5": "openai_gpt55""#,
+            #"case "openai:gpt-5.4": "openai_gpt54""#,
+            #"case "openai:gpt-5.4-mini": "openai_gpt54_mini""#,
+            #"case "openai:gpt-5.4-nano": "openai_gpt54_nano""#,
+            #"case "openai:gpt-5.2": "openai_gpt52""#,
+            #"case "openai:gpt-4.1": "openai_gpt41""#,
+            #"case "openai:gpt-4.1-mini": "openai_gpt41_mini""#,
+            #"case "openai:o3-mini": "openai_o3_mini""#,
+            #"case "anthropic:claude-sonnet-4-6": "claude_sonnet""#,
+            #"case "anthropic:claude-opus-4-7": "claude_opus""#,
+            #"case "anthropic:claude-haiku-4-5": "claude_haiku""#,
+        ] {
+            #expect(masBranch.contains(required), "MAS June Swift slug map is missing: \(required)")
+        }
+        for parked in ["gemini", "kimi", "deepseek", "minimax", "zai", "perplexity", "mistral", "grok", "gpt-4o", "openai:o1", "contains(\"/\")"] {
+            #expect(!masBranch.contains(parked), "MAS June Swift slug map still admits parked signal: \(parked)")
+        }
     }
 
     @Test("App Store June redacts vault roots from tool and approval payloads")
@@ -300,6 +841,11 @@ struct AppStoreJuneSubstrateHardeningTests {
             startingAt: "var full = \"\"",
             endingBefore: "} catch {"
         ))
+        let boundedAppend = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private static func appendBounded(",
+            endingBefore: "    private static func persistedToolCallsJSON"
+        ))
         let messagesPayload = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: store,
             startingAt: "func messagesPayload(sessionID: String)",
@@ -331,7 +877,21 @@ struct AppStoreJuneSubstrateHardeningTests {
                 && gateway.contains("AnswerPacketEmitter.shared.emit(packet)")
                 && gateway.contains("answerPacketAttentionMode(forJuneModelID: modelID)")
                 && gateway.contains("return .unavailable")
-                && eventLoop.contains("Self.appendBounded(delta, to: &reasoning, maxBytes: Self.maxPersistedReasoningBytes)")
+                && eventLoop.contains("var fullByteCount = 0")
+                && eventLoop.contains("var reasoningByteCount = 0")
+                && eventLoop.contains("byteCount: &fullByteCount")
+                && eventLoop.contains("byteCount: &reasoningByteCount")
+                && eventLoop.contains(#"payload: ["text": acceptedText, "delta": acceptedText]"#)
+                && eventLoop.contains(#"payload: ["text": acceptedReasoning, "delta": acceptedReasoning]"#)
+                && !eventLoop.contains("full += delta")
+                && !eventLoop.contains("full.utf8.count > Self.maxResponseBytes")
+                && boundedAppend.contains("byteCount: inout Int")
+                && boundedAppend.contains("for scalar in delta.unicodeScalars")
+                && boundedAppend.contains("utf8ByteCount(for: scalar)")
+                && boundedAppend.contains("if exhaustedBudget { byteCount = maxBytes }")
+                && boundedAppend.contains("text.append(accepted)")
+                && !boundedAppend.contains("var candidate = text + delta")
+                && !boundedAppend.contains("candidate.removeLast()")
                 && eventLoop.contains("Self.persistedToolCallsJSON(toolCalls)")
                 && eventLoop.contains(#""answer_packet_id": packetID"#)
                 && eventLoop.contains("answerPacketID: answerPacketID")
@@ -574,8 +1134,9 @@ struct AppStoreJuneSubstrateHardeningTests {
     @Test("App Store June MAS PDF tool is root-confined and allowlisted")
     func appStoreJuneMASPDFToolIsRootConfinedAndAllowlisted() throws {
         let registry = try loadMirroredSourceTextFile("agent_core/src/tools/registry.rs")
-        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
+        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
         let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
+        let policy = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneMASToolPolicy.swift")
         let handlerBody = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: registry,
             startingAt: "impl ToolHandler for PdfToMarkdownTool",
@@ -620,9 +1181,10 @@ struct AppStoreJuneSubstrateHardeningTests {
             "Focused Rust tests must lock registration, path confinement, OOM bounds, and vault-root redaction."
         )
         #expect(
-            runner.contains(#""pdf.to_markdown""#)
+            policy.contains(#""pdf.to_markdown""#)
                 && runner.contains("allowedToolNames: Self.allowedMASTools")
-                && gateway.contains(#""pdf.to_markdown""#)
+                && runner.contains("JuneMASToolPolicy.allowedAgentToolNames")
+                && gateway.contains("JuneMASToolPolicy.allowedObservableCompositionToolNames")
                 && gateway.contains("observableCompositionTools"),
             "June's MAS runner and replay observer must explicitly admit the canonical PDF tool name without widening the general tool surface."
         )
@@ -632,7 +1194,7 @@ struct AppStoreJuneSubstrateHardeningTests {
     func appStoreJuneDoesNotAutoDiscoverArbitraryURLMCPServers() throws {
         let urlServers = try loadMirroredSourceTextFile("agent_core/src/mcp/url_servers.rs")
         let bridge = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
-        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
+        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
 
         #expect(
             urlServers.contains("cfg!(feature = \"pro-build\")")
@@ -652,5 +1214,22 @@ struct AppStoreJuneSubstrateHardeningTests {
                 && !runner.contains("code_execution"),
             "June's MAS runner must keep using the explicit tool-name allowlist and must not expose forbidden Pro-only tools."
         )
+    }
+
+    @Test("App Store final agent_core runner repeats June provider and consent admission")
+    func appStoreFinalAgentCoreRunnerRepeatsProviderAndConsentAdmission() throws {
+        let slugs = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreProviderSlug.swift")
+        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
+
+        #expect(slugs.contains("static func juneProvider(forResolvedSlug slug: String) -> CloudModelProvider?"))
+        #expect(slugs.contains(#"case "openai", "openai_gpt55", "openai_gpt54""#))
+        #expect(slugs.contains(#"case "claude_sonnet", "claude_opus", "claude_haiku""#))
+        #expect(slugs.contains("default: nil"))
+        #expect(runner.contains("GooseMASAgentCoreProviderSlug.juneProvider(forResolvedSlug: providerName)"))
+        #expect(runner.contains("AgentCloudConsentStore.shared.hasConsent(for: provider)"))
+        #expect(runner.contains("await MainActor.run"))
+        #expect(runner.contains("Nothing was sent."))
+        #expect(runner.range(of: "juneProvider(forResolvedSlug: providerName)")!.lowerBound
+            < runner.range(of: "AppBootstrap.withScopedAgentCoreEnvironment")!.lowerBound)
     }
 }

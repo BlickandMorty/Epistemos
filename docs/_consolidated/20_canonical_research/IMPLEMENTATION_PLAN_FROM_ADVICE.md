@@ -3088,7 +3088,10 @@ before answering.
 
 **Purpose:** one self-contained prompt for Codex / Claude Code that fixes every issue listed in [docs/KNOWN_ISSUES_REGISTER.md](KNOWN_ISSUES_REGISTER.md) — and only those issues. Zero new features. When this brief completes, the foundation is clean and Phase A can start with confidence.
 
-**User constraint (non-negotiable):** no functionality loss. Every existing feature remains reachable. Compat adapters preserve old callers. If a fix would remove a feature, stop and ask.
+**User constraint (non-negotiable):** no functionality loss. Every existing feature remains
+reachable. Compat adapters preserve old callers. If a fix would remove a feature, keep the feature
+reachable through an adapter or choose a reversible alternative; ask only for destructive,
+irreversible, or scope-changing removal.
 
 **Use this prompt ONLY to fix issues. For feature work, use Appendix C instead.**
 

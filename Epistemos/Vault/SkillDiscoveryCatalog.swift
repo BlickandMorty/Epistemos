@@ -4,12 +4,17 @@ import OSLog
 
 nonisolated enum SkillDiscoverySource: String, Sendable {
     case bundled
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     case codex
+    #endif
 
     var title: String {
         switch self {
         case .bundled: "Bundled"
-        case .codex: "Codex"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .codex:
+            "Codex"
+        #endif
         }
     }
 }
@@ -129,6 +134,7 @@ nonisolated enum SkillDiscoveryCatalog {
 
     private static func defaultRoots(fileManager: FileManager = .default) -> [SkillDiscoveryRoot] {
         var roots: [SkillDiscoveryRoot] = []
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let home = fileManager.homeDirectoryForCurrentUser
         let codexRoot = home
             .appendingPathComponent(".codex", isDirectory: true)
@@ -136,6 +142,7 @@ nonisolated enum SkillDiscoveryCatalog {
         if fileManager.fileExists(atPath: codexRoot.path) {
             roots.append(SkillDiscoveryRoot(url: codexRoot, source: .codex))
         }
+        #endif
 
         if ProcessInfo.processInfo.environment["EPISTEMOS_ENABLE_CWD_SKILL_DISCOVERY"] == "1",
            let workingDirectory = ProcessInfo.processInfo.environment["PWD"],
@@ -319,7 +326,9 @@ nonisolated enum SkillDiscoveryCatalog {
     private static func sourcePriority(_ source: SkillDiscoverySource) -> Int {
         switch source {
         case .bundled: 0
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .codex: 1
+        #endif
         }
     }
 

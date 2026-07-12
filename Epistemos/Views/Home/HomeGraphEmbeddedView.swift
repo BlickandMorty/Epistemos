@@ -342,7 +342,13 @@ struct HomeGraphEmbeddedView: View {
                 graphState.physicsFrozenVersion += 1
             }
             graphState.cancelOverlayPhysicsCycle()
+            quiesceEmbeddedInspectorWork()
         }
+    }
+
+    private func quiesceEmbeddedInspectorWork() {
+        graphState.selectNode(nil)
+        inspectorState.clearSelection()
     }
 
     private func scheduleEmbeddedCanvasStart() {

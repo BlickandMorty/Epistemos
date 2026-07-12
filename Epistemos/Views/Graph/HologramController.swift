@@ -195,18 +195,12 @@ final class HologramController {
         overlay = HologramOverlay(graphState: graphState, queryEngine: queryEngine ?? QueryEngine(), modelContainer: modelContainer, physicsCoordinator: physicsCoordinator)
         Log.graphPerf.endInterval("ensureOverlay", interval)
 
-        // Run structural refresh AFTER overlay exists so the graph shows immediately.
-        // Uses async path to run GraphBuilder on a background thread.
-        if autoLoadGraph, hasActiveVault, needsRefresh, let modelContainer {
-            Task {
-                let refreshInterval = Log.graphPerf.beginInterval("refreshStructuralData")
-                let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)
-                if !refreshedIncrementally {
-                    graphState.shouldSnapNextGlobalRecommitCamera = true
-                    graphState.requestRecommit()
-                }
-                Log.graphPerf.endInterval("refreshStructuralData", refreshInterval)
-            }
+        // Do not run GraphBuilder from overlay construction. If the graph is
+        // already loaded and dirty, let the render loop trigger the background
+        // refresh after the canvas is alive.
+        if autoLoadGraph, hasActiveVault, needsRefresh, graphState.isLoaded {
+            graphState.deferStructuralRefreshUntilGraphIsVisible()
+            graphState.requestRecommit()
         }
     }
 
@@ -222,11 +216,8 @@ final class HologramController {
             return
         }
         guard graphState.needsRefresh else { return }
-        let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)
-        if !refreshedIncrementally {
-            graphState.shouldSnapNextGlobalRecommitCamera = true
-            graphState.requestRecommit()
-        }
+        graphState.deferStructuralRefreshUntilGraphIsVisible()
+        graphState.requestRecommit()
     }
 
     private func prepareOverlayForGlobalMode(centering nodeId: String? = nil) {

@@ -110,7 +110,12 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .arxiv: "arXiv"
         case .browser: "browser"
         case .meetingNote: "meeting"
-        case .agent: "agent"
+        case .agent:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "june"
+            #else
+            "agent"
+            #endif
         }
     }
 
@@ -185,7 +190,11 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .meetingNote:
             return MeetingNoteLandingGateStatus.status().detail
         case .agent:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            return "June is unavailable in this build."
+            #else
             return "The agent workspace ships in the Pro build."
+            #endif
         }
     }
 
@@ -207,8 +216,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .meetingNote:
             return "Record a meeting and capture a live, auto-saved transcript."
         case .agent:
-            #if EPISTEMOS_APP_STORE
-            return "Workspace - chat with on-device models, streaming real answers privately on this Mac."
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            return "June — chat with Cloud Agent, Apple Intelligence, or your selected local models."
             #else
             return "The agent workspace — chat with coding agents over your projects, with files, git, diffs, and a terminal."
             #endif

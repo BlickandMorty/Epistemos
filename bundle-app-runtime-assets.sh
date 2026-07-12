@@ -18,8 +18,6 @@ MODEL_MANIFEST_SOURCE="${EPISTEMOS_MODEL_MANIFEST_SOURCE:-$SRCROOT/config/model_
 MODEL_MANIFEST_DEST="$RESOURCES_DIR/model_manifest.json"
 DEFAULT_SKILLS_SOURCE_DIR="$SRCROOT/.agents/skills"
 DEFAULT_SKILLS_DIR="$RESOURCES_DIR/DefaultSkills"
-GOOSE_BINARY_DEST="$RESOURCES_DIR/goose"
-GOOSED_BINARY_DEST="$RESOURCES_DIR/goosed"
 
 is_app_store_build() {
     [[ "${EPISTEMOS_APP_STORE:-}" == "1" ]] ||
@@ -135,113 +133,57 @@ bundle_default_skills() {
         "$DEFAULT_SKILLS_DIR/"
 }
 
-host_cargo_target_triple() {
-    case "$(uname -m)" in
-        arm64) printf '%s\n' "aarch64-apple-darwin" ;;
-        x86_64) printf '%s\n' "x86_64-apple-darwin" ;;
-        *) printf '%s\n' "" ;;
-    esac
-}
-
-# Emit candidate source paths for a Goose runtime binary by name ("goose" or
-# "goosed"). Mirrors GooseRuntimeSupervisor.gooseBinaryCandidates(binaryName:)
-# so the Swift resolver and the bundler agree on where each binary lives.
-goose_binary_candidates() {
-    local binary_name="${1:-goose}"
-
-    # Per-binary explicit override (EPISTEMOS_GOOSE_BINARY / EPISTEMOS_GOOSED_BINARY).
-    local override_var
-    if [ "$binary_name" = "goosed" ]; then
-        override_var="EPISTEMOS_GOOSED_BINARY"
-    else
-        override_var="EPISTEMOS_GOOSE_BINARY"
-    fi
-    if [ -n "${!override_var:-}" ]; then
-        printf '%s\n' "${!override_var}"
-    fi
-    if [ -n "${EPISTEMOS_GOOSE_RUNTIME_DIR:-}" ]; then
-        printf '%s\n' "$EPISTEMOS_GOOSE_RUNTIME_DIR/$binary_name"
-    fi
-
-    local target_root="$SRCROOT/.research-clones/work/goose/target"
-    local host_triple
-    host_triple="$(host_cargo_target_triple)"
-    if [ -n "$host_triple" ]; then
-        printf '%s\n' "$target_root/$host_triple/release/$binary_name"
-        printf '%s\n' "$target_root/$host_triple/debug/$binary_name"
-    fi
-    printf '%s\n' "$target_root/release/$binary_name"
-    printf '%s\n' "$target_root/debug/$binary_name"
-}
-
-# Stage one Goose runtime binary by name into the given bundle destination.
-# Used for both the lean `goose` (default backend) and `goosed` (Option B). Both
-# are staged during the parity-gated transition so EPISTEMOS_GOOSE_BACKEND can
-# select either without a rebuild (single-point rollback); the final cutover
-# drops `goose`. Missing source is non-fatal — it just leaves that backend
-# unavailable, exactly like before this change for `goose`.
-bundle_goose_runtime_binary_named() {
-    local binary_name="$1"
-    local dest="$2"
-
-    if is_app_store_build; then
-        rm -f "$dest"
-        return
-    fi
-
-    local source=""
-    while IFS= read -r candidate; do
-        if [ -x "$candidate" ]; then
-            source="$candidate"
-            break
-        fi
-    done < <(goose_binary_candidates "$binary_name")
-
-    if [ -z "$source" ]; then
-        rm -f "$dest"
-        return
-    fi
-
-    rsync -a "$source" "$dest"
-    chmod 755 "$dest"
-}
-
-bundle_goose_runtime_binary() {
-    bundle_goose_runtime_binary_named "goose" "$GOOSE_BINARY_DEST"
-    bundle_goose_runtime_binary_named "goosed" "$GOOSED_BINARY_DEST"
-}
-
 # MAS agent surface (Plan 1-MAS): the vendored June web bundle, staged by
 # build-june-web.sh into .june-web-stage/ (outside Epistemos/Resources — the
 # resources glob flattens directory payloads). AppStore target only.
 JUNE_WEB_SOURCE_DIR="$SRCROOT/.june-web-stage"
 JUNE_WEB_BUNDLE_DIR="$RESOURCES_DIR/JuneWeb"
 
+is_complete_june_web_tree() {
+    local candidate="$1"
+    [ -d "$candidate" ] &&
+        [ -f "$candidate/dist/index.html" ] &&
+        [ -f "$candidate/tauri-internals-shim.js" ]
+}
+
 bundle_june_web() {
     if ! is_app_store_build; then
         rm -rf "$JUNE_WEB_BUNDLE_DIR"
         return 0
     fi
-    if [ ! -f "$JUNE_WEB_SOURCE_DIR/dist/index.html" ]; then
-        # Stage absent: dev builds fall back to the fork working copy
-        # (JuneWebAssets DEBUG candidate); nothing to bundle.
+    if ! is_complete_june_web_tree "$JUNE_WEB_SOURCE_DIR"; then
         rm -rf "$JUNE_WEB_BUNDLE_DIR"
-        return 0
+        echo "ERROR: App Store build requires staged JuneWeb files: .june-web-stage/dist/index.html and .june-web-stage/tauri-internals-shim.js" >&2
+        echo "Run build-june-web.sh before archiving, or keep it wired in the App Store prebuild phase." >&2
+        return 1
     fi
     mkdir -p "$JUNE_WEB_BUNDLE_DIR"
     rsync -a --delete --exclude ".gitignore" "$JUNE_WEB_SOURCE_DIR/" "$JUNE_WEB_BUNDLE_DIR/"
 }
 
 remove_app_store_forbidden_runtime_artifacts() {
-    # Xcode's synchronized resource groups flatten runtime bin/ sentinels into
-    # Contents/Resources. MAS builds must not ship Pro-only process runtimes or
-    # stdio MCP binaries, even when their source folders exist for direct builds.
+    # Defense in depth: a staged or restored bundle must not retain any retired
+    # executable, local-server, or downloaded-code artifact.
+    rm -rf "$RESOURCES_DIR/Pyodide"
+    rm -rf "$RESOURCES_DIR/experimental-runtime"
+    rm -rf "$RESOURCES_DIR/opencode-runtime"
+    rm -rf "$RESOURCES_DIR/GooseRuntime"
+    rm -rf "$RESOURCES_DIR/OpenChamberWeb"
+    rm -f "$RESOURCES_DIR/pyodide.js"
+    rm -f "$RESOURCES_DIR/pyodide.mjs"
+    rm -f "$RESOURCES_DIR/pyodide.asm.mjs"
+    rm -f "$RESOURCES_DIR/pyodide.asm.wasm"
+    rm -f "$RESOURCES_DIR/python_stdlib.zip"
+    rm -f "$RESOURCES_DIR/pyodide-lock.json"
     rm -f "$RESOURCES_DIR/goose"
     rm -f "$RESOURCES_DIR/goosed"
     rm -f "$RESOURCES_DIR/node"
+    rm -f "$RESOURCES_DIR/codex"
+    rm -f "$RESOURCES_DIR/rg"
     rm -f "$RESOURCES_DIR/bun"
     rm -f "$RESOURCES_DIR/opencode"
     rm -f "$RESOURCES_DIR/omega_mcp_stdio"
+    rm -f "$RESOURCES_DIR/experimental-web.tar.gz"
     rm -f "$RESOURCES_DIR"/.bun-*-bun-darwin-*
     rm -f "$RESOURCES_DIR"/.opencode-*-opencode-darwin-*
 }
@@ -253,8 +195,4 @@ bundle_model_manifest
 bundle_default_skills
 bundle_june_web
 
-if is_app_store_build; then
-    remove_app_store_forbidden_runtime_artifacts
-else
-    bundle_goose_runtime_binary
-fi
+remove_app_store_forbidden_runtime_artifacts

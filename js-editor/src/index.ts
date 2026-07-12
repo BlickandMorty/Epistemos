@@ -38,6 +38,8 @@ import { Markdown } from '@tiptap/markdown';
 import { Footnotes, FootnoteReference, Footnote } from 'tiptap-footnotes';
 
 import { EpdocCodeBlock } from './extensions/code-block-node';
+import { EpdocBlockquote } from './extensions/blockquote-node';
+import { EpdocListItem } from './extensions/list-item-node';
 import { EpdocChartNode } from './extensions/chart-node';
 import { EpdocImageNode } from './extensions/image-node';
 import { LegacyDiagramNode } from './extensions/legacy-diagram-node';
@@ -50,9 +52,23 @@ import { CaretRectEmitter } from './extensions/caret-rect-emitter';
 import { buildSlashMenu } from './extensions/slash-menu';
 import { pasteClassifierBridge } from './extensions/paste-classifier-bridge';
 import { EpdocLink, EpdocWikiLinkMarkdown } from './markdown/epdoc-markdown-nodes';
+import { MarkdownWritebackTracker } from './markdown/writeback-tracker';
 import { postBridge } from './bridge/outbound';
 import { installInboundCommands } from './bridge/inbound';
-import { hasHostDocumentLoaded } from './bridge/document-load-state';
+import {
+  currentLoadEpoch,
+  hasHostDocumentLoaded,
+  isDocumentLoadSettling,
+  LoadStateExtension,
+} from './bridge/document-load-state';
+import { HwcSuggestionAdapter } from './suggestions/SuggestionAdapter';
+import {
+  DeletionSuggestionMark,
+  EpdocSuggestionDocument,
+  InsertionSuggestionMark,
+  ModificationSuggestionMark,
+  SuggestChangesExtension,
+} from './suggestions/marks';
 
 import 'katex/dist/katex.min.css';
 import './editor.css';
@@ -82,6 +98,7 @@ let documentStatsTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingContentEditor: Editor | null = null;
 let pendingStatsEditor: Editor | null = null;
 let adaptiveHeadingSizeFrame: number | null = null;
+const markdownWritebackTracker = new MarkdownWritebackTracker();
 
 function editorIsLive(ed: Editor | null): ed is Editor {
   return ed !== null && (ed as { isDestroyed?: boolean }).isDestroyed !== true;
@@ -95,19 +112,49 @@ function scheduleContentDidChange(ed: Editor): void {
     const editor = pendingContentEditor;
     pendingContentEditor = null;
     if (!editorIsLive(editor)) return;
-    postBridge({ type: 'contentDidChange', json: JSON.stringify(editor.getJSON()) });
+    postBridge({
+      type: 'contentDidChange',
+      epoch: currentLoadEpoch(editor.state),
+      json: JSON.stringify(editor.getJSON()),
+    });
     postMarkdownDidChange(editor);
   }, CONTENT_DID_CHANGE_DEBOUNCE_MS);
 }
 
 function postMarkdownDidChange(ed: Editor): void {
   if (typeof ed.getMarkdown !== 'function') return;
-  postBridge({ type: 'markdownDidChange', markdown: ed.getMarkdown() });
+  const markdown = markdownSnapshotWithVisibleTextFallback(ed);
+  const writeback = markdownWritebackTracker.consume(ed, markdown) ?? undefined;
+  postBridge({
+    type: 'markdownDidChange',
+    epoch: currentLoadEpoch(ed.state),
+    markdown,
+    ...(writeback ? { writeback } : {}),
+  });
+}
+
+function markdownSnapshotWithVisibleTextFallback(ed: Editor): string {
+  const markdown = ed.getMarkdown();
+  const visibleText = ed.state.doc.textBetween(0, ed.state.doc.content.size, '\n\n', '\n\n');
+  if (visibleText.trim().length > 0 && markdownBodyText(markdown).trim().length === 0) {
+    return visibleText;
+  }
+  return markdown;
+}
+
+function markdownBodyText(markdown: string): string {
+  if (!markdown.startsWith('---')) return markdown;
+  const closingFence = markdown.indexOf('\n---', 3);
+  if (closingFence === -1) return markdown;
+  const bodyStart = markdown.indexOf('\n', closingFence + 4);
+  if (bodyStart === -1) return '';
+  return markdown.slice(bodyStart + 1);
 }
 
 function postDocumentStats(ed: Editor): void {
   postBridge({
     type: 'documentStatsChanged',
+    epoch: currentLoadEpoch(ed.state),
     wordCount: ed.storage.characterCount.words(),
     characterCount: ed.storage.characterCount.characters(),
   });
@@ -163,10 +210,20 @@ function headingSizeLimits(level: number): { full: number; medium: number; long:
 const editor = new Editor({
   element: mountNode,
   extensions: [
+    EpdocSuggestionDocument,
     StarterKit.configure({
       codeBlock: false,
+      blockquote: false,
+      document: false,
       link: false,
+      listItem: false,
     }),
+    EpdocBlockquote,
+    EpdocListItem,
+    InsertionSuggestionMark,
+    DeletionSuggestionMark,
+    ModificationSuggestionMark,
+    SuggestChangesExtension,
     UniqueId.configure({
       types: ['heading', 'paragraph', 'codeBlock', 'blockquote'],
     }),
@@ -202,6 +259,7 @@ const editor = new Editor({
     }),
     EpdocAIDiff,
     EpdocFindReplace,
+    LoadStateExtension,
     BubbleMenu.configure({ pluginKey: 'epdocBubble' }),
     FloatingMenu.configure({ pluginKey: 'epdocFloating' }),
     DragHandle,
@@ -231,11 +289,14 @@ const editor = new Editor({
     // rather than `onTransaction` so selection-only transactions
     // (caret moves, focus changes) don't burn the timer; those are
     // already covered by CaretRectEmitter.
-    if (hasHostDocumentLoaded()) {
+    if (hasHostDocumentLoaded() && !isDocumentLoadSettling(ed.state)) {
       scheduleContentDidChange(ed);
     }
     scheduleDocumentStats(ed);
     scheduleAdaptiveHeadingSizeSync();
+  },
+  onTransaction: ({ editor: ed, transaction }) => {
+    markdownWritebackTracker.recordTransaction(ed, transaction);
   },
   onCreate: ({ editor: ed }) => {
     postDocumentStats(ed);
@@ -246,4 +307,12 @@ const editor = new Editor({
 
 // Expose for the Swift inbound bridge + dev console.
 window.epdocEditor = editor;
-installInboundCommands(editor);
+const suggestionAdapter = new HwcSuggestionAdapter({ view: () => editor.view });
+editor.view.dispatch = suggestionAdapter.decorateDispatch(editor.view.dispatch.bind(editor.view));
+installInboundCommands(editor, {
+  suggestionAdapter,
+  resetMarkdownWritebackBaseline: (ed, markdown) => {
+    markdownWritebackTracker.reset(ed, markdown);
+  },
+  postMarkdownSnapshot: postMarkdownDidChange,
+});

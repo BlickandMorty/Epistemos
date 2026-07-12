@@ -1,6 +1,6 @@
 # Step 3 — thermo-nuclear code-quality review of the native Models slice (2026-06-29)
 
-> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Reviews the DEAD "native Models slice" of the reskin-Goose-surface program (native Models route was later deleted). The agent surface is OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Reviews the DEAD "native Models slice" of the reskin-Goose-surface program (native Models route was later deleted). current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > ✅ **OWNER OVERRIDE 2026-06-30 — HISTORICAL ONLY:** this reviewed slice was later removed from the
 > live Plan 1 direction. Goose has **NO native Models route and NO native route router**; the visible

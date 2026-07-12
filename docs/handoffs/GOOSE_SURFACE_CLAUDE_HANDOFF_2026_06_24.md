@@ -1,6 +1,6 @@
 # Goose Surface Claude Handoff - 2026-06-24 23:08 CDT
 
-> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** A handoff for the DEAD reskin-Goose-surface program. The agent surface is now OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** A handoff for the DEAD reskin-Goose-surface program. current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 ## Directive
 

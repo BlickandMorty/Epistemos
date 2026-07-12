@@ -10,11 +10,11 @@
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // ID: EPI-RP-09-RECKONER · Codename: RECKONER
 // VERIFIED LICENSE BOUNDARY: Univer's first-party charts are Pro-gated
-// (@univerjs-pro/*). RECKONER must not touch Pro code. OSS path: the MIT
-// @visactor/univer-vchart-plugin (CREATE_VCHART_COMMAND_ID + a VChart spec).
-// Maturity caveat (~8 stars): pin its version against the pinned Univer; if it
-// lags, execute the documented fallback — a native chart block rendered from a
-// dataset query via an OSS chart lib as its own Tiptap node.
+// (@univerjs-pro/*). RECKONER must not touch Pro code. Primary path: native
+// Swift Charts rendered from a dataset query with this same provenance payload.
+// Experimental overlay path only: @visactor/univer-vchart-plugin
+// (CREATE_VCHART_COMMAND_ID + a VChart spec), gated on explicit license and
+// pinned-Univer compatibility proof.
 
 export interface ChartProvenance {
   datasetId: string;
@@ -23,8 +23,9 @@ export interface ChartProvenance {
 }
 
 export function createChartOverlay(_spec: unknown, prov: ChartProvenance): void {
-  // TODO: executeCommand(CREATE_VCHART_COMMAND_ID, { spec }) via the plugin;
-  // append prov to the ledger BEFORE the overlay exists — no orphan charts.
+  // TODO experimental only: executeCommand(CREATE_VCHART_COMMAND_ID, { spec })
+  // via the plugin after license/compat proof. The primary Swift Charts path
+  // also appends prov to the ledger BEFORE the chart exists — no orphan charts.
   void prov;
 }
 

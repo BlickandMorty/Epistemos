@@ -38,9 +38,21 @@ export const DatasetEmbed = Node.create({
 
   addAttributes() {
     return {
-      datasetId: { default: "" },
-      vaultPath: { default: "" },
-      viewSpec: { default: "{}" },
+      datasetId: {
+        default: "",
+        parseHTML: element => element.getAttribute("data-dataset-id") ?? "",
+        renderHTML: attrs => ({ "data-dataset-id": attrs.datasetId }),
+      },
+      vaultPath: {
+        default: "",
+        parseHTML: element => element.getAttribute("data-vault-path") ?? "",
+        renderHTML: attrs => ({ "data-vault-path": attrs.vaultPath }),
+      },
+      viewSpec: {
+        default: "{}",
+        parseHTML: element => element.getAttribute("data-view-spec") ?? "{}",
+        renderHTML: attrs => ({ "data-view-spec": attrs.viewSpec }),
+      },
     };
   },
 
@@ -49,14 +61,12 @@ export const DatasetEmbed = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ["epistemos-dataset", mergeAttributes(HTMLAttributes), 0];
+    return ["epistemos-dataset", mergeAttributes(HTMLAttributes)];
   },
 
-  addNodeView() {
-    // TODO: node view hosting embed-grid.mountEmbedGrid; "dataset not found —
-    // relink?" placeholder on embedInvalidated; "Open in Data tab" affordance.
-    return null as never;
-  },
+  // TODO: add a real NodeViewRenderer closure using the existing chart/image
+  // patterns when mounting embed-grid. Omit addNodeView until then; returning
+  // null is invalid.
 });
 
 // Tier-B serialization contract: a fenced block carrying ONLY

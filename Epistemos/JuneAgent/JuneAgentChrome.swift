@@ -128,7 +128,7 @@ struct JuneAllChatsSheet: View {
                         ContentUnavailableView(
                             "No chats yet",
                             systemImage: "bubble.left.and.bubble.right",
-                            description: Text("Start a chat in Workspace and it will appear here.")
+                            description: Text("Start a chat in June and it will appear here.")
                         )
                     } else {
                         ContentUnavailableView.search(text: searchText)
@@ -172,7 +172,7 @@ struct JuneAllChatsSheet: View {
                     }
                 }
             }
-            .navigationTitle("Workspace chats")
+            .navigationTitle("June chats")
             .searchable(text: $searchText, prompt: "Search chats")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

@@ -1,5 +1,20 @@
 # Build Prompt — 1Code Experimental: The Embedded-Agent Frontier
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: this prompt is
+> parked. Do not start, resume, or reprompt Experimental/1Code work while
+> MAS-only is active. Preserve this file as historical provenance and salvage
+> useful ideas only through MAS-June/App Store-safe architecture.
+
+> HISTORICAL 1Code UI NOTE — parked by the MAS-only lock. If Experimental/1Code is ever explicitly reopened,
+> "extend the 1Code web UI" means preserve behavior, engine, transport, and
+> information layout while replacing donor-looking visible components with
+> Epistemos-owned high-quality components or owned CSS surfaces. It does **not**
+> mean wrapper-only, skin-only, token/package-only, or slight-tint work. Shell,
+> workspace rail, sidebar rows, composer, status strip, command palette,
+> buttons, cards, popovers, transcript viewport, and tool/action surfaces must
+> stop reading as donor 1Code/Goose. See
+> `docs/plans/1code-v2/BUILD_PROMPT_1CODE_V2.md`.
+
 ## ⚡ READ-FIRST PRIORITY LEDGER (if you skim nothing else, obey these)
 1. **No native SwiftUI — extend the 1Code web UI + backend fork only.**
 2. **Never touch the MAS-June lane or the data/knowledge core (vault / graph / notes).**
@@ -64,7 +79,8 @@ These were already required and remain non-negotiable prerequisites — verify o
    with the live model catalog (`models.dev` + per-provider `/models` + pinned fallback), per
    `BUILD_PROMPT_EXPERIMENTAL_FINAL.md` §5. Keychain key-paste per provider.
 4. **The Epistemos theme is worn** (inject `:root` CSS custom-property tokens via a WKUserScript,
-   MutationObserver re-assert, live light/dark; reuse the `ProAgentThemeBridge` pattern; header font on
+   MutationObserver re-assert, live light/dark; use the neutral AgentSurface/Experimental theme
+   injection pattern, not `ProAgentThemeBridge`; header font on
    landmarks only, Monaco/xterm legible; kill the donor gradient).
 5. **The vault MCP is actually present to the engine** (router-level injection into the forked backend;
    the agent can search/read/write the user's notes), not just an env var.

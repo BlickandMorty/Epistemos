@@ -34,6 +34,7 @@ nonisolated enum KokoroVoicePackageInstaller {
         fileManager: FileManager = .default,
         defaults: UserDefaults = .standard
     ) throws -> InstallResult {
+        KokoroVoiceGateStatus.invalidateDefaultStatusCache()
         let previousOverride = FeatureGateOverride.value(forKey: KokoroVoiceGateStatus.flagName, defaults: defaults)
         FeatureGateOverride.set(true, forKey: KokoroVoiceGateStatus.flagName, defaults: defaults)
         do {
@@ -55,6 +56,7 @@ nonisolated enum KokoroVoicePackageInstaller {
         modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
         fileManager: FileManager = .default
     ) throws -> InstallResult {
+        KokoroVoiceGateStatus.invalidateDefaultStatusCache()
         do {
             return try removeInstalledPackageImpl(
                 modelRoot: modelRoot,
@@ -167,6 +169,10 @@ nonisolated enum KokoroVoicePackageInstaller {
             )
             throw InstallError.installFailed(bounded(installedStatus.detail))
         }
+        KokoroVoiceGateStatus.replaceDefaultStatusCache(
+            installedStatus,
+            modelRoot: modelRoot
+        )
         return InstallResult(status: installedStatus)
     }
 

@@ -611,11 +611,13 @@ struct RuntimeValidationTests {
         let source = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
 
         #expect(source.contains("let originalFilePath = page.filePath"))
+        #expect(source.contains("let originalFrontMatter = page.frontMatter"))
         #expect(source.contains("let originalWordCount = page.wordCount"))
         #expect(source.contains("let originalLastSyncedBodyHash = page.lastSyncedBodyHash"))
-        #expect(source.contains("page.saveBody(originalBody)"))
-        #expect(source.contains("BlockMirror.sync(pageId: page.id, body: originalBody, modelContext: context)"))
+        #expect(source.contains("let approvedProjection = self.editorProjection(from: diff.after, fileURL: diff.fileURL)"))
+        #expect(source.contains("BlockMirror.sync(pageId: page.id, body: originalEditorBody, modelContext: context)"))
         #expect(source.contains("page.filePath = originalFilePath"))
+        #expect(source.contains("page.frontMatter = originalFrontMatter"))
         #expect(source.contains("page.lastSyncedBodyHash = originalLastSyncedBodyHash"))
         #expect(source.contains("page.needsVaultSync = originalNeedsVaultSync"))
     }
@@ -1425,13 +1427,13 @@ struct RuntimeValidationTests {
         #expect(bootstrap.contains("func performStartupIntegrityCheck() async -> StartupIntegrityReport"))
         #expect(bootstrap.contains("static func startupIntegritySamplePageIdsForTesting"))
         #expect(bootstrap.contains("static func startupIntegrityReportForTesting"))
-        #expect(bootstrap.contains("vaultSync.startupBookmarkValidation()"))
+        #expect(bootstrap.contains("await vaultSync.startupBookmarkValidationWithTimeout()"))
         #expect(bootstrap.contains("func runAutomaticVaultRestoreAfterLaunchIfNeeded() async"))
         #expect(bootstrap.contains("let report = await performStartupIntegrityCheck()"))
         #expect(bootstrap.contains("guard !report.shouldBlockAutomaticVaultRestore else"))
         #expect(bootstrap.contains("vaultSync.restoreVaultFromBookmark()"))
         #expect(app.contains("await bootstrap.runAutomaticVaultRestoreAfterLaunchIfNeeded()"))
-        #expect(vaultSync.contains("func startupBookmarkValidation() -> VaultBookmarkStartupValidation"))
+        #expect(vaultSync.contains("func startupBookmarkValidationWithTimeout() async -> VaultBookmarkStartupValidation"))
     }
 
     @Test("body migration cleans up managed note files when persistence fails")
@@ -1595,15 +1597,24 @@ struct RuntimeValidationTests {
         #expect(!actor.contains("let body = await bodyForIndexing(page)\n            out.append((page.id, page.title, body, page.tags.joined(separator: \" \"), page.updatedAt))"))
     }
 
-    @Test("shared scheme keeps test bundle out of normal app builds")
-    func sharedSchemeKeepsTestBundleOutOfNormalAppBuilds() throws {
+    @Test("normal Epistemos scheme launches MAS app and legacy direct target is explicit")
+    func normalEpistemosSchemeLaunchesMASAppAndLegacyDirectTargetIsExplicit() throws {
         let scheme = try loadRepoTextFile("Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme")
+        let legacyScheme = try loadRepoTextFile("Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-LegacyDev.xcscheme")
         let spec = try loadRepoTextFile("project.yml")
         let buildAction = scheme.components(separatedBy: "<TestAction").first ?? scheme
 
-        #expect(spec.contains("targets:\n        Epistemos: all"))
+        #expect(spec.contains("  Epistemos:\n    build:\n      targets:\n        Epistemos-AppStore: all\n        EpistemosAppStoreKeelstoneTests: [test]"))
+        #expect(spec.contains("  Epistemos-LegacyDev:\n    build:\n      targets:\n        Epistemos-LegacyDev: all"))
         #expect(!spec.contains("EpistemosTests: test"))
-        #expect(scheme.contains("BlueprintName = \"EpistemosTests\""))
+        #expect(scheme.contains("BlueprintName = \"Epistemos-AppStore\""))
+        #expect(scheme.contains("BuildableName = \"Epistemos-AppStore.app\""))
+        #expect(scheme.contains("BlueprintName = \"EpistemosAppStoreKeelstoneTests\""))
+        #expect(!scheme.contains("BlueprintName = \"Epistemos\""))
+        #expect(!scheme.contains("BlueprintName = \"EpistemosTests\""))
+        #expect(legacyScheme.contains("BlueprintName = \"Epistemos-LegacyDev\""))
+        #expect(legacyScheme.contains("BuildableName = \"Epistemos-LegacyDev.app\""))
+        #expect(legacyScheme.contains("BlueprintName = \"EpistemosTests\""))
         #expect(scheme.contains("buildForTesting = \"YES\""))
         #expect(scheme.contains("buildForRunning = \"YES\""))
         #expect(scheme.contains("buildForProfiling = \"YES\""))
@@ -3429,18 +3440,25 @@ struct RuntimeValidationTests {
         #expect(saveInteractionLog.contains("Failed to create AI partner log directory"))
     }
 
-    @Test("hologram inspector schedules block mirror sync only after dirty save succeeds")
-    func hologramInspectorSchedulesBlockMirrorSyncAfterSave() throws {
+    @Test("hologram inspector preview does not stage or persist bodies")
+    func hologramInspectorPreviewAvoidsHiddenWrites() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
-        let start = try #require(source.range(of: "private func markPageDirty(pageId: String, body: String)"))
+        let start = try #require(source.range(of: "private func noteEditorBody(pageId: String)"))
         let end = try #require(
-            source.range(of: "@ViewBuilder", range: start.lowerBound..<source.endIndex)
+            source.range(of: "private func currentBody(for pageId: String)", range: start.lowerBound..<source.endIndex)
         )
-        let markPageDirty = String(source[start.lowerBound..<end.lowerBound])
+        let previewBody = String(source[start.lowerBound..<end.lowerBound])
 
-        let saveCall = try #require(markPageDirty.range(of: "try modelContext.save()"))
-        let syncCall = try #require(markPageDirty.range(of: "await BlockMirrorSyncCoordinator.shared.scheduleSync("))
-        #expect(saveCall.lowerBound < syncCall.lowerBound)
+        #expect(previewBody.contains("editorText = currentBody(for: pageId)"))
+        #expect(previewBody.contains("editorText = currentBody(for: newId)"))
+        #expect(!previewBody.contains(".onChange(of: editorText)"))
+        #expect(!previewBody.contains("flushEditorIfNeeded(pageId:"))
+        #expect(!previewBody.contains("debouncedEditorSave(pageId:"))
+        #expect(!source.contains("private func markPageDirty(pageId: String, body: String)"))
+        #expect(!source.contains("NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: editorText)"))
+        #expect(!source.contains("vaultSync.savePageBodyFileFirst(pageId: pageId, body: editorText)"))
+        #expect(!source.contains("vaultSync.savePageBodyFileFirst(pageId: pageId, body: text)"))
+        #expect(!source.contains("BlockMirrorSyncCoordinator.shared.scheduleSync("))
     }
 
     @Test("home navigation paths order the main window front regardless for hidden launch sheets")

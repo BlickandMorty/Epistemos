@@ -2,8 +2,28 @@ import CryptoKit
 import Foundation
 
 nonisolated enum HTMLWorkspacePythonRuntime {
-    static let bundleDirectoryName = "Pyodide"
     static let urlPathPrefix = "runtime/python"
+
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+    static let entryScriptName = "python-runtime-disabled.js"
+
+    static var isAvailable: Bool { false }
+
+    static var missingRequiredResourceNames: [String] {
+        []
+    }
+
+    static var availabilityStatusText: String {
+        "Python runtime parked in the App Store build"
+    }
+
+    static let assetFingerprint = "mas-parked"
+
+    static func resource(for fileName: String) -> HTMLWorkspacePackageResource? {
+        nil
+    }
+    #else
+    static let bundleDirectoryName = "Pyodide"
     static let entryScriptName = "pyodide.js"
     static let moduleScriptName = "pyodide.mjs"
     static let wasmModuleScriptName = "pyodide.asm.mjs"
@@ -44,10 +64,6 @@ nonisolated enum HTMLWorkspacePythonRuntime {
             return missing.isEmpty ? "Python missing" : "Python missing: \(missing)\(suffix)"
         }
         return "Python live: \(assetFingerprint.prefix(8))"
-    }
-
-    static var baseURLString: String {
-        "\(HTMLWorkspaceLocalResourceScheme.scheme)://workspace/\(urlPathPrefix)/"
     }
 
     static let assetFingerprint: String = {
@@ -105,5 +121,10 @@ nonisolated enum HTMLWorkspacePythonRuntime {
         case "mjs": "text/javascript"
         default: HTMLWorkspacePackageResources.mimeType(for: fileName)
         }
+    }
+    #endif
+
+    static var baseURLString: String {
+        "\(HTMLWorkspaceLocalResourceScheme.scheme)://workspace/\(urlPathPrefix)/"
     }
 }

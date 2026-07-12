@@ -26,6 +26,8 @@ public struct VoicePreferencesSection: View {
     @State private var globalVoiceIdentifier: String? = EpistemosSpeechSynthesizer.globalDefaultVoiceIdentifier()
     @State private var voicePreviewRate: Double = 0.5
     @State private var voicePreviewPitch: Double = 1.0
+    @State private var kokoroDownloader = KokoroModelDownloadService.shared
+    @State private var showingKokoroInstallPrompt = false
 
     public init() {}
 
@@ -34,58 +36,72 @@ public struct VoicePreferencesSection: View {
     }
 
     public var body: some View {
-        Section("Voice — Auto / Manual mode") {
-            row(
-                title: "Read long notes aloud on open",
-                key: VoicePreferenceKeys.noteReadAloud,
-                binding: $prefs.noteReadAloud,
-                preview: "This is what auto-read-aloud sounds like when you open a note."
-            )
-            row(
-                title: "Auto-stop dictation on silence",
-                key: VoicePreferenceKeys.dictationAutoStop,
-                binding: $prefs.dictationAutoStop,
-                preview: nil
-            )
-            // SS-QC / DONE-RE-AUDIT (owner 2026-06-21): agent-response TTS,
-            // brain-dump dictation, and per-model voice persona controls are
-            // hidden until they have a real behavior consumer. Per wire-OR-remove, a shown
-            // do-nothing toggle is fake. agentResponseTTS has no assistant-stream completion
-            // consumer yet; brainDumpHotkeyDictate has no dictation-start seam to gate;
-            // perModelVoicePersona is superseded by the SS-QC global default voice.
-            // The VoicePreferences keys/defaults remain (harmless) for any future wiring.
-            row(
-                title: "Read each sentence aloud in Quick Capture",
-                key: VoicePreferenceKeys.quickCaptureReadBack,
-                binding: $prefs.quickCaptureReadBack,
-                preview: "This is what auto read-back sounds like as you finish a sentence."
-            )
-        }
+        Group {
+            Section("Voice — Auto / Manual mode") {
+                row(
+                    title: "Read long notes aloud on open",
+                    key: VoicePreferenceKeys.noteReadAloud,
+                    binding: $prefs.noteReadAloud,
+                    preview: "Kokoro is ready."
+                )
+                row(
+                    title: "Auto-stop dictation on silence",
+                    key: VoicePreferenceKeys.dictationAutoStop,
+                    binding: $prefs.dictationAutoStop,
+                    preview: nil
+                )
+                // SS-QC / DONE-RE-AUDIT (owner 2026-06-21): agent-response TTS,
+                // brain-dump dictation, and per-model voice persona controls are
+                // hidden until they have a real behavior consumer. Per wire-OR-remove, a shown
+                // do-nothing toggle is fake. agentResponseTTS has no assistant-stream completion
+                // consumer yet; brainDumpHotkeyDictate has no dictation-start seam to gate;
+                // perModelVoicePersona is superseded by the SS-QC global default voice.
+                // The VoicePreferences keys/defaults remain (harmless) for any future wiring.
+                row(
+                    title: "Read each sentence aloud in Quick Capture",
+                    key: VoicePreferenceKeys.quickCaptureReadBack,
+                    binding: $prefs.quickCaptureReadBack,
+                    preview: "Quick Capture read-back."
+                )
+            }
 
-        Section("Read-aloud filter") {
-            HStack {
-                Label("Voice filter", systemImage: prefs.readAloudEffect.systemImage)
-                Spacer()
-                Picker("Read-aloud filter", selection: $prefs.readAloudEffect) {
-                    ForEach(VoiceEffect.allCases) { effect in
-                        Text(effect.label).tag(effect)
+            if VoicePreferences.allowsReadAloudEffects {
+                Section("Read-aloud filter") {
+                    HStack {
+                        Label("Voice filter", systemImage: prefs.readAloudEffect.systemImage)
+                        Spacer()
+                        Picker("Read-aloud filter", selection: $prefs.readAloudEffect) {
+                            ForEach(VoiceEffect.allCases) { effect in
+                                Text(effect.label).tag(effect)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 220)
                     }
                 }
-                .labelsHidden()
-                .frame(width: 220)
+            }
+
+            // Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. This section shows the
+            // checked local Kokoro runtime when ready and an honest install state otherwise; it
+            // does not surface Apple's basic AVSpeech voice as a fallback.
+            ModelVoicePickerSection(
+                voiceIdentifier: $globalVoiceIdentifier,
+                rate: $voicePreviewRate,
+                pitch: $voicePreviewPitch
+            )
+            .onChange(of: globalVoiceIdentifier) { _, newValue in
+                EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)
             }
         }
-
-        // Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. This section now shows an
-        // honest unavailable state until native Kokoro synthesis is wired; it does not surface
-        // Apple's basic AVSpeech voice as a fallback.
-        ModelVoicePickerSection(
-            voiceIdentifier: $globalVoiceIdentifier,
-            rate: $voicePreviewRate,
-            pitch: $voicePreviewPitch
-        )
-        .onChange(of: globalVoiceIdentifier) { _, newValue in
-            EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)
+        .sheet(isPresented: $showingKokoroInstallPrompt) {
+            KokoroVoiceInstallPrompt()
+                .environment(ui)
+        }
+        .onChange(of: kokoroDownloader.phase) { _, newPhase in
+            if case .installed = newPhase,
+               EpistemosSpeechSynthesizer.isTextToSpeechAvailable() {
+                showingKokoroInstallPrompt = false
+            }
         }
     }
 
@@ -123,16 +139,16 @@ public struct VoicePreferencesSection: View {
                 }
 
                 if let preview {
-                    ToolbarCapsuleButton(
-                        title: "Preview",
-                        systemImage: "play.circle",
-                        role: .toolbarUtility,
-                        helpText: voicePreviewHelpText,
-                        accessibilityLabel: voicePreviewHelpText
-                    ) {
-                        EpistemosSpeechSynthesizer.shared.speak(preview)
+                    Button {
+                        previewVoice(preview)
+                    } label: {
+                        Label(voicePreviewButtonTitle, systemImage: voicePreviewSystemImage)
+                            .font(.system(size: 12, weight: .semibold))
                     }
-                    .disabled(!EpistemosSpeechSynthesizer.isTextToSpeechAvailable())
+                    .controlSize(.regular)
+                    .help(voicePreviewHelpText)
+                    .accessibilityLabel(voicePreviewHelpText)
+                    .accessibilityIdentifier("settings.voice.preview.\(key)")
                 }
                 Spacer()
             }
@@ -161,9 +177,37 @@ public struct VoicePreferencesSection: View {
     }
 
     private var voicePreviewHelpText: String {
+        if EpistemosSpeechSynthesizer.isTextToSpeechAvailable() {
+            return "Preview voice behavior"
+        }
+        return KokoroVoiceInstallPresentation.installHelp(
+            statusMessage: EpistemosSpeechSynthesizer.textToSpeechStatusMessage()
+        )
+    }
+
+    private var voicePreviewButtonTitle: String {
         EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
-            ? "Preview voice behavior"
-            : EpistemosSpeechSynthesizer.textToSpeechStatusMessage()
+            ? "Preview"
+            : KokoroVoiceInstallPresentation.unavailableLabel
+    }
+
+    private var voicePreviewSystemImage: String {
+        EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+            ? "play.circle"
+            : KokoroVoiceInstallPresentation.installSystemImage
+    }
+
+    private func previewVoice(_ preview: String) {
+        EpistemosSpeechSynthesizer.logTextToSpeechReadiness(context: "settings-voice-preview")
+        guard EpistemosSpeechSynthesizer.isTextToSpeechAvailable() else {
+            EpistemosReadAloudDiagnostics.showUnavailableToast()
+            showingKokoroInstallPrompt = true
+            return
+        }
+        let utteranceID = EpistemosAgentReadAloud.speak(preview)
+        if utteranceID == nil {
+            EpistemosReadAloudDiagnostics.showFailureToast("Kokoro voice preview could not start. Check Settings > Voice.")
+        }
     }
 
     private var rationaleBackground: Color {

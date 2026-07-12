@@ -5,23 +5,24 @@ import Testing
 struct AppStoreJuneHardeningTests {
     @Test("App Store Goose agent_core stream uses bounded buffering")
     func appStoreGooseAgentCoreStreamUsesBoundedBuffering() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
+        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
+        let acpServer = try loadMirroredSourceTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
         let runnerBody = try #require(AppStoreJuneSourceGuard.sourceSection(
-            in: source,
+            in: runner,
             startingAt: "func streamGooseMASAgentCoreRun(",
             endingBefore: "private final class GooseMASAgentCoreDelegate"
         ))
         let acpVaultPath = try #require(AppStoreJuneSourceGuard.sourceSection(
-            in: source,
+            in: acpServer,
             startingAt: "private func vaultPathForAgentCore() -> String",
             endingBefore: "private func ensureThirdPartyAIConsentForPrompt"
         ))
 
         #expect(
-            source.contains("GooseMASAgentCoreVaultPaths.fallbackScratchPath")
-                && source.contains(".applicationSupportDirectory")
-                && source.contains("agent-core-scratch")
-                && !source.contains("NSHomeDirectory()"),
+            runner.contains("GooseMASAgentCoreVaultPaths.fallbackScratchPath")
+                && runner.contains(".applicationSupportDirectory")
+                && runner.contains("agent-core-scratch")
+                && !runner.contains("NSHomeDirectory()"),
             "MAS agent_core must never default an empty vault path to the user's home directory."
         )
         #expect(
@@ -31,6 +32,155 @@ struct AppStoreJuneHardeningTests {
         #expect(
             runnerBody.contains("AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256))"),
             "MAS agent_core event streams must be bounded; unbounded streams can retain hostile or runaway cloud/tool deltas."
+        )
+        #expect(runner.contains("case outputBackpressure"))
+        #expect(runnerBody.contains("case .dropped:"))
+        #expect(runnerBody.contains("GooseMASAgentCoreStreamError.outputBackpressure"))
+        #expect(runnerBody.contains("cancelAgentSession(sessionId: sessionID)"))
+        #expect(runner.contains("private var streamTerminated = false"))
+        #expect(runner.contains("private let emitEvent: @Sendable (GooseMASAgentCoreRunEvent) -> Bool"))
+        #expect(runner.contains("func emit(_ event: GooseMASAgentCoreRunEvent) -> Bool"))
+    }
+
+    @Test("June WebView recovery gates bridge JavaScript and cancels orphaned turns")
+    func juneWebContentRecoveryIsLoadAndNavigationGuarded() throws {
+        let surface = try loadMirroredSourceTextFile(
+            "Epistemos/JuneAgent/JuneAgentSurfaceView.swift"
+        )
+        let gateway = try loadMirroredSourceTextFile(
+            "Epistemos/JuneAgent/JuneAgentGateway.swift"
+        )
+
+        #expect(surface.contains("private(set) var pageReady = false"))
+        #expect(surface.contains("private var activeNavigation: WKNavigation?"))
+        #expect(surface.contains("guard self.pageReady, !webView.isLoading else"))
+        #expect(surface.contains("func finishNavigation(_ navigation: WKNavigation?, succeeded: Bool) -> Bool"))
+        #expect(surface.contains("guard let activeNavigation, navigation === activeNavigation else { return false }"))
+        #expect(surface.contains("func beginNavigation(_ navigation: WKNavigation?, in webView: WKWebView)"))
+        #expect(surface.contains("didStartProvisionalNavigation navigation: WKNavigation!"))
+        #expect(surface.contains("beginNavigation(navigation, in: webView)"))
+        #expect(surface.contains("func webViewWebContentProcessDidTerminate(_ webView: WKWebView)"))
+        #expect(surface.contains("recoverAfterWebContentProcessTermination(in: webView)"))
+        #expect(surface.contains("bridge?.gateway.cancelAllTurnsForSurfaceRecovery()"))
+        #expect(surface.contains("activeNavigation = webView.load(URLRequest(url: entry))"))
+        #expect(gateway.contains("func cancelAllTurnsForSurfaceRecovery()"))
+        #expect(gateway.contains("approvals.denyPendingApprovals(sessionID: sessionID)"))
+    }
+
+    @Test("June native-to-WebKit delivery is serialized and byte bounded")
+    func juneBridgeJavaScriptDispatchIsBoundedAndBatched() throws {
+        let surface = try loadMirroredSourceTextFile(
+            "Epistemos/JuneAgent/JuneAgentSurfaceView.swift"
+        )
+
+        #expect(surface.contains("private static let maxPendingBridgeJavaScriptCount = 256"))
+        #expect(surface.contains("private static let maxPendingBridgeJavaScriptBytes = 2 * 1_024 * 1_024"))
+        #expect(surface.contains("private static let bridgeJavaScriptBatchCount = 32"))
+        #expect(surface.contains("private var pendingBridgeJavaScript: [String] = []"))
+        #expect(surface.contains("private var pendingBridgeJavaScriptBytes = 0"))
+        #expect(surface.contains("private var bridgeJavaScriptEvaluationInFlight = false"))
+        #expect(surface.contains("private var bridgeJavaScriptDispatchGeneration = 0"))
+        #expect(surface.contains("enqueueBridgeJavaScript(js, in: webView)"))
+        #expect(surface.contains("private func flushBridgeJavaScript(in webView: WKWebView)"))
+        #expect(surface.contains("webView.evaluateJavaScript(batchScript)"))
+        #expect(surface.contains("generation == self.bridgeJavaScriptDispatchGeneration"))
+        #expect(surface.contains("resetBridgeJavaScriptDispatch()"))
+        #expect(surface.contains("recoverAfterBridgeJavaScriptFailure(in: webView"))
+    }
+
+    @Test("App Store June parks legacy AgentWorkspace session but keeps shared approval gate")
+    func appStoreJuneParksLegacyAgentWorkspaceSession() throws {
+        let agentWorkspace = try loadMirroredSourceTextFile("Epistemos/AgentWorkspace/AgentWorkspaceSession.swift")
+        let agentRuntimeSupport = try loadMirroredSourceTextFile("Epistemos/AgentSurface/AgentSurfaceRuntimeSupport.swift")
+        let juneApproval = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentApprovalRegistry.swift")
+        let legacyGuard = try #require(agentWorkspace.range(of: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
+        let legacyGuardEnd = try #require(agentWorkspace.range(
+            of: "#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- legacy AgentWorkspaceSession parked in MAS"
+        ))
+        let approvalGate = try #require(agentWorkspace.range(of: "nonisolated final class AgentApprovalGate"))
+        let guardedLegacySession = String(agentWorkspace[legacyGuard.lowerBound..<legacyGuardEnd.lowerBound])
+
+        #expect(
+            guardedLegacySession.contains("final class AgentWorkspaceSession")
+                && guardedLegacySession.contains("GooseMASAgentCoreRunner()")
+                && guardedLegacySession.contains("func start(objective rawObjective: String, vaultPath: String)")
+                && guardedLegacySession.contains("transcripts.json"),
+            "The old native AgentWorkspace transcript/runner surface must be compiled out of MAS builds."
+        )
+        #expect(
+            legacyGuardEnd.lowerBound < approvalGate.lowerBound,
+            "The small approval gate must remain outside the legacy-session guard so MAS June can still block on tool approvals."
+        )
+        #expect(
+            juneApproval.contains("private let gate = AgentApprovalGate()")
+                && juneApproval.hasPrefix("#if EPISTEMOS_APP_STORE"),
+            "MAS June should be the only App Store surface using the shared approval gate."
+        )
+        #expect(
+            agentRuntimeSupport.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\nimport Darwin")
+                && agentRuntimeSupport.contains("AgentSurfaceRuntimeSupport")
+                && agentRuntimeSupport.contains("allocateLoopbackPort")
+                && agentRuntimeSupport.contains("resolvedNodeBinary"),
+            "Shared agent-surface runtime support allocates loopback ports and resolves node; it must be parked for either MAS compile flag."
+        )
+    }
+
+    @Test("App Store June parks Google OAuth loopback callback server")
+    func appStoreJuneParksGoogleOAuthLoopbackCallbackServer() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/CloudProviderAuthService.swift")
+        let networkImportGuard = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: source,
+            startingAt: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\nimport Network",
+            endingBefore: "import os"
+        ))
+        let signInToGoogle = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: source,
+            startingAt: "func signInToGoogle(",
+            endingBefore: "private func refreshedCredentialIfNeeded"
+        ))
+        let masBranch = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: signInToGoogle,
+            startingAt: "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
+            endingBefore: "#else"
+        ))
+        let directBranch = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: signInToGoogle,
+            startingAt: "#else",
+            endingBefore: "#endif"
+        ))
+        let listenerGuard = try #require(source.range(
+            of: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\nactor LocalOAuthCallbackServer"
+        ))
+        let listenerBody = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: source,
+            startingAt: "actor LocalOAuthCallbackServer",
+            endingBefore: "#endif"
+        ))
+
+        #expect(
+            networkImportGuard.contains("import Network")
+                && networkImportGuard.contains("#endif"),
+            "The Network framework import must be compile-parked out of MAS builds."
+        )
+        #expect(
+            masBranch.contains("throw CloudProviderAuthError.googleOAuthLoopbackUnavailableInAppStore")
+                && !masBranch.contains("LocalOAuthCallbackServer")
+                && !masBranch.contains("NWListener")
+                && !masBranch.contains("NWConnection")
+                && !masBranch.contains("127.0.0.1"),
+            "MAS Google sign-in must fail closed before constructing a loopback callback listener."
+        )
+        #expect(
+            directBranch.contains("LocalOAuthCallbackServer.start")
+                && directBranch.contains(#""http://127.0.0.1:\(await callback.currentPort())/oauth2callback""#),
+            "The direct lane keeps the desktop OAuth loopback implementation."
+        )
+        #expect(
+            listenerGuard.lowerBound < source.range(of: "actor LocalOAuthCallbackServer")!.lowerBound
+                && listenerBody.contains("NWListener")
+                && listenerBody.contains("NWConnection")
+                && listenerBody.contains(#"expectedHost: "127.0.0.1""#),
+            "The local OAuth listener implementation must remain direct-lane only."
         )
     }
 
@@ -45,7 +195,6 @@ struct AppStoreJuneHardeningTests {
         for (name, source) in [
             ("JuneAgentGateway", gateway),
             ("AppleFMQuickChatBackend", appleFM),
-            ("LocalGGUFQuickChatBackend", gguf),
             ("JuneCloudEngine", cloudScaffold),
         ] {
             #expect(
@@ -53,6 +202,19 @@ struct AppStoreJuneHardeningTests {
                 "\(name) must bound token/event streams; default unbounded AsyncThrowingStream is an OOM risk on 16 GB machines."
             )
         }
+        #expect(
+            gguf.contains("import EpistemosLlama")
+                && gguf.contains("private let engine = LlamaLocalChatEngine()")
+                && gguf.contains("var isAvailableInThisBuild: Bool { true }")
+                && gguf.contains("AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256))")
+                && gguf.contains("engine.cancel()")
+                && gguf.contains("unloadForMemoryPressure")
+                && gguf.contains("private var isUnloading = false")
+                && gguf.contains("guard !isGenerating, !isUnloading else { return false }")
+                && gguf.contains("prepareMemoryPressureUnload()")
+                && gguf.contains("finishUnload()"),
+            "The linked GGUF adapter must keep generation bounded, cancellable, and unloadable under memory pressure."
+        )
 
         let textEventStream = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: gateway,
@@ -80,17 +242,50 @@ struct AppStoreJuneHardeningTests {
         )
     }
 
+    @Test("bounded local June streams fail visibly instead of dropping tokens")
+    func appStoreJuneLocalStreamBackpressureIsFailClosed() throws {
+        let engineContract = try loadMirroredSourceTextFile(
+            "LocalPackages/EpistemosLlama/Sources/EpistemosLlama/LocalChatEngine.swift"
+        )
+        let engine = try loadMirroredSourceTextFile(
+            "LocalPackages/EpistemosLlama/Sources/EpistemosLlama/LlamaLocalChatEngine.swift"
+        )
+        let gguf = try loadMirroredSourceTextFile(
+            "Epistemos/QuickChat/LocalGGUFQuickChatBackend.swift"
+        )
+        let gateway = try loadMirroredSourceTextFile(
+            "Epistemos/JuneAgent/JuneAgentGateway.swift"
+        )
+        let textEventStream = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private static func textEventStream(",
+            endingBefore: "private func agentCoreProviderName"
+        ))
+
+        #expect(engineContract.contains("case streamBackpressure"))
+        #expect(engine.contains("case .dropped:"))
+        #expect(engine.contains("LocalChatEngineError.streamBackpressure"))
+        #expect(gguf.contains("case .dropped:"))
+        #expect(gguf.contains("case .streamBackpressure:"))
+        #expect(gguf.contains("Local model output could not keep up with its bounded stream buffer"))
+        #expect(textEventStream.contains("case .dropped:"))
+        #expect(textEventStream.contains("June could not keep up with the bounded local-model output stream"))
+        #expect(!engine.contains("AsyncThrowingStream(bufferingPolicy: .unbounded"))
+        #expect(!gguf.contains("AsyncThrowingStream(bufferingPolicy: .unbounded"))
+        #expect(!textEventStream.contains("AsyncThrowingStream(bufferingPolicy: .unbounded"))
+    }
+
     @Test("App Store June typography uses regular UI fonts except Matrix Dots display headers")
     func appStoreJuneTypographyUsesRegularUIFontsExceptMatrixDotsDisplayHeaders() throws {
         let surface = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentSurfaceView.swift")
         let overlay = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: surface,
-            startingAt: "private static func workspaceOverlayScript()",
-            endingBefore: "private static func workspaceFontFaceCSS()"
+            startingAt: "private static func juneOverlayScript()",
+            endingBefore: "private static func juneFontFaceCSS()"
         ))
         let fontFace = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: surface,
-            startingAt: "private static func workspaceFontFaceCSS()",
+            startingAt: "private static func juneFontFaceCSS()",
             endingBefore: "/// Pins navigation"
         ))
 
@@ -132,135 +327,171 @@ struct AppStoreJuneHardeningTests {
         )
     }
 
-    @Test("App Store June GGUF local lane rejects concurrent generations")
-    func appStoreJuneGGUFLocalLaneRejectsConcurrentGenerations() throws {
+    @Test("App Store June selected GGUF lane is in-process and explicitly downloadable")
+    func appStoreJuneSelectedGGUFLaneIsInProcessAndExplicitlyDownloadable() throws {
         let gguf = try loadMirroredSourceTextFile("Epistemos/QuickChat/LocalGGUFQuickChatBackend.swift")
-        let catalog = try loadMirroredSourceTextFile("Epistemos/QuickChat/GGUFModelCatalog.swift")
+        let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let controller = try loadMirroredSourceTextFile("Epistemos/QuickChat/QuickChatController.swift")
+        let stage = try loadMirroredSourceTextFile("Epistemos/QuickChat/QuickChatStageView.swift")
         let models = try loadMirroredSourceTextFile("Epistemos/QuickChat/QuickChatModels.swift")
-        let preflightBody = try #require(AppStoreJuneSourceGuard.sourceSection(
-            in: gguf,
-            startingAt: "let fullPrompt = entry.template.apply",
-            endingBefore: "guard beginGeneration()"
+        let specificGGUFRoute = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "if let entry = GGUFModelCatalog.entry(id: modelID) {",
+            endingBefore: "// Legacy/unknown local id"
+        ))
+        let legacyLocalFallback = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "// Legacy/unknown local id",
+            endingBefore: "private static func textEventStream"
+        ))
+        let prepareSelectedModel = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: "private func prepareSelectedModel(_ id: String)",
+            endingBefore: "func modelsPayload()"
         ))
 
         #expect(
-            gguf.contains("private var isGenerating = false")
-                && gguf.contains("guard beginGeneration()")
-                && gguf.contains("QuickChatError.engineUnavailable(.localModelBusy)")
-                && gguf.contains("private func finishGeneration()"),
-            "June's shared GGUF lane must reject concurrent local turns instead of letting multiple requests race one loaded model."
+            gguf.hasPrefix("#if EPISTEMOS_APP_STORE\nimport EpistemosLlama\n#endif")
+                && gguf.contains("var isAvailableInThisBuild: Bool { true }")
+                && gguf.contains("private let engine = LlamaLocalChatEngine()")
+                && gguf.contains("GGUFModelCatalog.installedURL(for: entry)")
+                && gguf.contains(".noLocalModelInstalled")
+                && !gguf.contains("llama_decode")
+                && !gguf.contains("llama_backend")
+                && !gguf.contains("LlamaContext"),
+            "The App Store GGUF seam must bind only the in-process facade; raw llama calls stay inside the pinned package."
         )
         #expect(
-            gguf.contains("private var unloadAfterGeneration = false")
-                && gguf.contains("shouldUnloadImmediatelyForMemoryPressure()")
-                && gguf.contains("engine.cancel()")
-                && gguf.contains("unloaded after memory-pressure cancellation"),
-            "Memory pressure during a GGUF turn must cancel the active generation and unload after it exits, not race an unload against inference."
+            gateway.contains("if localGGUF.isAvailableInThisBuild {\n            ids.append(contentsOf: GGUFModelCatalog.installedEntries().map(\\.id))")
+                && gateway.contains("if localGGUF.isAvailableInThisBuild {\n            ids.append(contentsOf: GGUFModelCatalog.entries.map(\\.id))")
+                && gateway.contains("localGGUFAvailable: localGGUF.isAvailableInThisBuild"),
+            "June model lists must surface the selected GGUF catalog only through the linked backend."
         )
         #expect(
-            preflightBody.contains("GGUFModelCatalog.estimatedTokens(for: fullPrompt)")
-                && preflightBody.contains("GGUFModelCatalog.promptFits(")
-                && preflightBody.contains("continuation.finish(throwing: QuickChatError.exceededContextWindow)")
-                && catalog.contains("nonisolated static func estimatedTokens(for text: String) -> Int")
-                && catalog.contains("promptTokenEstimate + replyBudgetTokens <= entry.defaultContextTokens"),
-            "GGUF local turns must reject obvious context-window overflow before loading model bytes, especially on 16 GB machines."
+            specificGGUFRoute.contains("guard localGGUF.isAvailableInThisBuild else")
+                && specificGGUFRoute.range(of: "guard localGGUF.isAvailableInThisBuild else")!.lowerBound
+                    < specificGGUFRoute.range(of: "downloads.beginDownload(entry)")!.lowerBound,
+            "A selected GGUF model must pass runtime availability before June starts its model-data download."
         )
         #expect(
-            catalog.contains("static let constrainedMachineGB = 18.0")
-                && catalog.contains("static let constrainedWorkingSetFraction = 0.34")
-                && catalog.contains("nonisolated static func workingSetLimitGB(physicalGB: Double) -> Double")
-                && catalog.contains("physicalGB <= constrainedMachineGB")
-                && catalog.contains("physicalGB * constrainedWorkingSetFraction"),
-            "16 GB-class Macs must keep GGUF residency to a stricter working-set budget so 7B/8B local rows do not push the app into swap."
+            legacyLocalFallback.contains("guard localGGUF.isAvailableInThisBuild else")
+                && legacyLocalFallback.contains("Local GGUF chat isn't available in this build")
+                && !legacyLocalFallback.contains("makeAgentCoreCloudStream"),
+            "Legacy local ids must stay on-device and never silently reroute to cloud."
         )
         #expect(
-            models.contains("case localModelBusy")
-                && models.contains("already answering another request"),
-            "The local busy guard must surface honest user copy instead of a generic generation failure."
+            prepareSelectedModel.contains("guard localGGUF.isAvailableInThisBuild else { return }")
+                && prepareSelectedModel.range(of: "guard localGGUF.isAvailableInThisBuild else { return }")!.lowerBound
+                    < prepareSelectedModel.range(of: "downloads.beginDownload(entry)")!.lowerBound,
+            "Selecting GGUF must pass linked-runtime and memory gates before starting a model-data download."
+        )
+        #expect(
+            !landing.contains("QuickChatStageView(")
+                && !landing.contains("quickChatController")
+                && !landing.contains("showLandingInlineCommand(.quickChat)")
+                && !landing.contains(#"title: "ask""#)
+                && controller.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
+                && stage.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
+            "Landing must not expose or compile in the old quick-chat transcript surface for MAS."
+        )
+        #expect(
+            models.contains("No selected June local model is installed yet. Open June's model settings to download one."),
+            "Missing-model copy must direct users to June's active local-model picker."
         )
     }
 
-    @Test("App Store June Prompt Forge is local, visible, and vault-honest")
-    func appStoreJunePromptForgeIsLocalVisibleAndVaultHonest() throws {
+    @Test("App Store June per-message Prompt Forge is disabled and submit stays literal")
+    func appStoreJunePerMessagePromptForgeIsDisabledAndSubmitStaysLiteral() throws {
         let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
-        let forge = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JunePromptForge.swift")
+        let promptForgeCase = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: #"case "prompt.forge_preview":"#,
+            endingBefore: #"case "prompt.submit":"#
+        ))
+        let promptSubmitCase = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: gateway,
+            startingAt: #"case "prompt.submit":"#,
+            endingBefore: #"case "session.interrupt":"#
+        ))
 
         #expect(
-            gateway.contains(#"case "prompt.forge_preview":"#),
-            "June must expose a pre-submit Prompt Forge preview RPC instead of silently rewriting prompt.submit."
+            promptForgeCase.contains("Per-message Prompt Forge is disabled in the App Store build")
+                && promptForgeCase.contains("Send keeps your prompt unchanged")
+                && promptForgeCase.contains("replyError")
+                && !promptForgeCase.contains("JunePromptForge")
+                && !promptForgeCase.contains("Task.detached")
+                && !gateway.contains("private let promptForge"),
+            "The MAS gateway must reject stale per-message prompt-upgrade calls instead of doing hidden Prompt Forge work."
         )
         #expect(
-            forge.contains(#"mode: "On-device deterministic Prompt Forge""#),
-            "Prompt Forge must honestly label the MAS/local preview lane."
-        )
-        #expect(
-            gateway.contains("Task.detached(priority: .userInitiated)")
-                && forge.contains("struct JunePromptForgePayload: Sendable"),
-            "Prompt Forge vault scanning and assembly must stay off the MainActor and cross back through a sendable payload."
-        )
-        #expect(
-            forge.contains("No matching active-vault notes were found. Do not invent vault citations."),
-            "Prompt Forge must fail closed on vault grounding and never fabricate citations."
-        )
-        #expect(
-            forge.contains(#""contextStrategy": contextStrategy"#)
-                && forge.contains("Compact local profile")
-                && forge.contains("profile.maxCitations"),
-            "Prompt Forge must expose and enforce the selected engine's local/cloud context budget instead of treating local models like cloud-scale context windows."
-        )
-        #expect(
-            forge.contains("rustCompiledContext")
-                && forge.contains("compileContextPromptJson")
-                && forge.contains("citations(fromRustRagContext")
-                && forge.contains("Injected bounded Rust ContextCompiler vault context")
-                && forge.contains("vaultCitations("),
-            "Prompt Forge must prefer the bounded Rust ContextCompiler FFI path while retaining the existing Swift scanner as a fallback."
-        )
-        #expect(
-            forge.contains("startAccessingSecurityScopedResource()")
-                && forge.contains("stopAccessingSecurityScopedResource()"),
-            "Prompt Forge vault reads must be balanced around security-scoped access."
+            promptSubmitCase.contains("startTurn(sessionID: sessionID, prompt: text, requestedModelID: requestedModel)")
+                && !promptSubmitCase.contains("promptForge")
+                && !promptSubmitCase.contains("forge_preview"),
+            "Normal June prompt.submit must pass the submitted text directly into the turn without invoking Prompt Forge."
         )
     }
 
-    @Test("App Store June System Prompt Forge is visible, persisted atomically, and lane honest")
-    func appStoreJuneSystemPromptForgeIsVisiblePersistedAtomicallyAndLaneHonest() throws {
+    @Test("App Store June System Prompt Forge is disabled and never composes into turns")
+    func appStoreJuneSystemPromptForgeIsDisabledAndNeverComposesIntoTurns() throws {
         let bridge = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentBridge.swift")
         let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
         let context = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentConversationContext.swift")
         let forge = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneSystemPromptForge.swift")
+        let previewHandler = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: bridge,
+            startingAt: "private func handleSystemPromptForgePreviewInvoke",
+            endingBefore: "    private func handleGetNoteInvoke"
+        ))
+        let runtimeLayer = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: forge,
+            startingAt: "static func runtimeLayer",
+            endingBefore: "    private static func boundedPrompt"
+        ))
 
         #expect(
             bridge.contains(#"cmd == "system_prompt_forge_preview""#)
                 && bridge.contains("handleSystemPromptForgePreviewInvoke")
-                && bridge.contains("Task.detached(priority: .userInitiated)")
                 && bridge.contains("JuneSystemPromptForge.previewPayload"),
-            "System Prompt Forge preview must be visible through a native bridge command and run bounded assembly off the MainActor."
+            "Legacy System Prompt Forge commands may remain as compatibility stubs, but they must route to the disabled native shim."
+        )
+        #expect(
+            previewHandler.contains("activeVaultURL: nil")
+                && previewHandler.contains("resolveInvoke(callId: callId, result: payload.dictionary)")
+                && !previewHandler.contains("Task.detached")
+                && !previewHandler.contains("activeVaultURL()"),
+            "The disabled preview path must not do background Prompt Forge work or active-vault grounding."
         )
         #expect(
             bridge.contains(#"case "system_prompt_forge_settings":"#)
                 && bridge.contains(#"case "system_prompt_forge_save":"#)
                 && bridge.contains(#"case "system_prompt_forge_reset":"#)
-                && bridge.contains("activeVaultURL()"),
-            "The Settings surface must have native settings/save/reset commands and active-vault grounding authority must stay native-side."
+                && bridge.contains("JuneSystemPromptForge.savePayload"),
+            "Settings/save/reset commands must stay stable for old web bundles while returning disabled payloads."
         )
         #expect(
-            forge.contains("JunePromptForge().previewPayload")
-                && forge.contains("modelID: JuneModelID.cloud")
-                && forge.contains("No active-vault behavior notes matched. Do not invent vault citations."),
-            "System Prompt Forge must reuse the already-bounded Prompt Forge vault citation path instead of cloning or fabricating grounding."
+            forge.contains(#"static let mode = "System Prompt Forge disabled in MAS""#)
+                && forge.contains(#""disabled": true"#)
+                && forge.contains("upgradedText: original")
+                && forge.contains("changed: false")
+                && forge.contains("patternsApplied: []")
+                && forge.contains("citations: []"),
+            "System Prompt Forge responses must report disabled/no-change payloads."
         )
         #expect(
-            forge.contains("try data.write(to: url, options: [.atomic])")
-                && forge.contains(".applicationSupportDirectory")
+            forge.contains("clearState()")
+                && forge.contains("system-prompt-forge.json")
+                && !forge.contains("try data.write")
                 && !forge.contains("UserDefaults.standard"),
-            "Accepted system behavior is user data and should be persisted atomically under Application Support, not as a UserDefaults blob."
+            "Save/reset must remove stale accepted layers instead of persisting new prompt-upgrade state."
         )
         #expect(
-            forge.contains("Local lane override: this model is chat-tier only")
-                && forge.contains("Cloud lane contract: cloud is the agentic lane")
-                && forge.contains("<accepted_behavior>"),
-            "Runtime behavior composition must preserve local chat-tier honesty while allowing cloud agentic behavior through the accepted layer."
+            runtimeLayer.contains("static func runtimeLayer(isLocal _: Bool) -> String")
+                && runtimeLayer.contains("\"\"")
+                && !forge.contains("<accepted_behavior>")
+                && !forge.contains("JunePromptForge().previewPayload")
+                && !forge.contains("modelID: JuneModelID.cloud"),
+            "The runtime layer must be empty and must not retain dormant Prompt Forge upgrade work."
         )
         #expect(
             gateway.contains("JuneAgentConversationContext.localInstructions")
@@ -268,7 +499,7 @@ struct AppStoreJuneHardeningTests {
                 && context.contains("behaviorBase(localBaseInstructions, isLocal: true)")
                 && context.contains("behaviorBase(agentCloudBaseInstructions, isLocal: false)")
                 && context.contains("JuneSystemPromptForge.runtimeLayer(isLocal: isLocal)"),
-            "June's accepted System Prompt Forge layer must actually compose into local and cloud gateway instructions."
+            "June may keep the behaviorBase seam, but the MAS System Prompt Forge shim must return no layer."
         )
     }
 
@@ -303,6 +534,518 @@ struct AppStoreJuneHardeningTests {
                 && popHelper.contains("pendingApprovals.removeValue(forKey: requestID)")
                 && !popHelper.contains("removeFirst()"),
             "The MAS gateway must resume only the exact approval request for the exact session, never the oldest pending approval."
+        )
+    }
+
+    @Test("App Store June MAS tool policy is the single Swift allowlist authority")
+    func appStoreJuneMASToolPolicyIsSingleSwiftAllowlistAuthority() throws {
+        let policy = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneMASToolPolicy.swift")
+        let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
+        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
+        let allowlist = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: policy,
+            startingAt: "static let allowedAgentToolNames: [String] = {",
+            endingBefore: "static let allowedObservableCompositionToolNames"
+        ))
+
+        for required in [
+            "vault.search",
+            "vault.read",
+            "vault.write",
+            "vault.list",
+            "pdf.to_markdown",
+            "knowledge.recall",
+            "web.search",
+            "web.fetch",
+            "http_fetch",
+            "think",
+        ] {
+            #expect(allowlist.contains(#""\#(required)""#), "MAS June tool policy must include \(required)")
+        }
+        for forbidden in [
+            "action.bash",
+            "browser_use",
+            "cli_passthrough",
+            "code_execution",
+            "computer_use",
+            "delegate_task",
+            "mcp_call",
+            "process",
+            "run_command",
+            "shell",
+            "stdio_mcp",
+            "subprocess",
+            "system.process",
+            "terminal",
+        ] {
+            #expect(!allowlist.contains(#""\#(forbidden)""#), "MAS June tool policy must not include \(forbidden)")
+        }
+        #expect(
+            policy.contains("precondition(")
+                && policy.contains("names.allSatisfy(Self.isMASPermittedAgentToolName)")
+                && policy.contains("forbiddenNameFragments")
+                && policy.contains("containsForbiddenPackagedRuntimeName(normalized)")
+                && policy.contains("matchedPrefixLength")
+                && !policy.contains("dockerFragment"),
+            "The MAS June tool policy must fail closed if a future allowlist edit adds parked runtime/tool names without materializing prohibited artifact strings."
+        )
+        #expect(
+            runner.contains("private static let allowedMASTools = JuneMASToolPolicy.allowedAgentToolNames")
+                && runner.contains("allowedToolNames: Self.allowedMASTools")
+                && !runner.contains(#"private static let allowedMASTools = ["#),
+            "The in-process agent_core runner must consume the shared MAS June tool policy instead of carrying its own literal list."
+        )
+        #expect(
+            gateway.contains("private nonisolated static let observableCompositionTools = JuneMASToolPolicy.allowedObservableCompositionToolNames")
+                && gateway.contains("JuneMASToolPolicy.isAllowedAgentToolName(name)")
+                && !gateway.contains(#"private nonisolated static let observableCompositionTools: Set<String> = ["#),
+            "June's composition observer must use the same allowlist as execution so provenance cannot learn tools the MAS agent cannot run."
+        )
+    }
+
+    @Test("App Store Settings hides extension installer and hosted MCP preset routes")
+    func appStoreSettingsHideExtensionInstallerAndHostedMCPPresets() throws {
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let extensions = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
+        let skills = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SkillsSettingsView.swift")
+        let cliDiscovery = try loadMirroredSourceTextFile("Epistemos/Views/Settings/CLIDiscoveryHealthRow.swift")
+        let preset = try loadMirroredSourceTextFile("Epistemos/Omega/BestOfPreset.swift")
+        let presetManifest = try loadMirroredSourceTextFile("Epistemos/Resources/best_of_preset.json")
+
+        let visibleSections = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: settings,
+            startingAt: "static var visibleSections: [SettingsSection] {",
+            endingBefore: "static func safeDetailSelection"
+        ))
+        let safeSelection = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: settings,
+            startingAt: "static func safeDetailSelection",
+            endingBefore: "var icon: String"
+        ))
+        let settingsDetail = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: settings,
+            startingAt: "private var settingsDetail: some View",
+            endingBefore: "private func toggleSidebar"
+        ))
+        let context7Fallback = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: preset,
+            startingAt: #"id: "context7""#,
+            endingBefore: #"id: "anthropic-skills""#
+        ))
+        let context7Manifest = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: presetManifest,
+            startingAt: #""id": "context7""#,
+            endingBefore: #""id": "anthropic-skills""#
+        ))
+
+        #expect(
+            visibleSections.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
+                && visibleSections.contains("sections.insert(.skills, at: 3)")
+                && !visibleSections.contains(#"                .skills,"#),
+            "App Store Settings must not include Extensions in the unconditional sidebar list."
+        )
+        #expect(
+            safeSelection.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX")
+                && safeSelection.contains("if section == .skills")
+                && safeSelection.contains("return .general"),
+            "Deep links to Extensions must resolve to a MAS-safe settings section in App Store builds."
+        )
+        #expect(
+            settingsDetail.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX")
+                && settingsDetail.contains("case .skills: GeneralDetailView()")
+                && settingsDetail.contains("#else")
+                && settingsDetail.contains("case .skills: ExtensionsDetailView()"),
+            "The MAS settings detail switch must not reference the extension installer view as the active .skills destination."
+        )
+        #expect(
+            extensions.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
+                && skills.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
+            "Extension and skill installer settings views must be compile-excluded from MAS builds."
+        )
+        #expect(
+            cliDiscovery.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
+                && cliDiscovery.contains("/usr/local/bin/codex")
+                && cliDiscovery.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .hasSuffix("#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
+            "CLI discovery settings probes must be compile-excluded for either MAS flag so CLI paths do not enter MAS artifacts."
+        )
+        #expect(
+            context7Fallback.contains("minDistribution: .proResearch")
+                && !context7Fallback.contains("minDistribution: .coreAppStore")
+                && context7Manifest.contains(#""minDistribution": "proResearch""#)
+                && !context7Manifest.contains(#""minDistribution": "coreAppStore""#),
+            "Hosted URL MCP presets must stay Pro-only so App Store builds cannot install a second tool authority."
+        )
+    }
+
+    @Test("App Store project excludes parked runtime resources before scrub")
+    func appStoreProjectExcludesParkedRuntimeResourcesBeforeScrub() throws {
+        let project = try loadMirroredSourceTextFile("project.yml")
+        let pbxproj = try loadMirroredSourceTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let appStoreTarget = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: project,
+            startingAt: "  Epistemos-AppStore:",
+            endingBefore: "  # AR1"
+        ))
+        let appStorePBXTarget = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: pbxproj,
+            startingAt: "\t\tD30E77DBB7C16B42612B2335 /* Epistemos-AppStore */ = {",
+            endingBefore: "/* End PBXNativeTarget section */"
+        ))
+        func appStorePBXPhaseID(named name: String) throws -> String {
+            let phaseLine = try #require(appStorePBXTarget
+                .components(separatedBy: .newlines)
+                .first { $0.contains("/* \(name) */") })
+            return try #require(phaseLine
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .split(separator: " ")
+                .first)
+                .description
+        }
+        func pbxObjectBlock(id: String, name: String) throws -> String {
+            try #require(AppStoreJuneSourceGuard.sourceSection(
+                in: pbxproj,
+                startingAt: "\t\t\(id) /* \(name) */ = {",
+                endingBefore: "\n\t\t};"
+            ))
+        }
+        let appStoreBuildRustPhase = try pbxObjectBlock(
+            id: appStorePBXPhaseID(named: "Build Rust Engine"),
+            name: "Build Rust Engine"
+        )
+        let appStoreRuntimeAssetsPhase = try pbxObjectBlock(
+            id: appStorePBXPhaseID(named: "Bundle Runtime Assets"),
+            name: "Bundle Runtime Assets"
+        )
+        let appStoreEpistemosSyncedGroupException = try #require(
+            pbxproj
+                .components(separatedBy: "/* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {")
+                .first {
+                    $0.contains("target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;")
+                        && $0.contains("Engine/ClaudeManagedRuntime.swift")
+                }
+        )
+        let effectivePBXExceptions = Set(appStoreEpistemosSyncedGroupException
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.hasSuffix(",") }
+            .map { String($0.dropLast()) })
+
+        for requiredYAMLSourceExclude in [
+            "ExperimentalAgent/ExperimentalGlassHostView.swift",
+            "ExperimentalAgent/ExperimentalHostBridge.swift",
+            "ExperimentalAgent/ExperimentalPerf.swift",
+            "ExperimentalAgent/ExperimentalRuntimeSupervisor.swift",
+            "ExperimentalAgent/ExperimentalStateBridge.swift",
+            "ExperimentalAgent/ExperimentalSurfaceView.swift",
+            "ExperimentalAgent/ExperimentalThemeBridge.swift",
+            "Goose/GooseACPClient.swift",
+            "Goose/GooseACPProtocol.swift",
+            "Goose/GooseACPSourceProtocol.swift",
+            "Goose/GooseInProcessACPServer.swift",
+            "Goose/GooseProcessDiagnostics.swift",
+            "Goose/GooseProviderKeyBridge.swift",
+            "Goose/GooseRuntimeSupervisor.swift",
+            "VaultMCP/VaultMCPCore.swift",
+            "VaultMCP/VaultMCPHost.swift",
+            "VaultMCP/VaultMCPServer.swift",
+            "VaultMCP/VaultMCPTokenStore.swift",
+            "Views/Settings/CLIDiscoveryHealthRow.swift",
+            "Views/Settings/VaultMCPServerSettingsRow.swift",
+            "Work/WorkAppContextSnapshot.swift",
+            "Work/WorkNativeMCPServer.swift",
+            "Work/WorkNativeToolExecutor.swift",
+            "Work/WorkOpenCodeRuntime.swift",
+            "Work/WorkPromptForgeContext.swift",
+            "Work/WorkServerDiagnostics.swift",
+            "Work/WorkSkillsProvisioner.swift",
+            "Work/WorkToolMCPCore.swift",
+            "Resources/Pyodide/**",
+            "Resources/experimental-runtime/**",
+            "Resources/opencode-runtime/**",
+        ] {
+            #expect(
+                appStoreTarget.contains(requiredYAMLSourceExclude),
+                "project.yml must keep \(requiredYAMLSourceExclude) out of the App Store synced source group."
+            )
+        }
+
+        for requiredYAMLResourceExclude in [
+            "Pyodide/**",
+            "experimental-runtime/**",
+            "opencode-runtime/**",
+        ] {
+            #expect(
+                appStoreTarget.contains(requiredYAMLResourceExclude),
+                "project.yml must keep \(requiredYAMLResourceExclude) out of App Store resources."
+            )
+        }
+
+        #expect(
+            appStorePBXTarget.contains("/* Build Rust Engine */")
+                && appStorePBXTarget.contains("/* Bundle Runtime Assets */")
+                && appStorePBXTarget.contains("/* Scrub Pro Frameworks */")
+                && !appStorePBXTarget.contains("Bundle Test Source Mirror"),
+            "The effective App Store app target must not inherit test-only source mirror phases."
+        )
+        #expect(
+            appStoreBuildRustPhase.contains("MAS_SANDBOX=1 bash")
+                && appStoreBuildRustPhase.contains("build-agent-core.sh")
+                && !appStoreBuildRustPhase.contains("build-opencode-runtime.sh")
+                && !appStoreBuildRustPhase.contains("build-experimental-web.sh"),
+            "The effective App Store build phase must build MAS agent_core without staging parked OpenCode or Experimental runtimes."
+        )
+        #expect(
+            appStoreRuntimeAssetsPhase.contains("bundle-app-runtime-assets.sh"),
+            "The effective App Store runtime-assets phase must run the scrubber after resources are staged."
+        )
+
+        for requiredPBXException in [
+            "ExperimentalAgent/ExperimentalGlassHostView.swift",
+            "ExperimentalAgent/ExperimentalHostBridge.swift",
+            "ExperimentalAgent/ExperimentalPerf.swift",
+            "ExperimentalAgent/ExperimentalRuntimeSupervisor.swift",
+            "ExperimentalAgent/ExperimentalStateBridge.swift",
+            "ExperimentalAgent/ExperimentalSurfaceView.swift",
+            "ExperimentalAgent/ExperimentalThemeBridge.swift",
+            "Goose/GooseACPClient.swift",
+            "Goose/GooseACPProtocol.swift",
+            "Goose/GooseACPSourceProtocol.swift",
+            "Goose/GooseInProcessACPServer.swift",
+            "Goose/GooseProcessDiagnostics.swift",
+            "Goose/GooseProviderKeyBridge.swift",
+            "Goose/GooseRuntimeSupervisor.swift",
+            "VaultMCP/VaultMCPCore.swift",
+            "VaultMCP/VaultMCPHost.swift",
+            "VaultMCP/VaultMCPServer.swift",
+            "VaultMCP/VaultMCPTokenStore.swift",
+            "Views/Settings/CLIDiscoveryHealthRow.swift",
+            "Views/Settings/VaultMCPServerSettingsRow.swift",
+            "Work/WorkAppContextSnapshot.swift",
+            "Work/WorkNativeMCPServer.swift",
+            "Work/WorkNativeToolExecutor.swift",
+            "Work/WorkOpenCodeRuntime.swift",
+            "Work/WorkPromptForgeContext.swift",
+            "Work/WorkServerDiagnostics.swift",
+            "Work/WorkSkillsProvisioner.swift",
+            "Work/WorkToolMCPCore.swift",
+            "\"Resources/Pyodide/README.md\"",
+            "\"Resources/Pyodide/package.json\"",
+            "\"Resources/Pyodide/pyodide-lock.json\"",
+            "\"Resources/Pyodide/pyodide.asm.mjs\"",
+            "\"Resources/Pyodide/pyodide.asm.wasm\"",
+            "\"Resources/Pyodide/pyodide.js\"",
+            "\"Resources/Pyodide/pyodide.mjs\"",
+            "\"Resources/Pyodide/python_stdlib.zip\"",
+            "\"Resources/experimental-runtime/bin/codex\"",
+            "\"Resources/experimental-runtime/bin/node\"",
+            "\"Resources/experimental-runtime/bin/rg\"",
+            "\"Resources/experimental-runtime/experimental-web.tar.gz\"",
+            "\"Resources/opencode-runtime/.bun-1.3.14-bun-darwin-aarch64\"",
+            "\"Resources/opencode-runtime/.opencode-1.17.9-opencode-darwin-arm64\"",
+            "\"Resources/opencode-runtime/bin/bun\"",
+            "\"Resources/opencode-runtime/bin/omega_mcp_stdio\"",
+            "\"Resources/opencode-runtime/bin/opencode\"",
+        ] {
+            #expect(
+                effectivePBXExceptions.contains(requiredPBXException),
+                "The effective Xcode project must exclude \(requiredPBXException) before bundle scrub runs."
+            )
+        }
+
+        for ineffectiveDirectoryException in [
+            "Resources/Pyodide",
+            "\"Resources/experimental-runtime\"",
+            "\"Resources/opencode-runtime\"",
+        ] {
+            #expect(
+                !effectivePBXExceptions.contains(ineffectiveDirectoryException),
+                "The App Store synced group must not rely on broad directory exceptions that Xcode still copies."
+            )
+        }
+    }
+
+    @Test("App Store compile-parks Work/OpenCode and Vault MCP executable local-server surfaces")
+    func appStoreCompileParksWorkOpenCodeAndVaultMCPExecutableSurfaces() throws {
+        let guardedSourcePaths = [
+            "Epistemos/Work/WorkOpenCodeRuntime.swift",
+            "Epistemos/Work/WorkNativeMCPServer.swift",
+            "Epistemos/Work/WorkNativeToolExecutor.swift",
+            "Epistemos/Work/WorkToolMCPCore.swift",
+            "Epistemos/Work/WorkServerDiagnostics.swift",
+            "Epistemos/Work/WorkSkillsProvisioner.swift",
+            "Epistemos/Work/WorkAppContextSnapshot.swift",
+            "Epistemos/Work/WorkPromptForgeContext.swift",
+            "Epistemos/VaultMCP/VaultMCPCore.swift",
+            "Epistemos/VaultMCP/VaultMCPHost.swift",
+            "Epistemos/VaultMCP/VaultMCPServer.swift",
+            "Epistemos/VaultMCP/VaultMCPTokenStore.swift",
+            "Epistemos/Views/Settings/VaultMCPServerSettingsRow.swift",
+        ]
+
+        for path in guardedSourcePaths {
+            let source = try loadMirroredSourceTextFile(path)
+            let trimmed = source.trimmingCharacters(in: .whitespacesAndNewlines)
+            #expect(
+                trimmed.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
+                "\(path) must compile-park its executable runtime surface in App Store/MAS Sandbox builds."
+            )
+            #expect(
+                trimmed.hasSuffix("#endif"),
+                "\(path) guard must close at EOF so no local-server/runtime helper leaks back into MAS."
+            )
+        }
+
+        let registration = try loadMirroredSourceTextFile("Epistemos/Work/WorkNativeMCPRegistration.swift")
+        let shell = try loadMirroredSourceTextFile("Epistemos/Work/WorkOpenCodeShell.swift")
+        let runtime = try loadMirroredSourceTextFile("Epistemos/Work/WorkOpenCodeRuntime.swift")
+
+        #expect(
+            registration.contains("App Store builds keep this")
+                && registration.contains("static let mcpPath = \"/mcp\"")
+                && !registration.contains("NWListener")
+                && !registration.contains("WorkToolMCPCore")
+                && !registration.contains("WorkNativeMCPServer.mcpPath"),
+            "MAS may keep the registration as inert validation data, but not a transport/server dependency."
+        )
+        #expect(
+            shell.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
+                && shell.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("#endif"),
+            "The OpenCode shell seam must be compile-parked for either MAS compile flag."
+        )
+        #expect(
+            !runtime.contains("nonisolated struct WorkNativeMCPRegistration"),
+            "The shared registration value must stay outside the parked OpenCode runtime file."
+        )
+    }
+
+    @Test("App Store compile-parks Goose ACP local server but keeps June agent_core runner")
+    func appStoreCompileParksGooseACPLocalServer() throws {
+        let goose = try loadMirroredSourceTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
+        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
+        let acpClient = try loadMirroredSourceTextFile("Epistemos/Goose/GooseACPClient.swift")
+        let providerKeyBridge = try loadMirroredSourceTextFile("Epistemos/Goose/GooseProviderKeyBridge.swift")
+        let masSupervisor = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASRuntimeSupervisor.swift")
+        let directSupervisor = try loadMirroredSourceTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
+        let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
+        let slug = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreProviderSlug.swift")
+        let serverGuard = try #require(goose.range(of: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
+        let serverClass = try #require(goose.range(
+            of: "nonisolated final class GooseInProcessACPServer",
+            range: serverGuard.upperBound..<goose.endIndex
+        ))
+        let directSupervisorBranch = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: directSupervisor,
+            startingAt: "#else // !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
+            endingBefore: "#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"
+        ))
+
+        #expect(
+            runner.contains("nonisolated final class GooseMASAgentCoreRunner")
+                && runner.contains("allowedToolNames: Self.allowedMASTools")
+                && runner.contains("runAgentSession(")
+                && !runner.contains("import Network")
+                && !runner.contains("NWListener")
+                && !runner.contains("GooseInProcessACPHTTPRequest")
+                && !runner.contains("GooseInProcessACPFraming")
+                && !runner.contains("nonisolated final class GooseInProcessACPServer"),
+            "MAS June must keep the agent_core runner in a MAS-safe source file, not the ACP local HTTP/WebSocket server file."
+        )
+        #expect(
+            serverGuard.lowerBound < serverClass.lowerBound
+                && goose.contains("nonisolated enum GooseInProcessACPFraming")
+                && goose.contains("nonisolated struct GooseInProcessACPHTTPRequest"),
+            "The legacy ACP server, websocket framing, and HTTP parser must remain direct-lane guarded for non-AppStore builds."
+        )
+        #expect(
+            acpClient.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\nimport Foundation")
+                && acpClient.contains("GooseACPURLSessionWebSocketTransport")
+                && acpClient.contains("URLSessionWebSocketTask")
+                && providerKeyBridge.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\nimport Foundation")
+                && providerKeyBridge.contains("syncConfiguredProviderKeys(to client: GooseACPClient)"),
+            "The Goose ACP WebSocket client and provider-key bridge are parked-lane support and must not compile into MAS."
+        )
+        #expect(
+            masSupervisor.contains("final class GooseRuntimeSupervisor")
+                && masSupervisor.contains("Goose runtime/surface is parked in the App Store build")
+                && masSupervisor.contains("Use MAS June / Epdoc Assist.")
+                && masSupervisor.contains("var acpWebSocketURL: URL? { nil }")
+                && masSupervisor.contains("nonisolated static func acpWebSocketURL")
+                && !masSupervisor.contains("GooseInProcessACPServer")
+                && !masSupervisor.contains("runInProcessAgentCore")
+                && !masSupervisor.contains(#"components.path += "/acp""#)
+                && !masSupervisor.contains("EPISTEMOS_GOOSE_BACKEND")
+                && !masSupervisor.contains("GooseSpawnBox")
+                && !masSupervisor.contains("Process()")
+                && !masSupervisor.contains("URLSession"),
+            "The App Store supervisor must stay in a MAS-safe source file that cannot start, URL-build, or reference the parked ACP local server."
+        )
+        #expect(
+            directSupervisorBranch.contains(#"components.path += "/acp""#)
+                && directSupervisorBranch.contains("EPISTEMOS_GOOSE_BACKEND")
+                && directSupervisorBranch.contains("GooseSpawnBox")
+                && directSupervisorBranch.contains("Process()"),
+            "Direct Goose subprocess and ACP URL construction must stay behind the non-MAS supervisor branch."
+        )
+        #expect(
+            slug.contains("nonisolated enum GooseMASAgentCoreProviderSlug")
+                && slug.contains("ACP loopback server")
+                && gateway.contains("GooseMASAgentCoreProviderSlug.resolve")
+                && !gateway.contains("GooseInProcessACPServer.agentCoreSlug"),
+            "June must use the MAS-safe provider slug helper instead of depending on the parked ACP server class."
+        )
+    }
+
+    @Test("App Store HTML Workspace regenerate remains parked away from Goose runtime")
+    func appStoreHTMLWorkspaceRegenerateRemainsParkedAwayFromGooseRuntime() throws {
+        let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+        let regeneration = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorRegeneration.swift")
+
+        let toolbarRegenerate = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: editor,
+            startingAt: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n            Button {\n                openRegenerateSheet()",
+            endingBefore: "Menu {"
+        ))
+        #expect(
+            toolbarRegenerate.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
+                && toolbarRegenerate.contains("Label(\"Regenerate\", systemImage: isRegenerating ? \"hourglass\" : \"wand.and.sparkles\")"),
+            "The HTML Workspace Regenerate button must stay out of App Store/MAS Sandbox builds."
+        )
+
+        for marker in [
+            "func openRegenerateSheet()",
+            "func startRegenerateWithContextDirective(",
+            "func runRegeneratePreset(",
+            "func beginRegenerateSurfaceAttachingContextIfNeeded(",
+            "func beginRegenerateSurface(instructionOverride:",
+        ] {
+            let body = try #require(AppStoreJuneSourceGuard.sourceSection(
+                in: regeneration,
+                startingAt: marker,
+                endingBefore: "\n    func "
+            ))
+            #expect(
+                body.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX")
+                    && body.contains("parkRegenerateForAppStoreBuild()")
+                    && body.contains("#else"),
+                "\(marker) must park immediately in App Store/MAS Sandbox builds before any Goose-backed regenerate work can run."
+            )
+        }
+
+        let beginSurface = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: regeneration,
+            startingAt: "func beginRegenerateSurface(instructionOverride:",
+            endingBefore: "func clearPendingRegeneratePreview()"
+        ))
+        let parkRange = try #require(beginSurface.range(of: "parkRegenerateForAppStoreBuild()"))
+        let streamRange = try #require(beginSurface.range(of: "gooseRegenerator.streamRegeneration("))
+        #expect(
+            parkRange.lowerBound < streamRange.lowerBound,
+            "The MAS parking branch must precede the Goose-backed stream path in beginRegenerateSurface."
+        )
+        #expect(
+            regeneration.contains("HTML Workspace regenerate is parked in the App Store build. Use MAS June / Epdoc Assist."),
+            "Parking copy should explicitly point App Store users back to the MAS June surface."
         )
     }
 
@@ -350,11 +1093,24 @@ struct AppStoreJuneHardeningTests {
         )
         #expect(
             nav.contains("@State private var speech = EpistemosSpeechSynthesizer.shared")
+                && nav.contains("@Environment(UIState.self) private var ui")
+                && nav.contains("@State private var kokoroDownloader = KokoroModelDownloadService.shared")
+                && nav.contains("@State private var showingKokoroInstallPrompt = false")
                 && nav.contains("EpistemosSpeechSynthesizer.isTextToSpeechAvailable()")
+                && nav.contains("KokoroVoiceInstallPrompt()")
+                && nav.contains(".environment(ui)")
+                && nav.contains("showingKokoroInstallPrompt = true")
+                && nav.contains("KokoroVoiceInstallPresentation.installSystemImage")
+                && nav.contains("KokoroVoiceInstallPresentation.installHelp(")
+                && nav.contains("KokoroVoiceInstallPresentation.unavailableAccessibilityLabel")
+                && nav.contains("refreshReadAloudAvailability()")
+                && nav.contains("window.__EPISTEMOS_READALOUD_REFRESH__")
+                && !nav.contains(".disabled(!ttsAvailable && !speech.isSpeaking)")
                 && nav.contains("JuneAgentSurfaceHolder.shared.bridge?.gateway.latestAssistantReply()")
                 && nav.contains("speech.stop()")
-                && nav.contains("_ = speech.speak(text)"),
-            "Adding the native Notes popover must not regress the existing June read-aloud toolbar control."
+                && nav.contains("EpistemosAgentReadAloud.readVisibleSurface(")
+                && nav.contains("preferred: .juneLatestAssistantReply"),
+            "Adding the native Notes popover must not regress the June read-aloud toolbar control or turn missing Kokoro into a dead disabled button."
         )
     }
 
@@ -388,7 +1144,7 @@ struct AppStoreJuneHardeningTests {
                 && replyID.contains("private static let maxSafeNumericMagnitude")
                 && replyID.contains("init?(rawValue: Any?)")
                 && replyID.contains("string.utf8.count <= Self.maxStringBytes")
-                && replyID.contains("rawValue is Bool")
+                && replyID.contains("CFGetTypeID(number) != CFBooleanGetTypeID()")
                 && replyID.contains("double.isFinite")
                 && replyID.contains("abs(double) <= Self.maxSafeNumericMagnitude")
                 && replyID.contains("return nil"),
@@ -396,20 +1152,31 @@ struct AppStoreJuneHardeningTests {
         )
     }
 
-    @Test("App Store June bridge bounds invoke-written session titles")
-    func appStoreJuneBridgeBoundsInvokeWrittenSessionTitles() throws {
+    @Test("App Store June bridge bounds session metadata and rejects model-sync failure")
+    func appStoreJuneBridgeBoundsSessionMetadataAndRejectsModelSyncFailure() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentBridge.swift")
+        let invokeCase = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: source,
+            startingAt: "case Self.invokeChannel:",
+            endingBefore: "case Self.eventsChannel:"
+        ))
         let ensureBody = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: source,
-            startingAt: #"case "ensure_hermes_bridge_session":"#,
-            endingBefore: #"case "delete_hermes_bridge_session":"#
+            startingAt: "private func handleEnsureHermesBridgeSessionInvoke",
+            endingBefore: "private func handleSetVeniceModelInvoke"
         ))
 
         #expect(
-            ensureBody.contains("Self.boundedTitle(title)")
+            invokeCase.contains(#"if cmd == "ensure_hermes_bridge_session" {"#)
+                && invokeCase.contains("handleEnsureHermesBridgeSessionInvoke(callId: callId, args: args)")
+                && ensureBody.contains("Self.boundedTitle(title)")
                 && source.contains("private static func boundedTitle")
-                && source.contains("prefix(160)"),
-            "June bridge invoke payloads must cap web-provided session titles before writing the durable store."
+                && source.contains("prefix(160)")
+                && ensureBody.contains("guard gateway.setSessionModel(model, for: sessionID) else")
+                && ensureBody.contains("gateway.modelSelectionFailureMessage(model)")
+                && ensureBody.contains("rejectInvoke(callId: callId")
+                && !source.contains("_ = gateway.setSessionModel(model, for: sessionID)"),
+            "June session ensure must bound titles and reject an exact-model sync failure instead of silently retaining the old model."
         )
     }
 
@@ -505,7 +1272,7 @@ struct AppStoreJuneHardeningTests {
         let skillsCase = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: bridge,
             startingAt: #"case "hermes_bridge_skills":"#,
-            endingBefore: #"case "ensure_hermes_bridge_session":"#
+            endingBefore: #"case "delete_hermes_bridge_session":"#
         ))
         let skillsPayload = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: bridge,
@@ -567,7 +1334,7 @@ struct AppStoreJuneHardeningTests {
             gateway.contains("observeComposition(traceJson: traceJSON)")
                 && gateway.contains("Task.detached(priority: .utility)")
                 && gateway.contains("boundedObservableCompositionTools")
-                && gateway.contains("observableCompositionTools.contains(name)")
+                && gateway.contains("JuneMASToolPolicy.isAllowedAgentToolName(name)")
                 && gateway.contains("sequence.count >= 2")
                 && gateway.contains(#""user_accepted": true"#)
                 && gateway.contains("data.count <= 64 * 1024"),

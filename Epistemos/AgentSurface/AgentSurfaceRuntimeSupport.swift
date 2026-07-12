@@ -1,4 +1,4 @@
-#if !EPISTEMOS_APP_STORE
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import Darwin
 import Foundation
 import Security
@@ -160,4 +160,4 @@ private nonisolated final class AgentSurfaceContinuationBox<T: Sendable>: @unche
         return cont != nil
     }
 }
-#endif
+#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX)

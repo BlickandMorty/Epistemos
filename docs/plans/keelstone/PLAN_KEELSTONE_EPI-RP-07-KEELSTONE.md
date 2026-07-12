@@ -3,9 +3,38 @@
 ID: EPI-RP-07-KEELSTONE · Codename: KEELSTONE
 Authored: 2026-07-06 · Status: build-ready v1 spine · Supersedes the three source dossiers where they conflict (see §1 ledger)
 
-> KEELSTONE is the keel the other plans rest on. It is not a feature. It is the structural integrity of the whole product: the vault stays truth, the derived index stays a recoverable mirror, no note is ever lost or silently clobbered, the build collapses to exactly two honest surfaces, and nothing ships until an automatable gate proves all of it. Everything below is designed to survive enterprise scale — vaults from 10k to 100k+ notes under sustained external churn — on both the MAS and Experimental lanes.
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. KEELSTONE now
+> hardens a single MAS/App Store product line. The older two-surface collapse
+> goal becomes parked-lane removal/leak proof for the App Store archive, not a
+> mandate to keep Experimental alive.
+
+> KEELSTONE is the keel the other plans rest on. It is not a feature. It is the structural integrity of the whole product: the vault stays truth, the derived index stays a recoverable mirror, no note is ever lost or silently clobbered, the build collapses to one honest MAS/App Store surface, and nothing ships until an automatable gate proves all of it. Everything below is designed to survive enterprise scale — vaults from 10k to 100k+ notes under sustained external churn — on the MAS lane.
 
 ---
+
+## 0A. Owner-Intent And Verification Lock
+
+Instruction lock ID: `OWNER-INTENT-HARDENING-LOCK-2026-07-07`.
+
+Agents entering through this plan inherit the root read-first/research-first
+discipline, the active build prompt, and the scoped `deep-hardening-loop`.
+Before implementation or after any owner steer, write or update an intent
+checkpoint in the active phase notes/evidence ledger: verbatim owner wording
+or exact excerpt, interpreted intent, hard constraints, non-goals, acceptance
+checks, contradictions/questions, and next action. If verification is
+intentionally batched during a long coding pass, keep a verification-debt
+ledger with deferred command, touched files, risk reason, expected proof, and
+checkpoint trigger.
+
+When this plan appears complete, do not stop at the last checked phase.
+Continue auditing the implemented scope with `deep-hardening-loop` until the
+owner explicitly stops, redirects, or a real blocker prevents useful progress;
+include `thermo-nuclear-code-quality-review` for structural/refactor risk,
+runtime/manual checks for UI or behavior claims, and release/security skills
+when risk warrants them. This lock is a routing and verification directive
+only; it does not expand KEELSTONE scope, overwrite the resolved verdicts, or
+absorb another feature plan.
 
 ## 0. How to read this file
 
@@ -38,7 +67,7 @@ If a future change reverts any row of this table, it is a regression, not a refa
 
 The vault directory is the only authoritative state. Everything else — FTS, embeddings, the RRF fusion layer, the graph projection — is recoverable machinery arranged around it. On macOS that splits into two cooperating layers. The first is *safe access and safe writes*: security-scoped bookmark resolution plus `NSFileCoordinator` for every mutation Epistemos performs. The second is *advisory external-change detection*: an FSEvents per-disk stream over the whole vault, because FSEvents is the only mechanism that catches edits from non-coordinating tools and edits that happened while the app was closed. Coordinated I/O for correctness, FSEvents for breadth, deterministic rescans for truth.
 
-The base-app question has a clean answer: **no.** Epistemos does not need a flag-less base surface. It needs a neutral shared codebase and exactly two shipping surfaces — Experimental (Developer ID, base default) and MAS (App Store) — with the surface macro scoped to each target so a third can't reappear by inheritance. The vestigial OpenChamber `#else` path is excised, not deprecated.
+The base-app question has a clean answer: **no.** Epistemos does not need a flag-less base surface. After the 2026-07-07 pivot it needs a neutral shared codebase and exactly one active shipping surface — MAS (App Store) — with parked-lane macros absent from the active archive and with leak checks proving Experimental/Kindred/OpenChamber code cannot ride into MAS. The vestigial OpenChamber `#else` path is excised, not deprecated.
 
 And release-readiness is not a claim, it's a gate. With the gate below wired as a hard CI blocker plus narrow manual sign-off, Epistemos earns a differentiated posture that isn't "better sync" — it's honest file-truth coexistence that survives third-party sync, external edits, crashes, and build-surface drift, proven rather than asserted.
 
@@ -84,28 +113,55 @@ Multi-vault isolates per vault: one bookmark, one presenter set, one FSEvents st
 
 ---
 
-## 6. Build-schema solidification — the two-config collapse
+## 6. Build-schema solidification — MAS-only active surface
 
-The answer to the owner's question, stated once, plainly: **no flag-less base surface. A neutral shared codebase plus exactly two target-scoped shipping surfaces.** The authoritative schema:
+The answer to the owner's question, stated once, plainly: **no flag-less base surface. A neutral shared codebase plus one active target-scoped MAS shipping surface.** The authoritative active schema:
 
 | Lane / target | Surface macro (target-scoped) | Signing + runtime | Entitlements posture | Distribution |
 |---|---|---|---|---|
-| **Epistemos** (Experimental / 1Code) | `EPISTEMOS_EXPERIMENTAL` | Developer ID, hardened runtime, notarized | no App Sandbox; subprocess capabilities allowed + supervised | direct / 1Code |
 | **Epistemos-AppStore** (June / MAS) | `EPISTEMOS_APP_STORE` | App Store, App Sandbox, hardened as required | sandbox on; `user-selected.read-write`; `bookmarks.app-scope`; minimal extras; no arbitrary subprocess | Mac App Store |
 | **Shared base** | *none* | shared compiler/linker/warnings | no surface-defining macros or entitlements | not shippable |
 
-Debug/Release/Experimental are **build configs, not product surfaces**. Three Xcode configs must still map to exactly two surfaces. The compile-time guard lives in `AppSurface.swift`: `#error` if both macros are set, and — the new one — `#error` if neither is set. That second guard is what makes the vestigial base surface uncompilable rather than merely discouraged.
+Debug/Release/Experimental are **build configs, not product surfaces**. While MAS-only is active, parked `EPISTEMOS_EXPERIMENTAL` and `KINDRED_ENABLED` settings must not be introduced or relied on for active work. The compile-time guard lives in `AppSurface.swift`: MAS must be explicit, OpenChamber/ProAgent must be absent, and parked lanes must fail App Store leak/symbol checks.
 
-### 6.1 OpenChamber / ProAgent excision — safe sequence
+### 6.1 OpenChamber / ProAgent deletion — owner-locked safe sequence
 
-You confirmed this code is dead. It's still tangled (LandingView, UIState, SubstrateHealthPanel, tests, a clone + prebuild script), so the excision is a *clean* excision — `BUILD SUCCEEDED` verified per step — and it front-loads an inventory pass so nothing load-bearing gets pruned by accident even though we believe it's all dead. Delete order is deliberately: replace the live default path *before* removing the infrastructure behind it, so at no point is a running default depending on something already deleted.
+Owner directive, 2026-07-06: **ProAgent and OpenChamber are not being kept.** They are deletion
+targets. Existing references are not permission to preserve them; they are a dependency-removal
+queue. The only acceptable temporary state is a compile-safe migration where reusable, non-product
+runtime primitives are moved behind neutral names and the branded ProAgent/OpenChamber code,
+resources, scripts, and tests are then removed. Do not land a "legacy retained because
+load-bearing" end-state.
 
-1. **Inventory (no deletion).** `grep -r` for `OpenChamber`, `ProAgent`, `PRO_BUILD`, `openchamber` across sources, `project.yml`, scripts, tests. Produce a kill-list and a *keep-list* of anything referenced by non-OpenChamber code. If the keep-list is non-empty, stop and resolve before proceeding. → bar: kill-list reviewed, keep-list empty or salvaged.
-2. **Introduce `AppSurface`.** Add the enum + guards. Nothing routes through it yet. → bar: BUILD SUCCEEDED, both targets.
-3. **Collapse LandingView** from `#if APP_STORE / #elseif EXPERIMENTAL / #else OpenChamber` to a two-way switch on `AppSurface.current`. The `#else` branch is gone. → bar: both targets launch to the correct surface; no OpenChamber view instantiated.
-4. **Scope the macro.** Ensure `EPISTEMOS_EXPERIMENTAL` is in the Epistemos target's `SWIFT_ACTIVE_COMPILATION_CONDITIONS` and *not* in base. → bar: `xcodebuild -showBuildSettings` shows each target with exactly its own macro; neither inherits the other's.
-5. **Remove infrastructure.** Delete `.research-clones/openchamber` and the `build-openchamber-web.sh` prebuild step from `project.yml` — only now, after the default path no longer needs it. → bar: BUILD SUCCEEDED with no prebuild reference.
-6. **Remove code + tests.** Drop `Epistemos/ProAgent/*` from target membership then the repo; clean `UIState`/`SubstrateHealthPanel` of third-surface modeling; rewrite tests that expected OpenChamber symbols. → bar: BUILD + full test suite green.
+The deletion is still a clean deletion — `BUILD SUCCEEDED` verified per step — so delete order is:
+replace the live default path *before* removing the infrastructure behind it, neutralize any shared
+runtime dependency, then remove the branded implementation. At no point should a running default
+depend on a file already deleted, and at the end no source/script/`project.yml` path references
+`OpenChamber`, `openchamber`, `ProAgent`, or `PRO_BUILD`.
+
+1. **Inventory for deletion, not preservation.** `grep -r` for `OpenChamber`, `ProAgent`,
+   `PRO_BUILD`, `openchamber` across sources, `project.yml`, scripts, tests. Produce:
+   (a) immediate deletes, (b) dependencies that must first be renamed/neutralized, and
+   (c) tests/scripts to rewrite or remove. A non-empty dependency list does **not** mean keep it;
+   it means migrate that dependency to neutral/shared names, then delete the branded source.
+   → bar: every hit is classified with a removal action and no item is classified for preservation.
+2. **Scope the MAS macro before guards.** Ensure `EPISTEMOS_APP_STORE`/`MAS_SANDBOX` are correct for
+   `Epistemos-AppStore`; do not add or rely on `EPISTEMOS_EXPERIMENTAL` or `KINDRED_ENABLED` while
+   MAS-only is active. Keep surface macros out of shared/base. → bar:
+   `xcodebuild -showBuildSettings` proves the App Store target has only the MAS surface contract and
+   parked-lane macros do not leak into it.
+3. **Introduce `AppSurface`.** Add the enum + MAS guard only after step 2 proves macros are
+   scoped. Nothing routes through it yet. → bar: BUILD SUCCEEDED for the MAS/AppStore target.
+4. **Collapse LandingView** from `#if APP_STORE / #elseif EXPERIMENTAL / #else OpenChamber` to the
+   MAS surface plus parked-lane leak checks. The `#else` branch is gone. → bar: MAS launches
+   to the correct surface; no OpenChamber view instantiated.
+5. **Remove infrastructure.** Delete `.research-clones/openchamber` and the
+   `build-openchamber-web.sh` prebuild step from `project.yml` only after the Experimental default
+   path no longer needs the staged runtime/web artifacts. → bar: BUILD SUCCEEDED with no prebuild
+   reference.
+6. **Remove code + tests.** Drop `Epistemos/ProAgent/*` from target membership then the repo;
+   clean `UIState`/`SubstrateHealthPanel` of third-surface modeling; rewrite tests that expected
+   OpenChamber symbols. → bar: BUILD + full test suite green.
 7. **Drift guardrails in CI** (§9.2).
 
 ---
@@ -114,7 +170,7 @@ You confirmed this code is dead. It's still tangled (LandingView, UIState, Subst
 
 The floor is measured, not described (`config/perf-budgets.toml`, source-controlled and release-blocking). Every budgeted path emits an `os_signpost` span; CI computes p50/p95 from Instruments/MetricKit and fails on unbudgeted regression. The reference envelope is a 10k-note vault on M2 Pro; a separate, looser-but-bounded enterprise envelope covers 100k notes, where the rule shifts from "fast" to "the UI shell never waits on the index" — lazy index load, embeddings allowed to lag with visible staleness, WAL size bounded.
 
-Hardening is a per-release gate with four audit lenses — data-core integrity, external-boundary integrity, runtime integrity, capability integrity — and **a HIGH finding blocks ship exactly like a failing test.** Runtime integrity on the Experimental lane specifically covers the embedded 1Code child process: a child-process ledger, supervision-not-polling, clean reap on quit and on crash-restart, no orphan helper surviving app exit. MAS specifics: sandbox on, bookmark + user-selected entitlements only, no temporary exceptions unless reviewed. Helper tools on the MAS lane inherit the sandbox with `app-sandbox` + `inherit` and *nothing else* — adding any other entitlement to an inheriting helper is a launch-failure crash loop.
+Hardening is a per-release gate with four audit lenses — data-core integrity, external-boundary integrity, runtime integrity, capability integrity — and **a HIGH finding blocks ship exactly like a failing test.** Runtime integrity now focuses on proving no parked-lane child process, server, terminal, stdio MCP, or 1Code residue can enter the MAS archive. MAS specifics: sandbox on, bookmark + user-selected entitlements only, no temporary exceptions unless reviewed. Helper tools on the MAS lane inherit the sandbox with `app-sandbox` + `inherit` and *nothing else* — adding any other entitlement to an inheriting helper is a launch-failure crash loop.
 
 ---
 
@@ -122,15 +178,19 @@ Hardening is a per-release gate with four audit lenses — data-core integrity, 
 
 Each phase has a **witnessable proven-done bar** — a real behavior, not "it compiles." Check a box only when the bar is demonstrated. The Plan 6 / EMBERCATCH dependency is flagged at Phase 1.
 
-- [ ] **Phase 0 — Excision inventory.** Grep kill-list + keep-list produced; keep-list empty or salvaged. *(Do this before touching anything — §6.1 step 1.)*
+Audit checkpoint 2026-07-07: current source-level evidence and deferred batch checks are tracked in
+`docs/plans/keelstone/VERIFICATION_LEDGER_2026_07_07.md`. Phases 7 and 8 remain partial until real
+Keelstone perf measurements, built-app entitlement gates, and the broad release-lane soaks run.
+
+- [ ] **Phase 0 — Deletion inventory.** Grep hit-list produced with immediate deletes, dependency neutralizations, and tests/scripts to rewrite or remove. No `OpenChamber`/`ProAgent` item may be classified for preservation. *(Do this before touching anything — §6.1 step 1.)*
 - [ ] **Phase 1 — Durable write core.** Every save uses coordinate → temp → replace; a `kill -9` injected mid-write leaves the note as either the full old or full new version across 1,000 trials, never truncated. **Dependency: Plan 6 / EMBERCATCH capture-writes** — if not landed, add a minimal internal save-journal so the reconciler can tell "my just-committed write" from "external unknown write" without racey heuristics.
 - [ ] **Phase 2 — External detection.** Presenter + per-disk FSEvents run together; a forced dropped-event and a root-move each trigger the correct rescan/escalation; last-event-ID replay picks up a change made while the app was quit.
 - [ ] **Phase 3 — Deterministic reconciliation.** After external add/edit/delete/rename storms and a 1,000-file sync-pull burst, incremental reconcile converges to *exactly* the fresh-rebuild snapshot (file manifest and derived index both equal).
 - [ ] **Phase 4 — Conflict UX.** A dirty open note changed on disk always enters an inspectable conflict path (merge-review or conflict-copy) and never silently clobbers either side; a clean open note reloads silently.
 - [ ] **Phase 5 — Index self-heal.** A deliberately corrupted index DB is quarantined and rebuilt from the vault with zero user-facing note loss; `quick_check`/`integrity_check` are wired into support diagnostics; a forced-fail migration recovers by rebuild.
-- [ ] **Phase 6 — Schema collapse + OpenChamber retirement.** Only two app surfaces remain; the flag-less surface *cannot compile* (Guard 2 fires); no `OpenChamber`/`ProAgent` residue in sources, `project.yml`, or scripts; full test suite green.
-- [ ] **Phase 7 — Perf + hardening floor.** `perf-budgets.toml` gates CI (a seeded regression fails the pipeline); a seeded HIGH hardening finding blocks the archive lane; on Experimental, no child process survives app quit across 100 launch/quit cycles.
-- [ ] **Phase 8 — Release gate.** The full gate (§9) blocks the archive lane exactly as a failing test does; the data-safety soak (external-edit storm + sync race + `kill -9` during write) and the first-run/upgrade matrix both pass on both lanes.
+- [ ] **Phase 6 — Schema collapse + OpenChamber retirement.** Only the MAS surface remains active; the flag-less and parked-lane surfaces cannot ride into the App Store archive; no `OpenChamber`/`ProAgent` residue in sources, `project.yml`, or scripts; full test suite green.
+- [ ] **Phase 7 — Perf + hardening floor.** `perf-budgets.toml` gates CI (a seeded regression fails the pipeline); a seeded HIGH hardening finding blocks the archive lane; MAS archive leak checks prove no parked-lane child process/server symbols survive.
+- [ ] **Phase 8 — Release gate.** The full gate (§9) blocks the archive lane exactly as a failing test does; the data-safety soak (external-edit storm + sync race + `kill -9` during write) and the first-run/upgrade matrix both pass on the MAS lane.
 
 ---
 
@@ -140,16 +200,16 @@ The gate behaves like a broken build: any required item fails → release stops.
 
 **9.1 Blocking categories.**
 - *Data integrity & reconciliation* (the thesis test): round-trip create/edit/rename/move/delete/restore in plain, iCloud, and one third-party-sync folder; deterministic reconcile after storms; clean-editor safe-reload; dirty-editor conflict-never-clobber; `kill -9` during write → no truncation; forced dropped-event → rescan converges; root move → `VolumeUnavailable` not data loss; corrupt DB → quarantine+rebuild.
-- *Packaging & distribution*: MAS — sandbox on, minimal entitlements, no unjustified temporary exceptions. Developer ID — hardened runtime on, notarized + stapled before distribution (`notarytool` + `stapler`, not the deprecated altool path).
-- *Stability/performance/resource*: zero main-thread file IO in mount/save/reconcile; budgets met; no runaway WAL/cache; no long-lived child process after quit (Experimental).
-- *Accessibility/localization/upgrade*: VoiceOver + keyboard sanity on landing, onboarding, mount, editor, search, settings, conflict dialog; localization sanity on onboarding/permissions/conflict copy; first-run + upgrade matrix across prior versions and both lanes.
-- *Honest capability-gating audit* (separate sign-off): a truth table per capability — available in MAS / in Experimental / nowhere / gated by disconnect / gated by non-hydration. Any copy, affordance, or screenshot implying a capability that isn't actually available blocks release.
+- *Packaging & distribution*: MAS — sandbox on, minimal entitlements, no unjustified temporary exceptions, App Store archive path proven.
+- *Stability/performance/resource*: zero main-thread file IO in mount/save/reconcile; budgets met; no runaway WAL/cache; no parked-lane child process or server residue.
+- *Accessibility/localization/upgrade*: VoiceOver + keyboard sanity on landing, onboarding, mount, editor, search, settings, conflict dialog; localization sanity on onboarding/permissions/conflict copy; first-run + upgrade matrix across prior MAS versions.
+- *Honest capability-gating audit* (separate sign-off): a truth table per capability — available in MAS / parked / nowhere / gated by disconnect / gated by non-hydration. Any copy, affordance, or screenshot implying a capability that isn't actually available blocks release.
 
 **9.2 Soak suite** (the heart of the gate): 10k-file initial mount; 1k-file sync-pull burst; repeated external edits while open; nested rename storms; sustained idle-open on battery; repeated mount/disconnect/reconnect without stale-prompt regression; `kill -9` at random points in save/rename/index-transaction boundaries. Done-bar: after each soak, a full rescan equals a clean rebuild.
 
-**9.3 Upgrade matrix**: fresh install empty vault; fresh install large existing vault; upgrade from prior index schema; bookmark survives relaunch; bookmark goes stale (refreshes); permission revoked post-install; vault volume absent at launch; both lanes on one account with isolated containers.
+**9.3 Upgrade matrix**: fresh install empty vault; fresh install large existing vault; upgrade from prior index schema; bookmark survives relaunch; bookmark goes stale (refreshes); permission revoked post-install; vault volume absent at launch; MAS container isolation and migration path proven.
 
-**9.4 CI drift guardrails**: assert exactly two app targets; assert each defines exactly one surface macro and neither inherits the other's; assert no source/script/`project.yml` path references `OpenChamber`/`ProAgent`; assert built entitlements match the approved matrix per lane.
+**9.4 CI drift guardrails**: assert the App Store archive resolves only the MAS surface; parked macros are absent; assert no source/script/`project.yml` path references `OpenChamber`/`ProAgent`; assert built entitlements match the approved MAS matrix.
 
 ---
 
@@ -157,14 +217,14 @@ The gate behaves like a broken build: any required item fails → release stops.
 
 KEELSTONE is the fabric's structural integrity — it hardens the contracts every other plan plugs into, which is why "it feels like one app" is a *consequence* of this plan rather than a separate feature.
 
-- **F1 — vault bus.** Reconciliation *is* the vault bus's integrity. A capture (EMBERCATCH), a research save (LODESTAR), an agent edit (LUMENLENS/KINDRED) are all vault writes; KEELSTONE guarantees none is ever lost or desynced, and a change by one feature reflects live everywhere. Seam: features write through `AtomicVaultWriter`; KEELSTONE owns coordination, atomicity, and propagation. No feature may invent a private store authoritative over the vault.
-- **F2 — capability registry.** The release gate verifies every capability's honest gating, and the two-config schema defines exactly which surfaces host the registry: June/MAS and 1Code/Experimental, no third. Seam: `AppSurface.allowsSubprocessCapabilities` is the honest gate the registry reads; subprocess-backed capabilities are Experimental-only, enforced at compile time.
-- **F3 — companion presence.** The hardening floor covers presence-layer robustness (supervision-not-polling). Presence renders on Experimental only; MAS shows the feature without the companion. Seam: reconcile run-state (mounting/indexing/reconciling/blocked) is emitted on the state bus for KINDRED to render.
+- **F1 — vault bus.** Reconciliation *is* the vault bus's integrity. A capture (EMBERCATCH), a research save (LODESTAR), and an agent edit (LUMENLENS via MAS/June) are all vault writes; KEELSTONE guarantees none is ever lost or desynced, and a change by one feature reflects live everywhere. Seam: features write through `AtomicVaultWriter`; KEELSTONE owns coordination, atomicity, and propagation. No feature may invent a private store authoritative over the vault.
+- **F2 — capability registry.** The release gate verifies every capability's honest gating for MAS/June, with parked-lane capabilities absent rather than hidden. Seam: the registry reads the MAS surface truth; subprocess-backed capabilities are parked and fail App Store leak checks.
+- **F3 — status/provenance.** The hardening floor covers MAS-safe run-state visibility. Kindred-style companion presence is parked. Seam: reconcile run-state (mounting/indexing/reconciling/blocked) is emitted on the state bus for June/native surfaces to render honestly.
 - **F4 — knowledge graph.** File mutations detected by reconcile update graph nodes/edges through the graph's public API only — never its internals. Seam: rename/tombstone events map to node/edge updates without corrupting relational links.
 - **F5 — provenance ledger.** Every agent-originated vault write is attributed on the shared ledger (timestamp, rationale, path, diff). "Press the companion → see what it did" works because reconcile records origin. Seam: KEELSTONE distinguishes app-origin from external-origin writes (the save-journal from Phase 1) so provenance is honest.
-- **F6 — state/event bus.** Reconcile and lifecycle state stream to all surfaces (native SwiftUI + June/1Code WebViews) in lock-step, no double source of truth. Seam: no polling — the bus carries run-state; consumers degrade to "index stale / rebuilding" rather than ever treating the derived layer as truth.
+- **F6 — state/event bus.** Reconcile and lifecycle state stream to MAS surfaces (native SwiftUI + June WKWebView) in lock-step, no double source of truth. Seam: no polling — the bus carries run-state; consumers degrade to "index stale / rebuilding" rather than ever treating the derived layer as truth.
 
-Schema-solidification guarantees exactly two consistent fabric hosts, which is what lets the other five contracts stabilize honestly. These six briefs are one integrated product built one plan at a time — KEELSTONE first, because it's the substrate.
+Schema-solidification guarantees one consistent MAS fabric host, which is what lets the other five contracts stabilize honestly. These six briefs are one integrated product built one plan at a time — KEELSTONE first, because it's the substrate.
 
 ---
 
@@ -182,7 +242,7 @@ These are real forks that need your judgment or a follow-up research cycle; I ha
 2. **Are embeddings release-critical like FTS?** (Leaning: no — hard-gate FTS + block-index consistency; let embeddings lag with *visible* staleness so an external storm doesn't become an embedding bottleneck. But this needs a call on how stale is too stale.)
 3. **One DB per vault, or one namespaced DB for all vaults?** Per-vault is cleaner for teardown, corruption isolation, and support bundles; shared is more efficient but couples failure domains. (Leaning: per-vault at v1.)
 4. **Case-only rename policy** on case-insensitive volumes: warn + require a two-step rename, or handle silently? (Leaning: warn — the edge is real per Apple + Syncthing.)
-5. **Does Experimental ship subprocess-backed features in v1?** If yes, child-process supervision + entitlement review join the gate from day one, not as a retrofit.
+5. **Parked-lane residue policy.** Experimental subprocess-backed features do not ship in MAS v1. The active question is how strict the source-level quarantine/leak check must be before archive.
 6. **Volume-move re-authorization** (owner-raised): app-scoped bookmarks resolve renames on the same volume but not a move to a different disk. When the user moves the vault to an external drive, do we auto-request parent-directory authorization (better UX, broader entitlement, harder MAS review) or fall back to a re-mount prompt? Needs a research + review-risk pass.
 7. **Large-batch coalescing latency tuning.** The 120ms debounce and 0.15s FSEvents latency are starting points. At a 20k–100k-file pull, what window minimizes write-amplification without making the user think sync is stuck? Needs measurement on real hardware, not a guessed constant.
 8. **Embedding index under sustained churn** — batch vs realtime, and whether the vector store should be a separate DB from FTS so an embedding rebuild never touches the search-critical path. Follow-up research cycle.
@@ -191,9 +251,9 @@ These are real forks that need your judgment or a follow-up research cycle; I ha
 
 ## 13. Self-critique
 
-Three weakest points, honestly. First, the three-way merge is a stub — `diff3`/`diff-match-patch` is named but not implemented, and merge quality is where a conflict UX lives or dies; that needs its own focused build + test pass. Second, the enterprise envelope (100k notes) is reasoned from mechanism, not yet measured — the perf budgets for that tier are educated placeholders until they run on real hardware with a real 100k-note corpus, and FSEvents/WAL/FTS5 behavior at that scale is exactly where surprises hide. Third, the Experimental child-process supervision (pseudo-terminal SIGHUP-on-parent-death) is sketched at the plan level but the spine doesn't yet include the supervisor file — it's the one load-bearing piece I described rather than skeletoned, and it deserves the same treatment as the sync files before you lean on it.
+Three weakest points, honestly. First, the three-way merge is a stub — `diff3`/`diff-match-patch` is named but not implemented, and merge quality is where a conflict UX lives or dies; that needs its own focused build + test pass. Second, the enterprise envelope (100k notes) is reasoned from mechanism, not yet measured — the perf budgets for that tier are educated placeholders until they run on real hardware with a real 100k-note corpus, and FSEvents/WAL/FTS5 behavior at that scale is exactly where surprises hide. Third, the parked-lane leak-proofing is now more important than Experimental supervision: the plan needs archive-level evidence that no subprocess/server/1Code route can reach MAS.
 
-A follow-up cycle should: implement and stress the merge engine against a corpus of real conflict cases; run the 100k soak and replace the placeholder budgets with measured ones; and build out the subprocess supervisor spine with its child-process ledger and reap-on-quit tests.
+A follow-up cycle should: implement and stress the merge engine against a corpus of real conflict cases; run the 100k soak and replace the placeholder budgets with measured ones; and build the MAS archive leak-proof checks for parked lanes.
 
 ---
 
@@ -213,17 +273,16 @@ All axes ≥4.
 
 ---
 
-## 15. Repo-integration amendments (owner review, 2026-07-06 — accepted; these bind like §1)
+## 15. Repo-integration amendments (accepted 2026-07-06 — these bind like §1)
 
 Verified against the live repo before build-start. Full detail: `KEELSTONE_REVIEW_2026_07_06.md`.
 
-1. **§6.1 sequencing fix (Guard 2 would break Debug).** Today the `Epistemos` target defines
-   `EPISTEMOS_EXPERIMENTAL` ONLY in its Experimental config; Debug/Release have no surface macro.
-   Corrected order: **(a)** add `EPISTEMOS_EXPERIMENTAL` to the `Epistemos` target's Debug AND
-   Release configs in the real `project.yml` — PRESERVING the existing tokens (`DEBUG`,
-   `EPISTEMOS_LINK_SUBSTRATE_RT`); verify via `xcodebuild -showBuildSettings`; **(b)** only then
-   land `AppSurface.swift` with both guards; **(c)** then collapse LandingView. This also enacts
-   the owner decision "Experimental/1Code is the base default."
+1. **§6.1 sequencing fix superseded by MAS-only pivot (2026-07-07).** Do not add
+   `EPISTEMOS_EXPERIMENTAL` or make Experimental/1Code the base default. The
+   corrected active order is: **(a)** verify the real `project.yml` and
+   archive settings, **(b)** make MAS/App Store the only active surface for the
+   release path, **(c)** prove parked macros/routes cannot leak into the archive,
+   and **(d)** collapse LandingView to MAS with OpenChamber/ProAgent deleted.
 2. **The delivered `project.yml` is a PATTERN, not a replacement.** The real file is ~23KB
    (macOS 26.0, three configs, Rust preBuild chain, local packages, widgets/tests targets, signing).
    Apply the PRINCIPLE (target-scoped macros, no surface macro in shared base) as a 3-line edit to
@@ -264,17 +323,17 @@ Verified against the live repo before build-start. Full detail: `KEELSTONE_REVIE
 8. **Guard-2 blast radius.** `EpistemosWidgets` cherry-picks individual `Epistemos/` files —
    `AppSurface.swift` must never join a cherry-picking target unless that target defines a surface
    macro. `EpistemosTests` (@testable import, own sources) is unaffected.
-9. **Cross-plan coordination (post-LUMENLENS audit, 2026-07-06).** (a) The §15.1 macro-scoping
-   edit also places `KINDRED_ENABLED` on the `Epistemos` target (never AppStore/base) — LUMENLENS's
-   companion flag rides the same project.yml change, and §9.4 drift guardrails assert its
-   placement. (b) `ActiveEditorBridge` stays a thin protocol seam with a stub adapter; the real
+9. **Cross-plan coordination (post-LUMENLENS audit, 2026-07-06; amended by MAS-only pivot
+   2026-07-07).** (a) Do not place `KINDRED_ENABLED` or `EPISTEMOS_EXPERIMENTAL` for active
+   MAS-only work; drift guardrails now assert parked-lane symbols do not leak into App Store
+   builds. (b) `ActiveEditorBridge` stays a thin protocol seam with a stub adapter; the real
    implementation is LUMENLENS's `LensSessionCoordinator` (docs/plans/lumenlens/spine/). (c)
    `AtomicVaultWriter.write(_ content:, to:)` keeps its whole-buffer contract — LUMENLENS
    minimal-diff writeback composes buffers in memory and always writes full content atomically.
 10. **DATASET-ARTIFACT SEAM (2026-07-06, RECKONER audit #4 — additive).** RECKONER makes vault
    files the dataset truth: `.csv` (flat), `.xlsx`/`.icalc` (workbooks), `*.dataset.md`
-   (companion). Three additions bind: (a) the reconciler's indexed set becomes EXTENSIBLE —
-   csv/xlsx/icalc route to a dataset re-derive hook, `*.dataset.md` routes to the companion parser
+   (dataset metadata). Three additions bind: (a) the reconciler's indexed set becomes EXTENSIBLE —
+   csv/xlsx/icalc route to a dataset re-derive hook, `*.dataset.md` routes to the dataset metadata parser
    (NOT the note indexer; today it would pass the `.md` predicate and be mis-indexed); (b) conflict
    DELEGATION for artifacts — KEELSTONE detects+routes, RECKONER resolves (clean → re-derive +
    repaint; dirty → user-wins-live, agent rebases/flags; moved/deleted → embedInvalidated + relink;

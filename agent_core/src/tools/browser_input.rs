@@ -109,7 +109,9 @@ mod tests {
     #[test]
     fn browser_input_rejects_oversized_command_text() {
         assert!(ensure_max_chars("abc", "text", 3).is_ok());
-        assert!(format!("{}", ensure_max_chars("abcd", "text", 3).unwrap_err())
-            .contains("'text' exceeds 3 characters"));
+        assert!(
+            format!("{}", ensure_max_chars("abcd", "text", 3).unwrap_err())
+                .contains("'text' exceeds 3 characters")
+        );
     }
 }

@@ -102,8 +102,7 @@ final class BackendRegistry {
 nonisolated enum RuntimeBootstrapWriter {
     /// Maps a backend identifier to the canonical runtime-config filename
     /// that backend reads on entry. AGENTS.md is the fallback for anything
-    /// that isn't Claude or Gemini, matching the convention used by Codex,
-    /// OpenCode, OpenClaw, and the broader open-agent ecosystem.
+    /// that isn't Claude or Gemini, matching the broader agent-file convention.
     nonisolated enum TargetFile {
         static func fileName(forBackendID identifier: String) -> String {
             switch identifier.lowercased() {

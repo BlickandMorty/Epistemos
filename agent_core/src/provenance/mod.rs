@@ -44,6 +44,7 @@
 
 pub mod ledger;
 pub mod replay;
+pub mod suggestion_schema;
 
 pub use ledger::{
     Claim, ClaimId, ClaimLedger, ClaimStatus, Evidence, EvidenceId, LedgerError, LedgerEvent,
@@ -52,4 +53,13 @@ pub use ledger::{
 pub use replay::{
     BundleError, ClaimDerivation, ClaimEvidenceLink, LedgerSnapshot, ReplayBundle,
     REPLAY_BUNDLE_SCHEMA_VERSION,
+};
+pub use suggestion_schema::{
+    AcceptState as SuggestionAcceptState, Author as SuggestionAuthor,
+    ObjectType as SuggestionObjectType, Range as SuggestionRange,
+    RangePayload as SuggestionRangePayload, Suggestion, SuggestionAcceptStateHistoryEntry,
+    SuggestionCompactionReport, SuggestionLedger, SuggestionLedgerError, SuggestionLedgerEvent,
+    SuggestionLedgerSnapshot, SuggestionReplayBundle, SuggestionRevertOperation,
+    TabularRange as SuggestionTabularRange, DEFAULT_SUGGESTION_EVENT_RETENTION,
+    SUGGESTION_REPLAY_BUNDLE_SCHEMA_VERSION,
 };

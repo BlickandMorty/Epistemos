@@ -10,6 +10,11 @@ struct VoiceSettingsDetailView: View {
             VoicePreferencesSection()
             KokoroVoiceProSettingsSection()
         }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .onAppear {
+            EpistemosSpeechSynthesizer.logTextToSpeechReadiness(context: "voice-settings-detail")
+        }
     }
 
     private var voiceHeader: some View {

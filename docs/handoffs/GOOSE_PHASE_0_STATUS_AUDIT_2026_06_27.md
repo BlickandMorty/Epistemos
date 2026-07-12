@@ -1,6 +1,6 @@
 # Goose Phase 0 — Status Audit (Codex handoff vs proof gate)
 
-> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** This is a phase artifact of the DEAD "reskin Goose's WebView as the agent surface" program. The agent surface is now OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** This is a phase artifact of the DEAD "reskin Goose's WebView as the agent surface" program. current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > 🛑 **SUPERSEDED 2026-06-29:** §7 is GREEN-LIT; Plan 1 is ON Phase 1. **IGNORE** the "DO NOT start Agent until §7
 > sign-off / Phase 0 NOT signed" instructions below — historical. Option 1: native = frame + Models picker only;

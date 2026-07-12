@@ -44,6 +44,8 @@ struct VoicePreferenceWiringAuditTests {
         // (default .manual = off) + a long note, speaking the markdown-stripped body.
         #expect(src.contains("VoicePreferences.shared.noteReadAloud == .auto"))
         #expect(src.contains("maybeAutoReadAloudOnOpen(noteId:"))
+        #expect(src.contains("EpistemosAgentReadAloud.speak("))
+        #expect(src.contains("surface: .proseNoteBody"))
     }
 
     @Test("do-nothing toggles are REMOVED from Settings (not shown as for-show controls)")

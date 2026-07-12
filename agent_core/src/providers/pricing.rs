@@ -51,6 +51,7 @@ const PRICING_TABLE: &[ProviderPricing] = &[
         last_verified_iso8601: PRICING_LAST_VERIFIED_ISO8601,
         source_url: "https://docs.perplexity.ai/docs/sonar/models/sonar-pro",
     },
+    #[cfg(any(test, not(feature = "mas-build")))]
     ProviderPricing {
         canonical_name: "codex-mini-latest",
         aliases: &["codex", "openai-codex", "codex-mini"],

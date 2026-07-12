@@ -609,10 +609,11 @@ struct ContextualShadowsStateTests {
         #expect(noteWorkspace.contains("scopeKind: .note"))
         #expect(noteWorkspace.contains("ContextualShadowsButton(scopeKind: .note"))
 
-        #expect(proseBridge.contains("scheduleContextualShadowsRecall(newText)"))
+        #expect(proseBridge.contains("scheduleContextualShadowsRecall()"))
         #expect(proseBridge.contains("state.requestRecall("))
         #expect(proseBridge.contains("searchIndexService: searchIndexService"))
-        #expect(proseBridge.contains("contextualRecallText(fallback: snapshotText)"))
+        #expect(proseBridge.contains("guard let liveText = self.contextualRecallText() else { return }"))
+        #expect(!proseBridge.contains("scheduleContextualShadowsRecall(_ snapshotText: String)"))
         #expect(!proseBridge.contains("HaloButton("),
                 "Note pages should use the scoped Contextual Shadows chip, not the legacy clipped Halo search button.")
         #expect(!proseBridge.contains("ShadowPanelContent("),

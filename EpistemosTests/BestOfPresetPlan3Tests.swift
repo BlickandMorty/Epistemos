@@ -184,8 +184,37 @@ struct BestOfPresetPlan3Tests {
         #expect(entry.description.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) })
     }
 
-    @Test("apply reports built-ins and installs only missing remote MCP rows")
-    func applyInstallsRemoteMCP() async throws {
+    @Test("core App Store preset keeps hosted MCP rows locked")
+    func coreAppStorePresetKeepsRemoteMCPLocked() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("best-of-core-lock-\(UUID().uuidString)")
+        let home = root.appendingPathComponent("home")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let results = await BestOfPreset.apply(
+            vaultPath: nil,
+            distribution: .coreAppStore,
+            home: home
+        )
+
+        let vaultSearch = try #require(results.first { $0.item.id == "vault.search" })
+        #expect(vaultSearch.status == .alreadyEnabled)
+
+        let context7 = try #require(results.first { $0.item.id == "context7" })
+        #expect(context7.status == .proLocked)
+
+        let servers = MCPUrlServerDirectory.discover(
+            cwd: root.appendingPathComponent("project"),
+            home: home
+        )
+        #expect(!servers.map(\.name).contains("context7"))
+
+        let receipt = BestOfPresetReceiptStore.load(home: home)
+        #expect(receipt.remoteMCPServerNames.isEmpty)
+    }
+
+    @Test("Pro preset reports built-ins and installs only missing remote MCP rows")
+    func proPresetInstallsRemoteMCP() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("best-of-apply-\(UUID().uuidString)")
         let home = root.appendingPathComponent("home")
@@ -193,7 +222,7 @@ struct BestOfPresetPlan3Tests {
 
         let results = await BestOfPreset.apply(
             vaultPath: nil,
-            distribution: .coreAppStore,
+            distribution: .proResearch,
             home: home
         )
 
@@ -223,7 +252,7 @@ struct BestOfPresetPlan3Tests {
 
         _ = await BestOfPreset.apply(
             vaultPath: nil,
-            distribution: .coreAppStore,
+            distribution: .proResearch,
             home: home
         )
         _ = try MCPUrlServerDirectory.install(
@@ -253,7 +282,7 @@ struct BestOfPresetPlan3Tests {
 
         _ = await BestOfPreset.apply(
             vaultPath: nil,
-            distribution: .coreAppStore,
+            distribution: .proResearch,
             home: home
         )
         _ = try MCPUrlServerDirectory.install(
@@ -292,7 +321,7 @@ struct BestOfPresetPlan3Tests {
 
         let results = await BestOfPreset.apply(
             vaultPath: nil,
-            distribution: .coreAppStore,
+            distribution: .proResearch,
             home: home
         )
         let context7 = try #require(results.first { $0.item.id == "context7" })

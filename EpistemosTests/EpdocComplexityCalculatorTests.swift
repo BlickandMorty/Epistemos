@@ -218,7 +218,7 @@ nonisolated struct EpdocComplexityCalculatorTests {
     func chartCount() {
         let d = Self.doc([
             ProseMirrorNode(type: "epdocChart", content: [
-                Self.text(#"{"type":"scatter","points":[{"x":0.7,"y":0.9}]}"#)
+                Self.text(#"{"type":"scatter","provenance":{"kind":"manual","source":"complexity-test"},"points":[{"x":0.7,"y":0.9}]}"#)
             ])
         ])
         let r = EpdocComplexityCalculator.breakdown(for: d)

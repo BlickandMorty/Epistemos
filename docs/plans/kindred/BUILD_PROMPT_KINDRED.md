@@ -1,5 +1,13 @@
 # BUILD PROMPT — KINDRED (Companions)
 ID: EPI-RP-05-KINDRED · 1Code/Experimental only · doubles as a proposal for reviewing agents AND an instruction set for a coding agent (Claude Code)
+
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: this plan is
+> parked. Read `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first.
+> Do not implement Kindred, companion runtime, 1Code minichat extraction, Node
+> presence, or Experimental companion authority while MAS-only is active.
+> Preserve this file as provenance and salvage only patterns that can become
+> MAS-June/native status, provenance, and approval flows.
+
 **READ FIRST: the REPO REALITY ADDENDUM at the bottom binds like the phase list. Research base:**
 `RESEARCH_DUAL_KINDRED_LUMENLENS_2026_07_06.md`. Spine: `spine/` (audited copies — use these).
 
@@ -68,6 +76,28 @@ No second parallel editor, no fake-animated mascot, no silent authority escalati
 the 1Code-only / MAS-hidden constraint or loading != editing. Do not silently resolve the
 landing-vs-1Code creation boundary — present options + criteria + a recommendation.
 
+## Continuing hardening loop (owner-locked)
+
+When K0-K8 and their repo-audited amendments appear complete, do not stop at the
+last checked box. Invoke `deep-hardening-loop` and continue auditing,
+hardening, researching, testing, and improving the KINDRED scope until the owner
+explicitly stops or a real blocker prevents useful progress. Combine it with
+`thermo-nuclear-code-quality-review`, `Recursive App Audit`, `Epistemos Release
+Audit` when release claims matter, Playwright/browser/screenshot tooling for
+presence/mascot/editor evidence, and security/threat-model skills where
+approval, prompt-injection, persistence, or authority risk warrants it. Keep the
+loop scoped to KINDRED seams, tests, evidence, docs, companion behavior,
+gating, release risk, and regressions; do not absorb LUMENLENS editor internals,
+RECKONER dataset internals, or KEELSTONE storage ownership beyond named seams.
+
+Before each substantive KINDRED batch, keep a scoped owner-intent and
+verification-debt checkpoint in the phase notes: verbatim owner query/excerpt,
+interpreted intent, constraints, non-goals, acceptance checks, deferred
+commands, files touched, risk reason, expected proof, and checkpoint trigger.
+Edit surgically, re-read changed regions after editing, and batch builds/tests
+only at meaningful checkpoints unless risky/shared behavior needs an immediate
+narrow check.
+
 ---
 
 ## REPO REALITY ADDENDUM (verified against the live repo 2026-07-06 — binds like the phase list)
@@ -109,11 +139,14 @@ landing-vs-1Code creation boundary — present options + criteria + a recommenda
 7. **Farm views + CompanionAnimationState are LIVE files** — the `*.DELTA.swift` spine files are
    delta contracts; extend in place (8 live Farm files incl. RoamingField + Delete/Restore sheets).
 8. **Order:** KEELSTONE 0-4 → LUMENLENS L0-L5 → K4/K5. K0-residual + K1-K3 may run parallel to
-   LUMENLENS. Get the owner's landing/handoff call (a/b/c — recommendation c) before K7.
+   LUMENLENS. Landing/handoff defaults to option (c) with a thin `+` deep-link toward the 1Code
+   creator; do not wait for a separate owner call before K7 unless explicitly reversed.
 9. **Build discipline:** isolated DerivedData; BUILD SUCCEEDED on BOTH targets per phase (MAS must
    stay green with zero companion surface); never two xcodebuilds at once; pathspec-scoped commits;
    never commit `.research-clones/`; js-editor changes need `build-tiptap-bundle.sh` restaging;
    fork changes need `build-experimental-web.sh` + an OpenSpec change folder.
-10. **RECKONER seam:** Plan 9's Data-tab in-tab agent chat reuses YOUR K6 minichat pattern (same
-    backend/session/presence; `Location.surface = dataTab`) — design K6 so the dock is
-    surface-parameterizable; do not build Data-tab UI (plan §K-AMEND 9).
+10. **RECKONER seam:** current Plan 9 cuts the standalone Data room and docked/in-tab chat panel.
+    Dataset context flows into the existing KINDRED minichat/main-agent surface through YOUR K6
+    pattern (same backend/session/presence; `Location.surface = datasetTab`/embed as appropriate).
+    Design K6 so context is surface-parameterizable; do not build dataset UI or a third chat
+    system (plan §K-AMEND 9).

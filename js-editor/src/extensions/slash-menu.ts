@@ -43,6 +43,7 @@ const RESEARCH_CHART_TEMPLATES = {
   scatter: `{
   "type": "scatter",
   "title": "Confidence vs impact",
+  "provenance": { "kind": "template", "source": "epdoc-slash-menu:chart-scatter" },
   "x": { "label": "Confidence", "min": 0, "max": 1 },
   "y": { "label": "Impact", "min": 0, "max": 1 },
   "points": [
@@ -55,6 +56,7 @@ const RESEARCH_CHART_TEMPLATES = {
   bar: `{
   "type": "bar",
   "title": "Evidence by type",
+  "provenance": { "kind": "template", "source": "epdoc-slash-menu:chart-bar" },
   "x": { "label": "Evidence type" },
   "y": { "label": "Items", "min": 0 },
   "bars": [
@@ -67,6 +69,7 @@ const RESEARCH_CHART_TEMPLATES = {
   line: `{
   "type": "line",
   "title": "Confidence over drafts",
+  "provenance": { "kind": "template", "source": "epdoc-slash-menu:chart-line" },
   "x": { "label": "Draft", "min": 1, "max": 5 },
   "y": { "label": "Confidence", "min": 0, "max": 1 },
   "points": [

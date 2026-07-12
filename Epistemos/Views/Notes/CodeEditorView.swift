@@ -135,6 +135,7 @@ enum CodeEditorPerformancePolicy {
     }
 
     static let semanticRefreshDelay: Duration = .milliseconds(220)
+    static let textSnapshotPublishDelay: Duration = .milliseconds(140)
     static let scrollGuideRefreshDelay: Duration = .milliseconds(50)
     static let horizontalScrollGeometryRefreshDelay: Duration = .milliseconds(45)
     static let horizontalScrollScanLimitUTF16 = 250_000
@@ -1432,10 +1433,13 @@ struct CodeEditorView: View {
     let initialContent: String
     let language: String
     let filePath: String?  // Optional: for code-to-graph linking
+    let onEditStarted: (() -> Void)?
     let onTextSnapshot: ((String) -> Void)?
     let onContentChange: ((String) -> Void)?
+    let isEditable: Bool
     let allowsMarkEditWindowToolbar: Bool
     let externalSelectionRequest: CoreEditorSelectionRequest?
+    let liveTextQueryKey: UUID?
     /// SS-GC (owner 2026-06-20): when the code editor is mounted inside the embedded
     /// home-graph surface, its top bar must paint the GRAPH backdrop so it isn't a white
     /// card slab against the darker landing surround. nil = the standalone / notes /
@@ -1455,8 +1459,13 @@ struct CodeEditorView: View {
     @State private var cursorCol: Int = 1
     @State private var totalLines: Int
     @State private var outlineRefreshTask: Task<Void, Never>?
+    @State private var outlineRefreshRevision: UInt64 = 0
+    @State private var outlineRefreshWorkerGeneration: UInt64 = 0
     @State private var semanticRefreshTask: Task<Void, Never>?
     @State private var semanticLookupTask: Task<Void, Never>?
+    @State private var textSnapshotTask: Task<Void, Never>?
+    @State private var textSnapshotRevision: UInt64 = 0
+    @State private var textSnapshotWorkerGeneration: UInt64 = 0
     @State private var contentDebouncer: CodeEditorContentDebouncer?
     @State private var coreEditorSelectionRequest: CoreEditorSelectionRequest?
     @State private var webKitSelectionRequest: WebKitCodeEditorSelectionRequest?
@@ -1505,6 +1514,8 @@ struct CodeEditorView: View {
     @State private var showLivePreview = false
     @State private var livePreviewText = ""
     @State private var livePreviewTask: Task<Void, Never>?
+    @State private var livePreviewRevision: UInt64 = 0
+    @State private var livePreviewWorkerGeneration: UInt64 = 0
     
     // MARK: - Outline Navigation (Xcode-style)
     @State private var outlineItems: [OutlineItem] = []
@@ -1521,20 +1532,26 @@ struct CodeEditorView: View {
         content: String,
         language: String,
         filePath: String? = nil,
+        onEditStarted: (() -> Void)? = nil,
         onTextSnapshot: ((String) -> Void)? = nil,
         onContentChange: ((String) -> Void)? = nil,
+        isEditable: Bool = true,
         // Security default FALSE (bridge audit 2026-07-03) — see MarkEditCoreEditorView.
         allowsMarkEditWindowToolbar: Bool = false,
         externalSelectionRequest: CoreEditorSelectionRequest? = nil,
+        liveTextQueryKey: UUID? = nil,
         themeOverride: EpistemosTheme? = nil
     ) {
         self.initialContent = content
         self.language = language
         self.filePath = filePath
+        self.onEditStarted = onEditStarted
         self.onTextSnapshot = onTextSnapshot
         self.onContentChange = onContentChange
+        self.isEditable = isEditable
         self.allowsMarkEditWindowToolbar = allowsMarkEditWindowToolbar
         self.externalSelectionRequest = externalSelectionRequest
+        self.liveTextQueryKey = liveTextQueryKey
         self.themeOverride = themeOverride
         _text = State(initialValue: content)
         _totalLines = State(initialValue: CodeEditorLineMetrics.lineCount(content))
@@ -1561,19 +1578,29 @@ struct CodeEditorView: View {
     var body: some View {
         editorContent
             .onAppear {
+                registerCodeEditorReadAloudProvider()
                 resetInvisiblesDefaultIfNeeded()
-                _ = ensureContentDebouncer()
+                if isEditable {
+                    _ = ensureContentDebouncer()
+                }
                 showSemanticSidebar = false
                 livePreviewText = text
             }
             .onDisappear {
-                outlineRefreshTask?.cancel()
+                cancelOutlineRefreshWorker()
                 semanticRefreshTask?.cancel()
                 semanticLookupTask?.cancel()
-                livePreviewTask?.cancel()
-                livePreviewTask = nil
-                onTextSnapshot?(text)
-                contentDebouncer?.flush(text)
+                textSnapshotTask?.cancel()
+                textSnapshotWorkerGeneration &+= 1
+                textSnapshotTask = nil
+                cancelLivePreviewWorker()
+                EpistemosVisibleReadAloudRegistry.shared.unregister(.codeEditor)
+                if isEditable {
+                    onTextSnapshot?(text)
+                    if liveTextQueryKey == nil {
+                        contentDebouncer?.flush(text)
+                    }
+                }
                 contentDebouncer?.detach()
                 contentDebouncer = nil
                 codeContextBridge?.cancelPendingWork()
@@ -1585,13 +1612,15 @@ struct CodeEditorView: View {
                 semanticStatusMessage = nil
                 semanticStatusIsLoading = false
                 semanticStatusCopyText = nil
-                onTextSnapshot?(newText)
-                ensureContentDebouncer().enqueue(newText)
+                if isEditable {
+                    scheduleTextSnapshotPublish()
+                    ensureContentDebouncer().enqueue(newText)
+                }
                 if showOutlineNavigator {
-                    scheduleOutlineRefresh(for: newText)
+                    scheduleOutlineRefresh()
                 }
                 if showLivePreview {
-                    scheduleLivePreviewUpdate(for: newText)
+                    scheduleLivePreviewUpdate()
                 }
             }
             .onChange(of: initialContent) { oldValue, newValue in
@@ -1600,7 +1629,7 @@ struct CodeEditorView: View {
                 text = newValue
                 totalLines = CodeEditorLineMetrics.lineCount(newValue)
                 if showOutlineNavigator {
-                    scheduleOutlineRefresh(for: newValue, immediate: true)
+                    scheduleOutlineRefresh(immediate: true)
                 }
             }
             .onChange(of: cursorLine) { _, newLine in
@@ -1610,8 +1639,7 @@ struct CodeEditorView: View {
                 if enabled {
                     livePreviewText = text
                 } else {
-                    livePreviewTask?.cancel()
-                    livePreviewTask = nil
+                    cancelLivePreviewWorker()
                 }
             }
             .onChange(of: searchQuery) { _, _ in
@@ -1622,12 +1650,40 @@ struct CodeEditorView: View {
             }
             .onChange(of: showOutlineNavigator) { _, isVisible in
                 if isVisible {
-                    scheduleOutlineRefresh(for: text, immediate: true)
+                    scheduleOutlineRefresh(immediate: true)
                 } else {
-                    outlineRefreshTask?.cancel()
+                    cancelOutlineRefreshWorker()
                     outlineItems = []
                 }
+        }
+    }
+
+    private func scheduleTextSnapshotPublish() {
+        textSnapshotRevision &+= 1
+        guard textSnapshotTask == nil else { return }
+        textSnapshotWorkerGeneration &+= 1
+        let workerGeneration = textSnapshotWorkerGeneration
+        textSnapshotTask = Task { @MainActor in
+            defer {
+                if textSnapshotWorkerGeneration == workerGeneration {
+                    textSnapshotTask = nil
+                }
             }
+            while !Task.isCancelled {
+                let scheduledRevision = textSnapshotRevision
+                try? await Task.sleep(for: CodeEditorPerformancePolicy.textSnapshotPublishDelay)
+                guard !Task.isCancelled else { break }
+                guard scheduledRevision == textSnapshotRevision else { continue }
+                onTextSnapshot?(text)
+                break
+            }
+        }
+    }
+
+    private func registerCodeEditorReadAloudProvider() {
+        EpistemosVisibleReadAloudRegistry.shared.register(.codeEditor, activate: false) {
+            text
+        }
     }
 
     @discardableResult
@@ -1645,25 +1701,41 @@ struct CodeEditorView: View {
     
     // MARK: - Outline Management
     
-    private func scheduleOutlineRefresh(for content: String, immediate: Bool = false) {
-        outlineRefreshTask?.cancel()
-        let refreshDelay = CodeEditorPerformancePolicy.outlineRefreshDelay(characterCount: content.count)
-        let currentLanguage = language
-
-        outlineRefreshTask = Task { @MainActor in
-            if !immediate {
-                try? await Task.sleep(for: refreshDelay)
-            }
-            guard !Task.isCancelled else { return }
-            // T+8 Phase-S item 3 — outline cache + diff. The hash-keyed
-            // memo short-circuits when (content, language) hasn't
-            // changed since last refresh; on miss the parser runs and
-            // the result is memoized for the next refresh. Files
-            // above OutlineParserCache.maxParseBytes return an empty
-            // outline (the parser is MainActor-bound and would hang
-            // the UI on multi-hundred-KB blobs like graph.json).
-            outlineItems = outlineCache.parse(content: content, language: currentLanguage)
+    private func scheduleOutlineRefresh(immediate: Bool = false) {
+        outlineRefreshRevision &+= 1
+        if immediate {
+            cancelOutlineRefreshWorker()
         }
+        guard outlineRefreshTask == nil else { return }
+        outlineRefreshWorkerGeneration &+= 1
+        let workerGeneration = outlineRefreshWorkerGeneration
+        outlineRefreshTask = Task { @MainActor in
+            defer {
+                if outlineRefreshWorkerGeneration == workerGeneration {
+                    outlineRefreshTask = nil
+                }
+            }
+            while !Task.isCancelled {
+                let scheduledRevision = outlineRefreshRevision
+                if !immediate {
+                    let refreshDelay = CodeEditorPerformancePolicy.outlineRefreshDelay(
+                        characterCount: text.count
+                    )
+                    try? await Task.sleep(for: refreshDelay)
+                    guard !Task.isCancelled else { break }
+                    guard scheduledRevision == outlineRefreshRevision else { continue }
+                }
+                let content = text
+                outlineItems = outlineCache.parse(content: content, language: language)
+                break
+            }
+        }
+    }
+
+    private func cancelOutlineRefreshWorker() {
+        outlineRefreshWorkerGeneration &+= 1
+        outlineRefreshTask?.cancel()
+        outlineRefreshTask = nil
     }
     
     private func updateBreadcrumbs() {
@@ -1688,6 +1760,9 @@ struct CodeEditorView: View {
                 tabWidth: tabWidth,
                 filePath: filePath,
                 selectionRequest: externalSelectionRequest ?? coreEditorSelectionRequest,
+                isEditable: isEditable,
+                onContentDirty: onEditStarted,
+                liveTextQueryKey: liveTextQueryKey,
                 allowsMarkEditWindowToolbar: allowsMarkEditWindowToolbar
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2017,7 +2092,10 @@ struct CodeEditorView: View {
                 showInvisibles: showInvisibles,
                 useSpaces: useSpaces,
                 tabWidth: tabWidth,
-                selectionRequest: externalSelectionRequest ?? coreEditorSelectionRequest
+                isEditable: isEditable,
+                selectionRequest: externalSelectionRequest ?? coreEditorSelectionRequest,
+                onContentDirty: onEditStarted,
+                liveTextQueryKey: liveTextQueryKey
             )
         }
     }
@@ -2345,13 +2423,32 @@ struct CodeEditorView: View {
         """
     }
 
-    private func scheduleLivePreviewUpdate(for content: String) {
-        livePreviewTask?.cancel()
+    private func scheduleLivePreviewUpdate() {
+        livePreviewRevision &+= 1
+        guard livePreviewTask == nil else { return }
+        livePreviewWorkerGeneration &+= 1
+        let workerGeneration = livePreviewWorkerGeneration
         livePreviewTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(260))
-            guard !Task.isCancelled else { return }
-            livePreviewText = content
+            defer {
+                if livePreviewWorkerGeneration == workerGeneration {
+                    livePreviewTask = nil
+                }
+            }
+            while !Task.isCancelled {
+                let scheduledRevision = livePreviewRevision
+                try? await Task.sleep(for: .milliseconds(260))
+                guard !Task.isCancelled else { break }
+                guard scheduledRevision == livePreviewRevision else { continue }
+                livePreviewText = text
+                break
+            }
         }
+    }
+
+    private func cancelLivePreviewWorker() {
+        livePreviewWorkerGeneration &+= 1
+        livePreviewTask?.cancel()
+        livePreviewTask = nil
     }
     
     @ViewBuilder

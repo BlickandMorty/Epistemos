@@ -18,6 +18,10 @@ struct AgentSurfaceChildRecord: Codable, Equatable {
 
 enum AgentSurfaceChildLedger {
     private static let maxLedgerBytes = 64 * 1024
+    private static let currentLedgerFilename = "agent-surface-children.json"
+    private static var legacyLedgerFilename: String {
+        ["pro", "-agent-children", ".json"].joined()
+    }
 
     static func ledgerURL(
         appSupport: URL? = try? FileManager.default.url(
@@ -27,10 +31,17 @@ enum AgentSurfaceChildLedger {
             create: true
         )
     ) -> URL? {
+        ledgerURL(filename: currentLedgerFilename, appSupport: appSupport)
+    }
+
+    private static func legacyLedgerURL(appSupport: URL?) -> URL? {
+        ledgerURL(filename: legacyLedgerFilename, appSupport: appSupport)
+    }
+
+    private static func ledgerURL(filename: String, appSupport: URL?) -> URL? {
         appSupport?
             .appendingPathComponent("Epistemos", isDirectory: true)
-            // Keep the legacy filename so already-recorded children are swept.
-            .appendingPathComponent("pro-agent-children.json")
+            .appendingPathComponent(filename)
     }
 
     static func processStartTimeSeconds(pid: pid_t) -> Int64? {
@@ -53,9 +64,8 @@ enum AgentSurfaceChildLedger {
         return true
     }
 
-    private static func load() -> [AgentSurfaceChildRecord] {
-        guard let url = ledgerURL(),
-              let data = try? Data(contentsOf: url),
+    private static func loadRecords(from url: URL) -> [AgentSurfaceChildRecord] {
+        guard let data = try? Data(contentsOf: url),
               data.count <= maxLedgerBytes,
               let records = try? JSONDecoder().decode([AgentSurfaceChildRecord].self, from: data) else {
             return []
@@ -63,8 +73,42 @@ enum AgentSurfaceChildLedger {
         return records
     }
 
-    private static func save(_ records: [AgentSurfaceChildRecord]) {
-        guard let url = ledgerURL() else { return }
+    private static func load(
+        appSupport: URL? = try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+    ) -> [AgentSurfaceChildRecord] {
+        let urls = [
+            ledgerURL(appSupport: appSupport),
+            legacyLedgerURL(appSupport: appSupport),
+        ].compactMap { $0 }
+
+        var merged: [AgentSurfaceChildRecord] = []
+        var seen = Set<String>()
+        for url in urls {
+            for record in loadRecords(from: url) {
+                let key = "\(record.pid):\(record.startTimeSec):\(record.startTimeUsec ?? -1)"
+                if seen.insert(key).inserted {
+                    merged.append(record)
+                }
+            }
+        }
+        return merged
+    }
+
+    private static func save(
+        _ records: [AgentSurfaceChildRecord],
+        appSupport: URL? = try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+    ) {
+        guard let url = ledgerURL(appSupport: appSupport) else { return }
         do {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(),
@@ -77,35 +121,80 @@ enum AgentSurfaceChildLedger {
         }
     }
 
-    static func record(pid: pid_t, name: String) {
+    private static func removeLegacyLedger(appSupport: URL?) {
+        guard let url = legacyLedgerURL(appSupport: appSupport),
+              let data = try? Data(contentsOf: url),
+              data.count <= maxLedgerBytes else {
+            return
+        }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    static func record(
+        pid: pid_t,
+        name: String,
+        appSupport: URL? = try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+    ) {
         guard pid > 0, let startTime = processStartTime(pid: pid) else { return }
-        var records = load().filter { $0.pid != pid }
+        var records = load(appSupport: appSupport).filter { $0.pid != pid }
         records.append(AgentSurfaceChildRecord(
             pid: pid,
             startTimeSec: startTime.sec,
             startTimeUsec: startTime.usec,
             name: name
         ))
-        save(records)
+        save(records, appSupport: appSupport)
+        removeLegacyLedger(appSupport: appSupport)
     }
 
-    static func forget(pid: pid_t) {
-        let records = load().filter { $0.pid != pid }
-        save(records)
+    static func forget(
+        pid: pid_t,
+        appSupport: URL? = try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+    ) {
+        let records = load(appSupport: appSupport).filter { $0.pid != pid }
+        save(records, appSupport: appSupport)
+        removeLegacyLedger(appSupport: appSupport)
     }
 
-    static func clear() {
-        save([])
+    static func clear(
+        appSupport: URL? = try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+    ) {
+        save([], appSupport: appSupport)
+        removeLegacyLedger(appSupport: appSupport)
     }
 
     /// Reap children recorded by a previous instance. Signals only processes
     /// whose kernel start time still matches the record.
     static func sweepStaleChildren(
         graceNanoseconds: UInt64 = 1_500_000_000,
+        appSupport: URL? = try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ),
         diagnostics: (String) -> Void = { _ in }
     ) async {
-        let records = load()
-        guard !records.isEmpty else { return }
+        let records = load(appSupport: appSupport)
+        guard !records.isEmpty else {
+            removeLegacyLedger(appSupport: appSupport)
+            return
+        }
 
         var terminated: [AgentSurfaceChildRecord] = []
         for recordEntry in records {
@@ -131,7 +220,7 @@ enum AgentSurfaceChildLedger {
             }
         }
 
-        clear()
+        clear(appSupport: appSupport)
     }
 }
 #endif

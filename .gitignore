@@ -79,22 +79,10 @@ Epistemos/KnowledgeFusion/MOHAWK/epistemos_training_data_validated/last_upload_m
 !LocalPackages/osaurus/Packages/
 !LocalPackages/osaurus/Packages/**
 
-# OpenCode work-engine runtime — vendored at BUILD time by build-opencode-runtime.sh (Bun + OpenCode); never committed (like js-editor dist/node_modules)
-Epistemos/Resources/opencode-runtime/
-
-# Pro agent surface runtime (Plan 1-PRO) — staged at BUILD time by build-openchamber-web.sh (Node + matched-triple opencode + web tarball); never committed
-Epistemos/Resources/openchamber-runtime/
-
-# Experimental surface runtime (1Code embed) — staged at BUILD time by build-experimental-web.sh (shared Node + web tarball); never committed
-Epistemos/Resources/experimental-runtime/
-
 # generated caches (do not commit)
 .epcache/
 .epistemos/
 *.htmlworkspace/
-
-# Reference-only third-party clones (never committed)
-.research-clones/
 
 # llama.cpp pinned XCFramework — fetched per-checkout by
 # scripts/fetch-llama-xcframework.sh (sha256-verified), never committed
@@ -106,3 +94,13 @@ proxy-server/node_modules/
 
 # build-script stamps (build-openchamber-web.sh etc.) — bookkeeping, never committed
 .build-stamps/
+
+# Local agent/browser/output artifacts
+.playwright-cli/
+output/
+epistemos-agent-instruction-profile-*/
+epistemos-agent-instruction-profile-*.zip
+THE_R_EVIDENCE_LEDGER.md
+THE_R_FULL_LOOP_PROMPT.md
+THE_R_PLAN.md
+THE_R_RESEARCH_BACKLOG.md

@@ -639,6 +639,28 @@ struct StartupIntegrityTests {
         #expect(report.shouldBlockAutomaticVaultRestore)
     }
 
+    @Test("startup integrity lets saved vault restore repair note-body verification failures")
+    func startupIntegrityLetsSavedVaultRestoreRepairNoteBodyVerificationFailures() {
+        let report = AppBootstrap.startupIntegrityReportForTesting(
+            samplePageIds: ["page-a", "page-b"],
+            readBodyData: { pageId in
+                pageId == "page-a" ? Data("ok".utf8) : nil
+            },
+            eventStoreAvailable: true,
+            vaultBookmarkValidation: VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark points to a missing or unreadable directory."
+            )
+        )
+
+        #expect(report.corruptedPageIds == ["page-b"])
+        #expect(report.vaultBookmarkExists)
+        #expect(report.vaultBookmarkBlocksAutomaticRestore == false)
+        #expect(report.shouldBlockAutomaticVaultRestore == false)
+        #expect(AppBootstrap.startupIntegrityToastForTesting(report: report) == nil)
+    }
+
     @Test("startup integrity report blocks automatic vault restore after bookmark validation failures")
     func startupIntegrityReportBlocksAutomaticVaultRestoreAfterBookmarkValidationFailures() {
         let report = AppBootstrap.startupIntegrityReportForTesting(
@@ -658,7 +680,68 @@ struct StartupIntegrityTests {
         #expect(report.vaultBookmarkExists)
         #expect(report.vaultBookmarkReadyForAutomaticRestore == false)
         #expect(report.vaultBookmarkFailureReason == "Saved vault bookmark is stale and must be re-selected.")
+        #expect(report.vaultBookmarkBlocksAutomaticRestore)
         #expect(report.shouldBlockAutomaticVaultRestore)
+    }
+
+    @Test("startup integrity retries transient MAS bookmark preflight failures instead of pausing restore")
+    func startupIntegrityRetriesTransientMASBookmarkPreflightFailures() {
+        let report = AppBootstrap.startupIntegrityReportForTesting(
+            samplePageIds: [],
+            readBodyData: { _ in Data("ok".utf8) },
+            eventStoreAvailable: true,
+            vaultBookmarkValidation: VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark points to a missing or unreadable directory."
+            ),
+            pageSnapshots: [
+                StartupIntegrityPageSnapshot(
+                    id: "vault-backed-note",
+                    filePath: "/Users/example/Vault/Note.md",
+                    hasInlineBody: false,
+                    hasMeaningfulMetadata: true
+                )
+            ],
+            bodyFileExists: { _ in false },
+            filePathReadable: { _ in false }
+        )
+
+        #expect(report.vaultBookmarkExists)
+        #expect(report.vaultBookmarkReadyForAutomaticRestore == false)
+        #expect(report.vaultBookmarkBlocksAutomaticRestore == false)
+        #expect(report.vaultBookmarkFailureReason == "Saved vault bookmark points to a missing or unreadable directory.")
+        #expect(report.unrecoverablePageIds.isEmpty)
+        #expect(report.shouldBlockAutomaticVaultRestore == false)
+        #expect(AppBootstrap.startupIntegrityToastForTesting(report: report) == nil)
+    }
+
+    @Test("startup integrity defers vault-source loss warnings while bookmark restore is ready")
+    func startupIntegrityDefersVaultSourceLossWarningsWhileBookmarkRestoreIsReady() {
+        let report = AppBootstrap.startupIntegrityReportForTesting(
+            samplePageIds: [],
+            readBodyData: { _ in Data("ok".utf8) },
+            eventStoreAvailable: true,
+            vaultBookmarkValidation: VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: true,
+                failureReason: nil
+            ),
+            pageSnapshots: [
+                StartupIntegrityPageSnapshot(
+                    id: "vault-backed-note",
+                    filePath: "/Users/example/Vault/Note.md",
+                    hasInlineBody: false,
+                    hasMeaningfulMetadata: true
+                )
+            ],
+            bodyFileExists: { _ in false },
+            filePathReadable: { _ in false }
+        )
+
+        #expect(report.unrecoverablePageIds.isEmpty)
+        #expect(report.shouldBlockAutomaticVaultRestore == false)
+        #expect(AppBootstrap.startupIntegrityToastForTesting(report: report) == nil)
     }
 
     @Test("startup integrity report flags notes with no body file inline body or vault source")

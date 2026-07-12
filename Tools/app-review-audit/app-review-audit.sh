@@ -21,8 +21,9 @@
 #
 # Audit checks:
 #   1. Resources/ directory enumeration — every artifact named.
-#   2. No runtime URLSession-download patterns into executable
-#      code paths (model GGUFs / Metal kernels).
+#   2. No runtime URLSession downloads of executable code. Optional GGUF model
+#      weights are data: the runtime is bundled, revisions/digests are pinned,
+#      and verified weights stay inside Application Support.
 #   3. HELIOS V5 runtime toggles remain absent for the v1 freeze.
 #   4. For App Store/MAS, no `Process()` / `Process.init()` / `Pipe()` /
 #      `system()` calls in MAS-visible Swift source.
@@ -35,7 +36,6 @@
 # Usage:
 #   ./app-review-audit.sh            Run App Store checks
 #   ./app-review-audit.sh appstore   Run App Store checks
-#   ./app-review-audit.sh pro        Run Pro/direct checks with subprocess notices
 #   ./app-review-audit.sh --list     Print bundled artifacts only
 
 set -euo pipefail
@@ -52,7 +52,6 @@ HELIOS V5 W26 — App Review §2.5.2 compliance audit.
 Usage:
   app-review-audit.sh            App Store audit (default; 4 checks).
   app-review-audit.sh appstore   App Store audit (fails MAS-visible subprocess surfaces).
-  app-review-audit.sh pro        Pro/direct audit (reports subprocess surfaces as notices).
   app-review-audit.sh --list     List bundled artifacts only.
 USAGE
     exit 0
@@ -63,10 +62,10 @@ USAGE
     fi
     exit 0
     ;;
-  appstore|mas|pro|direct)
+  appstore|mas)
     ;;
   *)
-    echo "::error::usage: app-review-audit.sh [appstore|mas|pro|direct|--list]" >&2
+    echo "::error::usage: app-review-audit.sh [appstore|mas|--list]" >&2
     exit 2
     ;;
 esac
@@ -82,16 +81,79 @@ mas_visible_swift_source() {
           sub(/^[ \t]+/, "", value)
           return value
         }
-        function push(skip_current) {
+
+        # Evaluate the compilation conditions that define the MAS target. Any
+        # unrelated condition is unknown, so every branch stays visible to this
+        # audit rather than creating a false negative.
+        function condition_value(expr, compact) {
+          compact = expr
+          gsub(/[ \t]/, "", compact)
+
+          if (compact == "EPISTEMOS_APP_STORE" ||
+              compact == "MAS_SANDBOX" ||
+              compact == "EPISTEMOS_APP_STORE||MAS_SANDBOX") {
+            return 1
+          }
+
+          if (compact == "!(EPISTEMOS_APP_STORE||MAS_SANDBOX)" ||
+              compact == "!EPISTEMOS_APP_STORE" ||
+              compact == "!EPISTEMOS_APP_STORE&&!MAS_SANDBOX" ||
+              compact == "DEBUG&&!EPISTEMOS_APP_STORE") {
+            return 0
+          }
+
+          return -1
+        }
+
+        function push_condition(value) {
           depth += 1
           parent_skip[depth] = current_skip
-          skip[depth] = skip_current
-          if (current_skip || skip_current) {
+          unknown_chain[depth] = (value < 0)
+          branch_taken[depth] = (value > 0)
+          if (current_skip || value == 0) {
             current_skip = 1
           } else {
             current_skip = 0
           }
         }
+
+        function select_elseif(value) {
+          if (depth <= 0 || parent_skip[depth]) {
+            current_skip = 1
+            return
+          }
+          if (unknown_chain[depth]) {
+            current_skip = 0
+            return
+          }
+          if (branch_taken[depth]) {
+            current_skip = 1
+            return
+          }
+          if (value < 0) {
+            unknown_chain[depth] = 1
+            current_skip = 0
+          } else if (value > 0) {
+            branch_taken[depth] = 1
+            current_skip = 0
+          } else {
+            current_skip = 1
+          }
+        }
+
+        function select_else() {
+          if (depth <= 0 || parent_skip[depth]) {
+            current_skip = 1
+          } else if (unknown_chain[depth]) {
+            current_skip = 0
+          } else if (branch_taken[depth]) {
+            current_skip = 1
+          } else {
+            branch_taken[depth] = 1
+            current_skip = 0
+          }
+        }
+
         function pop() {
           if (depth <= 0) {
             current_skip = 0
@@ -99,27 +161,27 @@ mas_visible_swift_source() {
           }
           current_skip = parent_skip[depth]
           delete parent_skip[depth]
-          delete skip[depth]
+          delete unknown_chain[depth]
+          delete branch_taken[depth]
           depth -= 1
         }
         {
           line = $0
           trimmed = trim_line(line)
-          if (trimmed ~ /^#if[ \t]+!EPISTEMOS_APP_STORE/ ||
-              trimmed ~ /^#if[ \t]+!MAS_SANDBOX/ ||
-              trimmed ~ /^#if[ \t]+!\(EPISTEMOS_APP_STORE[ \t]*\|\|[ \t]*MAS_SANDBOX\)/) {
-            push(1)
+          if (trimmed ~ /^#if[ \t]+/) {
+            expr = trimmed
+            sub(/^#if[ \t]+/, "", expr)
+            push_condition(condition_value(expr))
             next
           }
-          if (trimmed ~ /^#if[ \t]+/) {
-            push(0)
+          if (trimmed ~ /^#elseif[ \t]+/) {
+            expr = trimmed
+            sub(/^#elseif[ \t]+/, "", expr)
+            select_elseif(condition_value(expr))
             next
           }
           if (trimmed ~ /^#else/) {
-            if (depth > 0 && parent_skip[depth] == 0 && skip[depth] == 1) {
-              skip[depth] = 0
-              current_skip = 0
-            }
+            select_else()
             next
           }
           if (trimmed ~ /^#endif/) {
@@ -147,7 +209,6 @@ fi
 echo ""
 echo "[2/4] Runtime executable-code download paths"
 download_patterns=(
-  "URLSession.*download.*\.gguf"
   "URLSession.*download.*\.metallib"
   "URLSession.*download.*\.dylib"
   "URLSession.*download.*\.bundle"
@@ -162,6 +223,19 @@ for pat in "${download_patterns[@]}"; do
 done
 if [ "${findings}" -eq 0 ]; then
   echo "  no runtime executable-code download patterns detected"
+fi
+
+gguf_catalog="${REPO_ROOT}/Epistemos/QuickChat/GGUFModelCatalog.swift"
+gguf_downloads="${REPO_ROOT}/Epistemos/QuickChat/QuickChatModelDownloadManager.swift"
+if grep -Fq 'resolve/\(revision)/\(fileName)' "${gguf_catalog}" \
+    && grep -Fq 'let sha256: String' "${gguf_catalog}" \
+    && grep -Fq 'let expected = entry.sha256' "${gguf_downloads}" \
+    && grep -Fq 'for: .applicationSupportDirectory' "${gguf_catalog}" \
+    && ! grep -Fq 'fetchPublishedSHA256' "${gguf_downloads}"; then
+  echo "  optional GGUF weights are immutable-pinned model data inside Application Support"
+else
+  echo "::error::W26 §2.5.2 finding — GGUF model-data download is not revision/digest/container pinned"
+  findings=$((findings + 1))
 fi
 
 # Check 3: HELIOS V5 runtime toggles remain absent for the v1 freeze

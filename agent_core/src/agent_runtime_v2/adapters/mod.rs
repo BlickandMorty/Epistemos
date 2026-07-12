@@ -14,8 +14,6 @@
 //! `/loop` tick:
 //!
 //! - `local_agent` — `LocalAgentCapabilityRegistry` mirror (iter-17)
-//! - `cli_passthrough` — 8 handlers (iter-18..25)
-//! - `mcp` — MCP client adapter (iter-26)
 //! - `cloud_loop` — Anthropic / OpenAI provider absorbed (iter-27)
 //!
 //! The local-agent adapter now performs typed admission/provider planning;

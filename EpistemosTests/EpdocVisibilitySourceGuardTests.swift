@@ -80,18 +80,48 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "Document should be a note workspace mode beside Prose/Preview/Source.")
         #expect(workspace.contains("MarkdownDocumentSurface("),
                 "Document mode should mount the rich Epdoc surface over the note body.")
+        #expect(workspace.contains("documentSurfaceIsAvailable")
+                && workspace.contains("noteDocumentSurface(page: page, isActive: resolvedMode == .document)")
+                && workspace.contains(".opacity(resolvedMode == .document ? 1 : 0)")
+                && workspace.contains("noteNonDocumentEditorSurface(page: page, availableSize: availableSize)"),
+                "Document mode should stay mounted but inactive across lens switches so Epdoc does not remount and discard rich editor state.")
         #expect(workspace.contains("saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)"),
                 "Document edits must write back through the Markdown note pipeline.")
+        #expect(workspace.contains("vaultSync.savePageBodyFileFirst(pageId: pageId, body: markdown)"),
+                "Document edits must persist the vault .md through the file-first save path.")
+        #expect(!workspace.contains("page.body = markdown"),
+                "Document edits must not reintroduce SDPage.body as live Markdown truth.")
         #expect(surface.contains("EpdocEditorChromeView(")
                 && surface.contains("controller: coordinator.controller"),
                 "The Markdown Document surface should reuse the existing Epdoc editor chrome.")
         #expect(surface.contains("markdownSource: markdown"),
                 "The Document surface must seed from the current Markdown body, not empty package JSON.")
         #expect(surface.contains(".onChange(of: markdown)"),
-                "The default Document surface must reload when the real note body arrives after first render.")
+                "The default Document surface must observe late body changes, but same-page rich-editor reloads stay policy-gated.")
         #expect(surface.contains("latestMarkdown == lastFlushedMarkdown")
                 && surface.contains("!controller.toolbarModel.isDirty"),
                 "Late body reloads must be clean-only so a dirty open note is never silently clobbered.")
+        #expect(surface.contains("reloadSamePageExternalMarkdown = false")
+                && surface.contains("guard MarkdownDocumentSurfacePerformancePolicy.reloadSamePageExternalMarkdown else"),
+                "Same-page parent markdown churn must not reload the rich Epdoc editor tree and collapse table/block formatting during surface switches.")
+        #expect(surface.contains("let isActive: Bool")
+                && surface.contains("pendingExternalMarkdownReload")
+                && surface.contains("if isActive, let pending = pendingExternalMarkdownReload"),
+                "Inactive retained Document surfaces should defer real external markdown changes and reload once when Document becomes active again.")
+        #expect(surface.contains("let hadPendingSave = saveTask != nil")
+                && surface.contains("guard hadPendingSave || hadOutstandingWrite || controller.toolbarModel.isDirty else")
+                && surface.contains("let hasPendingMarkdownSnapshot = latestMarkdown != lastFlushedMarkdown")
+                && surface.contains("if !hasPendingMarkdownSnapshot")
+                && surface.contains("return true"),
+                "Clean Document surface transitions must not serialize-and-save a normalized Markdown snapshot; only dirty edits or pending saves may flush.")
+        #expect(surface.contains("let onEditStarted: @MainActor () -> Void")
+                && surface.contains("self.onEditStarted()"),
+                "Document edits must mark the shared note lease dirty before the two-second autosave debounce.")
+        #expect(workspace.contains("onEditStarted: {\n                        markDocumentEditorDirtyBeforeDebouncedSave()"),
+                "The Markdown Document surface must report buffered edits to the note-session lease immediately.")
+        #expect(surface.contains("MarkdownDocumentSurfacePerformancePolicy.autosaveQuietWindow")
+                && surface.contains("static let autosaveQuietWindow: Duration = .seconds(2)"),
+                "Document mode autosave must use a quiet typing window instead of hammering the vault/graph path every few hundred milliseconds.")
     }
 
     @Test("Epdoc chrome exposes projection info in the toolbar")
@@ -189,8 +219,9 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "The hosted WKWebView must receive the resolved app theme, not only WebKit's light/dark media query.")
         #expect(source.contains("EpdocEditorThemeStyle.applyScript(for: theme)"),
                 "Epdoc must push semantic theme tokens into CSS variables for custom theme pairs.")
-        #expect(source.contains("NoteWorkspaceSurfaceStyle.canvasBackground(for: theme).ignoresSafeArea()"),
-                "Epdoc's native SwiftUI canvas should reuse the same note workspace theme surface.")
+        #expect(source.contains("MarkdownPreviewSurfaceStyle.solidFlatBackground(for: theme.surfaceVariant(.other))")
+                && source.contains(".ignoresSafeArea()"),
+                "Epdoc's native SwiftUI canvas should reuse the same explicit solid editor-body surface instead of a browser/OLED plate.")
         #expect(document.contains("EpdocEditorDocumentRoot(controller: chromeController)"),
                 "Epdoc document windows should mount through an environment root instead of an isolated SwiftUI island.")
         #expect(document.contains(".withAppEnvironment(bootstrap)"),
@@ -249,6 +280,7 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
     @Test("Epdoc toolbar commands are backed by live Tiptap actions and stats bridge")
     func epdocToolbarCommandsAreWired() throws {
         let inbound = try Self.loadSourceText("js-editor/src/bridge/inbound.ts")
+        let documentLoadState = try Self.loadSourceText("js-editor/src/bridge/document-load-state.ts")
         let slash = try Self.loadSourceText("js-editor/src/extensions/slash-menu.ts")
         let outbound = try Self.loadSourceText("js-editor/src/bridge/outbound.ts")
         let index = try Self.loadSourceText("js-editor/src/index.ts")
@@ -270,16 +302,26 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
 
         #expect(inbound.contains("applySlashChoice(editor, blockType)"),
                 "Swift toolbar insert buttons must execute the same concrete Tiptap actions as slash choices.")
-        #expect(inbound.contains("postDocumentSnapshot(editor)"),
-                "Toolbar-driven commands must push a fresh ProseMirror snapshot immediately so complexity/markdown projection do not lag behind word counts.")
-        #expect(inbound.contains("editor.commands.setContent(parsed, { emitUpdate: false });\n        markHostDocumentLoaded();\n        postDocumentStats(editor);\n        requestAnimationFrame(() => postDocumentStats(editor));"),
-                "Initial setContent is a loader, not an edit: it may refresh stats but must not emit contentDidChange/autosave and overwrite the package on open.")
-        #expect(inbound.contains("markHostDocumentLoaded()"),
-                "The inbound loader must mark the host package as loaded only after setContent succeeds.")
+        #expect(inbound.contains("postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot)"),
+                "Toolbar-driven commands must push a fresh ProseMirror snapshot and the host-provided Markdown snapshot immediately so complexity/markdown projection do not lag behind word counts.")
+        #expect(inbound.contains("const loadEpoch = beginLoad(editor.view, undefined, normalizeLoadEpoch(epoch));")
+                && inbound.contains(".setMeta(HOST_LOAD_META, true)")
+                && inbound.contains(".setMeta(EPOCH_META, loadEpoch)")
+                && inbound.contains(".setContent(parsed, { emitUpdate: false })")
+                && inbound.contains("postBridge({ type: 'loadSettled', epoch });"),
+                "Initial setContent is a loader, not an edit: it must be epoch-stamped and guarded instead of relying on emitUpdate:false.")
+        #expect(documentLoadState.contains("export function markHostDocumentLoaded")
+                && documentLoadState.contains("loadStatePlugin")
+                && documentLoadState.contains("filterTransaction")
+                && documentLoadState.contains("Tiptap #1715/#4828"),
+                "The inbound loader must layer the LUMENLENS loadEpoch/filterTransaction guard onto the existing host-loaded gate.")
         #expect(index.contains("hasHostDocumentLoaded()")
                 && index.contains("scheduleContentDidChange(ed)")
-                && index.contains("postBridge({ type: 'contentDidChange', json: JSON.stringify(editor.getJSON()) });"),
-                "Tiptap boot-placeholder updates must not emit contentDidChange until Swift has pushed the real package content.")
+                && index.contains("LoadStateExtension")
+                && index.contains("!isDocumentLoadSettling(ed.state)")
+                && index.contains("epoch: currentLoadEpoch(editor.state)")
+                && index.contains("postBridge({\n      type: 'contentDidChange',"),
+                "Tiptap boot-placeholder/load transactions must not emit contentDidChange until Swift has pushed and settled the real package content.")
         #expect(inbound.contains("linkHrefFromArgs(args)") && inbound.contains("editor.chain().focus()"),
                 "Toolbar commands must focus the editor and accept native Swift-provided link args instead of relying on JS prompt from evaluateJavaScript.")
         #expect(!inbound.contains("setMeta('slashMenuChoice'"),
@@ -297,7 +339,9 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
         #expect(index.contains("imageAssetBridge()") && outbound.contains("type: 'storeImageAsset'"),
                 "Pasted/dropped images must use the same native package-asset bridge as toolbar-picked images, not fall back to data URLs.")
         #expect(pasteBridge.contains("parseMarkdownPaste(plainText)")
-                && pasteBridge.contains("postBridge({ type: 'contentDidChange', json: JSON.stringify(editor.getJSON()) })")
+                && pasteBridge.contains("type: 'contentDidChange'")
+                && pasteBridge.contains("epoch: currentLoadEpoch(editor.state)")
+                && pasteBridge.contains("json: JSON.stringify(editor.getJSON())")
                 && markdownPaste.contains("export function parseMarkdownPaste")
                 && markdownPaste.contains("type: 'heading'")
                 && markdownPaste.contains("type: 'codeBlock'")
@@ -404,14 +448,17 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 && chart.contains("value === 'scatter'")
                 && chart.contains("value === 'bar'")
                 && chart.contains("value === 'line'")
+                && chart.contains("hasChartProvenance")
+                && chart.contains("Chart provenance required before render")
                 && chart.contains("renderPointChart")
                 && chart.contains("renderBarChart")
                 && chart.contains("data-epdoc-chart"),
-                "Epdoc charts must render real first-party scatter/bar/line charts from structured JSON, not inert placeholder text.")
+                "Epdoc charts must render real first-party scatter/bar/line charts from structured JSON only after provenance is present, not inert or unaudited placeholder text.")
         #expect(css.contains(".epdoc-chart")
                 && css.contains(".epdoc-chart-point")
                 && css.contains(".epdoc-chart-bar")
                 && css.contains(".epdoc-chart-line")
+                && css.contains(".epdoc-chart-provenance")
                 && css.contains(".epdoc-chart-source-wrap"),
                 "Epdoc charts need polished research-card styling with real SVG marks and source-on-demand.")
         #expect(index.contains("CalloutNode"),
@@ -424,6 +471,468 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
         #expect(outbound.contains("type: 'documentStatsChanged'"))
         #expect(index.contains("postDocumentStats(ed)"),
                 "Word/character counts must be pushed from the live CharacterCount extension.")
+    }
+
+    @Test("LumenLens suggestions use the handlewithcare adapter spine")
+    func lumenLensSuggestionsUseHandleWithCareAdapterSpine() throws {
+        let package = try Self.loadSourceText("js-editor/package.json")
+        let index = try Self.loadSourceText("js-editor/src/index.ts")
+        let inbound = try Self.loadSourceText("js-editor/src/bridge/inbound.ts")
+        let payloadGuard = try Self.loadSourceText("js-editor/src/bridge/suggestion-payload.ts")
+        let outbound = try Self.loadSourceText("js-editor/src/bridge/outbound.ts")
+        let adapter = try Self.loadSourceText("js-editor/src/suggestions/SuggestionAdapter.ts")
+        let marks = try Self.loadSourceText("js-editor/src/suggestions/marks.ts")
+        let css = try Self.loadSourceText("js-editor/src/editor.css")
+
+        #expect(package.contains(#""@handlewithcare/prosemirror-suggest-changes": "0.1.8""#)
+                && package.contains(#""check:suggestions": "node scripts/check-suggestions.mjs""#),
+                "LumenLens L1 must carry the real HWC suggest-changes dependency plus a focused JS adapter check.")
+        #expect(index.contains("EpdocSuggestionDocument")
+                && index.contains("document: false")
+                && index.contains("new HwcSuggestionAdapter")
+                && index.contains("editor.view.dispatch = suggestionAdapter.decorateDispatch")
+                && index.contains("installInboundCommands(editor, {")
+                && index.contains("suggestionAdapter,"),
+                "The live editor schema/dispatch path must mount the suggestion document, disable StarterKit's duplicate doc node, and wrap dispatch with the HWC adapter.")
+        #expect(inbound.contains("suggestChangesKey")
+                && inbound.contains(".setMeta(suggestChangesKey, { skip: true })")
+                && inbound.contains("name === 'applySuggestion'")
+                && inbound.contains("name === 'acceptSuggestion'")
+                && inbound.contains("name === 'rejectSuggestion'")
+                && inbound.contains("SuggestionPayload")
+                && inbound.contains("postSuggestionApplied(editor, payload)")
+                && inbound.contains("postSuggestionResolved(editor, id, 'accepted')")
+                && outbound.contains("type: 'suggestionApplied'")
+                && outbound.contains("type: 'suggestionResolved'"),
+                "Host loads must skip suggestion transformation while agent suggestions, applied-span events, and accept/reject commands stay on the typed inbound/outbound bridge.")
+        #expect(payloadGuard.contains("export function suggestionPayloadFromArgs")
+                && payloadGuard.contains("normalizeNonNegativeInteger")
+                && payloadGuard.contains("Number.isInteger(value)")
+                && payloadGuard.contains("to < from")
+                && payloadGuard.contains("mapVersion === null"),
+                "The JS bridge must reject malformed suggestion payloads before applying an edit so native provenance cannot receive float, negative, or inverted ranges.")
+        #expect(adapter.contains("withSuggestChanges")
+                && adapter.contains("transformToSuggestionTransaction")
+                && adapter.contains("applyHwcSuggestion")
+                && adapter.contains("revertHwcSuggestion")
+                && adapter.contains("export class NoopSuggestionAdapter"),
+                "SuggestionAdapter must use the real HWC transaction transformer and keep the no-op adapter compiling for rollout fallbacks.")
+        #expect(marks.contains("EpdocSuggestionDocument")
+                && marks.contains("marks: 'insertion modification deletion'")
+                && marks.contains("name: 'insertion'")
+                && marks.contains("name: 'deletion'")
+                && marks.contains("name: 'modification'")
+                && marks.contains("suggestChanges()"),
+                "The ProseMirror schema must expose HWC insertion/deletion/modification marks and install the suggestChanges plugin.")
+        #expect(css.contains(".ProseMirror ins[data-id]")
+                && css.contains(".ProseMirror del[data-id]")
+                && css.contains("[data-type=\"modification\"]"),
+                "Tracked changes need visible in-document affordances for inserted, deleted, and modified content.")
+    }
+
+    @Test("LumenLens markdown tiers and fidelity disclosure are wired")
+    func lumenLensMarkdownTiersAndFidelityDisclosureAreWired() throws {
+        let tiers = try Self.loadSourceText("js-editor/src/markdown/tiers.ts")
+        let roundtrip = try Self.loadSourceText("js-editor/scripts/check-markdown-roundtrip.mjs")
+        let disclosure = try Self.loadSourceText("Epistemos/Views/Notes/LensFidelityDisclosure.swift")
+        let workspace = try Self.loadSourceText("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(tiers.contains("export enum SerializerTier")
+                && tiers.contains("canonical-lossless")
+                && tiers.contains("custom-extension")
+                && tiers.contains("byte-preserving-opaque")
+                && tiers.contains("export function pickTier")
+                && tiers.contains("export function roundTrip")
+                && tiers.contains("export function splitFrontmatter")
+                && tiers.contains("LENS_FIDELITY_REGISTRY")
+                && tiers.contains("opaqueQuarantine"),
+                "LumenLens L2 needs an explicit Tier A/B/C registry, selector, round-trip adapter, byte-preserving frontmatter split, and Tier C quarantine path.")
+        #expect(roundtrip.contains("const roundTripAdapter")
+                && roundtrip.contains("roundTrip(markdown, roundTripAdapter)")
+                && roundtrip.contains("desktopCommander440")
+                && roundtrip.contains("assert.doesNotMatch")
+                && roundtrip.contains("quarantineResult.tier")
+                && roundtrip.contains("disclosureItemsForLens")
+                && roundtrip.contains("slice(0, 120)")
+                && roundtrip.contains("expected at least 100 markdown corpus files"),
+                "The executable markdown check must cover #440 frontmatter/table/wikilink escaping, Tier C quarantine, disclosure registry output, and a 100+ file corpus.")
+        #expect(disclosure.contains("enum LensFidelityDisclosure")
+                && disclosure.contains("static func items(")
+                && disclosure.contains("in markdown: String,")
+                && disclosure.contains("lens: NoteWorkspaceMode,")
+                && disclosure.contains("enum LensFidelityState")
+                && disclosure.contains("enum LensFidelityExportKind")
+                && disclosure.contains("case image")
+                && disclosure.contains("case csv")
+                && disclosure.contains("case xlsx")
+                && disclosure.contains("case transcript")
+                && disclosure.contains("protocol LensFidelityDatasetExportProviding")
+                && disclosure.contains("struct LensFidelityDatasetReference")
+                && disclosure.contains("datasetExportProvider:")
+                && disclosure.contains("prioritizedDatasetExports")
+                && disclosure.contains("enum LensFidelityPreview")
+                && disclosure.contains("case chart(LensFidelityChartPreview)")
+                && disclosure.contains("let provenance: String")
+                && disclosure.contains("chartProvenanceSummary(from:")
+                && disclosure.contains("LensFidelityChartPreviewView")
+                && disclosure.contains("referenceCSV(kind:")
+                && disclosure.contains("svgImage(for chart:")
+                && disclosure.contains("type: \"epdocChart\"")
+                && disclosure.contains("type: \"opaqueQuarantine\"")
+                && disclosure.contains("LensFidelityDisclosureExporter")
+                && disclosure.contains("NSPasteboard.general")
+                && disclosure.contains("NSSavePanel()")
+                && disclosure.contains("struct LensFidelityDisclosureSection"),
+                "The native note surface needs a real per-lens fidelity parser plus copy/export actions and a reusable disclosure section.")
+        #expect(workspace.contains("LensFidelityDisclosure.items")
+                && workspace.contains("LensFidelityDisclosureSection")
+                && workspace.contains("setNoteMode(.document, for: page)")
+                && workspace.contains("showInfoPopover = false"),
+                "The existing Info popover should host degraded/invisible lens content and let users jump to Document mode.")
+    }
+
+    @Test("LumenLens minimal-diff writeback uses changedRange and byte splicing")
+    func lumenLensMinimalDiffWritebackUsesChangedRangeAndByteSplicing() throws {
+        let package = try Self.loadSourceText("js-editor/package.json")
+        let index = try Self.loadSourceText("js-editor/src/index.ts")
+        let inbound = try Self.loadSourceText("js-editor/src/bridge/inbound.ts")
+        let outbound = try Self.loadSourceText("js-editor/src/bridge/outbound.ts")
+        let writeback = try Self.loadSourceText("js-editor/src/markdown/minimal-diff-writeback.ts")
+        let tracker = try Self.loadSourceText("js-editor/src/markdown/writeback-tracker.ts")
+        let check = try Self.loadSourceText("js-editor/scripts/check-minimal-writeback.mjs")
+        let bridge = try Self.loadSourceText("Epistemos/Engine/EpdocEditorBridge.swift")
+        let chrome = try Self.loadSourceText("Epistemos/Views/Epdoc/EpdocEditorChromeView.swift")
+        let surface = try Self.loadSourceText("Epistemos/Views/Notes/MarkdownDocumentSurface.swift")
+        let surfaceTests = try Self.loadSourceText("EpistemosTests/EditorProvenanceStoreTests.swift")
+
+        #expect(package.contains(#""check:minimal-writeback": "node scripts/check-minimal-writeback.mjs""#),
+                "LumenLens L3 needs a focused executable gate for minimal-diff writeback.")
+        #expect(writeback.contains("oldSet.changedRange(input.newSet, input.maps)")
+                && writeback.contains("topLevelBlockRange")
+                && writeback.contains("docFromTopLevelRange")
+                && writeback.contains("indexMarkdownBlocks")
+                && writeback.contains("splitFrontmatter")
+                && writeback.contains("utf8ByteLength")
+                && writeback.contains("applyWritebackRegion")
+                && writeback.contains("normalizeReplacementLineEndings"),
+                "Minimal writeback must use prosemirror-changeset changedRange, expand to top-level block spans, preserve frontmatter offsets, compute UTF-8 byte ranges, and splice in memory.")
+        #expect(tracker.contains("class MarkdownWritebackTracker")
+                && tracker.contains("reset(editor: Editor, markdown: string)")
+                && tracker.contains("recordTransaction")
+                && tracker.contains("consume(editor: Editor, currentMarkdown: string")
+                && tracker.contains("this.reset(editor, currentMarkdown)")
+                && tracker.contains("minimalWriteback({")
+                && tracker.contains("editor.markdown?.serialize"),
+                "The live editor must track a loaded markdown baseline, accumulate StepMaps, serialize only the changed doc range through Tiptap markdown, and reset its baseline after full-snapshot fallback.")
+        #expect(index.contains("new MarkdownWritebackTracker()")
+                && index.contains("markdownWritebackTracker.recordTransaction")
+                && index.contains("markdownWritebackTracker.consume")
+                && index.contains("postMarkdownSnapshot: postMarkdownDidChange")
+                && inbound.contains("resetMarkdownWritebackBaseline")
+                && inbound.contains("postMarkdownSnapshot")
+                && outbound.contains("writeback?: MarkdownWritebackRegionPayload"),
+                "Minimal writeback must be wired into live outbound markdown snapshots without breaking the existing full-snapshot path.")
+        #expect(bridge.contains("struct EpdocMarkdownWritebackRegion")
+                && bridge.contains("case markdownDidChange(markdown: String, writeback: EpdocMarkdownWritebackRegion?)")
+                && bridge.contains("decodeEnvelope(messageBody:")
+                && bridge.contains("parseWritebackRegion")
+                && bridge.contains("blockMarkdown"),
+                "The Swift bridge must decode the optional writeback region instead of treating L3 as a JS-only optimization.")
+        #expect(chrome.contains("onMarkdownChanged: @Sendable @MainActor (String, EpdocMarkdownWritebackRegion?) -> Void")
+                && chrome.contains("case let .markdownDidChange(markdown, writeback)")
+                && chrome.contains("onMarkdownChanged(markdown, writeback)"),
+                "The chrome controller must preserve the writeback region while retaining the existing full Markdown snapshot path.")
+        #expect(surface.contains("scheduleMarkdownSave(_ markdown: String, writeback: EpdocMarkdownWritebackRegion?)")
+                && surface.contains("apply(writeback:")
+                && surface.contains("samePosition(in: markdown)")
+                && surface.contains("byteFrom == writeback.byteFrom")
+                && surface.contains("blockMarkdown"),
+                "The Markdown Document surface must apply minimal writeback regions safely and fall back to full Markdown when validation fails.")
+        #expect(surface.contains("private var markdownSaveWorkerGeneration: UInt64 = 0"))
+        #expect(surface.contains("guard saveTask == nil else { return }"))
+        #expect(surface.contains("let markdownToSave = self.latestMarkdown"))
+        #expect(surface.contains("private func cancelMarkdownSaveWorker()"))
+        #expect(check.contains("seedChangeSet(originalDoc)")
+                && check.contains("oldSet.addSteps")
+                && check.contains("Buffer.byteLength('Alpha\\n\\nBravé')")
+                && check.contains("large fixture must be multi-MB")
+                && check.contains("large-doc writeback range should cover only one block")
+                && check.contains("fallback reset should allow the next edit to use a fresh baseline"),
+                "The L3 gate must prove one-block edits, UTF-8 byte offsets, frontmatter preservation, multi-MB one-region behavior, and baseline reset after full-snapshot fallback.")
+        #expect(surfaceTests.contains("markdown document surface applies minimal writeback regions before saving")
+                && surfaceTests.contains("markdown document surface falls back to full markdown when writeback validation fails")
+                && surfaceTests.contains("coordinator.flushPendingMarkdown()"),
+                "L3 needs native harness proof that the document surface saves valid writeback splices and falls back to full snapshots when validation fails.")
+    }
+
+    @Test("LumenLens L4 session state machine owns note write leases")
+    func lumenLensSessionStateMachineOwnsNoteWriteLeases() throws {
+        let machine = try Self.loadSourceText("Epistemos/Views/Notes/NoteSessionStateMachine.swift")
+        let workspace = try Self.loadSourceText("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let documentSurface = try Self.loadSourceText("Epistemos/Views/Notes/MarkdownDocumentSurface.swift")
+        let codeEditor = try Self.loadSourceText("Epistemos/Views/Notes/CodeEditorView.swift")
+        let markEditState = try Self.loadSourceText("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
+        let focusedTests = try Self.loadSourceText("EpistemosTests/NoteSessionStateMachineTests.swift")
+
+        #expect(machine.contains("case idle")
+                && machine.contains("case loading(epoch: UInt64?)")
+                && machine.contains("case clean")
+                && machine.contains("case dirty(since: Date)")
+                && machine.contains("case autosaving(reason: NoteSessionSaveReason)")
+                && machine.contains("case externalChange(pendingReload: Bool)")
+                && machine.contains("case conflict(diff3Base: String)"),
+                "L4 needs an explicit note-session state machine, not scattered booleans around the workspace.")
+        #expect(machine.contains("final class NoteSessionLeaseRegistry")
+                && machine.contains("final class NoteSessionGRDBLeaseStore")
+                && machine.contains("CREATE TABLE IF NOT EXISTS note_session")
+                && machine.contains("NoteSessionLeaseStore")
+                && machine.contains("func handoffLease(to nextOwnerID: String) -> Bool")
+                && machine.contains("autosaveDebounceMilliseconds = 800")
+                && machine.contains("autosaveCeilingMilliseconds = 5_000")
+                && machine.contains("documentedV1UndoLossAcrossLensSwitch"),
+                "The state machine must encode one write lease, a GRDB note_session row, handoff, autosave cadence, and the documented v1 undo-loss policy.")
+        #expect(workspace.contains("@State private var noteSession: NoteSessionStateMachine")
+                && workspace.contains("vaultSync.searchService?.databaseWriter()")
+                && workspace.contains("noteSession.configureLeaseStore(")
+                && workspace.contains("_ = noteSession.open()")
+                && workspace.contains("noteSession.close()")
+                && workspace.contains("noteSession.externalBodyChanged")
+                && workspace.contains("case .conflict")
+                && workspace.contains("noteSession.switchLens(to: NoteSessionLens(mode))")
+                && workspace.contains("flushCurrentEditor(reason: .lensSwitch)")
+                && workspace.contains("beginNoteSessionWrite(reason:"),
+                "The note workspace must open/close the session, defer dirty external changes, and route saves through the write lease.")
+        #expect(workspace.contains("private var editorSurfacesAcceptInput: Bool")
+                && workspace.contains("noteSession.canWrite || noteSession.currentOwnerID == nil")
+                && workspace.contains("isEditable: editorSurfacesAcceptInput"),
+                "Editor surfaces must accept local input before the async lease check finishes, while saves still route through the write lease.")
+        #expect(documentSurface.contains("let isEditable: Bool")
+                && documentSurface.contains("guard self?.isEditable == true else"),
+                "Document mode must suppress follower saves until the web editor has first-class read-only controls.")
+        #expect(codeEditor.contains("let isEditable: Bool")
+                && codeEditor.contains("if isEditable {")
+                && markEditState.contains("readOnlyMode: !isEditable"),
+                "Source mode must thread the lease into the existing MarkEdit/CoreEditor read-only mode and suppress follower debounced writes.")
+        #expect(focusedTests.contains("lease ownership persists in the GRDB note_session row")
+                && focusedTests.contains("NoteSessionGRDBLeaseStore(databaseWriter:")
+                && focusedTests.contains("try store.ownerID(for: \"note-db\") == \"owner\""),
+                "L4 needs a focused executable test for the persistent note_session lease row, not only source-shape assertions.")
+    }
+
+    @Test("LumenLens L5 suggestion provenance ledger replays and compacts")
+    func lumenLensSuggestionProvenanceLedgerReplaysAndCompacts() throws {
+        let suggestionSchema = try Self.loadSourceText("agent_core/src/provenance/suggestion_schema.rs")
+        let editorStore = try Self.loadSourceText("Epistemos/Views/Notes/EditorProvenanceStore.swift")
+        let focusedTests = try Self.loadSourceText("EpistemosTests/EditorProvenanceStoreTests.swift")
+        let provenanceMod = try Self.loadSourceText("agent_core/src/provenance/mod.rs")
+        let rustBridge = try Self.loadSourceText("agent_core/src/bridge.rs")
+        let swiftBridge = try Self.loadSourceText("Epistemos/Engine/EpdocEditorBridge.swift")
+        let chrome = try Self.loadSourceText("Epistemos/Views/Epdoc/EpdocEditorChromeView.swift")
+        let documentSurface = try Self.loadSourceText("Epistemos/Views/Notes/MarkdownDocumentSurface.swift")
+        let workspace = try Self.loadSourceText("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let bridgeTests = try Self.loadSourceText("EpistemosTests/EpdocEditorBridgeTests.swift")
+        let outboundCheck = try Self.loadSourceText("js-editor/scripts/check-bridge-outbound.mjs")
+        let project = try Self.loadSourceText("project.yml")
+
+        #expect(suggestionSchema.contains("pub struct Suggestion")
+                && suggestionSchema.contains("pub enum AcceptState")
+                && suggestionSchema.contains("pub enum Author")
+                && suggestionSchema.contains("pub struct Range")
+                && suggestionSchema.contains("pub fn is_companion_turn"),
+                "L5 needs the full attributed suggestion schema: author, turn, ranges, before/after, rationale, citation, and accept-state.")
+        #expect(suggestionSchema.contains("pub enum ObjectType")
+                && suggestionSchema.contains("pub enum RangePayload")
+                && suggestionSchema.contains("pub struct TabularRange")
+                && suggestionSchema.contains("TabularA1")
+                && suggestionSchema.contains("SuggestionMustStartPending")
+                && suggestionSchema.contains("tabular_suggestion_stages_a1_payload_and_accepts_only_by_event"),
+                "Prompt 4 requires one suggestion schema for prose and RECKONER tabular/A1 changes, with agent-authored changes staged pending before approval.")
+        #expect(suggestionSchema.contains("events: Vec<SuggestionLedgerEvent>")
+                && suggestionSchema.contains("next_event_sequence")
+                && suggestionSchema.contains("pub fn events_since")
+                && suggestionSchema.contains("pub fn snapshot")
+                && suggestionSchema.contains("pub fn replay(events")
+                && suggestionSchema.contains("blake3::hash"),
+                "The suggestion ledger must copy the ClaimLedger idiom: append-only events, monotonic sequence, cursor reads, replay, and BLAKE3 snapshot bundles.")
+        #expect(suggestionSchema.contains("insert_suggestion")
+                && suggestionSchema.contains("accept_suggestion")
+                && suggestionSchema.contains("reject_suggestion")
+                && suggestionSchema.contains("revert_turn")
+                && suggestionSchema.contains("SuggestionRevertOperation")
+                && suggestionSchema.contains("accept_state_history"),
+                "Accept/reject/revert must be first-class ledger operations, not caller-side mutations.")
+        #expect(suggestionSchema.contains("DEFAULT_SUGGESTION_EVENT_RETENTION")
+                && suggestionSchema.contains("pub fn compact")
+                && suggestionSchema.contains("SuggestionCompactedEvent")
+                && suggestionSchema.contains("retained_tail_events"),
+                "L5 must include a real retention/compaction checkpoint story instead of an append-forever event list.")
+        #expect(suggestionSchema.contains("stress_10_000_suggestions_replay_and_compact")
+                && suggestionSchema.contains("10_000")
+                && suggestionSchema.contains("SuggestionReplayBundle::from_replay_bytes"),
+                "The focused Rust tests must prove replay after restart and a 10k-suggestion compaction stress case.")
+        #expect(provenanceMod.contains("pub mod suggestion_schema")
+                && provenanceMod.contains("SuggestionLedger")
+                && provenanceMod.contains("SuggestionReplayBundle"),
+                "The Rust provenance module must export the L5 suggestion ledger as a peer of ClaimLedger.")
+        #expect(rustBridge.contains("suggestion_provenance_ledger_snapshot_json")
+                && rustBridge.contains("suggestion_provenance_ledger_recent_events_json")
+                && rustBridge.contains("suggestion_provenance_ledger_summary_json"),
+                "The Phase-1 Rust suggestion ledger should expose read-only FFI audit surfaces without inventing a durable Rust DB.")
+        #expect(swiftBridge.contains("struct EpdocSuggestionResolution")
+                && swiftBridge.contains("struct EpdocSuggestionSpanPayload")
+                && swiftBridge.contains("case suggestionApplied(EpdocSuggestionSpanPayload)")
+                && swiftBridge.contains("case suggestionResolved(EpdocSuggestionResolution)")
+                && swiftBridge.contains(#"case "suggestionApplied":"#)
+                && swiftBridge.contains(#"case "suggestionResolved":"#)
+                && swiftBridge.contains("EpdocSuggestionResolutionState(rawValue: stateRaw)"),
+                "Swift must decode JS suggestionApplied/suggestionResolved events as typed applied spans and accepted/rejected bridge decisions.")
+        #expect(chrome.contains("onSuggestionApplied: @Sendable @MainActor (EpdocSuggestionSpanPayload) -> Void")
+                && chrome.contains("onSuggestionResolved: @Sendable @MainActor (EpdocSuggestionResolution) -> Void")
+                && chrome.contains("requiresMatchingLoadEpoch")
+                && chrome.contains(".contentDidChange,")
+                && chrome.contains(".markdownDidChange,")
+                && chrome.contains(".documentStatsChanged,")
+                && chrome.contains(".loadSettled,")
+                && chrome.contains(".suggestionApplied,")
+                && chrome.contains(".suggestionResolved:")
+                && chrome.contains("case let .suggestionApplied(payload)")
+                && chrome.contains("case let .suggestionResolved(resolution)")
+                && chrome.contains("onSuggestionApplied(payload)")
+                && chrome.contains("onSuggestionResolved(resolution)")
+                && chrome.contains("epoch: EpdocBridgeMessage.decodeEpoch(messageBody: body)"),
+                "The Epdoc chrome controller must fan suggestion applied/decision events out to the owning note surface through the epoch-filtered WK bridge path.")
+        #expect(editorStore.contains("struct SuggestionSpanRecord")
+                && editorStore.contains("enum SuggestionState")
+                && editorStore.contains("enum EditSource")
+                && editorStore.contains("protocol EditorProvenanceStoring")
+                && editorStore.contains("struct EditorProvenanceBridgeSink")
+                && editorStore.contains("func persistApplied")
+                && editorStore.contains("source: .agent")
+                && editorStore.contains("SuggestionState(resolution.state)")
+                && editorStore.contains("actor EditorProvenanceGRDBStore")
+                && editorStore.contains("CREATE TABLE IF NOT EXISTS suggestion_span")
+                && editorStore.contains("addColumnIfMissing")
+                && editorStore.contains("claim_id TEXT")
+                && editorStore.contains("source_citation TEXT")
+                && editorStore.contains("CREATE TABLE IF NOT EXISTS suggestion_span_summary")
+                && editorStore.contains("func pendingAgentSpans(turnID:")
+                && editorStore.contains("func compact(keepResolvedMost recent: Int)")
+                && editorStore.contains("mergedClaimIDs")
+                && editorStore.contains("compactionSummaries"),
+                "L5 durable editor provenance must persist spans in the existing GRDB writer with claim_id linkage and a non-append-forever compaction summary.")
+        #expect(documentSurface.contains("let provenanceStore: (any EditorProvenanceStoring)?")
+                && documentSurface.contains("let noteRelativePath: String")
+                && documentSurface.contains("final class MarkdownDocumentSurfaceCoordinator")
+                && documentSurface.contains("EditorProvenanceBridgeSink(store:")
+                && documentSurface.contains("controller.onSuggestionApplied")
+                && documentSurface.contains("controller.onSuggestionResolved")
+                && documentSurface.contains("provenanceWriteTail")
+                && documentSurface.contains("await previous?.value")
+                && documentSurface.contains("func flushPendingProvenanceWrites() async")
+                && documentSurface.contains("func flushPendingSurfaceWrites() async")
+                && documentSurface.contains("await coordinator.flushPendingSurfaceWrites()")
+                && documentSurface.contains("failed to persist suggestion span")
+                && documentSurface.contains("failed to persist suggestion decision")
+                && !documentSurface.contains("try? await sink.persistApplied")
+                && !documentSurface.contains("try? await sink.persistResolved")
+                && workspace.contains("@State private var editorProvenanceStore: EditorProvenanceGRDBStore?")
+                && workspace.contains("EditorProvenanceGRDBStore(databaseWriter:")
+                && workspace.contains("noteRelativePath: page.vaultRelativeNotePath")
+                && workspace.contains("provenanceStore: editorProvenanceStore"),
+                "Document mode must wire applied spans and accepted/rejected suggestion decisions into the durable editor provenance store when the database writer exists, and must log persistence failures instead of swallowing them.")
+        #expect(project.contains("  Epistemos-AppStore:\n    type: application")
+                && project.contains("      - path: Epistemos\n        type: syncedFolder")
+                && !project.contains("EditorProvenanceStore.swift")
+                && !editorStore.contains("KINDRED_ENABLED")
+                && !editorStore.contains("EPISTEMOS_EXPERIMENTAL")
+                && !editorStore.contains("ExperimentalAgent")
+                && !editorStore.contains("Process("),
+                "The durable editor provenance store must remain MAS-safe shared source: included through the App Store synced folder and free of companion/Experimental/subprocess gates.")
+        #expect(focusedTests.contains("suggestion spans persist, decide, and query by turn")
+                && focusedTests.contains("compaction trims resolved spans into per-turn summary")
+                && focusedTests.contains("duplicate span ids fail without overwriting the original row")
+                && focusedTests.contains("bridge sink persists applied spans and resolution decisions")
+                && focusedTests.contains("spans survive a fresh store and writer reopen")
+                && focusedTests.contains("spans survive app search-service writer reopen")
+                && focusedTests.contains("markdown document surface teardown flushes markdown and provenance writes")
+                && focusedTests.contains("schema install upgrades legacy provenance tables")
+                && focusedTests.contains("EditorProvenanceGRDBStore(databaseWriter:")
+                && focusedTests.contains("sourceCitation")
+                && focusedTests.contains("claim:span-1")
+                && focusedTests.contains("claim:resolved-3"),
+                "L5 needs executable Swift proof for durable GRDB span persistence, applied-span insertion, duplicate-ID collision safety, decision updates, claim linkage, fresh-writer reopen, repeated compaction, and bridge-resolution persistence.")
+        #expect(bridgeTests.contains("suggestionResolved decodes accepted and rejected decisions")
+                && bridgeTests.contains("suggestionApplied decodes the original tracked span payload")
+                && bridgeTests.contains("batched bridge envelope decodes messages with epochs")
+                && bridgeTests.contains("chrome controller forwards suggestion resolution decisions")
+                && bridgeTests.contains("chrome controller forwards applied suggestion spans")
+                && bridgeTests.contains("chrome controller ignores stale epoch suggestion events"),
+                "L5 needs bridge-level executable proof that JS applied-span and decision events reach the native controller handoff without leaking stale host-load epochs.")
+        #expect(outboundCheck.contains("postBridge")
+                && outboundCheck.contains("postedPayloads[0].type, 'batch'")
+                && outboundCheck.contains("markdownDidChange")
+                && outboundCheck.contains("writeback")
+                && outboundCheck.contains("suggestionResolved")
+                && outboundCheck.contains("span-batch"),
+                "L5 needs executable JS proof that the outbound WK bridge batches L3 writeback and L5 suggestion decision payloads in the shape Swift decodes.")
+    }
+
+    @Test("LumenLens L6 Epdoc notebook container is wired")
+    func lumenLensEpdocNotebookContainerIsWired() throws {
+        let notebook = try Self.loadSourceText("Epistemos/Views/Notes/EpdocNotebookManifest.swift")
+        let workspace = try Self.loadSourceText("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let toc = try Self.loadSourceText("Epistemos/Views/Notes/NoteTableOfContents.swift")
+        let disclosure = try Self.loadSourceText("Epistemos/Views/Notes/LensFidelityDisclosure.swift")
+        let tests = try Self.loadSourceText("EpistemosTests/EpdocNotebookManifestTests.swift")
+        let roundtrip = try Self.loadSourceText("js-editor/scripts/check-markdown-roundtrip.mjs")
+
+        #expect(notebook.contains("struct EpdocNotebookManifest")
+                && notebook.contains("fenceInfoString = \"epistemos-notebook\"")
+                && notebook.contains("frontmatterKey = \"_epistemos_notebook\"")
+                && notebook.contains("upsertingFrontmatterManifest")
+                && notebook.contains("blockScalarRange(forKey:")
+                && notebook.contains("struct EpdocNotebookTabStrip")
+                && notebook.contains("struct EpdocNotebookLauncherPane")
+                && notebook.contains("struct EpdocNotebookReferencePane")
+                && notebook.contains("canonicalReferenceLine")
+                && notebook.contains("EpdocNotebookInlineRowDataGuard")
+                && notebook.contains("EpdocNotebookBuildCapabilities.isChatTabContentAvailable"),
+                "L6 needs the Epdoc notebook container: Tier-B manifest parser, YAML-safe frontmatter edit path, tab chrome, launcher pane, tombstone/reference panes, and build-gated chat availability.")
+        #expect(workspace.contains("@State private var selectedNotebookTabID")
+                && workspace.contains("EpdocNotebookTabStrip(")
+                && workspace.contains("EpdocNotebookLauncherPane")
+                && workspace.contains("EpdocNotebookReferencePane")
+                && workspace.contains("navigateActiveOutline(to item: TOCItem)")
+                && workspace.contains("setNoteMode(.document, for: page)"),
+                "Document mode must host notebook tabs and let outline navigation select a tab instead of building a second navigator.")
+        #expect(toc.contains("case notebookTab(tabID: String)")
+                && toc.contains("case embed(referenceID: String, type: String)")
+                && toc.contains("notebookNavigationItems(in markdown: String)")
+                && toc.contains("EpdocNotebookReferenceParser.blockEmbeds"),
+                "Tabs and block-level embeds must extend the shared TOCItem infrastructure.")
+        #expect(disclosure.contains("scanNotebookReferences")
+                && disclosure.contains("notebookSheetTab")
+                && disclosure.contains("notebookChatTab")
+                && disclosure.contains("notebookUnknownTab")
+                && disclosure.contains("chatTabContentAvailable:")
+                && disclosure.contains("chatTabContentAvailable ? .rendered : .degraded")
+                && disclosure.contains("sanitizedDatasetReferenceSource")
+                && disclosure.contains("EpdocNotebookBuildCapabilities.isChatTabContentAvailable"),
+                "Notebook tabs must surface through the existing lens-fidelity popovers for Prose/Source/MAS degradation.")
+        #expect(tests.contains("frontmatter manifest edits replace only the notebook block")
+                && tests.contains("notebook tabs and block embeds join the shared TOC model")
+                && tests.contains("disclosure lists notebook tabs and embeds for weaker lenses")
+                && tests.contains("MAS-style document lens degrades chat references into transcript exports")
+                && tests.contains("manifest parsing is bounded")
+                && tests.contains("dataset references expose artifact handles without inline row payloads")
+                && tests.contains("chatTabContentAvailable: false"),
+                "L6 needs focused tests for manifest parsing, minimal frontmatter edits, TOC rows, tombstones, and disclosure rows.")
+        #expect(roundtrip.contains("notebookManifest440")
+                && roundtrip.contains("epistemos-notebook")
+                && roundtrip.contains("epistemos-ref")
+                && roundtrip.contains("datasetEmbedsContainNoRowData")
+                && roundtrip.contains("dataset embeds must reference dataset artifacts, not inline row data"),
+                "The #440 markdown fixture must cover notebook manifests, embedded references, and row-data rejection.")
     }
 
     nonisolated private static func loadSourceText(_ relativePath: String) throws -> String {

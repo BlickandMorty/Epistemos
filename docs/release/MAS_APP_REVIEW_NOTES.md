@@ -1,13 +1,19 @@
 # Epistemos — Mac App Store Review Notes
 
+> **LEGACY / DO NOT ATTACH TO APP STORE CONNECT.** This file is historical
+> Pro/MAS planning evidence and still contains obsolete local-model/JIT claims.
+> The active MAS-only submission notes are
+> `docs/MAS_APP_REVIEW_NOTES_2026_07_03.md`.
+>
 > **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 Date: 2026-04-25
 Bundle: `Epistemos-AppStore.app`
 Build profile: MAS (sandboxed, `EPISTEMOS_APP_STORE` + `MAS_SANDBOX` compile flags)
 
-This document explains entitlement choices for App Review. Attach to the
-submission notes field in App Store Connect.
+This historical document explained entitlement choices for an older MAS/Pro
+plan. Do not attach it to App Store Connect; use the active MAS-only review
+notes linked above.
 
 ## 1. JIT entitlement (`com.apple.security.cs.allow-jit`)
 
@@ -59,7 +65,7 @@ These features only exist in our direct-distribution Pro build, never in the App
 
 ## 6. Privacy
 
-- `PrivacyInfo.xcprivacy` declares: file timestamp (display), system boot time (elapsed time), disk space (storage info), user defaults (app-local settings).
+- `PrivacyInfo.xcprivacy` declares: file timestamps in app containers (`C617.1`) and user-selected vaults (`3B52.1`), system boot time (elapsed time), disk space (storage info), and user defaults (app-local settings).
 - No user tracking. No tracking domains. No data collection categories declared.
 - All user notes, embeddings, and chat history stay on the user's Mac. The app contacts our servers only if the user enables a cloud AI provider, and then only that provider's published endpoint.
 - We have a built-in **Privacy** pane in Settings that surfaces all of this transparency to the user.

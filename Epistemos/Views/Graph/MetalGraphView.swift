@@ -84,7 +84,7 @@ enum GraphThemeNodePalette {
     }
 }
 
-struct GraphNodeBatchPayload {
+nonisolated struct GraphNodeBatchPayload: Sendable {
     var ids: [String] = []
     var xs: [Float] = []
     var ys: [Float] = []
@@ -95,13 +95,18 @@ struct GraphNodeBatchPayload {
     var isEmpty: Bool { ids.isEmpty }
 }
 
-struct GraphEdgeBatchPayload {
+nonisolated struct GraphEdgeBatchPayload: Sendable {
     var sourceIds: [String] = []
     var targetIds: [String] = []
     var weights: [Float] = []
     var types: [UInt8] = []
 
     var isEmpty: Bool { sourceIds.isEmpty }
+}
+
+nonisolated struct GraphFullCommitPayload: Sendable {
+    let nodePayload: GraphNodeBatchPayload
+    let edgePayload: GraphEdgeBatchPayload
 }
 
 nonisolated struct GraphNodeMetadataBatchPayload: Sendable {
@@ -418,11 +423,65 @@ func makeVisibleNodeBatchPayload<Nodes: Collection>(
     return payload
 }
 
+nonisolated func makeVisibleNodeBatchPayloadFromSnapshot<Nodes: Collection>(
+    from nodes: Nodes,
+    store: GraphStoreSnapshot,
+    filter: GraphFilterSnapshot
+) -> GraphNodeBatchPayload where Nodes.Element == GraphNodeRecord {
+    var payload = GraphNodeBatchPayload()
+    payload.ids.reserveCapacity(nodes.count)
+    payload.xs.reserveCapacity(nodes.count)
+    payload.ys.reserveCapacity(nodes.count)
+    payload.types.reserveCapacity(nodes.count)
+    payload.linkCounts.reserveCapacity(nodes.count)
+    payload.labels.reserveCapacity(nodes.count)
+
+    for node in nodes {
+        guard filter.isNodeVisible(node) else { continue }
+        payload.ids.append(node.id)
+        payload.xs.append(node.position.x)
+        payload.ys.append(node.position.y)
+        payload.types.append(node.type.rustIndex)
+        let degreeCount = store.linkCount(for: node.id)
+        let semanticFolderCount: UInt32 = if node.type == .folder {
+            UInt32(max(1, min(Double(UInt32.max), node.weight.rounded(.up))))
+        } else {
+            degreeCount
+        }
+        payload.linkCounts.append(max(degreeCount, semanticFolderCount))
+        payload.labels.append(node.label)
+    }
+    return payload
+}
+
 @MainActor
 func makeVisibleEdgeBatchPayload<Edges: Collection>(
     from edges: Edges,
     store: GraphStore,
     filter: FilterEngine
+) -> GraphEdgeBatchPayload where Edges.Element == GraphEdgeRecord {
+    var payload = GraphEdgeBatchPayload()
+    payload.sourceIds.reserveCapacity(edges.count)
+    payload.targetIds.reserveCapacity(edges.count)
+    payload.weights.reserveCapacity(edges.count)
+    payload.types.reserveCapacity(edges.count)
+
+    for edge in edges {
+        let srcVisible = store.nodes[edge.sourceNodeId].map { filter.isNodeVisible($0) } ?? false
+        let tgtVisible = store.nodes[edge.targetNodeId].map { filter.isNodeVisible($0) } ?? false
+        guard filter.isEdgeVisible(edge, sourceVisible: srcVisible, targetVisible: tgtVisible) else { continue }
+        payload.sourceIds.append(edge.sourceNodeId)
+        payload.targetIds.append(edge.targetNodeId)
+        payload.weights.append(Float(edge.weight))
+        payload.types.append(edge.type.rustIndex)
+    }
+    return payload
+}
+
+nonisolated func makeVisibleEdgeBatchPayloadFromSnapshot<Edges: Collection>(
+    from edges: Edges,
+    store: GraphStoreSnapshot,
+    filter: GraphFilterSnapshot
 ) -> GraphEdgeBatchPayload where Edges.Element == GraphEdgeRecord {
     var payload = GraphEdgeBatchPayload()
     payload.sourceIds.reserveCapacity(edges.count)
@@ -774,6 +833,9 @@ final class MetalGraphNSView: NSView {
     private var cachedCognitiveDepthRadiusScales: [String: Float] = [:]
     private var cachedCognitiveDepthTopologyVersion: Int = -1
     private let deferredMetadataDriver = GraphDeferredMetadataDriver()
+    private var fullGraphCommitTask: Task<Void, Never>?
+    private var pendingFullGraphCommitVersion: Int?
+    private var pendingFullGraphCommitCameraAction: GraphRecommitCameraAction?
 
     private var mouseDownLocation: CGPoint?
     private var isDraggingNode = false
@@ -1141,24 +1203,144 @@ final class MetalGraphNSView: NSView {
             if case .page = graphState.mode { return true }
             return false
         }()
+        let graphDataVersion = graphState.graphDataVersion
 
+        let storeSnapshot = store.snapshot()
+        let filterSnapshot = filter.snapshot()
+        let payload = GraphFullCommitPayload(
+            nodePayload: makeVisibleNodeBatchPayloadFromSnapshot(
+                from: Array(storeSnapshot.nodes.values),
+                store: storeSnapshot,
+                filter: filterSnapshot
+            ),
+            edgePayload: makeVisibleEdgeBatchPayloadFromSnapshot(
+                from: Array(storeSnapshot.edges.values),
+                store: storeSnapshot,
+                filter: filterSnapshot
+            )
+        )
+        applyFullGraphCommitPayload(
+            payload,
+            graphState: graphState,
+            engine: engine,
+            isPageMode: isPageMode,
+            graphDataVersion: graphDataVersion
+        )
+    }
+
+    @discardableResult
+    private func scheduleFullGraphCommitIfNeeded(
+        graphState: GraphState,
+        isPageMode: Bool,
+        postCommitCameraAction: GraphRecommitCameraAction? = nil
+    ) -> Bool {
+        guard engine != nil else { return false }
+        let graphDataVersion = graphState.graphDataVersion
+        if pendingFullGraphCommitVersion == graphDataVersion {
+            if let postCommitCameraAction {
+                pendingFullGraphCommitCameraAction = postCommitCameraAction
+            }
+            needsRender = false
+            return true
+        }
+
+        fullGraphCommitTask?.cancel()
+        pendingFullGraphCommitVersion = graphDataVersion
+        pendingFullGraphCommitCameraAction = postCommitCameraAction
+        let storeSnapshot = graphState.store.snapshot()
+        let filterSnapshot = graphState.filter.snapshot()
+        needsRender = false
+
+        fullGraphCommitTask = Task { @MainActor [weak self] in
+            let payload = await Task.detached(priority: .utility) {
+                GraphFullCommitPayload(
+                    nodePayload: makeVisibleNodeBatchPayloadFromSnapshot(
+                        from: Array(storeSnapshot.nodes.values),
+                        store: storeSnapshot,
+                        filter: filterSnapshot
+                    ),
+                    edgePayload: makeVisibleEdgeBatchPayloadFromSnapshot(
+                        from: Array(storeSnapshot.edges.values),
+                        store: storeSnapshot,
+                        filter: filterSnapshot
+                    )
+                )
+            }.value
+
+            guard !Task.isCancelled else {
+                if self?.pendingFullGraphCommitVersion == graphDataVersion {
+                    self?.pendingFullGraphCommitVersion = nil
+                    self?.pendingFullGraphCommitCameraAction = nil
+                }
+                return
+            }
+
+            guard let self,
+                  let engine = self.engine,
+                  let currentGraphState = self.graphState,
+                  currentGraphState.graphDataVersion == graphDataVersion else {
+                if self?.pendingFullGraphCommitVersion == graphDataVersion {
+                    self?.pendingFullGraphCommitVersion = nil
+                    self?.pendingFullGraphCommitCameraAction = nil
+                }
+                return
+            }
+
+            let cameraAction = self.pendingFullGraphCommitCameraAction
+            self.pendingFullGraphCommitVersion = nil
+            self.pendingFullGraphCommitCameraAction = nil
+            self.applyFullGraphCommitPayload(
+                payload,
+                graphState: currentGraphState,
+                engine: engine,
+                isPageMode: isPageMode,
+                graphDataVersion: graphDataVersion
+            )
+            self.applyPostFullCommitCameraAction(cameraAction)
+        }
+
+        return true
+    }
+
+    @discardableResult
+    func scheduleGraphDataCommitIfNeeded(
+        isPageMode: Bool,
+        zoomToPageAfterCommit: Bool = false
+    ) -> Bool {
+        guard let graphState, graphState.isLoaded else { return false }
+        lastModeVersion = graphState.modeVersion
+        setGraphMode(isPageMode ? 1 : 0)
+        return scheduleFullGraphCommitIfNeeded(
+            graphState: graphState,
+            isPageMode: isPageMode,
+            postCommitCameraAction: zoomToPageAfterCommit ? .pageModeCloseIn : nil
+        )
+    }
+
+    private func applyPostFullCommitCameraAction(_ cameraAction: GraphRecommitCameraAction?) {
+        guard let cameraAction else { return }
+        switch cameraAction {
+        case .pageModeCloseIn:
+            zoomInClose()
+        case .animateGlobalFit:
+            applyDefaultGlobalCameraFrame(animated: true)
+        case .snapGlobalFit:
+            applyDefaultGlobalCameraFrame(animated: false)
+        }
+    }
+
+    private func applyFullGraphCommitPayload(
+        _ payload: GraphFullCommitPayload,
+        graphState: GraphState,
+        engine: OpaquePointer,
+        isPageMode: Bool,
+        graphDataVersion: Int
+    ) {
         setGraphMode(isPageMode ? 1 : 0)
 
         graph_engine_clear(engine)
-
-        let nodePayload = makeVisibleNodeBatchPayload(
-            from: store.nodes.values,
-            store: store,
-            filter: filter
-        )
-        sendNodeBatch(nodePayload, to: engine)
-
-        let edgePayload = makeVisibleEdgeBatchPayload(
-            from: store.edges.values,
-            store: store,
-            filter: filter
-        )
-        sendEdgeBatch(edgePayload, to: engine)
+        sendNodeBatch(payload.nodePayload, to: engine)
+        sendEdgeBatch(payload.edgePayload, to: engine)
 
         // Entrance animation: play for small graphs only. Very large vaults keep
         // their precomputed spiral positions so the Rust entrance layout cannot
@@ -1226,7 +1408,7 @@ final class MetalGraphNSView: NSView {
         lastUserForceOverlayVersion = graphState.userForceOverlayVersion
         lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
         lastModeVersion = graphState.modeVersion
-        lastGraphDataVersion = graphState.graphDataVersion
+        lastGraphDataVersion = graphDataVersion
 
         isCommitted = true
         needsRender = true
@@ -1643,8 +1825,9 @@ final class MetalGraphNSView: NSView {
             metalGraphLog.debug("Bootstrapping initial graph commit after async load")
             lastModeVersion = graphState.modeVersion
             setGraphMode(isPageMode ? 1 : 0)
-            commitGraphData()
-            lastGraphDataVersion = graphState.graphDataVersion
+            if scheduleFullGraphCommitIfNeeded(graphState: graphState, isPageMode: isPageMode) {
+                return
+            }
         case .renderCommittedGraph:
             break
         }
@@ -1823,26 +2006,23 @@ final class MetalGraphNSView: NSView {
 
         // Re-commit graph data when mode/filter changes (e.g. Global↔Page toggle).
         if let graphState, lastGraphDataVersion != graphState.graphDataVersion {
-            lastGraphDataVersion = graphState.graphDataVersion
             let isPageMode: Bool = {
                 if case .page = graphState.mode { return true }
                 return false
             }()
             lastModeVersion = graphState.modeVersion
             setGraphMode(isPageMode ? 1 : 0)
-            commitGraphData()
             let cameraAction = graphRecommitCameraAction(
                 isPageMode: isPageMode,
                 shouldSnapGlobalCamera: graphState.shouldSnapNextGlobalRecommitCamera
             )
             graphState.shouldSnapNextGlobalRecommitCamera = false
-            switch cameraAction {
-            case .pageModeCloseIn:
-                zoomInClose()
-            case .animateGlobalFit:
-                applyDefaultGlobalCameraFrame(animated: true)
-            case .snapGlobalFit:
-                applyDefaultGlobalCameraFrame(animated: false)
+            if scheduleFullGraphCommitIfNeeded(
+                graphState: graphState,
+                isPageMode: isPageMode,
+                postCommitCameraAction: cameraAction
+            ) {
+                return
             }
         }
 
@@ -2207,20 +2387,36 @@ final class MetalGraphNSView: NSView {
         guard let node = graphState?.store.nodes[uuid] else { return nil }
         let menu = NSMenu()
 
-        // "Open Note" — only for note-type nodes that have a sourceId.
-        if node.type == .note, let sourceId = node.sourceId {
-            let openItem = NSMenuItem(title: "Open Note", action: #selector(contextOpenNote(_:)), keyEquivalent: "")
+        // "Open Node" routes note-like graph records through GraphState.openNode(_:)
+        // so the owner lands in the canonical editable graph note surface, not the
+        // read-only inspector preview.
+        if GraphSurfaceInlineEditability.opensInlineToday(node.type) {
+            let openItem = NSMenuItem(
+                title: node.type == .folder ? "Open Folder" : "Open Node",
+                action: #selector(contextOpenNode(_:)),
+                keyEquivalent: ""
+            )
             openItem.target = self
-            openItem.representedObject = ["pageId": sourceId, "nodeId": uuid]
-            openItem.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "Open Note")
+            openItem.representedObject = uuid
+            openItem.image = NSImage(
+                systemSymbolName: node.type == .folder ? "folder" : "doc.text",
+                accessibilityDescription: node.type == .folder ? "Open Folder" : "Open Node"
+            )
             menu.addItem(openItem)
         }
 
         if node.type == .document {
-            let openItem = NSMenuItem(title: "Open Document", action: #selector(contextOpenDocument(_:)), keyEquivalent: "")
+            let openItem = NSMenuItem(
+                title: "Open Document",
+                action: #selector(contextOpenDocument(_:)),
+                keyEquivalent: ""
+            )
             openItem.target = self
             openItem.representedObject = uuid
-            openItem.image = NSImage(systemSymbolName: "doc.richtext", accessibilityDescription: "Open Document")
+            openItem.image = NSImage(
+                systemSymbolName: "doc.richtext",
+                accessibilityDescription: "Open Document"
+            )
             menu.addItem(openItem)
         }
 
@@ -2236,14 +2432,9 @@ final class MetalGraphNSView: NSView {
 
     // MARK: Context Menu Actions
 
-    @objc private func contextOpenNote(_ sender: NSMenuItem) {
-        guard let info = sender.representedObject as? [String: String],
-              let pageId = info["pageId"],
-              let nodeId = info["nodeId"] else { return }
-        // Focus the graph on this node, then route to the graph-native note page.
-        isolateNode(nodeId)
-        graphState?.selectNode(nodeId)
-        graphState?.openNote(pageId)
+    @objc private func contextOpenNode(_ sender: NSMenuItem) {
+        guard let nodeId = sender.representedObject as? String else { return }
+        graphState?.openNode(nodeId)
     }
 
     @objc private func contextOpenDocument(_ sender: NSMenuItem) {
@@ -2259,8 +2450,7 @@ final class MetalGraphNSView: NSView {
 
     @objc private func contextEditNote(_ sender: NSMenuItem) {
         guard let uuid = sender.representedObject as? String else { return }
-        graphState?.requestEditorMode = true
-        graphState?.selectNode(uuid)
+        graphState?.openNode(uuid)
     }
 
     private func promptForEdgeType(completion: @escaping (GraphEdgeType?) -> Void) {
@@ -2445,7 +2635,12 @@ final class MetalGraphNSView: NSView {
         refreshWindowObservers()
         updateMetalLayerBackingProperties()
         if window != nil, !isCommitted, graphState?.isLoaded == true {
-            commitGraphData()
+            let isPageMode: Bool = {
+                guard let graphState else { return false }
+                if case .page = graphState.mode { return true }
+                return false
+            }()
+            scheduleGraphDataCommitIfNeeded(isPageMode: isPageMode)
         }
     }
 
@@ -2734,6 +2929,10 @@ final class MetalGraphNSView: NSView {
         // the CVDisplayLink callback will skip renderFrame() and avoid
         // accessing the destroyed engine pointer.
         isInvalidated.store(true, ordering: .relaxed)
+        fullGraphCommitTask?.cancel()
+        fullGraphCommitTask = nil
+        pendingFullGraphCommitVersion = nil
+        pendingFullGraphCommitCameraAction = nil
 
         // Drain the in-flight semaphore: signal it back to its initial
         // Drain semaphore to its initial value (2) so deallocation doesn't

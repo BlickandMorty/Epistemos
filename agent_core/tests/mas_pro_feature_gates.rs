@@ -45,6 +45,22 @@ fn xcode_agent_core_build_script_uses_canonical_mas_pro_features() {
     );
 }
 
+#[test]
+fn mas_provider_modules_compile_only_the_june_cloud_boundary() {
+    let lib = include_str!("../src/lib.rs");
+
+    for module in ["gemini", "openai_compatible", "perplexity"] {
+        let guarded = format!("#[cfg(not(feature = \"mas-build\"))]\n    pub mod {module};");
+        assert!(
+            lib.contains(&guarded),
+            "parked provider module must be absent from MAS compilation: {module}"
+        );
+    }
+
+    assert!(lib.contains("pub mod claude;"));
+    assert!(lib.contains("pub mod openai;"));
+}
+
 #[cfg(not(feature = "pro-build"))]
 #[test]
 fn mas_legacy_aliases_do_not_embed_pro_subprocess_tool_names() {

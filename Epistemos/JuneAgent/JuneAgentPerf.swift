@@ -51,7 +51,7 @@ struct JuneAgentHealthRow: View {
     @State private var metrics = JuneAgentPerfMetrics.shared
 
     var body: some View {
-        LabeledContent("Workspace surface") {
+        LabeledContent("June surface") {
             HStack(spacing: 12) {
                 budgetLabel("cold", value: metrics.coldOpenMs, budget: 1500)
                 budgetLabel("warm", value: metrics.warmReopenMs, budget: 100)

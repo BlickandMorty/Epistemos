@@ -3,6 +3,35 @@ ID: EPI-RP-05-KINDRED · Codename: KINDRED · Compiled 2026-07-06 · 1Code/Exper
 Research base: `RESEARCH_DUAL_KINDRED_LUMENLENS_2026_07_06.md` (read before building).
 Amendments: §K-AMEND at the end (repo-audited 2026-07-06 — BINDING; overrides the body where they conflict).
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: this plan is
+> parked. Read `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first.
+> Do not build Kindred/1Code companion runtime while MAS-only is active. Salvage
+> only MAS-June-safe patterns such as real run-state display, staged note edits,
+> provenance, approval gates, and native status accents.
+
+## 0A. Owner-Intent And Verification Lock
+
+Instruction lock ID: `OWNER-INTENT-HARDENING-LOCK-2026-07-07`.
+
+Agents entering through this plan inherit the root read-first/research-first
+discipline, the active build prompt, and the scoped `deep-hardening-loop`.
+Before implementation or after any owner steer, write or update an intent
+checkpoint in the active phase notes/evidence ledger: verbatim owner wording
+or exact excerpt, interpreted intent, hard constraints, non-goals, acceptance
+checks, contradictions/questions, and next action. If verification is
+intentionally batched during a long coding pass, keep a verification-debt
+ledger with deferred command, touched files, risk reason, expected proof, and
+checkpoint trigger.
+
+When this plan appears complete, do not stop at the last checked phase.
+Continue auditing the implemented scope with `deep-hardening-loop` until the
+owner explicitly stops, redirects, or a real blocker prevents useful progress;
+include `thermo-nuclear-code-quality-review` for structural/refactor risk,
+runtime/manual checks for UI or behavior claims, and release/security skills
+when risk warrants them. This lock is a routing and verification directive
+only; it does not expand KINDRED scope, overwrite the resolved verdicts, or
+absorb another feature plan.
+
 ## Executive thesis
 A companion is ONE living agent identity that appears across four connected surfaces —
 landing Farm roster, 1Code main agent, Epdoc mascot bubble, Epdoc sidebar minichat — and
@@ -92,8 +121,9 @@ old CompanionCreationFlow.swift is DELETED; creation moves to 1Code.
 LANDING HANDOFF — options, not silently resolved: (a) landing `+` opens the 1Code creator;
 (b) 1-tap quick-create on landing, full edit in 1Code; (c) landing view/select/query only.
 Criteria: creation is authority-defining (persona, MCP scope) so it belongs where the agent
-lives. RECOMMENDATION: (c) with a thin `+` deep-link toward (a). Owner leans 1Code-primary;
-owner confirms.
+lives. DEFAULT: choose (c) with a thin `+` deep-link toward (a), matching the owner's
+1Code-primary leaning. Do not wait for a separate confirmation unless the owner explicitly
+reverses this before K7.
 
 ## D6 — Feels-alive attachment + anti-uncanny
 Attachment stack: identity + continuity + obligation + memory ("it remembers editing your
@@ -160,7 +190,8 @@ emotes + word-following bind to the real state bus across native + WebView.
 - SIGILRY (EPI-RP-04, Icons): the mascot art identity / rig assets feed here (K3).
 
 ## Open questions (preserved)
-1. Landing/handoff boundary — options a/b/c; recommend (c); owner confirms.
+1. Landing/handoff boundary — DEFAULT (c) with a thin `+` deep-link toward (a); do not wait for
+   separate owner confirmation unless explicitly reversed before K7.
 2. Rive runtime licensing/pricing — *(CLOSED: runtimes MIT/free; Cadet $9/mo export. K-AMEND 5.)*
 3. Exact 1Code streaming contract — *(CLOSED: `claude.chat` subscription wrapped by
    IPCChatTransport; reconnectToStream exists. K-AMEND 6.)*
@@ -214,17 +245,19 @@ depth 4 · Depth/novelty 4. No axis < 4.
 7. **Two producers, one suggestion schema:** KINDRED feeds LUMENLENS's SuggestionPayload from the
    Node backend; June feeds it from agent_core/UniFFI. LUMENLENS owns the schema.
 8. **Order:** KEELSTONE 0-4 → LUMENLENS L0-L5 → K4/K5. K0-residual + K1-K3 may run parallel to
-   LUMENLENS. Landing/handoff (D5) needs the owner's call before K7.
-9. **RECKONER seam (Plan 9 Data tab, `EPI-RP-09-RECKONER`) — the fifth place the companion works.**
-   Plan 9's canon (`docs/prompts/PROMPT_PLAN_9_DATA_TABLES.md`) specifies an **in-tab agent chat**
-   on BOTH builds. On Experimental that chat IS this companion — reuse the K6 minichat pattern
-   (same shared-backend WKWebView, same `sub_chats.sessionId` continuity, same presence bus),
-   NEVER a third chat system. On MAS the same door is answered by June via the F2 capability seam
-   (same tools, no companion chrome — companions stay 1Code-only). The presence contract extends
-   naturally: `Location.surface` gains a `dataTab` case; the mascot pins on the Data room while
-   restructuring tables; dry-run→confirm→undo for agent table restructuring follows the same D7
-   gating (per-turn approval; revert-turn). KINDRED builds the pattern; Plan 9 consumes it as an
-   external seam — do not build Data-tab UI here.
+   LUMENLENS. Landing/handoff (D5) defaults to option (c) with a thin `+` deep-link toward the
+   1Code creator; do not wait for a separate owner call before K7 unless explicitly reversed.
+9. **RECKONER seam (`EPI-RP-09-RECKONER`) — dataset-aware companion work without a new chat.**
+   Plan 9's current canon (`docs/prompts/PROMPT_PLAN_9_DATA_TABLES.md` +
+   `docs/prompts/RESEARCH_PROMPT_PLAN_9_RECKONER.md`) cuts the standalone Data room and cuts the
+   docked/in-tab chat panel. On Experimental, the existing KINDRED minichat/main-agent surface
+   receives dataset context through the same K6 pattern (shared-backend WKWebView,
+   `sub_chats.sessionId` continuity, presence bus), NEVER a third chat system. On MAS the same F2
+   tools are answered by June (same semantics, no companion chrome — companions stay 1Code-only).
+   The presence contract extends naturally: `Location.surface` gains a dataset-tab/embed case; the
+   mascot pins to the dataset surface while restructuring tables; dry-run→confirm→undo for agent
+   table restructuring follows the same D7 gating (per-turn approval; revert-turn). KINDRED builds
+   the pattern; RECKONER consumes it as an external seam — do not build dataset UI here.
 10. **CHAT-AS-TAB seam (the Epdoc Notebook — owner directive 2026-07-06; LUMENLENS §P-AMEND 11).**
    A minichat session can be MOUNTED AS A TAB inside a note (the Epdoc Notebook): the note's tab
    manifest references the session by `sub_chats.sessionId`; opening the tab mounts the SAME K6

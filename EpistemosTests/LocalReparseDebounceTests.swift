@@ -27,6 +27,13 @@ struct LocalReparseDebounceTests {
         #expect(view.reparseDebounceWindow > 0)
     }
 
+    @Test("Large prose documents use a longer effective reparse window")
+    func largeDocumentsUseLongerEffectiveReparseWindow() {
+        #expect(NoteEditorPerformancePolicy.proseReparseDebounceWindow(characterCount: 4_000) == 0.08)
+        #expect(NoteEditorPerformancePolicy.proseReparseDebounceWindow(characterCount: 40_000) == 0.16)
+        #expect(NoteEditorPerformancePolicy.proseReparseDebounceWindow(characterCount: 120_000) == 0.28)
+    }
+
     @Test("Setting a positive window does not throw or panic")
     func settingPositiveWindowIsAccepted() {
         let view = ProseTextView2()
@@ -42,5 +49,25 @@ struct LocalReparseDebounceTests {
         view.reparseDebounceWindow = 0.10
         view.reparseDebounceWindow = 0
         #expect(view.reparseDebounceWindow == 0)
+    }
+
+    @Test("Prose friction telemetry batches input events without dropping them")
+    func proseFrictionTelemetryIsBatched() throws {
+        let prose = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Notes/ProseTextView2.swift"
+        )
+        let monitor = try loadMirroredSourceTextFile(
+            "Epistemos/State/FrictionMonitorService.swift"
+        )
+
+        #expect(prose.contains("private var pendingFrictionEvents: [EditorTelemetryEvent] = []"))
+        #expect(prose.contains("private var frictionFlushTask: Task<Void, Never>?"))
+        #expect(prose.contains("try? await Task.sleep(for: .milliseconds(50))"))
+        #expect(prose.contains("await monitor.record(events)"))
+        #expect(prose.contains("frictionFlushTask?.cancel()"))
+        #expect(!prose.contains("Task.detached(priority: .utility) { await monitor.record(event) }"))
+        #expect(monitor.contains("func record(_ batch: [EditorTelemetryEvent]) async"))
+        #expect(monitor.contains("for event in batch"))
+        #expect(monitor.contains("recordEnabled(event)"))
     }
 }

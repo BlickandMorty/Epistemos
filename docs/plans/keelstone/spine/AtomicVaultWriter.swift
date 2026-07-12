@@ -38,9 +38,19 @@ public actor AtomicVaultWriter {
     /// Atomically replace the contents of `targetURL` with `content`.
     /// `targetURL` must already be inside a security-scoped, access-held vault.
     public func write(_ content: String, to targetURL: URL) throws {
+        try write(Data(content.utf8), to: targetURL, activityReason: "Epistemos atomic note commit")
+    }
+
+    /// Atomically replace the contents of `targetURL` with bytes.
+    /// Needed for RECKONER dataset artifacts (`.xlsx`, `.icalc`, binary-safe CSV writeback).
+    public func write(_ data: Data, to targetURL: URL) throws {
+        try write(data, to: targetURL, activityReason: "Epistemos atomic artifact commit")
+    }
+
+    private func write(_ data: Data, to targetURL: URL, activityReason: String) throws {
         let activity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiated, .idleSystemSleepDisabled],
-            reason: "Epistemos atomic note commit"
+            reason: activityReason
         )
         defer { ProcessInfo.processInfo.endActivity(activity) }
 
@@ -71,7 +81,7 @@ public actor AtomicVaultWriter {
                 )
 
                 do {
-                    try content.write(to: scratch, atomically: false, encoding: .utf8)
+                    try data.write(to: scratch, options: [])
                 } catch {
                     thrown = AtomicWriteError.write(error)
                     return

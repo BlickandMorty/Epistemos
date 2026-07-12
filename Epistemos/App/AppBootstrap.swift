@@ -41,9 +41,19 @@ struct StartupIntegrityReport: Sendable {
     let vaultBookmarkExists: Bool
     let vaultBookmarkReadyForAutomaticRestore: Bool
     let vaultBookmarkFailureReason: String?
+    let vaultBookmarkBlocksAutomaticRestore: Bool
 
     var shouldBlockAutomaticVaultRestore: Bool {
-        !corruptedPageIds.isEmpty || (vaultBookmarkExists && !vaultBookmarkReadyForAutomaticRestore)
+        vaultBookmarkBlocksAutomaticRestore
+            || (!vaultBookmarkExists && !corruptedPageIds.isEmpty)
+    }
+
+    var vaultBookmarkValidation: VaultBookmarkStartupValidation {
+        VaultBookmarkStartupValidation(
+            bookmarkExists: vaultBookmarkExists,
+            isReadyForAutomaticRestore: vaultBookmarkReadyForAutomaticRestore,
+            failureReason: vaultBookmarkFailureReason
+        )
     }
 }
 
@@ -580,35 +590,49 @@ final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
     static var shared: AppBootstrap?
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-    private nonisolated static let agentCoreManagedOAuthEnvironmentVars: Set<String> = [
-        "OPENAI_ACCESS_TOKEN",
-        "OPENAI_AUTH_MODE",
-        "OPENAI_CLIENT_VERSION",
-        "ANTHROPIC_ACCESS_TOKEN",
-        "ANTHROPIC_AUTH_MODE",
-        "GOOGLE_ACCESS_TOKEN",
-        "GOOGLE_AUTH_MODE",
-        "GOOGLE_PROJECT_ID",
-    ]
-    private nonisolated static let agentCoreEnvironmentKeyMappings: [(envVar: String, keychainKey: String)] = [
-        ("ANTHROPIC_API_KEY", "epistemos.anthropic.apiKey"),
-        ("OPENAI_API_KEY", "epistemos.openai.apiKey"),
-        ("GOOGLE_API_KEY", "epistemos.google.apiKey"),
-        ("PERPLEXITY_API_KEY", "epistemos.perplexity.apiKey"),
-        ("OPENROUTER_API_KEY", "epistemos.openrouter.apiKey"),
-        ("GLM_API_KEY", "epistemos.zai.apiKey"),
-        ("ZHIPU_API_KEY", "epistemos.zai.apiKey"),
-        ("ZAI_API_KEY", "epistemos.zai.apiKey"),
-        ("KIMI_API_KEY", "epistemos.kimi.apiKey"),
-        ("MOONSHOT_API_KEY", "epistemos.kimi.apiKey"),
-        ("DEEPSEEK_API_KEY", "epistemos.deepseek.apiKey"),
-        ("MINIMAX_API_KEY", "epistemos.minimax.apiKey"),
-        ("XAI_API_KEY", "epistemos.xai.apiKey"),
-        ("MISTRAL_API_KEY", "epistemos.mistral.apiKey"),
-        ("GROQ_API_KEY", "epistemos.groq.apiKey"),
-        ("HF_TOKEN", "epistemos.huggingface.apiKey"),
-        ("HUGGINGFACE_API_KEY", "epistemos.huggingface.apiKey"),
-    ]
+    private nonisolated static var agentCoreManagedOAuthEnvironmentVars: Set<String> {
+        var vars: Set<String> = [
+            "ANTHROPIC_ACCESS_TOKEN",
+            "ANTHROPIC_AUTH_MODE",
+            "GOOGLE_ACCESS_TOKEN",
+            "GOOGLE_AUTH_MODE",
+            "GOOGLE_PROJECT_ID",
+        ]
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        vars.formUnion([
+            "OPENAI_ACCESS_TOKEN",
+            "OPENAI_AUTH_MODE",
+            "OPENAI_CLIENT_VERSION",
+        ])
+        #endif
+        return vars
+    }
+    private nonisolated static let agentCoreEnvironmentKeyMappings: [(envVar: String, keychainKey: String)] = {
+        var mappings = [
+            (envVar: "ANTHROPIC_API_KEY", keychainKey: "epistemos.anthropic.apiKey"),
+            (envVar: "OPENAI_API_KEY", keychainKey: "epistemos.openai.apiKey"),
+        ]
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        mappings.append(contentsOf: [
+            (envVar: "GOOGLE_API_KEY", keychainKey: "epistemos.google.apiKey"),
+            (envVar: "PERPLEXITY_API_KEY", keychainKey: "epistemos.perplexity.apiKey"),
+            (envVar: "OPENROUTER_API_KEY", keychainKey: "epistemos.openrouter.apiKey"),
+            (envVar: "GLM_API_KEY", keychainKey: "epistemos.zai.apiKey"),
+            (envVar: "ZHIPU_API_KEY", keychainKey: "epistemos.zai.apiKey"),
+            (envVar: "ZAI_API_KEY", keychainKey: "epistemos.zai.apiKey"),
+            (envVar: "KIMI_API_KEY", keychainKey: "epistemos.kimi.apiKey"),
+            (envVar: "MOONSHOT_API_KEY", keychainKey: "epistemos.kimi.apiKey"),
+            (envVar: "DEEPSEEK_API_KEY", keychainKey: "epistemos.deepseek.apiKey"),
+            (envVar: "MINIMAX_API_KEY", keychainKey: "epistemos.minimax.apiKey"),
+            (envVar: "XAI_API_KEY", keychainKey: "epistemos.xai.apiKey"),
+            (envVar: "MISTRAL_API_KEY", keychainKey: "epistemos.mistral.apiKey"),
+            (envVar: "GROQ_API_KEY", keychainKey: "epistemos.groq.apiKey"),
+            (envVar: "HF_TOKEN", keychainKey: "epistemos.huggingface.apiKey"),
+            (envVar: "HUGGINGFACE_API_KEY", keychainKey: "epistemos.huggingface.apiKey"),
+        ])
+        #endif
+        return mappings
+    }()
 
     private nonisolated static let agentCoreEnvironmentScopeGate = AgentCoreEnvironmentScopeGate()
 
@@ -698,6 +722,7 @@ final class AppBootstrap {
             }
         }
 
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         if let credential = storedOAuthCredential(
             for: .openAI,
             authMode: .openAICodex,
@@ -727,6 +752,7 @@ final class AppBootstrap {
             overrides["GOOGLE_AUTH_MODE"] = "oauth"
             overrides["GOOGLE_PROJECT_ID"] = projectID
         }
+        #endif
 
         return overrides
     }
@@ -1856,11 +1882,8 @@ final class AppBootstrap {
         commandCenterLocalHotkeyMonitor = nil
         commandCenterGlobalHotkeyMonitor = nil
 
-        // D4 faculty roster: log the resolved primary agent model so users
-        // can verify which local agent is selected. Default is the 7-8B 4-bit
-        // fallback that fits the 16 GB Mac ceiling; the 36B LocalAgent is
-        // gated on ≥32 GB host RAM + explicit opt-in. Power-user mode
-        // preserves Capability Ceiling controls, but does not lower the dense
+        // Log only active product model boundaries. This does not load model
+        // bytes or inspect Keychain credentials.
         let configuredCloudProvidersSummary: String
         if inference.isDeferredCloudCredentialBootstrapInFlight {
             configuredCloudProvidersSummary = "deferred"
@@ -1870,13 +1893,29 @@ final class AppBootstrap {
                 .joined(separator: ",")
         }
 
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        #if EPISTEMOS_APP_STORE
+        let localGGUFRuntimeSummary = "IN-PROCESS"
+        #else
+        let localGGUFRuntimeSummary = "UNAVAILABLE"
+        #endif
         Log.app.info(
             """
-            App-local model stack removed: \
+            MAS June model stack: \
+            local-gguf-runtime=\(localGGUFRuntimeSummary, privacy: .public), \
             cloud-models=\(inference.cloudModelsEnabled ? "ON" : "OFF", privacy: .public), \
             configured-cloud-providers=\(configuredCloudProvidersSummary, privacy: .public)
             """
         )
+        #else
+        Log.app.info(
+            """
+            Direct model stack: \
+            cloud-models=\(inference.cloudModelsEnabled ? "ON" : "OFF", privacy: .public), \
+            configured-cloud-providers=\(configuredCloudProvidersSummary, privacy: .public)
+            """
+        )
+        #endif
 
         Log.app.info("AppBootstrap: initialized — foundation services ready")
     }
@@ -1936,11 +1975,18 @@ final class AppBootstrap {
         filePathReadable: (String) -> Bool = { _ in false }
     ) -> StartupIntegrityReport {
         let corruptedPageIds = samplePageIds.filter { readBodyData($0) == nil }
-        let unrecoverablePageIds = startupUnrecoverablePageIdsForTesting(
-            pageSnapshots,
-            bodyFileExists: bodyFileExists,
-            filePathReadable: filePathReadable
-        )
+        let vaultBookmarkBlocksAutomaticRestore = vaultBookmarkValidation.shouldBlockAutomaticRestore
+        let shouldDeferVaultSourcePreflight = vaultBookmarkValidation.bookmarkExists
+        let unrecoverablePageIds =
+            if shouldDeferVaultSourcePreflight {
+                [String]()
+            } else {
+                startupUnrecoverablePageIdsForTesting(
+                    pageSnapshots,
+                    bodyFileExists: bodyFileExists,
+                    filePathReadable: filePathReadable
+                )
+            }
         return StartupIntegrityReport(
             sampledPageIds: samplePageIds,
             corruptedPageIds: corruptedPageIds,
@@ -1948,7 +1994,8 @@ final class AppBootstrap {
             eventStoreAvailable: eventStoreAvailable,
             vaultBookmarkExists: vaultBookmarkValidation.bookmarkExists,
             vaultBookmarkReadyForAutomaticRestore: vaultBookmarkValidation.isReadyForAutomaticRestore,
-            vaultBookmarkFailureReason: vaultBookmarkValidation.failureReason
+            vaultBookmarkFailureReason: vaultBookmarkValidation.failureReason,
+            vaultBookmarkBlocksAutomaticRestore: vaultBookmarkBlocksAutomaticRestore
         )
     }
 
@@ -1986,13 +2033,15 @@ final class AppBootstrap {
             type = .error
         }
 
-        if let vaultBookmarkFailureReason = report.vaultBookmarkFailureReason {
+        if report.vaultBookmarkBlocksAutomaticRestore,
+           let vaultBookmarkFailureReason = report.vaultBookmarkFailureReason {
             segments.append("\(vaultBookmarkFailureReason) Automatic vault restore was paused.")
             type = .error
         }
 
         let corruptedCount = report.corruptedPageIds.count
-        if corruptedCount > 0 {
+        if corruptedCount > 0,
+           (!report.vaultBookmarkExists || report.vaultBookmarkBlocksAutomaticRestore) {
             let noun = corruptedCount == 1 ? "note body" : "note bodies"
             segments.append(
                 "quarantined \(corruptedCount) corrupted \(noun). Automatic vault restore was paused."
@@ -2087,7 +2136,7 @@ final class AppBootstrap {
         }
 
         let eventStoreAvailable = EventStore.shared != nil
-        let vaultBookmarkValidation = vaultSync.startupBookmarkValidation()
+        let vaultBookmarkValidation = await vaultSync.startupBookmarkValidationWithTimeout()
         let pageSnapshots = startupIntegrityPageSnapshots()
         let report = await Task.detached(priority: .utility) {
             Self.startupIntegrityReportForTesting(
@@ -2166,8 +2215,8 @@ final class AppBootstrap {
     }
 
     func runAutomaticVaultRestoreAfterLaunchIfNeeded() async {
-        let vaultBookmarkValidation = vaultSync.startupBookmarkValidation()
         let report = await performStartupIntegrityCheck()
+        let vaultBookmarkValidation = report.vaultBookmarkValidation
         guard !report.shouldBlockAutomaticVaultRestore else {
             if vaultBookmarkValidation.bookmarkExists {
                 vaultSync.clearPendingStartupRestore()
@@ -2259,29 +2308,6 @@ final class AppBootstrap {
     // MARK: - Forwarding (for external callers that reference AppBootstrap directly)
 
     func refreshAmbientManifest() { coordinator.refreshAmbientManifest() }
-
-    /// 0.48b-part2: persist an opened Work/OpenCode session as an SDChat "worker" row so it appears in the WORK
-    /// section of the unified recent-chats popover. Keyed by a STABLE id (the workspace path) so re-opening the
-    /// same workspace updates ONE row instead of spawning duplicates. Honest: a session MARKER (title + timestamp),
-    /// not faked message bubbles — the work surface is a PTY, not a message thread; reopen = relaunch work there.
-    @MainActor
-    func persistWorkSession(id: String, title: String) {
-        let context = modelContainer.mainContext
-        let predicate = #Predicate<SDChat> { $0.id == id }
-        let descriptor = FetchDescriptor<SDChat>(predicate: predicate)
-        let chat: SDChat
-        if let existing = (try? context.fetch(descriptor))?.first {
-            chat = existing
-        } else {
-            let created = SDChat(title: title, chatType: "worker")
-            created.id = id
-            context.insert(created)
-            chat = created
-        }
-        chat.title = title
-        chat.markAsWorkerSession()   // sets chatType "worker" + updatedAt = .now
-        try? context.save()
-    }
 
     func refreshLiveNoteScheduler() {
         guard !Self.isRunningTests else { return }

@@ -32,7 +32,11 @@ public struct RuntimeLanesSection: View {
         } header: {
             Text("Runtime Lanes")
         } footer: {
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            Text("Only lanes connected to MAS June appear here. Apple Intelligence and GGUF are chat-only; OpenAI and Anthropic drive June's agent loop.")
+            #else
             Text(".stub is an internal \"no real executor present\" marker and is intentionally hidden.")
+            #endif
         }
     }
 }

@@ -1,19 +1,14 @@
-import AVFoundation
 import AppKit
 import SwiftUI
 
 // MARK: - ModelVoicePickerSection
 //
 // Wave 9.1.b — voice picker. Plan 3 now ships TTS as Kokoro-only, so this
-// surface renders an honest unavailable state until native Kokoro synthesis
-// exists instead of presenting Apple voices as a fallback runtime.
+// surface lists checked installed Kokoro voices when ready and renders an
+// honest unavailable state otherwise instead of presenting Apple voices as a fallback runtime.
 //
-// The picker is grouped by quality tier (Premium > Enhanced >
-// Default) and language, so the user can see at a glance which
-// voices are highest fidelity. A help row links the user to System
-// Settings → Spoken Content → Manage Voices when no Premium voice is
-// installed yet — Apple gates Premium voice downloads behind that
-// pane and there is no programmatic install API.
+// The picker lists checked Kokoro voice packs only. It must not enumerate Apple
+// voice catalogues or Personal Voice while MAS read-aloud is Kokoro-only.
 //
 // Bindings are deliberately primitive (String? + Double) so callers can wire
 // persistent or preview-only state without this view owning storage.
@@ -29,15 +24,13 @@ public struct ModelVoicePickerSection: View {
 
     @State private var voices: [EpistemosSpeechSynthesizer.VoiceOption] = []
     @State private var qualityHint: (tier: EpistemosSpeechSynthesizer.VoiceQualityTier, message: String) = (.default, "")
-    @State private var personalVoiceAuthorization: EpistemosSpeechSynthesizer.PersonalVoiceAuthorization = .unsupported
-    @State private var isRequestingPersonalVoice = false
     @State private var synth = EpistemosSpeechSynthesizer.shared
 
     public init(
         voiceIdentifier: Binding<String?>,
         rate: Binding<Double>,
         pitch: Binding<Double>,
-        previewText: String = "This is the voice this model will use when reading responses aloud."
+        previewText: String = "Kokoro is ready."
     ) {
         self._voiceIdentifier = voiceIdentifier
         self._rate = rate
@@ -62,7 +55,6 @@ public struct ModelVoicePickerSection: View {
             ratePitchSliders
             previewControls
             qualityHintView
-            personalVoiceAccessView
             Color.clear.frame(height: 0).task {
                 refreshVoicesAndHints()
             }
@@ -93,7 +85,7 @@ public struct ModelVoicePickerSection: View {
     @ViewBuilder
     private var picker: some View {
         Picker("Voice", selection: $voiceIdentifier) {
-            Text("System default")
+            Text("English default")
                 .tag(nil as String?)
             ForEach(groupedByTier, id: \.0) { tier, options in
                 Section(tier.label) {
@@ -113,11 +105,40 @@ public struct ModelVoicePickerSection: View {
     }
 
     private func refreshVoicesAndHints() {
-        // Kokoro-only shipped TTS: list the installed Kokoro voice packs (was legacy AVSpeech).
-        // These identifiers are bare Kokoro voice names that speak()/renderRawText now honor.
-        voices = EpistemosSpeechSynthesizer.installedKokoroVoices()
-        qualityHint = EpistemosSpeechSynthesizer.voiceQualityHint()
-        personalVoiceAuthorization = EpistemosSpeechSynthesizer.personalVoiceAuthorization()
+        // Kokoro-only shipped TTS: MAS ships English read-aloud only. Do not
+        // expose non-English Kokoro embeddings until the app has product UI for language selection.
+        // These identifiers are bare Kokoro voice names that speak()/renderRawText honors.
+        let englishVoices = EpistemosSpeechSynthesizer.installedEnglishKokoroVoices()
+        voices = englishVoices
+        normalizeBoundVoiceIdentifier(against: englishVoices)
+        qualityHint = kokoroQualityHint(for: voices)
+    }
+
+    private func normalizeBoundVoiceIdentifier(
+        against englishVoices: [EpistemosSpeechSynthesizer.VoiceOption]
+    ) {
+        let normalized = EpistemosSpeechSynthesizer.normalizedEnglishKokoroVoiceIdentifier(
+            voiceIdentifier,
+            installedVoices: englishVoices
+        )
+        if voiceIdentifier != normalized {
+            voiceIdentifier = normalized
+        }
+    }
+
+    private func kokoroQualityHint(
+        for voices: [EpistemosSpeechSynthesizer.VoiceOption]
+    ) -> (tier: EpistemosSpeechSynthesizer.VoiceQualityTier, message: String) {
+        if voices.isEmpty {
+            return (
+                .default,
+                "Kokoro is ready. The bundled starter voice will be used until another checked Kokoro voice is installed."
+            )
+        }
+        return (
+            .premium,
+            "Kokoro is ready with \(voices.count) checked local voice\(voices.count == 1 ? "" : "s"). Apple AVSpeech is not used as a fallback."
+        )
     }
 
     // MARK: - Rate / pitch sliders
@@ -128,7 +149,7 @@ public struct ModelVoicePickerSection: View {
             HStack {
                 Text("Rate")
                     .frame(width: 60, alignment: .leading)
-                Slider(value: $rate, in: Double(AVSpeechUtteranceMinimumSpeechRate)...Double(AVSpeechUtteranceMaximumSpeechRate))
+                Slider(value: $rate, in: 0.1...0.8)
                 Text(String(format: "%.2f", rate))
                     .monospacedDigit()
                     .frame(width: 44, alignment: .trailing)
@@ -149,25 +170,31 @@ public struct ModelVoicePickerSection: View {
     @ViewBuilder
     private var previewControls: some View {
         HStack(spacing: 12) {
-            ToolbarCapsuleButton(
-                title: synth.state.isActive ? "Stop" : "Preview",
-                systemImage: synth.state.isActive ? "stop.circle" : "play.circle",
-                variant: .content,
-                role: .toolbarUtility,
-                chromePolicy: .alwaysSurface,
-                helpText: synth.state.isActive ? "Stop voice preview" : "Hear voice preview",
-                accessibilityLabel: synth.state.isActive ? "Stop voice preview" : "Hear voice preview"
-            ) {
+            Button {
                 if synth.state.isActive { synth.stop() }
                 else {
-                    synth.speak(
+                    EpistemosSpeechSynthesizer.logTextToSpeechReadiness(context: "settings-voice-model-preview")
+                    let utteranceID = synth.speak(
                         previewText,
                         voiceIdentifier: voiceIdentifier,
                         rate: Float(rate),
                         pitch: Float(pitch)
                     )
+                    if utteranceID == nil {
+                        EpistemosReadAloudDiagnostics.showFailureToast("Kokoro voice preview could not start. Check Settings > Voice.")
+                    }
                 }
+            } label: {
+                Label(
+                    synth.state.isActive ? "Stop" : "Preview",
+                    systemImage: synth.state.isActive ? "stop.circle" : "play.circle"
+                )
+                .font(.system(size: 12, weight: .semibold))
             }
+            .controlSize(.regular)
+            .help(synth.state.isActive ? "Stop voice preview" : "Hear voice preview")
+            .accessibilityLabel(synth.state.isActive ? "Stop voice preview" : "Hear voice preview")
+            .accessibilityIdentifier("settings.voice.modelPreview")
 
             if case let .speaking(_, total, spoken) = synth.state, total > 0 {
                 ProgressView(value: Double(spoken), total: Double(total))
@@ -190,48 +217,6 @@ public struct ModelVoicePickerSection: View {
                     Text(qualityHint.message)
                         .font(.system(size: 11))
                         .foregroundStyle(mutedTint)
-                    if qualityHint.tier != .premium {
-                        ToolbarCapsuleButton(
-                            title: "Manage Voices",
-                            systemImage: "gearshape",
-                            role: .secondaryGhost,
-                            helpText: "Open Manage Voices",
-                            accessibilityLabel: "Open Manage Voices"
-                        ) {
-                            openManageVoices()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var personalVoiceAccessView: some View {
-        if showsPersonalVoiceAccess {
-            HStack(alignment: .top, spacing: 6) {
-                Image(systemName: personalVoiceGlyph)
-                    .foregroundStyle(personalVoiceTint)
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.top, 2)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(personalVoiceMessage)
-                        .font(.system(size: 11))
-                        .foregroundStyle(mutedTint)
-                    if personalVoiceAuthorization == .notDetermined {
-                        ToolbarCapsuleButton(
-                            title: "Allow Personal Voice",
-                            systemImage: "person.crop.circle",
-                            role: .toolbarUtility,
-                            isActive: isRequestingPersonalVoice,
-                            chromePolicy: .alwaysSurface,
-                            helpText: "Allow Epistemos to list Personal Voices",
-                            accessibilityLabel: "Allow Epistemos to list Personal Voices"
-                        ) {
-                            requestPersonalVoiceAccess()
-                        }
-                        .disabled(isRequestingPersonalVoice)
-                    }
                 }
             }
         }
@@ -257,61 +242,6 @@ public struct ModelVoicePickerSection: View {
 
     private var mutedTint: Color {
         ui.theme.resolved.mutedForeground.color
-    }
-
-    private var showsPersonalVoiceAccess: Bool {
-        if #available(macOS 14.0, *) {
-            return true
-        }
-        return false
-    }
-
-    private var personalVoiceGlyph: String {
-        switch personalVoiceAuthorization {
-        case .authorized: return "person.crop.circle.badge.checkmark"
-        case .notDetermined: return "person.crop.circle.badge.questionmark"
-        case .denied: return "person.crop.circle.badge.xmark"
-        case .unsupported: return "person.crop.circle.badge.exclamationmark"
-        }
-    }
-
-    private var personalVoiceTint: Color {
-        switch personalVoiceAuthorization {
-        case .authorized: return ui.theme.resolved.headingAccent.color
-        case .notDetermined: return ui.theme.resolved.accent.color
-        case .denied, .unsupported: return mutedTint
-        }
-    }
-
-    private var personalVoiceMessage: String {
-        switch personalVoiceAuthorization {
-        case .authorized:
-            return "Personal Voice access is allowed. Created Personal Voices can appear in the voice picker."
-        case .notDetermined:
-            return "Allow Personal Voice access to list voices you created in System Settings."
-        case .denied:
-            return "Personal Voice access is denied in System Settings. Kokoro remains the only shipped TTS lane."
-        case .unsupported:
-            return "Personal Voice is not supported on this Mac. Kokoro remains the only shipped TTS lane."
-        }
-    }
-
-    private func requestPersonalVoiceAccess() {
-        guard personalVoiceAuthorization == .notDetermined else { return }
-        isRequestingPersonalVoice = true
-        Task { @MainActor in
-            let authorization = await EpistemosSpeechSynthesizer.requestPersonalVoiceAuthorization()
-            personalVoiceAuthorization = authorization
-            isRequestingPersonalVoice = false
-            refreshVoicesAndHints()
-        }
-    }
-
-    private func openManageVoices() {
-        // The "Spoken Content" pane in System Settings hosts the
-        // Manage Voices download UI. macOS 13+ stable URL.
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.universalaccess?SpokenContent") else { return }
-        NSWorkspace.shared.open(url)
     }
 }
 

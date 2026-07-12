@@ -18,6 +18,7 @@ nonisolated enum NoteDraftStore {
     private static let directoryName = "Epistemos/NoteDrafts"
     private static let fileExtension = "draft"
     private static let log = Logger(subsystem: "com.epistemos.app", category: "NoteDraftStore")
+    private static let fileLock = NSLock()
 
     private static func directory(create: Bool) -> URL? {
         guard let base = try? FileManager.default.url(
@@ -40,24 +41,44 @@ nonisolated enum NoteDraftStore {
         return dir.appendingPathComponent(pageId).appendingPathExtension(fileExtension)
     }
 
-    /// Persist (or overwrite) the crash draft for a page. Atomic; no-op for an empty body.
+    /// Persist (or overwrite) the crash draft for a page. Atomic. An empty file
+    /// represents an intentional clear and must remain recoverable.
     static func write(pageId: String, body: String) {
-        guard !body.isEmpty, let url = url(for: pageId, create: true) else { return }
-        do {
-            try Data(body.utf8).write(to: url, options: .atomic)
-        } catch {
-            // Match MeetingDraftStore: a silently-failing crash-draft write means recovery may be
-            // unavailable (e.g. disk full) — surface it instead of swallowing. The draft filename is
-            // a UUID pageId, so the error text leaks no note title.
-            Log.vault.error(
-                "note crash-draft write failed \u{2014} recovery may be unavailable: \(error.localizedDescription, privacy: .public)")
+        guard let url = url(for: pageId, create: true) else { return }
+        fileLock.withLock {
+            do {
+                try Data(body.utf8).write(to: url, options: .atomic)
+            } catch {
+                // Match MeetingDraftStore: a silently-failing crash-draft write means recovery may be
+                // unavailable (e.g. disk full) — surface it instead of swallowing. The draft filename is
+                // a UUID pageId, so the error text leaks no note title.
+                Log.vault.error(
+                    "note crash-draft write failed \u{2014} recovery may be unavailable: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
-    /// Remove a page's draft — called once the durable body is saved.
-    static func delete(pageId: String) {
-        guard let url = url(for: pageId, create: false) else { return }
-        try? FileManager.default.removeItem(at: url)
+    static func draftMatchesDurableBody(_ draftBody: String, durableBody: String) -> Bool {
+        draftBody == durableBody
+    }
+
+    /// Remove a page's draft only when it represents the exact body that just
+    /// became durable. A newer draft must survive an older save completion.
+    @discardableResult
+    static func deleteIfMatching(pageId: String, durableBody: String) -> Bool {
+        guard let url = url(for: pageId, create: false) else { return false }
+        return fileLock.withLock {
+            guard let draftBody = try? String(contentsOf: url, encoding: .utf8),
+                  draftMatchesDurableBody(draftBody, durableBody: durableBody) else {
+                return false
+            }
+            do {
+                try FileManager.default.removeItem(at: url)
+                return true
+            } catch {
+                return false
+            }
+        }
     }
 
     /// At launch: recover any draft that is newer than its durable body (a crash orphan)
@@ -75,11 +96,9 @@ nonisolated enum NoteDraftStore {
 
         var recovered = 0
         for item in items where item.pathExtension == fileExtension {
-            defer { try? FileManager.default.removeItem(at: item) }  // always clear the draft
             let pageId = item.deletingPathExtension().lastPathComponent
             guard NoteFileStorage.isValidPageId(pageId),
-                  let draftBody = try? String(contentsOf: item, encoding: .utf8),
-                  !draftBody.isEmpty else { continue }
+                  let draftBody = try? String(contentsOf: item, encoding: .utf8) else { continue }
             let draftDate = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?
                 .contentModificationDate ?? .distantPast
             // Only recover when the draft is strictly newer than the durable body — if the
@@ -87,8 +106,11 @@ nonisolated enum NoteDraftStore {
             // the draft is stale and just gets cleared by the defer above. The vault service
             // owns that comparison because the canonical mtime lives on the vault `.md`, not
             // in the retired managed body cache.
-            guard await recover(pageId, draftBody, draftDate) else { continue }
-            recovered += 1
+            let didRecover = await recover(pageId, draftBody, draftDate)
+            _ = deleteIfMatching(pageId: pageId, durableBody: draftBody)
+            if didRecover {
+                recovered += 1
+            }
         }
         if recovered > 0 {
             log.notice("Recovered \(recovered, privacy: .public) orphaned note draft(s) after an unclean shutdown")

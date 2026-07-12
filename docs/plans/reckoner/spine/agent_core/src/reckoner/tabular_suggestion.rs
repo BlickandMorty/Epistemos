@@ -9,23 +9,36 @@
 // SuggestionStaged/SuggestionResolved events.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // ID: EPI-RP-09-RECKONER · Codename: RECKONER
-// The tabular suggestion record. FIELD-FOR-FIELD the locked provenance shape —
-// author / turn / ranges / before-after / rationale / source / accept-state —
-// with ranges expressed as A1. No parallel schema; the contradiction sweep
-// depends on this staying unified.
+// The tabular suggestion record. It follows the locked LUMENLENS provenance
+// shape — author / turn / ranges / before-after / rationale / source /
+// accept-state — with ranges expressed as A1. No parallel schema; the
+// contradiction sweep depends on this staying unified.
 // (Dependencies / hand-off seam: the ledger + replay + retention (checkpoint+tail)
 // are owned by EPI-RP-02-LUMENLENS provenance; RECKONER appends and reads.)
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Author {
+    User { id: String },
+    June,
+    Companion { id: String },
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum AcceptState { Proposed, Accepted, Rejected, Superseded }
+pub enum AcceptState { Pending, Accepted, Rejected }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TabularSuggestionEvent {
+    SuggestionStaged { sequence: u64, at_ms: u64 },
+    SuggestionResolved { sequence: u64, at_ms: u64, state: AcceptState },
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TabularSuggestion {
     pub id: String,                      // ULID; FK the grid layer stages by
     pub dataset_id: String,
-    pub author: String,                  // companion identityHash | "june" | "user"
+    pub author: Author,
     pub turn_id: String,
     pub ranges_a1: Vec<String>,          // e.g. "C2:C4801"
     pub before: Vec<(String, String)>,   // addr → value (bounded; large ops chunk)
@@ -34,6 +47,8 @@ pub struct TabularSuggestion {
     pub source_citation: Option<String>,
     pub accept_state: AcceptState,
     pub created_at_ms: u64,
+    pub updated_at_ms: u64,
+    pub events: Vec<TabularSuggestionEvent>,
 }
 // Retention: tabular volume >> prose volume — the checkpoint+tail model applies
 // with tabular-tuned caps (checkpoint accepted dataset state; keep recent op

@@ -57,3 +57,37 @@ nonisolated public struct EpdocAIDiffReviewDraft: Sendable, Hashable, Identifiab
         .rejectAIDiff
     }
 }
+
+/// Native review affordance for a tracked suggestion span. Unlike the settled
+/// AI-diff preview above, this stages one bounded replacement through the
+/// LumenLens SuggestionAdapter so JS emits provenance events and the user still
+/// accepts or rejects the change.
+nonisolated public struct EpdocSuggestionReviewDraft: Sendable, Hashable, Identifiable {
+    public let payload: EpdocSuggestionSpanPayload
+    public let title: String
+    public let summary: String
+
+    public init(
+        payload: EpdocSuggestionSpanPayload,
+        title: String = "June suggestion",
+        summary: String = "Stage a tracked suggestion before accepting it."
+    ) {
+        self.payload = payload
+        self.title = title
+        self.summary = summary
+    }
+
+    public var id: String { payload.id }
+
+    public var stageCommand: EpdocEditorCommand {
+        .applySuggestion(payload: payload)
+    }
+
+    public var acceptCommand: EpdocEditorCommand {
+        .acceptSuggestion(id: payload.id)
+    }
+
+    public var rejectCommand: EpdocEditorCommand {
+        .rejectSuggestion(id: payload.id)
+    }
+}

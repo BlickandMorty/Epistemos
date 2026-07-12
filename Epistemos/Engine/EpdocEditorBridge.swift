@@ -394,14 +394,24 @@ nonisolated public struct EpdocBridgeRect: Sendable, Hashable {
 
 /// Selection state payload — character offsets + collapsed flag.
 nonisolated public struct EpdocBridgeSelection: Sendable, Hashable {
+    public static let maxSelectedTextCharacters = 4_000
+
     public let from: Int
     public let to: Int
     public let isEmpty: Bool
+    public let selectedText: String?
 
-    public init(from: Int, to: Int, isEmpty: Bool) {
+    public init(from: Int, to: Int, isEmpty: Bool, selectedText: String? = nil) {
         self.from = from
         self.to = to
         self.isEmpty = isEmpty
+        self.selectedText = selectedText.flatMap(Self.boundedSelectedText)
+    }
+
+    private static func boundedSelectedText(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(maxSelectedTextCharacters))
     }
 }
 
@@ -435,6 +445,98 @@ nonisolated public struct EpdocBridgeActiveMarks: Sendable, Hashable {
     }
 }
 
+nonisolated public struct EpdocMarkdownWritebackRegion: Sendable, Hashable {
+    public let byteFrom: Int
+    public let byteTo: Int
+    public let codeUnitFrom: Int
+    public let codeUnitTo: Int
+    public let changedFrom: Int
+    public let changedTo: Int
+    public let blockIndexFrom: Int
+    public let blockIndexTo: Int
+    public let blockMarkdown: String
+
+    public init(
+        byteFrom: Int,
+        byteTo: Int,
+        codeUnitFrom: Int,
+        codeUnitTo: Int,
+        changedFrom: Int,
+        changedTo: Int,
+        blockIndexFrom: Int,
+        blockIndexTo: Int,
+        blockMarkdown: String
+    ) {
+        self.byteFrom = byteFrom
+        self.byteTo = byteTo
+        self.codeUnitFrom = codeUnitFrom
+        self.codeUnitTo = codeUnitTo
+        self.changedFrom = changedFrom
+        self.changedTo = changedTo
+        self.blockIndexFrom = blockIndexFrom
+        self.blockIndexTo = blockIndexTo
+        self.blockMarkdown = blockMarkdown
+    }
+}
+
+nonisolated public enum EpdocSuggestionResolutionState: String, Sendable, Hashable {
+    case accepted
+    case rejected
+}
+
+nonisolated public struct EpdocSuggestionResolution: Sendable, Hashable {
+    public let suggestionID: String
+    public let state: EpdocSuggestionResolutionState
+
+    public init(suggestionID: String, state: EpdocSuggestionResolutionState) {
+        self.suggestionID = suggestionID
+        self.state = state
+    }
+}
+
+nonisolated public struct EpdocSuggestionSpanPayload: Sendable, Hashable {
+    public let id: String
+    public let author: String
+    public let turnID: String
+    public let kind: String
+    public let from: Int
+    public let to: Int
+    public let mapVersion: Int
+    public let before: String
+    public let after: String
+    public let rationale: String?
+    public let sourceCitation: String?
+    public let claimID: String?
+
+    public init(
+        id: String,
+        author: String,
+        turnID: String,
+        kind: String,
+        from: Int,
+        to: Int,
+        mapVersion: Int,
+        before: String,
+        after: String,
+        rationale: String? = nil,
+        sourceCitation: String? = nil,
+        claimID: String? = nil
+    ) {
+        self.id = id
+        self.author = author
+        self.turnID = turnID
+        self.kind = kind
+        self.from = from
+        self.to = to
+        self.mapVersion = mapVersion
+        self.before = before
+        self.after = after
+        self.rationale = rationale
+        self.sourceCitation = sourceCitation
+        self.claimID = claimID
+    }
+}
+
 /// JS → Swift messages over the WKScriptMessageHandler bridge. The JS
 /// side posts these via `window.webkit.messageHandlers.epdoc.postMessage(...)`.
 nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
@@ -444,11 +546,15 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     /// Full-fidelity Markdown snapshot from the JS serializer. This is
     /// decoded ahead of the L1 markdown-on-disk flip, but does not drive
     /// autosave until that source-of-truth role changes explicitly.
-    case markdownDidChange(markdown: String)
+    case markdownDidChange(markdown: String, writeback: EpdocMarkdownWritebackRegion?)
     /// JS-side CharacterCount update. Posted on create, setContent,
     /// and content-changing commands so the native chrome/footer does
     /// not display stale placeholder counts.
     case documentStatsChanged(wordCount: Int, characterCount: Int)
+    /// JS reports that a host-driven load has settled through the
+    /// epoch guard. The chrome uses this to close legacy echo
+    /// suppression without trusting Tiptap's emitUpdate:false.
+    case loadSettled
     /// The editor finished its initial mount and is ready to receive
     /// `editor.commands.setContent(...)`.
     case editorReady
@@ -476,6 +582,13 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     /// JS requested a first-class HTML Workspace instead of embedding
     /// arbitrary HTML/DOM runtime inside the Epdoc body.
     case requestHTMLWorkspace
+    /// JS applied a tracked suggestion transaction. Posted only after
+    /// the HWC adapter accepts the payload and mutates the document.
+    case suggestionApplied(EpdocSuggestionSpanPayload)
+    /// JS accepted or rejected a tracked suggestion. The payload carries
+    /// only the decision event; original span insertion remains owned by
+    /// the agent-edit ingestion path.
+    case suggestionResolved(EpdocSuggestionResolution)
 
     /// Decode a raw `WKScriptMessage.body` value into a typed message.
     /// Returns `nil` on shape failure. Accepted shapes:
@@ -483,12 +596,15 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     ///   `{"type": "contentDidChange", "json": "<stringified-prosemirror-json>"}`
     ///   `{"type": "markdownDidChange", "markdown": "# Full-fidelity markdown"}`
     ///   `{"type": "documentStatsChanged", "wordCount": 10, "characterCount": 80}`
+    ///   `{"type": "loadSettled", "epoch": 1}`
     ///   `{"type": "editorReady"}`
     ///   `{"type": "error", "message": "..."}`
     ///   `{"type": "caretChanged", "rect": {x,y,w,h}, "selection": {from,to,empty}, "marks": {...}}`
     ///   `{"type": "requestSlashMenu", "query": "...", "anchor": {x,y,w,h}}`
     ///   `{"type": "requestBubbleMenu", "selection": {from,to,empty}, "anchor": {x,y,w,h}}`
     ///   `{"type": "requestHTMLWorkspace"}`
+    ///   `{"type": "suggestionApplied", "id": "...", "turnId": "...", ...}`
+    ///   `{"type": "suggestionResolved", "suggestionId": "...", "state": "accepted"}`
     public static func decode(messageBody: Any) -> EpdocBridgeMessage? {
         guard let dict = messageBody as? [String: Any],
               let type = dict["type"] as? String else {
@@ -505,13 +621,18 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
             guard let markdown = dict["markdown"] as? String else {
                 return nil
             }
-            return .markdownDidChange(markdown: markdown)
+            return .markdownDidChange(
+                markdown: markdown,
+                writeback: parseWritebackRegion(dict["writeback"])
+            )
         case "documentStatsChanged":
             guard let wordCount = readInteger(dict["wordCount"]),
                   let characterCount = readInteger(dict["characterCount"]) else {
                 return nil
             }
             return .documentStatsChanged(wordCount: wordCount, characterCount: characterCount)
+        case "loadSettled":
+            return .loadSettled
         case "editorReady":
             return .editorReady
         case "error":
@@ -552,9 +673,44 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
             )
         case "requestHTMLWorkspace":
             return .requestHTMLWorkspace
+        case "suggestionApplied":
+            guard let payload = parseSuggestionSpanPayload(dict) else {
+                return nil
+            }
+            return .suggestionApplied(payload)
+        case "suggestionResolved":
+            guard let suggestionID = readNonEmptyString(dict["suggestionId"]),
+                  let stateRaw = readNonEmptyString(dict["state"]),
+                  let state = EpdocSuggestionResolutionState(rawValue: stateRaw) else {
+                return nil
+            }
+            return .suggestionResolved(
+                EpdocSuggestionResolution(suggestionID: suggestionID, state: state)
+            )
         default:
             return nil
         }
+    }
+
+    public static func decodeEpoch(messageBody: Any) -> Int? {
+        guard let dict = messageBody as? [String: Any],
+              let value = readIntegralInteger(dict["epoch"]),
+              value >= 0 else {
+            return nil
+        }
+        return value
+    }
+
+    public static func decodeEnvelope(messageBody: Any) -> [(message: EpdocBridgeMessage, epoch: Int?)] {
+        if let dict = messageBody as? [String: Any],
+           (dict["type"] as? String) == "batch",
+           let messages = dict["messages"] as? [Any] {
+            return messages.flatMap { decodeEnvelope(messageBody: $0) }
+        }
+        guard let decoded = decode(messageBody: messageBody) else {
+            return []
+        }
+        return [(message: decoded, epoch: decodeEpoch(messageBody: messageBody))]
     }
 
     /// Decode a `{x, y, w, h}` rect payload into `EpdocBridgeRect`.
@@ -572,7 +728,7 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
         return EpdocBridgeRect(x: x, y: y, width: w, height: h)
     }
 
-    /// Decode a `{from, to, empty}` selection payload.
+    /// Decode a `{from, to, empty, text?}` selection payload.
     private static func parseSelection(_ raw: Any?) -> EpdocBridgeSelection? {
         guard let dict = raw as? [String: Any],
               let fromN = readNumber(dict["from"]),
@@ -580,7 +736,22 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
               let isEmpty = dict["empty"] as? Bool else {
             return nil
         }
-        return EpdocBridgeSelection(from: Int(fromN), to: Int(toN), isEmpty: isEmpty)
+        let selectedText: String?
+        if let rawText = dict["text"], !(rawText is NSNull) {
+            guard let text = rawText as? String,
+                  text.count <= EpdocBridgeSelection.maxSelectedTextCharacters + 3 else {
+                return nil
+            }
+            selectedText = text
+        } else {
+            selectedText = nil
+        }
+        return EpdocBridgeSelection(
+            from: Int(fromN),
+            to: Int(toN),
+            isEmpty: isEmpty,
+            selectedText: selectedText
+        )
     }
 
     /// Decode the optional active-mark payload. Missing marks are
@@ -615,7 +786,74 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
         )
     }
 
+    private static func parseWritebackRegion(_ raw: Any?) -> EpdocMarkdownWritebackRegion? {
+        guard let raw else { return nil }
+        guard let dict = raw as? [String: Any],
+              let byteFrom = readIntegralInteger(dict["byteFrom"] ?? dict["from"]),
+              let byteTo = readIntegralInteger(dict["byteTo"] ?? dict["to"]),
+              let codeUnitFrom = readIntegralInteger(dict["codeUnitFrom"]),
+              let codeUnitTo = readIntegralInteger(dict["codeUnitTo"]),
+              let changedFrom = readIntegralInteger(dict["changedFrom"]),
+              let changedTo = readIntegralInteger(dict["changedTo"]),
+              let blockIndexFrom = readIntegralInteger(dict["blockIndexFrom"]),
+              let blockIndexTo = readIntegralInteger(dict["blockIndexTo"]),
+              let blockMarkdown = dict["blockMarkdown"] as? String,
+              byteFrom >= 0,
+              byteTo >= byteFrom,
+              codeUnitFrom >= 0,
+              codeUnitTo >= codeUnitFrom,
+              changedFrom >= 0,
+              changedTo >= changedFrom,
+              blockIndexFrom >= 0,
+              blockIndexTo >= blockIndexFrom else {
+            return nil
+        }
+        return EpdocMarkdownWritebackRegion(
+            byteFrom: byteFrom,
+            byteTo: byteTo,
+            codeUnitFrom: codeUnitFrom,
+            codeUnitTo: codeUnitTo,
+            changedFrom: changedFrom,
+            changedTo: changedTo,
+            blockIndexFrom: blockIndexFrom,
+            blockIndexTo: blockIndexTo,
+            blockMarkdown: blockMarkdown
+        )
+    }
+
+    private static func parseSuggestionSpanPayload(_ dict: [String: Any]) -> EpdocSuggestionSpanPayload? {
+        guard let id = readNonEmptyString(dict["id"]),
+              let author = readNonEmptyString(dict["author"]),
+              let turnID = readNonEmptyString(dict["turnId"]),
+              let kind = readNonEmptyString(dict["kind"]),
+              let from = readIntegralInteger(dict["from"]),
+              let to = readIntegralInteger(dict["to"]),
+              let mapVersion = readIntegralInteger(dict["mapVersion"]),
+              let before = dict["before"] as? String,
+              let after = dict["after"] as? String,
+              from >= 0,
+              to >= from,
+              mapVersion >= 0 else {
+            return nil
+        }
+        return EpdocSuggestionSpanPayload(
+            id: id,
+            author: author,
+            turnID: turnID,
+            kind: kind,
+            from: from,
+            to: to,
+            mapVersion: mapVersion,
+            before: before,
+            after: after,
+            rationale: dict["rationale"] as? String,
+            sourceCitation: dict["sourceCitation"] as? String,
+            claimID: dict["claimId"] as? String
+        )
+    }
+
     private static func readNumber(_ raw: Any?) -> Double? {
+        guard let raw, !isBridgeBoolean(raw) else { return nil }
         if let d = raw as? Double { return d }
         if let i = raw as? Int { return Double(i) }
         if let n = raw as? NSNumber { return n.doubleValue }
@@ -628,8 +866,7 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     }
 
     private static func readIntegralInteger(_ raw: Any?) -> Int? {
-        guard !(raw is Bool),
-              let value = readNumber(raw),
+        guard let value = readNumber(raw),
               value.isFinite else {
             return nil
         }
@@ -638,7 +875,20 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     }
 
     private static func readBool(_ raw: Any?) -> Bool? {
-        raw as? Bool
+        guard let raw, isBridgeBoolean(raw) else {
+            return nil
+        }
+        return (raw as? Bool) ?? (raw as? NSNumber)?.boolValue
+    }
+
+    private static func isBridgeBoolean(_ raw: Any) -> Bool {
+        if Swift.type(of: raw) == Bool.self {
+            return true
+        }
+        guard let number = raw as? NSNumber else {
+            return false
+        }
+        return CFGetTypeID(number) == CFBooleanGetTypeID()
     }
 
     private static func readNonEmptyString(_ raw: Any?) -> String? {
@@ -656,10 +906,20 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
     /// Replace the editor's content with the given ProseMirror JSON.
     /// Used when swapping documents in the singleton WKWebView.
     case setContent(json: Data)
+    /// Epoch-stamped host load. This is the LUMENLENS load-vs-edit
+    /// path; the JS side stamps the underlying ProseMirror transaction
+    /// and emits only matching-epoch update events.
+    case setContentForLoad(json: Data, epoch: Int)
     /// Replace the editor's content from Markdown via the JS serializer.
     /// Reserved for the L1 source-of-truth flip; loader semantics match
     /// setContent and do not imply a native save by themselves.
     case setMarkdown(markdown: String)
+    /// Epoch-stamped Markdown host load.
+    case setMarkdownForLoad(markdown: String, epoch: Int)
+    /// Ask JS to synchronously emit the current JSON + Markdown snapshots.
+    /// Used before host-side saves, lens switches, and teardown so the
+    /// Swift save path does not depend on the editor's debounce timer.
+    case flushDocumentSnapshot
     /// Move the cursor to the start of the document. Used after a
     /// setContent to restore canonical focus state.
     case focusStart
@@ -697,6 +957,11 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
     case acceptAIDiff
     case rejectAIDiff
     case clearAIDiff
+    /// LumenLens tracked suggestions. These stage one bounded span through the
+    /// JS SuggestionAdapter and keep accept/reject as explicit user actions.
+    case applySuggestion(payload: EpdocSuggestionSpanPayload)
+    case acceptSuggestion(id: String)
+    case rejectSuggestion(id: String)
 
     /// JS expression that the bridge evaluates inside the WKWebView.
     /// Assumes `window.epdocEditor` is the Tiptap editor instance the
@@ -711,8 +976,16 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             // matches the inbound bridge shape.
             let asLiteral = jsStringLiteral(escaped)
             return "window.epistemos.setContent(\(asLiteral))"
+        case .setContentForLoad(let json, let epoch):
+            let escaped = String(data: json, encoding: .utf8) ?? "{}"
+            let asLiteral = jsStringLiteral(escaped)
+            return "window.epistemos.setContent(\(asLiteral), \(max(0, epoch)))"
         case .setMarkdown(let markdown):
             return "window.epistemos.setMarkdown(\(jsStringLiteral(markdown)))"
+        case .setMarkdownForLoad(let markdown, let epoch):
+            return "window.epistemos.setMarkdown(\(jsStringLiteral(markdown)), \(max(0, epoch)))"
+        case .flushDocumentSnapshot:
+            return "window.epistemos.flushDocumentSnapshot()"
         case .focusStart:
             return "window.epistemos.focusStart()"
         case .focusEnd:
@@ -756,6 +1029,12 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             return Self.noArgumentRunCommandExpression("rejectEpdocAIDiff")
         case .clearAIDiff:
             return Self.noArgumentRunCommandExpression("clearEpdocAIDiff")
+        case .applySuggestion(let payload):
+            return "window.epistemos.runCommand(\"applySuggestion\", ...[\(Self.suggestionSpanPayloadLiteral(payload))])"
+        case .acceptSuggestion(let id):
+            return "window.epistemos.runCommand(\"acceptSuggestion\", ...[\(jsStringLiteral(id))])"
+        case .rejectSuggestion(let id):
+            return "window.epistemos.runCommand(\"rejectSuggestion\", ...[\(jsStringLiteral(id))])"
         }
     }
 
@@ -765,6 +1044,30 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
 
     private static func aiDiffStageRequestLiteral(_ request: EpdocAIDiffStageRequest) -> String {
         "{\"markdown\":\(jsStringLiteral(request.markdown)),\"claimId\":\(jsStringLiteral(request.claimId)),\"batchId\":\(jsStringLiteral(request.batchId)),\"settled\":true}"
+    }
+
+    private static func suggestionSpanPayloadLiteral(_ payload: EpdocSuggestionSpanPayload) -> String {
+        var fields: [String] = [
+            "\"id\":\(jsStringLiteral(payload.id))",
+            "\"author\":\(jsStringLiteral(payload.author))",
+            "\"turnId\":\(jsStringLiteral(payload.turnID))",
+            "\"kind\":\(jsStringLiteral(payload.kind))",
+            "\"from\":\(payload.from)",
+            "\"to\":\(payload.to)",
+            "\"mapVersion\":\(payload.mapVersion)",
+            "\"before\":\(jsStringLiteral(payload.before))",
+            "\"after\":\(jsStringLiteral(payload.after))",
+        ]
+        if let rationale = payload.rationale, !rationale.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fields.append("\"rationale\":\(jsStringLiteral(rationale))")
+        }
+        if let sourceCitation = payload.sourceCitation, !sourceCitation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fields.append("\"sourceCitation\":\(jsStringLiteral(sourceCitation))")
+        }
+        if let claimID = payload.claimID, !claimID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fields.append("\"claimId\":\(jsStringLiteral(claimID))")
+        }
+        return "{\(fields.joined(separator: ","))}"
     }
 }
 

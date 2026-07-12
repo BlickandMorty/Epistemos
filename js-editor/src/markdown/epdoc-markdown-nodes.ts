@@ -144,29 +144,38 @@ export function parseCalloutMarkdown(
   token: MarkdownToken,
   helpers: MarkdownParseHelpers
 ): JSONContent | JSONContent[] {
-  const text = stringAttr(token.text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
-  const lineBreak = text.indexOf('\n');
-  const firstLine = lineBreak >= 0 ? text.slice(0, lineBreak) : text;
-  const marker = firstLine.trim().match(CALLOUT_MARKER_RE);
-  if (!marker) return [];
+  const payload = epdocCalloutPayload(token);
+  if (!payload) return [];
 
-  const kind = marker[1].toLowerCase();
-  const title = marker[2]?.trim() ?? '';
-  const rest = lineBreak >= 0 ? text.slice(lineBreak + 1).trim() : '';
-  const body = [title, rest].filter(Boolean).join('\n').trim();
-  const content = body
+  const content = payload.body
     ? [
         helpers.createNode(
           'paragraph',
           undefined,
           helpers.parseInline(
-            helpers.tokenizeInline?.(body) ?? [{ type: 'text', text: body }]
+            helpers.tokenizeInline?.(payload.body) ?? [{ type: 'text', text: payload.body }]
           ),
         ),
       ]
     : [helpers.createNode('paragraph')];
 
-  return helpers.createNode('callout', { kind }, content);
+  return helpers.createNode('callout', { kind: payload.kind }, content);
+}
+
+export function epdocCalloutPayload(
+  token: MarkdownToken,
+): { kind: string; body: string } | null {
+  const text = stringAttr(token.text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  const lineBreak = text.indexOf('\n');
+  const firstLine = lineBreak >= 0 ? text.slice(0, lineBreak) : text;
+  const marker = firstLine.trim().match(CALLOUT_MARKER_RE);
+  if (!marker) return null;
+
+  const kind = marker[1].toLowerCase();
+  const title = marker[2]?.trim() ?? '';
+  const rest = lineBreak >= 0 ? text.slice(lineBreak + 1).trim() : '';
+  const body = [title, rest].filter(Boolean).join('\n').trim();
+  return { kind, body };
 }
 
 export function renderCalloutMarkdown(

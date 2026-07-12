@@ -66,6 +66,7 @@ flowchart TD
 \`\`\`json
 {
   "type": "scatter",
+  "provenance": { "kind": "manual", "source": "check-markdown-paste" },
   "points": [{ "x": 0.8, "y": 0.9, "label": "Evidence" }]
 }
 \`\`\`

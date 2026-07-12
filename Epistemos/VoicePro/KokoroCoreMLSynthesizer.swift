@@ -6,6 +6,8 @@ import KokoroPipeline
 
 nonisolated enum KokoroCoreMLSynthesizer {
     static let maxInputCharacters = 12_000
+    private static let responsiveDurationTokenCeiling = 32
+    private static let synthesisExecutionLock = NSLock()
 
     struct RenderedAudio: Equatable, Sendable {
         let samples: [Float]
@@ -47,6 +49,10 @@ nonisolated enum KokoroCoreMLSynthesizer {
         fileManager: FileManager = .default
     ) throws -> RenderedAudio {
         #if canImport(KokoroPipeline)
+        try Task.checkCancellation()
+        synthesisExecutionLock.lock()
+        defer { synthesisExecutionLock.unlock() }
+        try Task.checkCancellation()
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else {
             throw SynthesisError.unsupportedInput
@@ -60,10 +66,12 @@ nonisolated enum KokoroCoreMLSynthesizer {
             modelRoot: modelRoot,
             fileManager: fileManager
         )
+        try Task.checkCancellation()
         // Voice SELECTION: use the chosen installed voice if it loads + validates, else fall
         // back to the starter voice — a bad/unknown selection must never break synthesis.
         let voiceEmbedding: [Float]
         if let voiceIdentifier,
+           isEnglishKokoroVoiceIdentifier(voiceIdentifier),
            let selected = KokoroCoreMLRuntimeLoader.voiceEmbedding(
                named: voiceIdentifier,
                in: resources.modelDirectoryURL
@@ -76,11 +84,14 @@ nonisolated enum KokoroCoreMLSynthesizer {
         let chunks = try rawVocabularyChunks(
             for: cleaned,
             vocabulary: resources.vocabulary,
-            maxTokenCount: resources.durationTokenSizes.max() ?? 512
+            maxTokenCount: responsiveDurationTokenLimit(from: resources.durationTokenSizes)
         )
         let clampedSpeed = Self.clampedSpeed(speed)
 
-        let segments = try chunks.map { chunk in
+        var segments: [[Float]] = []
+        segments.reserveCapacity(chunks.count)
+        for chunk in chunks {
+            try Task.checkCancellation()
             // Kokoro selects the reference style vector by phoneme-sequence
             // length. chunk.inputIDs is [0] + phonemeIDs + [0], so the phoneme
             // count is inputIDs.count - 2.
@@ -88,16 +99,21 @@ nonisolated enum KokoroCoreMLSynthesizer {
                 from: voiceEmbedding,
                 phonemeCount: chunk.inputIDs.count - 2
             )
+            let audio: [Float]
             do {
-                return try pipeline.synthesize(
+                audio = try pipeline.synthesize(
                     inputIds: chunk.inputIDs,
                     attentionMask: chunk.attentionMask,
                     refS: refS,
                     speed: clampedSpeed
                 ).audio
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
                 throw SynthesisError.synthesisFailed(runtimeDiagnostic(error))
             }
+            try Task.checkCancellation()
+            segments.append(audio)
         }
 
         let samples = PcmJoiner.join(
@@ -105,6 +121,7 @@ nonisolated enum KokoroCoreMLSynthesizer {
             sampleRate: resources.sampleRateHz,
             crossfadeMs: PcmJoiner.defaultCrossfadeMs
         )
+        try Task.checkCancellation()
         guard !samples.isEmpty else {
             throw SynthesisError.synthesisFailed("empty audio")
         }
@@ -123,8 +140,11 @@ nonisolated enum KokoroCoreMLSynthesizer {
         vocabulary: [String: Int32],
         maxTokenCount: Int
     ) throws -> [TokenizedChunk] {
-        let symbols = rawVocabularySymbols(for: text, vocabulary: vocabulary)
-        guard !symbols.isEmpty else {
+        let symbols = englishPhonemeSymbols(for: text, vocabulary: vocabulary)
+        let resolvedSymbols = symbols.isEmpty
+            ? rawVocabularySymbols(for: text, vocabulary: vocabulary)
+            : symbols
+        guard !resolvedSymbols.isEmpty else {
             throw SynthesisError.unsupportedInput
         }
 
@@ -133,7 +153,7 @@ nonisolated enum KokoroCoreMLSynthesizer {
         var current = [String]()
         current.reserveCapacity(payloadLimit)
 
-        for symbol in symbols {
+        for symbol in resolvedSymbols {
             if current.count >= payloadLimit {
                 appendTrimmedChunk(current, to: &chunks)
                 current.removeAll(keepingCapacity: true)
@@ -158,6 +178,14 @@ nonisolated enum KokoroCoreMLSynthesizer {
             throw SynthesisError.unsupportedInput
         }
         return tokenized
+    }
+
+    private static func responsiveDurationTokenLimit(from durationTokenSizes: [Int]) -> Int {
+        let sorted = durationTokenSizes.filter { $0 > 2 }.sorted()
+        if let responsive = sorted.last(where: { $0 <= responsiveDurationTokenCeiling }) {
+            return responsive
+        }
+        return sorted.first ?? responsiveDurationTokenCeiling
     }
 
     private static func rawVocabularySymbols(
@@ -188,6 +216,286 @@ nonisolated enum KokoroCoreMLSynthesizer {
             symbols.removeLast()
         }
         return symbols
+    }
+
+    private nonisolated static func isEnglishKokoroVoiceIdentifier(_ identifier: String) -> Bool {
+        identifier.hasPrefix("af_")
+            || identifier.hasPrefix("am_")
+            || identifier.hasPrefix("bf_")
+            || identifier.hasPrefix("bm_")
+    }
+
+    nonisolated static func englishPhonemeSymbols(
+        for text: String,
+        vocabulary: [String: Int32]
+    ) -> [String] {
+        var symbols = [String]()
+        var currentWord = ""
+        var previousWasSpace = true
+
+        func appendSymbol(_ rawSymbol: String) {
+            guard let symbol = vocabularySymbol(rawSymbol, vocabulary: vocabulary) else { return }
+            if symbol == " " {
+                guard !previousWasSpace else { return }
+                previousWasSpace = true
+            } else {
+                previousWasSpace = false
+            }
+            symbols.append(symbol)
+        }
+
+        func appendPhonemeString(_ phonemes: String) {
+            for character in phonemes {
+                appendSymbol(String(character))
+            }
+        }
+
+        func flushWord() {
+            guard !currentWord.isEmpty else { return }
+            let phonemes = englishPhonemes(forWord: currentWord)
+            appendPhonemeString(phonemes)
+            currentWord.removeAll(keepingCapacity: true)
+        }
+
+        for character in text {
+            if character.isLetter {
+                currentWord.append(contentsOf: String(character).lowercased())
+            } else if character.isNumber {
+                flushWord()
+                appendPhonemeString(englishPhonemes(forWord: String(character)))
+                appendSymbol(" ")
+            } else {
+                flushWord()
+                switch character {
+                case "'", "\u{2019}", "`":
+                    continue
+                case ".", ",", "!", "?", ":", ";", "\u{2010}", "\u{2011}", "\u{2012}", "\u{2013}", "\u{2014}":
+                    let normalized = character == "\u{2010}"
+                        || character == "\u{2011}"
+                        || character == "\u{2012}"
+                        || character == "\u{2013}"
+                        ? "—"
+                        : String(character)
+                    appendSymbol(normalized)
+                    appendSymbol(" ")
+                case "\n", "\r", "\t", " ", "\u{00a0}":
+                    appendSymbol(" ")
+                case "&":
+                    appendPhonemeString(englishPhonemes(forWord: "and"))
+                    appendSymbol(" ")
+                case "%":
+                    appendPhonemeString(englishPhonemes(forWord: "percent"))
+                    appendSymbol(" ")
+                case "+":
+                    appendPhonemeString(englishPhonemes(forWord: "plus"))
+                    appendSymbol(" ")
+                case "/":
+                    appendPhonemeString(englishPhonemes(forWord: "slash"))
+                    appendSymbol(" ")
+                default:
+                    appendSymbol(" ")
+                }
+            }
+        }
+        flushWord()
+        while symbols.last == " " {
+            symbols.removeLast()
+        }
+        return symbols
+    }
+
+    private nonisolated static func englishPhonemes(forWord word: String) -> String {
+        if let phonemes = englishPronunciationLexicon[word] {
+            return phonemes
+        }
+        return approximateEnglishPhonemes(forWord: word)
+    }
+
+    private nonisolated static let englishPronunciationLexicon: [String: String] = [
+        "0": "zˈiɹO",
+        "1": "wˈʌn",
+        "2": "tˈu",
+        "3": "θɹˈi",
+        "4": "fˈOɹ",
+        "5": "fˈaIv",
+        "6": "sˈɪks",
+        "7": "sˈɛvən",
+        "8": "ˈeIt",
+        "9": "nˈaIn",
+        "a": "ə",
+        "about": "əbˈaUt",
+        "agent": "ˈeIʤənt",
+        "all": "ˈOl",
+        "an": "ən",
+        "and": "ænd",
+        "app": "ˈæp",
+        "are": "ˈɑɹ",
+        "as": "æz",
+        "assistant": "əsˈɪstənt",
+        "at": "æt",
+        "back": "bˈæk",
+        "be": "bˈi",
+        "body": "bˈɑdi",
+        "capture": "kˈæpʧɚ",
+        "chat": "ʧˈæt",
+        "code": "kˈOd",
+        "document": "dˈɑkjəmənt",
+        "editor": "ˈɛdɪtɚ",
+        "english": "ˈɪŋɡlɪʃ",
+        "epdoc": "ˈɛpdɑk",
+        "epistemos": "ɛpˈɪstɛmOs",
+        "for": "fɚ",
+        "from": "fɹʌm",
+        "graph": "ɡɹˈæf",
+        "hello": "hɛlˈO",
+        "home": "hˈOm",
+        "i": "ˈaI",
+        "in": "ɪn",
+        "is": "ɪz",
+        "it": "ɪt",
+        "june": "ʤˈun",
+        "kokoro": "kˈOkəɹO",
+        "latest": "lˈeItəst",
+        "note": "nˈOt",
+        "notes": "nˈOts",
+        "of": "əv",
+        "on": "ɑn",
+        "open": "ˈOpən",
+        "preview": "pɹˈivju",
+        "prose": "pɹˈOz",
+        "quick": "kwˈɪk",
+        "read": "ɹˈid",
+        "ready": "ɹˈɛdi",
+        "reply": "ɹɪplˈaI",
+        "researcher": "ɹˈisɚʧɚ",
+        "screen": "skɹˈin",
+        "selected": "səlˈɛktəd",
+        "settings": "sˈɛtɪŋz",
+        "surface": "sˈɚfəs",
+        "text": "tˈɛkst",
+        "the": "ðə",
+        "this": "ðˈɪs",
+        "to": "tə",
+        "vault": "vˈOlt",
+        "visible": "vˈɪzəbəl",
+        "voice": "vˈOIs",
+        "welcome": "wˈɛlkəm",
+        "with": "wɪð",
+        "workspace": "wˈɚkspˌes",
+        "you": "jˈu"
+    ]
+
+    private nonisolated static func approximateEnglishPhonemes(forWord word: String) -> String {
+        var output = ""
+        let characters = Array(word)
+        var index = 0
+        while index < characters.count {
+            let current = characters[index]
+            let next = index + 1 < characters.count ? characters[index + 1] : nil
+            let afterNext = index + 2 < characters.count ? characters[index + 2] : nil
+            let pair = next.map { "\(current)\($0)" } ?? String(current)
+
+            switch pair {
+            case "th":
+                output += ["the", "this", "that", "there", "they", "them", "then", "with"].contains(word) ? "ð" : "θ"
+                index += 2
+            case "sh":
+                output += "ʃ"
+                index += 2
+            case "ch":
+                output += "ʧ"
+                index += 2
+            case "ph":
+                output += "f"
+                index += 2
+            case "ng":
+                output += "ŋ"
+                index += 2
+            case "qu":
+                output += "kw"
+                index += 2
+            case "ck":
+                output += "k"
+                index += 2
+            case "ee", "ea":
+                output += "i"
+                index += 2
+            case "oo":
+                output += "u"
+                index += 2
+            case "ou", "ow":
+                output += "aU"
+                index += 2
+            case "ai", "ay":
+                output += "eI"
+                index += 2
+            case "oi", "oy":
+                output += "OI"
+                index += 2
+            case "er", "ir", "ur":
+                output += "ɚ"
+                index += 2
+            default:
+                switch current {
+                case "a":
+                    output += next == "r" ? "ɑ" : "æ"
+                case "b":
+                    output += "b"
+                case "c":
+                    output += next == "e" || next == "i" || next == "y" ? "s" : "k"
+                case "d":
+                    output += "d"
+                case "e":
+                    output += index == characters.count - 1 ? "" : "ɛ"
+                case "f":
+                    output += "f"
+                case "g":
+                    output += next == "e" || next == "i" || next == "y" ? "ʤ" : "ɡ"
+                case "h":
+                    output += "h"
+                case "i":
+                    output += afterNext == "e" ? "aI" : "ɪ"
+                case "j":
+                    output += "ʤ"
+                case "k":
+                    output += "k"
+                case "l":
+                    output += "l"
+                case "m":
+                    output += "m"
+                case "n":
+                    output += "n"
+                case "o":
+                    output += next == "r" ? "O" : "ɑ"
+                case "p":
+                    output += "p"
+                case "q":
+                    output += "k"
+                case "r":
+                    output += "ɹ"
+                case "s":
+                    output += "s"
+                case "t":
+                    output += "t"
+                case "u":
+                    output += "ʌ"
+                case "v":
+                    output += "v"
+                case "w":
+                    output += "w"
+                case "x":
+                    output += "ks"
+                case "y":
+                    output += index == characters.count - 1 ? "i" : "j"
+                case "z":
+                    output += "z"
+                default:
+                    break
+                }
+                index += 1
+            }
+        }
+        return output.isEmpty ? word : output
     }
 
     private static func replacementSymbols(for character: Character) -> [String] {

@@ -8,20 +8,19 @@
 // (mas_allows_bounded_internal_mutation, registry.rs:79) for the mutating ops. June's reach is then
 // automatic via run_agent_session. (3) is_destructive polarity is wrong both ways (Clean/Transform
 // over-gated vs its own doc; Chart mutates the note un-gated) — gate per the D4 definition.
-// (4) Box<dyn Fn> cannot cross UniFFI — companion streaming rides AgentEventDelegate frames;
-// presence emission needs an explicit mechanism (caller-supplied callback wired 1Code-side, or a
-// cargo feature) or R5's zero-symbols bar is unenforceable.
+// (4) Box<dyn Fn> cannot cross UniFFI. The 2026-07-07 MAS-only pivot parks companion streaming;
+// active R5 proof is zero Kindred/presence symbols in MAS and MAS-safe status from June state only.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // ID: EPI-RP-09-RECKONER · Codename: RECKONER
-// F2 tool implementations — ONE schema, TWO callers: June (MAS, in-process, no
-// subprocess) and the KINDRED companion (1Code, streamed with presence). NO tool
+// F2 tool implementations — ONE schema, active caller: June (MAS, in-process, no
+// subprocess). Kindred/1Code is parked. NO tool
 // writes cells directly: every proposed change becomes a TabularSuggestion that
 // crosses the ApprovalGate when destructive, stages as chips, and commits through
 // the normal calc path only on accept.
-// (Dependencies / hand-off seam: ApprovalGate + bound-vs-gated authority are
-// owned by EPI-RP-05-KINDRED; RECKONER routes through it, never around it.)
+// Approval/dry-run authority is preserved as a product pattern; MAS implementation routes through
+// June/agent_core approval surfaces, never around them.
 
-use super::calc_facade::CalcEngine;
+use super::calc_facade::{CalcEngine, CalcError};
 use super::tabular_suggestion::TabularSuggestion;
 use serde::{Deserialize, Serialize};
 
@@ -43,13 +42,24 @@ impl DatasetTool {
     }
 }
 
-pub trait ToolDispatch {
-    /// June path: run to completion in-process, return staged suggestions.
-    fn run_in_process(&self, tool: DatasetTool, engine: &dyn CalcEngine)
-        -> Result<Vec<TabularSuggestion>, String>;
-    /// Companion path: stream suggestions turn-wise; presence emitted per op
-    /// ("cleaning column C") — 1Code only, same tool semantics.
-    fn run_streamed(&self, tool: DatasetTool, engine: &dyn CalcEngine,
-        on_suggestion: Box<dyn Fn(TabularSuggestion) + Send>)
-        -> Result<(), String>;
+/// Design sketch for the real ToolRegistry::register_default_tools integration.
+/// Do not implement a parallel dispatcher: register `dataset.query`,
+/// `dataset.transform`, `dataset.chart`, `dataset.clean`, and
+/// `dataset.summarize` as dot-namespaced async ToolHandlers with JSON schemas
+/// and MAS mutation allowlist entries.
+pub struct DatasetToolHandler<E: CalcEngine> {
+    engine: E,
+}
+
+impl<E: CalcEngine> DatasetToolHandler<E> {
+    /// June and KINDRED share this semantic path. KINDRED streaming is emitted
+    /// through the existing AgentEventDelegate frames, not a boxed callback
+    /// across UniFFI.
+    pub fn stage(&mut self, tool: DatasetTool) -> Result<Vec<TabularSuggestion>, CalcError> {
+        let _scratch = self.engine.scratch_from_bytes()?;
+        let _requires_approval = tool.is_destructive();
+        // TODO: produce TabularSuggestion events; destructive ops must cross
+        // ApprovalGate before staging and all accepted ops commit through calc.
+        Ok(Vec::new())
+    }
 }

@@ -240,12 +240,17 @@ nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashabl
 
     public var contentSecurityPolicy: String {
         let localResources = HTMLWorkspaceLocalResourceScheme.contentSecurityPolicySource
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        let scriptSources = "'unsafe-inline' \(localResources)"
+        let workerSources = "'none'"
+        #else
         let scriptSources = allowPythonRuntime
             ? "'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' \(localResources)"
             : "'unsafe-inline' \(localResources)"
         let workerSources = allowPythonRuntime
             ? "blob: \(localResources)"
             : "'none'"
+        #endif
         if allowNetwork {
             return [
                 "default-src 'none'",

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@preconcurrency import WebKit
 
 @testable import Epistemos
 
@@ -141,11 +142,425 @@ nonisolated struct EpdocEditorBridgeTests {
             "type": "markdownDidChange",
             "markdown": "# Claim\n\nBody",
         ]
-        guard case let .markdownDidChange(markdown)? = EpdocBridgeMessage.decode(messageBody: body) else {
+        guard case let .markdownDidChange(markdown, writeback)? = EpdocBridgeMessage.decode(messageBody: body) else {
             #expect(Bool(false), "must decode .markdownDidChange")
             return
         }
         #expect(markdown == "# Claim\n\nBody")
+        #expect(writeback == nil)
+    }
+
+    @Test("markdownDidChange decodes minimal writeback metadata")
+    func markdownDidChangeDecodesMinimalWritebackMetadata() {
+        let body: [String: Any] = [
+            "type": "markdownDidChange",
+            "markdown": "Alpha\n\nBravo updated\n\nCharlie\n",
+            "writeback": [
+                "byteFrom": 7,
+                "byteTo": 12,
+                "codeUnitFrom": 7,
+                "codeUnitTo": 12,
+                "changedFrom": 2,
+                "changedTo": 3,
+                "blockIndexFrom": 1,
+                "blockIndexTo": 2,
+                "blockMarkdown": "Bravo updated",
+            ],
+        ]
+        guard case let .markdownDidChange(markdown, writeback)? = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "must decode .markdownDidChange with writeback")
+            return
+        }
+        #expect(markdown == "Alpha\n\nBravo updated\n\nCharlie\n")
+        #expect(writeback == EpdocMarkdownWritebackRegion(
+            byteFrom: 7,
+            byteTo: 12,
+            codeUnitFrom: 7,
+            codeUnitTo: 12,
+            changedFrom: 2,
+            changedTo: 3,
+            blockIndexFrom: 1,
+            blockIndexTo: 2,
+            blockMarkdown: "Bravo updated"
+        ))
+    }
+
+    @Test("bridge decoder accepts WKScriptMessage NSNumber integers without treating them as booleans")
+    func bridgeDecoderAcceptsWebKitNSNumberIntegers() {
+        let body: [String: Any] = [
+            "type": "markdownDidChange",
+            "epoch": NSNumber(value: 1),
+            "markdown": "Alpha\n\nBravo updated\n",
+            "writeback": [
+                "byteFrom": NSNumber(value: 7),
+                "byteTo": NSNumber(value: 12),
+                "codeUnitFrom": NSNumber(value: 7),
+                "codeUnitTo": NSNumber(value: 12),
+                "changedFrom": NSNumber(value: 2),
+                "changedTo": NSNumber(value: 3),
+                "blockIndexFrom": NSNumber(value: 1),
+                "blockIndexTo": NSNumber(value: 1),
+                "blockMarkdown": "Bravo updated",
+            ],
+        ]
+        guard case let .markdownDidChange(markdown, writeback)? = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "must decode NSNumber-backed markdownDidChange values from WKScriptMessage")
+            return
+        }
+
+        #expect(markdown == "Alpha\n\nBravo updated\n")
+        #expect(writeback?.byteFrom == 7)
+        #expect(writeback?.blockMarkdown == "Bravo updated")
+        #expect(EpdocBridgeMessage.decodeEpoch(messageBody: body) == 1)
+        #expect(EpdocBridgeMessage.decode(messageBody: [
+            "type": "documentStatsChanged",
+            "wordCount": NSNumber(value: true),
+            "characterCount": NSNumber(value: 10),
+        ]) == nil)
+    }
+
+    @Test("batched bridge envelope decodes messages with epochs")
+    func batchedBridgeEnvelopeDecodesMessagesWithEpochs() {
+        let body: [String: Any] = [
+            "type": "batch",
+            "messages": [
+                [
+                    "type": "contentDidChange",
+                    "epoch": 9,
+                    "json": #"{"type":"doc","content":[{"type":"paragraph"}]}"#,
+                ],
+                [
+                    "type": "markdownDidChange",
+                    "epoch": 9,
+                    "markdown": "Alpha\n\nBravo updated\n",
+                    "writeback": [
+                        "byteFrom": 7,
+                        "byteTo": 12,
+                        "codeUnitFrom": 7,
+                        "codeUnitTo": 12,
+                        "changedFrom": 2,
+                        "changedTo": 3,
+                        "blockIndexFrom": 1,
+                        "blockIndexTo": 1,
+                        "blockMarkdown": "Bravo updated",
+                    ],
+                ],
+                [
+                    "type": "suggestionResolved",
+                    "epoch": 9,
+                    "suggestionId": "span-batch",
+                    "state": "accepted",
+                ],
+            ],
+        ]
+
+        let decoded = EpdocBridgeMessage.decodeEnvelope(messageBody: body)
+
+        #expect(decoded.count == 3)
+        #expect(decoded.map(\.epoch) == [9, 9, 9])
+        guard case .contentDidChange? = decoded.first?.message else {
+            #expect(Bool(false), "first batch entry should decode as contentDidChange")
+            return
+        }
+        guard case let .markdownDidChange(markdown, writeback)? = decoded.dropFirst().first?.message else {
+            #expect(Bool(false), "second batch entry should decode as markdownDidChange")
+            return
+        }
+        #expect(markdown == "Alpha\n\nBravo updated\n")
+        #expect(writeback?.blockMarkdown == "Bravo updated")
+        guard case let .suggestionResolved(resolution)? = decoded.last?.message else {
+            #expect(Bool(false), "third batch entry should decode as suggestionResolved")
+            return
+        }
+        #expect(resolution.suggestionID == "span-batch")
+        #expect(resolution.state == .accepted)
+    }
+
+    @MainActor
+    @Test("bundled WKWebView outbound bridge delivers writeback and provenance payloads")
+    func bundledWKWebViewOutboundBridgeDeliversWritebackAndProvenancePayloads() async throws {
+        let probe = EpdocWebKitBridgeProbe()
+        let runtime = Self.makeBundledEditorWebView(probe: probe)
+        let webView = runtime.webView
+        let userContentController = runtime.userContentController
+        defer {
+            webView.stopLoading()
+            webView.navigationDelegate = nil
+            userContentController.removeScriptMessageHandler(forName: "epdoc")
+        }
+
+        let editorURL = try #require(URL(string: "\(epdocEditorURLScheme):///editor.html"))
+        webView.load(URLRequest(url: editorURL))
+        try await probe.waitForNavigation()
+        try await Self.waitForBundledOutboundBridge(in: webView)
+
+        try await Self.evaluateScript(
+            """
+            (() => {
+              window.epdocOutboundBridge.post({
+                type: 'markdownDidChange',
+                epoch: 1,
+                markdown: 'Alpha\\n\\nBravo updated\\n',
+                writeback: {
+                  from: 7,
+                  to: 12,
+                  byteFrom: 7,
+                  byteTo: 12,
+                  codeUnitFrom: 7,
+                  codeUnitTo: 12,
+                  changedFrom: 2,
+                  changedTo: 3,
+                  blockIndexFrom: 1,
+                  blockIndexTo: 1,
+                  blockMarkdown: 'Bravo updated'
+                }
+              });
+              window.epdocOutboundBridge.post({
+                type: 'suggestionApplied',
+                epoch: 1,
+                id: 'wk-span-1',
+                author: 'lumen',
+                turnId: 'turn-wk',
+                kind: 'replacement',
+                from: 7,
+                to: 12,
+                mapVersion: 3,
+                before: 'Bravo',
+                after: 'Bravo updated',
+                rationale: 'runtime bridge smoke',
+                sourceCitation: 'claim://wk',
+                claimId: 'claim:wk'
+              });
+              window.epdocOutboundBridge.post({
+                type: 'suggestionResolved',
+                epoch: 1,
+                suggestionId: 'wk-span-1',
+                state: 'accepted'
+              });
+              window.epdocOutboundBridge.flushSync();
+              return 'posted';
+            })()
+            """,
+            in: webView
+        )
+
+        let decoded = try await probe.waitForDecodedMessages(
+            containingSuggestionID: "wk-span-1",
+            markdown: "Alpha\n\nBravo updated\n",
+            writebackBlockMarkdown: "Bravo updated"
+        )
+        let injectedEntries = decoded.filter { entry in
+            switch entry.message {
+            case let .markdownDidChange(markdown, writeback):
+                return markdown == "Alpha\n\nBravo updated\n"
+                    && writeback?.blockMarkdown == "Bravo updated"
+            case let .suggestionApplied(payload):
+                return payload.id == "wk-span-1"
+            case let .suggestionResolved(resolution):
+                return resolution.suggestionID == "wk-span-1"
+            default:
+                return false
+            }
+        }
+        let controller = EpdocEditorChromeController()
+        let emptyJSON = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        var markdownEvents: [(String, EpdocMarkdownWritebackRegion?)] = []
+        var appliedPayloads: [EpdocSuggestionSpanPayload] = []
+        var resolutions: [EpdocSuggestionResolution] = []
+
+        controller.loadInitialContent(emptyJSON, title: "WK smoke")
+        controller.onMarkdownChanged = { markdown, writeback in
+            markdownEvents.append((markdown, writeback))
+        }
+        controller.onSuggestionApplied = { payload in
+            appliedPayloads.append(payload)
+        }
+        controller.onSuggestionResolved = { resolution in
+            resolutions.append(resolution)
+        }
+
+        for entry in injectedEntries {
+            controller.handleBridgeMessage(entry.message, epoch: entry.epoch)
+        }
+
+        let didReceiveInjectedWriteback = markdownEvents.contains { event in
+            event.0 == "Alpha\n\nBravo updated\n"
+                && event.1?.blockMarkdown == "Bravo updated"
+        }
+        #expect(didReceiveInjectedWriteback)
+        #expect(appliedPayloads.map(\.id) == ["wk-span-1"])
+        #expect(appliedPayloads.first?.claimID == "claim:wk")
+        #expect(appliedPayloads.first?.sourceCitation == "claim://wk")
+        #expect(resolutions == [
+            EpdocSuggestionResolution(suggestionID: "wk-span-1", state: .accepted),
+        ])
+    }
+
+    @MainActor
+    @Test("bundled WKWebView inbound suggestion commands drive adapter provenance")
+    func bundledWKWebViewInboundSuggestionCommandsDriveAdapterProvenance() async throws {
+        let probe = EpdocWebKitBridgeProbe()
+        let runtime = Self.makeBundledEditorWebView(probe: probe)
+        let webView = runtime.webView
+        let userContentController = runtime.userContentController
+        defer {
+            webView.stopLoading()
+            webView.navigationDelegate = nil
+            userContentController.removeScriptMessageHandler(forName: "epdoc")
+        }
+
+        let editorURL = try #require(URL(string: "\(epdocEditorURLScheme):///editor.html"))
+        webView.load(URLRequest(url: editorURL))
+        try await probe.waitForNavigation()
+        try await Self.waitForBundledOutboundBridge(in: webView)
+        try await Self.waitForBundledInboundCommands(in: webView)
+
+        let baseline = "Alpha Bravo Charlie"
+        let baselineJSON = #"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Alpha Bravo Charlie"}]}]}"#
+            .data(using: .utf8)!
+        try await Self.evaluateScript(
+            """
+            (() => {
+              \(EpdocEditorCommand.setContentForLoad(json: baselineJSON, epoch: 21).javaScriptExpression());
+              window.epdocOutboundBridge.flushSync();
+            })()
+            """,
+            in: webView
+        )
+        let loadedText = try await Self.waitForEditorText(baseline, in: webView)
+        #expect(loadedText == baseline)
+
+        let payload = EpdocSuggestionSpanPayload(
+            id: "wk-command-span",
+            author: "june",
+            turnID: "turn-wk-command",
+            kind: "replacement",
+            from: 7,
+            to: 12,
+            mapVersion: 1,
+            before: "Bravo",
+            after: "Bravo updated",
+            rationale: "runtime inbound command proof",
+            sourceCitation: "claim://inbound",
+            claimID: "claim:inbound"
+        )
+        try await Self.evaluateScript(
+            """
+            (() => {
+              const didRun = \(EpdocEditorCommand.applySuggestion(payload: payload).javaScriptExpression());
+              window.epdocOutboundBridge.flushSync();
+              if (didRun !== true) throw new Error('applySuggestion returned ' + didRun);
+            })()
+            """,
+            in: webView
+        )
+        let stagedMarkSummary = try await Self.evaluateString(
+            """
+            (() => {
+              const editor = window.epdocEditor;
+              if (!editor) return '';
+              const marks = [];
+              editor.state.doc.descendants((node, pos) => {
+                if (!node.isText) return true;
+                for (const mark of node.marks) {
+                  if (['deletion', 'insertion', 'modification'].includes(mark.type.name)) {
+                    marks.push(`${mark.type.name}:${String(mark.attrs.id)}:${node.text ?? ''}`);
+                  }
+                }
+                return true;
+              });
+              return JSON.stringify({
+                text: editor.state.doc.textBetween(0, editor.state.doc.content.size, ' ', ' '),
+                marks,
+              });
+            })()
+            """,
+            in: webView
+        )
+        #expect(stagedMarkSummary.contains("deletion:wk-command-span:Bravo"))
+        #expect(stagedMarkSummary.contains("insertion:wk-command-span:Bravo updated"))
+
+        let acceptResult = try await Self.evaluateString(
+            """
+            (() => {
+              const didRun = \(EpdocEditorCommand.acceptSuggestion(id: payload.id).javaScriptExpression());
+              window.epdocOutboundBridge.flushSync();
+              return String(didRun);
+            })()
+            """,
+            in: webView
+        )
+        guard acceptResult == "true" else {
+            #expect(Bool(false), "acceptSuggestion returned \(acceptResult); staged marks: \(stagedMarkSummary)")
+            return
+        }
+
+        let decoded = try await probe.waitForSuggestionFlow(
+            containingSuggestionID: payload.id,
+            resolvedState: .accepted
+        )
+        let applied = try #require(decoded.compactMap { entry -> EpdocSuggestionSpanPayload? in
+            if case let .suggestionApplied(payload) = entry.message {
+                return payload
+            }
+            return nil
+        }.last)
+        let resolution = try #require(decoded.compactMap { entry -> EpdocSuggestionResolution? in
+            if case let .suggestionResolved(resolution) = entry.message {
+                return resolution
+            }
+            return nil
+        }.last)
+        let acceptedText = try await Self.waitForEditorText("Alpha Bravo updated Charlie", in: webView)
+
+        #expect(applied.id == "wk-command-span")
+        #expect(applied.author == "june")
+        #expect(applied.turnID == "turn-wk-command")
+        #expect(applied.kind == "replacement")
+        #expect(applied.before == "Bravo")
+        #expect(applied.after == "Bravo updated")
+        #expect(applied.sourceCitation == "claim://inbound")
+        #expect(applied.claimID == "claim:inbound")
+        #expect(resolution == EpdocSuggestionResolution(
+            suggestionID: "wk-command-span",
+            state: .accepted
+        ))
+        #expect(acceptedText == "Alpha Bravo updated Charlie")
+
+        let undoTrace = try await Self.evaluateString(
+            """
+            (() => {
+              const editor = window.epdocEditor;
+              const summarize = (label, didRun = null) => {
+                const marks = [];
+                editor.state.doc.descendants((node) => {
+                  if (!node.isText) return true;
+                  for (const mark of node.marks) {
+                    if (['deletion', 'insertion', 'modification'].includes(mark.type.name)) {
+                      marks.push(`${mark.type.name}:${String(mark.attrs.id)}:${node.text ?? ''}`);
+                    }
+                  }
+                  return true;
+                });
+                return {
+                  label,
+                  didRun,
+                  text: editor.state.doc.textBetween(0, editor.state.doc.content.size, ' ', ' '),
+                  marks,
+                };
+              };
+              const trace = [summarize('accepted')];
+              for (let index = 1; index <= 5; index += 1) {
+                const didRun = \(EpdocEditorCommand.runCommand(name: "undo", argsJSON: Data("[]".utf8)).javaScriptExpression());
+                window.epdocOutboundBridge.flushSync();
+                trace.push(summarize(`undo-${index}`, didRun));
+              }
+              return JSON.stringify(trace);
+            })()
+            """,
+            in: webView
+        )
+        #expect(undoTrace.contains(#""text":"Alpha Bravo Charlie""#), "undo trace: \(undoTrace)")
     }
 
     @Test("editorReady decodes from canonical body shape")
@@ -161,6 +576,7 @@ nonisolated struct EpdocEditorBridgeTests {
     func documentStatsChangedDecodes() {
         let body: [String: Any] = [
             "type": "documentStatsChanged",
+            "epoch": 3,
             "wordCount": 12,
             "characterCount": 96,
         ]
@@ -170,6 +586,79 @@ nonisolated struct EpdocEditorBridgeTests {
         }
         #expect(wordCount == 12)
         #expect(characterCount == 96)
+        #expect(EpdocBridgeMessage.decodeEpoch(messageBody: body) == 3)
+    }
+
+    @Test("loadSettled decodes and carries the optional load epoch")
+    func loadSettledDecodes() {
+        let body: [String: Any] = [
+            "type": "loadSettled",
+            "epoch": 4,
+        ]
+        guard case .loadSettled? = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "must decode .loadSettled")
+            return
+        }
+        #expect(EpdocBridgeMessage.decodeEpoch(messageBody: body) == 4)
+    }
+
+    @Test("suggestionResolved decodes accepted and rejected decisions")
+    func suggestionResolvedDecodes() {
+        let body: [String: Any] = [
+            "type": "suggestionResolved",
+            "epoch": 5,
+            "suggestionId": "agent-42",
+            "state": "accepted",
+        ]
+        guard case let .suggestionResolved(resolution)? = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "must decode .suggestionResolved")
+            return
+        }
+        #expect(resolution.suggestionID == "agent-42")
+        #expect(resolution.state == .accepted)
+        #expect(EpdocBridgeMessage.decodeEpoch(messageBody: body) == 5)
+        #expect(EpdocBridgeMessage.decode(messageBody: [
+            "type": "suggestionResolved",
+            "suggestionId": "agent-42",
+            "state": "pending",
+        ]) == nil)
+    }
+
+    @Test("suggestionApplied decodes the original tracked span payload")
+    func suggestionAppliedDecodes() {
+        let body: [String: Any] = [
+            "type": "suggestionApplied",
+            "epoch": 6,
+            "id": "agent-42",
+            "author": "lumen",
+            "turnId": "turn-9",
+            "kind": "replacement",
+            "from": 10,
+            "to": 14,
+            "mapVersion": 2,
+            "before": "old",
+            "after": "new",
+            "rationale": "tighten wording",
+            "sourceCitation": "claim://abc",
+            "claimId": "claim:abc",
+        ]
+        guard case let .suggestionApplied(payload)? = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "must decode .suggestionApplied")
+            return
+        }
+        #expect(payload.id == "agent-42")
+        #expect(payload.author == "lumen")
+        #expect(payload.turnID == "turn-9")
+        #expect(payload.kind == "replacement")
+        #expect(payload.from == 10)
+        #expect(payload.to == 14)
+        #expect(payload.mapVersion == 2)
+        #expect(payload.before == "old")
+        #expect(payload.after == "new")
+        #expect(payload.rationale == "tighten wording")
+        #expect(payload.sourceCitation == "claim://abc")
+        #expect(payload.claimID == "claim:abc")
+        #expect(EpdocBridgeMessage.decodeEpoch(messageBody: body) == 6)
     }
 
     @Test("storeImageAsset decodes pasted or dropped image bytes")
@@ -207,7 +696,7 @@ nonisolated struct EpdocEditorBridgeTests {
         controller.handleBridgeMessage(.editorReady)
 
         #expect(controller.documentTitle == "Loaded Doc")
-        #expect(commands == [.setContent(json: json), .focusStart],
+        #expect(commands == [.setContentForLoad(json: json, epoch: 1), .focusStart],
                 "editorReady must push the package's canonical content exactly once, then focus the editor.")
     }
 
@@ -226,7 +715,7 @@ nonisolated struct EpdocEditorBridgeTests {
             commands.append(command)
         }
 
-        #expect(commands == [.setContent(json: json), .focusStart],
+        #expect(commands == [.setContentForLoad(json: json, epoch: 1), .focusStart],
                 "If WKWebView emits editorReady before SwiftUI updateNSView installs dispatch, initial content must still flush after dispatch is installed.")
     }
 
@@ -246,8 +735,109 @@ nonisolated struct EpdocEditorBridgeTests {
         controller.handleBridgeMessage(.editorReady)
 
         #expect(controller.latestMarkdownSnapshot == markdown)
-        #expect(commands == [.setMarkdown(markdown: markdown), .focusStart],
+        #expect(commands == [.setMarkdownForLoad(markdown: markdown, epoch: 1), .focusStart],
                 "markdownCanonical loads must initialize TipTap through setMarkdown, not stale package JSON.")
+    }
+
+    @MainActor
+    @Test("chrome controller forwards suggestion resolution decisions")
+    func chromeControllerForwardsSuggestionResolutionDecisions() {
+        let controller = EpdocEditorChromeController()
+        var resolutions: [EpdocSuggestionResolution] = []
+
+        controller.onSuggestionResolved = { resolution in
+            resolutions.append(resolution)
+        }
+
+        controller.handleBridgeMessage(
+            .suggestionResolved(EpdocSuggestionResolution(suggestionID: "agent-7", state: .rejected)),
+            epoch: 0
+        )
+
+        #expect(resolutions == [
+            EpdocSuggestionResolution(suggestionID: "agent-7", state: .rejected),
+        ])
+    }
+
+    @MainActor
+    @Test("chrome controller forwards applied suggestion spans")
+    func chromeControllerForwardsAppliedSuggestionSpans() {
+        let controller = EpdocEditorChromeController()
+        var payloads: [EpdocSuggestionSpanPayload] = []
+        let payload = EpdocSuggestionSpanPayload(
+            id: "agent-8",
+            author: "lumen",
+            turnID: "turn-8",
+            kind: "insertion",
+            from: 3,
+            to: 3,
+            mapVersion: 1,
+            before: "",
+            after: "inserted",
+            claimID: "claim:8"
+        )
+
+        controller.onSuggestionApplied = { payload in
+            payloads.append(payload)
+        }
+
+        controller.handleBridgeMessage(.suggestionApplied(payload), epoch: 0)
+
+        #expect(payloads == [payload])
+    }
+
+    @MainActor
+    @Test("chrome controller ignores stale epoch suggestion events")
+    func chromeControllerIgnoresStaleEpochSuggestionEvents() {
+        let controller = EpdocEditorChromeController()
+        let json = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let stalePayload = EpdocSuggestionSpanPayload(
+            id: "stale-agent-edit",
+            author: "lumen",
+            turnID: "turn-stale",
+            kind: "replacement",
+            from: 1,
+            to: 3,
+            mapVersion: 1,
+            before: "old",
+            after: "new",
+            claimID: "claim:stale"
+        )
+        let freshPayload = EpdocSuggestionSpanPayload(
+            id: "fresh-agent-edit",
+            author: "lumen",
+            turnID: "turn-fresh",
+            kind: "insertion",
+            from: 4,
+            to: 4,
+            mapVersion: 2,
+            before: "",
+            after: "fresh",
+            claimID: "claim:fresh"
+        )
+        var payloads: [EpdocSuggestionSpanPayload] = []
+        var resolutions: [EpdocSuggestionResolution] = []
+
+        controller.onSuggestionApplied = { payloads.append($0) }
+        controller.onSuggestionResolved = { resolutions.append($0) }
+        controller.loadInitialContent(json, title: "Epoch 1")
+        #expect(controller.currentLoadEpoch == 1)
+
+        controller.handleBridgeMessage(.suggestionApplied(stalePayload), epoch: 0)
+        controller.handleBridgeMessage(
+            .suggestionResolved(EpdocSuggestionResolution(suggestionID: "stale-agent-edit", state: .accepted)),
+            epoch: 0
+        )
+        controller.handleBridgeMessage(.suggestionApplied(freshPayload), epoch: 1)
+        controller.handleBridgeMessage(
+            .suggestionResolved(EpdocSuggestionResolution(suggestionID: "fresh-agent-edit", state: .accepted)),
+            epoch: 1
+        )
+
+        #expect(payloads == [freshPayload])
+        #expect(resolutions == [
+            EpdocSuggestionResolution(suggestionID: "fresh-agent-edit", state: .accepted),
+        ])
     }
 
     @MainActor
@@ -264,21 +854,21 @@ nonisolated struct EpdocEditorBridgeTests {
         var changedMarkdown: [String] = []
 
         controller.onContentChanged = { changedJSON.append($0) }
-        controller.onMarkdownChanged = { changedMarkdown.append($0) }
+        controller.onMarkdownChanged = { markdown, _ in changedMarkdown.append(markdown) }
         controller.toolbarModel.isDirty = true
 
         controller.loadInitialContent(emptyJSON, title: "Loaded MD", markdownSource: markdown)
         controller.installEditorDispatch { _ in }
         controller.handleBridgeMessage(.editorReady)
-        controller.handleBridgeMessage(.contentDidChange(json: renderedJSON))
-        controller.handleBridgeMessage(.markdownDidChange(markdown: markdown))
+        controller.handleBridgeMessage(.contentDidChange(json: renderedJSON), epoch: 1)
+        controller.handleBridgeMessage(.markdownDidChange(markdown: markdown, writeback: nil), epoch: 1)
 
         #expect(!controller.toolbarModel.isDirty)
         #expect(changedJSON.isEmpty)
         #expect(changedMarkdown.isEmpty)
 
-        controller.handleBridgeMessage(.contentDidChange(json: editedJSON))
-        controller.handleBridgeMessage(.markdownDidChange(markdown: "# Edited\n"))
+        controller.handleBridgeMessage(.contentDidChange(json: editedJSON), epoch: 1)
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "# Edited\n", writeback: nil), epoch: 1)
 
         #expect(controller.toolbarModel.isDirty)
         #expect(changedJSON == [editedJSON])
@@ -286,12 +876,327 @@ nonisolated struct EpdocEditorBridgeTests {
 
         let raceController = EpdocEditorChromeController()
         var racedMarkdown: [String] = []
-        raceController.onMarkdownChanged = { racedMarkdown.append($0) }
+        raceController.onMarkdownChanged = { markdown, _ in racedMarkdown.append(markdown) }
         raceController.loadInitialContent(emptyJSON, title: "Loaded MD", markdownSource: markdown)
         raceController.installEditorDispatch { _ in }
         raceController.handleBridgeMessage(.editorReady)
-        raceController.handleBridgeMessage(.markdownDidChange(markdown: "# User edit\n"))
+        raceController.handleBridgeMessage(.markdownDidChange(markdown: "# User edit\n", writeback: nil), epoch: 1)
         #expect(racedMarkdown == ["# User edit\n"])
+    }
+
+    @MainActor
+    @Test("chrome controller re-pushes non-empty Markdown source when initial bridge echo is empty")
+    func chromeControllerRepushesNonEmptyMarkdownSourceAfterEmptyInitialEcho() {
+        let controller = EpdocEditorChromeController()
+        let emptyJSON = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let markdown = """
+        ---
+        title: Loaded table
+        ---
+
+        | A | B |
+        | - | - |
+        | 1 | 2 |
+        """
+        var commands: [EpdocEditorCommand] = []
+        var changedMarkdown: [String] = []
+
+        controller.onMarkdownChanged = { markdown, _ in
+            changedMarkdown.append(markdown)
+        }
+        controller.loadInitialContent(emptyJSON, title: "Loaded table", markdownSource: markdown)
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+        controller.handleBridgeMessage(.editorReady)
+
+        #expect(commands == [.setMarkdownForLoad(markdown: markdown, epoch: 1), .focusStart])
+        commands.removeAll()
+
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "", writeback: nil), epoch: 1)
+        #expect(changedMarkdown.isEmpty)
+        #expect(controller.latestMarkdownSnapshot == markdown)
+        #expect(commands == [.setMarkdownForLoad(markdown: markdown, epoch: 1)])
+
+        commands.removeAll()
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "   \n", writeback: nil), epoch: 1)
+        #expect(changedMarkdown.isEmpty)
+        #expect(controller.latestMarkdownSnapshot == markdown)
+        #expect(commands == [.setMarkdownForLoad(markdown: markdown, epoch: 1)])
+
+        commands.removeAll()
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "", writeback: nil), epoch: 1)
+        #expect(changedMarkdown.isEmpty)
+        #expect(controller.latestMarkdownSnapshot == markdown)
+        #expect(commands.isEmpty)
+
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "# User edit\n", writeback: nil), epoch: 1)
+        #expect(changedMarkdown == ["# User edit\n"])
+        #expect(controller.latestMarkdownSnapshot == "# User edit\n")
+    }
+
+    @MainActor
+    @Test("chrome controller re-pushes non-empty Markdown source after clean post-load blank snapshot")
+    func chromeControllerRepushesNonEmptyMarkdownSourceAfterCleanPostLoadBlankSnapshot() {
+        let controller = EpdocEditorChromeController()
+        let emptyJSON = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let markdown = """
+        # Post-load Blank Proof
+
+        | A | B |
+        | - | - |
+        | 1 | 2 |
+        """
+        var commands: [EpdocEditorCommand] = []
+        var changedMarkdown: [String] = []
+
+        controller.onMarkdownChanged = { markdown, _ in
+            changedMarkdown.append(markdown)
+        }
+        controller.loadInitialContent(emptyJSON, title: "Post-load Blank Proof", markdownSource: markdown)
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+        controller.handleBridgeMessage(.editorReady)
+        controller.handleBridgeMessage(.markdownDidChange(markdown: markdown, writeback: nil), epoch: 1)
+        controller.handleBridgeMessage(.loadSettled, epoch: 1)
+        commands.removeAll()
+
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "", writeback: nil), epoch: 1)
+
+        #expect(changedMarkdown.isEmpty)
+        #expect(controller.latestMarkdownSnapshot == markdown)
+        #expect(commands == [.setMarkdownForLoad(markdown: markdown, epoch: 2), .focusStart])
+
+        commands.removeAll()
+        controller.handleBridgeMessage(.loadSettled, epoch: 2)
+        controller.handleBridgeMessage(.contentDidChange(json: emptyJSON), epoch: 2)
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "", writeback: nil), epoch: 2)
+
+        #expect(changedMarkdown == [""])
+        #expect(controller.latestMarkdownSnapshot == "")
+        #expect(controller.toolbarModel.isDirty)
+        #expect(commands.isEmpty)
+    }
+
+    @MainActor
+    @Test("Markdown Document surface reactivates from non-empty host when WebKit remembered an empty snapshot")
+    func markdownDocumentSurfaceReactivatesFromNonEmptyHostWhenWebKitSnapshotWasEmpty() {
+        let coordinator = MarkdownDocumentSurfaceCoordinator()
+        let emptyJSON = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let markdown = """
+        # Host Recovery Source
+
+        | A | B |
+        | - | - |
+        | 1 | 2 |
+        """
+        var commands: [EpdocEditorCommand] = []
+
+        coordinator.configure(
+            pageId: "empty-webkit-reactivation",
+            title: "Host Recovery Source",
+            markdown: markdown,
+            theme: .light,
+            noteRelativePath: "notes/empty-webkit-reactivation.md",
+            isEditable: true,
+            isActive: false,
+            provenanceStore: nil,
+            saveMarkdown: { _ in true }
+        )
+        coordinator.controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+        coordinator.controller.handleBridgeMessage(.editorReady)
+        coordinator.controller.handleBridgeMessage(.loadSettled, epoch: 1)
+        commands.removeAll()
+
+        coordinator.controller.loadInitialContent(emptyJSON, title: "Host Recovery Source", markdownSource: "")
+        commands.removeAll()
+
+        #expect(coordinator.controller.latestMarkdownSnapshot == "")
+        #expect(coordinator.controller.toolbarModel.characterCount == 0)
+
+        coordinator.configure(
+            pageId: "empty-webkit-reactivation",
+            title: "Host Recovery Source",
+            markdown: markdown,
+            theme: .light,
+            noteRelativePath: "notes/empty-webkit-reactivation.md",
+            isEditable: true,
+            isActive: true,
+            provenanceStore: nil,
+            saveMarkdown: { _ in true }
+        )
+
+        #expect(commands == [.setMarkdownForLoad(markdown: markdown, epoch: 3), .focusStart])
+        #expect(coordinator.controller.latestMarkdownSnapshot == markdown)
+        #expect(!coordinator.controller.toolbarModel.isDirty)
+    }
+
+    @MainActor
+    @Test("clean Epdoc assist context uses canonical host Markdown over a blank bridge snapshot")
+    func cleanEpdocAssistContextUsesCanonicalHostMarkdown() {
+        let hostMarkdown = """
+        # June Context
+
+        | A | B |
+        | - | - |
+        | 1 | 2 |
+        """
+
+        #expect(
+            MarkdownDocumentSurfaceCoordinator.resolvedAssistContextMarkdown(
+                hostMarkdown: hostMarkdown,
+                latestSnapshot: "",
+                latestMarkdown: hostMarkdown,
+                isDirty: false
+            ) == hostMarkdown
+        )
+        #expect(
+            MarkdownDocumentSurfaceCoordinator.resolvedAssistContextMarkdown(
+                hostMarkdown: hostMarkdown,
+                latestSnapshot: "",
+                latestMarkdown: "",
+                isDirty: true
+            ).isEmpty
+        )
+        #expect(
+            MarkdownDocumentSurfaceCoordinator.resolvedAssistContextMarkdown(
+                hostMarkdown: hostMarkdown,
+                latestSnapshot: "# Unsaved live edit\n",
+                latestMarkdown: "# Unsaved live edit\n",
+                isDirty: true
+            ) == "# Unsaved live edit\n"
+        )
+    }
+
+    @MainActor
+    @Test("chrome controller re-arms last Markdown source for WebKit blank recovery")
+    func chromeControllerRecoversLastMarkdownSourceAfterWebContentTermination() {
+        let controller = EpdocEditorChromeController()
+        let emptyJSON = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let editedJSON = #"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Edited table"}]}]}"#
+            .data(using: .utf8)!
+        let loadedMarkdown = """
+        # Loaded table
+
+        | A | B |
+        | - | - |
+        | 1 | 2 |
+        """
+        let editedMarkdown = """
+        # Edited table
+
+        | A | B |
+        | - | - |
+        | 3 | 4 |
+        """
+        var commands: [EpdocEditorCommand] = []
+        var changedMarkdown: [String] = []
+
+        controller.onMarkdownChanged = { markdown, _ in
+            changedMarkdown.append(markdown)
+        }
+        controller.loadInitialContent(emptyJSON, title: "Loaded table", markdownSource: loadedMarkdown)
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+        controller.handleBridgeMessage(.editorReady)
+        controller.handleBridgeMessage(.markdownDidChange(markdown: loadedMarkdown, writeback: nil), epoch: 1)
+        controller.handleBridgeMessage(.contentDidChange(json: emptyJSON), epoch: 1)
+        controller.handleBridgeMessage(.contentDidChange(json: editedJSON), epoch: 1)
+        controller.handleBridgeMessage(.markdownDidChange(markdown: editedMarkdown, writeback: nil), epoch: 1)
+
+        #expect(controller.latestMarkdownSnapshot == editedMarkdown)
+        #expect(controller.toolbarModel.isDirty)
+        #expect(changedMarkdown == [editedMarkdown])
+        commands.removeAll()
+
+        #expect(controller.prepareForWebContentProcessRecovery())
+        #expect(controller.currentLoadEpoch == 2)
+        #expect(controller.latestMarkdownSnapshot == editedMarkdown)
+        #expect(controller.toolbarModel.isDirty)
+
+        controller.handleBridgeMessage(.editorReady)
+        #expect(commands == [.setMarkdownForLoad(markdown: editedMarkdown, epoch: 2), .focusStart])
+        commands.removeAll()
+
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "", writeback: nil), epoch: 2)
+        #expect(commands == [.setMarkdownForLoad(markdown: editedMarkdown, epoch: 2)])
+        #expect(changedMarkdown == [editedMarkdown])
+        #expect(controller.latestMarkdownSnapshot == editedMarkdown)
+    }
+
+    @MainActor
+    @Test("chrome controller rejects epochless persistence and provenance events after host load")
+    func chromeControllerRejectsEpochlessPersistenceAndProvenanceEventsAfterHostLoad() {
+        let controller = EpdocEditorChromeController()
+        let emptyJSON = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let editedJSON = #"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Edited"}]}]}"#
+            .data(using: .utf8)!
+        let payload = EpdocSuggestionSpanPayload(
+            id: "epochless-agent-edit",
+            author: "lumen",
+            turnID: "turn-epochless",
+            kind: "insertion",
+            from: 1,
+            to: 1,
+            mapVersion: 1,
+            before: "",
+            after: "agent",
+            claimID: "claim:epochless"
+        )
+        var changedJSON: [Data] = []
+        var changedMarkdown: [String] = []
+        var payloads: [EpdocSuggestionSpanPayload] = []
+        var resolutions: [EpdocSuggestionResolution] = []
+
+        controller.onContentChanged = { changedJSON.append($0) }
+        controller.onMarkdownChanged = { markdown, _ in changedMarkdown.append(markdown) }
+        controller.onSuggestionApplied = { payloads.append($0) }
+        controller.onSuggestionResolved = { resolutions.append($0) }
+        controller.loadInitialContent(emptyJSON, title: "Epoch Guard")
+
+        controller.handleBridgeMessage(.contentDidChange(json: editedJSON))
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "# Edited\n", writeback: nil))
+        controller.handleBridgeMessage(.documentStatsChanged(wordCount: 12, characterCount: 80))
+        controller.handleBridgeMessage(.loadSettled)
+        controller.handleBridgeMessage(.suggestionApplied(payload))
+        controller.handleBridgeMessage(
+            .suggestionResolved(EpdocSuggestionResolution(suggestionID: "epochless-agent-edit", state: .accepted))
+        )
+
+        #expect(changedJSON.isEmpty)
+        #expect(changedMarkdown.isEmpty)
+        #expect(payloads.isEmpty)
+        #expect(resolutions.isEmpty)
+        #expect(!controller.toolbarModel.isDirty)
+        #expect(controller.toolbarModel.wordCount == 0)
+        #expect(controller.toolbarModel.characterCount == 0)
+    }
+
+    @MainActor
+    @Test("chrome controller ignores stale epoch editor updates after a newer host load")
+    func chromeControllerIgnoresStaleEpochUpdates() {
+        let controller = EpdocEditorChromeController()
+        let json = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let stale = #"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Stale"}]}]}"#
+            .data(using: .utf8)!
+        let fresh = #"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Fresh"}]}]}"#
+            .data(using: .utf8)!
+        var observed: [Data] = []
+
+        controller.onContentChanged = { observed.append($0) }
+        controller.loadInitialContent(json, title: "Epoch 1")
+        #expect(controller.currentLoadEpoch == 1)
+
+        controller.handleBridgeMessage(.loadSettled, epoch: 1)
+        controller.handleBridgeMessage(.contentDidChange(json: stale), epoch: 0)
+        controller.handleBridgeMessage(.contentDidChange(json: fresh), epoch: 1)
+
+        #expect(observed == [fresh])
+        #expect(controller.toolbarModel.isDirty)
     }
 
     @MainActor
@@ -319,7 +1224,7 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(controller.toolbarModel.widthMode == width)
         #expect(controller.canonicalWidthMode == width)
         #expect(commands == [
-            .setMarkdown(markdown: markdown),
+            .setMarkdownForLoad(markdown: markdown, epoch: 1),
             .setContentWidth(mode: width),
             .focusStart,
         ])
@@ -417,20 +1322,38 @@ nonisolated struct EpdocEditorBridgeTests {
     @Test("chrome controller retains full-fidelity markdown snapshots from the JS bridge")
     func chromeControllerRetainsMarkdownSnapshots() {
         let controller = EpdocEditorChromeController()
-        var observed: [String] = []
-        controller.onMarkdownChanged = { observed.append($0) }
+        let writeback = EpdocMarkdownWritebackRegion(
+            byteFrom: 14,
+            byteTo: 22,
+            codeUnitFrom: 14,
+            codeUnitTo: 22,
+            changedFrom: 2,
+            changedTo: 3,
+            blockIndexFrom: 1,
+            blockIndexTo: 2,
+            blockMarkdown: "[[Note]]\n"
+        )
+        var observed: [(markdown: String, writeback: EpdocMarkdownWritebackRegion?)] = []
+        controller.onMarkdownChanged = { markdown, writeback in
+            observed.append((markdown, writeback))
+        }
 
-        controller.handleBridgeMessage(.markdownDidChange(markdown: "# Canonical\n\n[[Note]]\n"))
+        controller.handleBridgeMessage(.markdownDidChange(
+            markdown: "# Canonical\n\n[[Note]]\n",
+            writeback: writeback
+        ), epoch: 0)
 
         #expect(controller.latestMarkdownSnapshot == "# Canonical\n\n[[Note]]\n")
-        #expect(observed == ["# Canonical\n\n[[Note]]\n"])
+        #expect(observed.count == 1)
+        #expect(observed.first?.markdown == "# Canonical\n\n[[Note]]\n")
+        #expect(observed.first?.writeback == writeback)
     }
 
     @MainActor
     @Test("loading a new initial JSON clears stale markdown snapshots")
     func chromeControllerClearsMarkdownSnapshotOnLoad() {
         let controller = EpdocEditorChromeController()
-        controller.handleBridgeMessage(.markdownDidChange(markdown: "# Previous\n"))
+        controller.handleBridgeMessage(.markdownDidChange(markdown: "# Previous\n", writeback: nil), epoch: 0)
         #expect(controller.latestMarkdownSnapshot == "# Previous\n")
 
         let json = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
@@ -512,7 +1435,7 @@ nonisolated struct EpdocEditorBridgeTests {
         let body: [String: Any] = [
             "type": "caretChanged",
             "rect": ["x": 12.5, "y": 34.0, "w": 1.0, "h": 18.0],
-            "selection": ["from": 5, "to": 5, "empty": true],
+            "selection": ["from": 5, "to": 9, "empty": false, "text": "seed"],
             "marks": [
                 "bold": true,
                 "italic": false,
@@ -531,8 +1454,9 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(rect.width == 1.0)
         #expect(rect.height == 18.0)
         #expect(selection.from == 5)
-        #expect(selection.to == 5)
-        #expect(selection.isEmpty == true)
+        #expect(selection.to == 9)
+        #expect(selection.isEmpty == false)
+        #expect(selection.selectedText == "seed")
         #expect(marks.isBoldActive == true)
         #expect(marks.isItalicActive == false)
         #expect(marks.isStrikeActive == true)
@@ -575,7 +1499,7 @@ nonisolated struct EpdocEditorBridgeTests {
     func requestBubbleMenuDecodes() {
         let body: [String: Any] = [
             "type": "requestBubbleMenu",
-            "selection": ["from": 10, "to": 25, "empty": false],
+            "selection": ["from": 10, "to": 25, "empty": false, "text": "selected claim"],
             "anchor": ["x": 50, "y": 60, "w": 200, "h": 18],
         ]
         guard case let .requestBubbleMenu(selection, anchor) = EpdocBridgeMessage.decode(messageBody: body) else {
@@ -585,6 +1509,7 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(selection.from == 10)
         #expect(selection.to == 25)
         #expect(selection.isEmpty == false)
+        #expect(selection.selectedText == "selected claim")
         #expect(anchor.width == 200)
     }
 
@@ -634,6 +1559,15 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(EpdocBridgeMessage.decode(messageBody: ["type": "requestBubbleMenu",
                                                        "selection": ["from": 0, "to": 0, "empty": "true"],
                                                        "anchor": ["x": 0, "y": 0, "w": 0, "h": 0]]) == nil)
+        // requestBubbleMenu with oversized selection text
+        #expect(EpdocBridgeMessage.decode(messageBody: ["type": "requestBubbleMenu",
+                                                       "selection": [
+                                                           "from": 0,
+                                                           "to": 1,
+                                                           "empty": false,
+                                                           "text": String(repeating: "x", count: EpdocBridgeSelection.maxSelectedTextCharacters + 4),
+                                                       ],
+                                                       "anchor": ["x": 0, "y": 0, "w": 0, "h": 0]]) == nil)
     }
 
     // MARK: - Swift → JS commands (W7.17 namespaced surface)
@@ -645,6 +1579,15 @@ nonisolated struct EpdocEditorBridgeTests {
         let expr = cmd.javaScriptExpression()
         #expect(expr == #"window.epistemos.setContent("{\"type\":\"doc\",\"content\":[]}")"#,
                 "setContent must call window.epistemos.setContent(jsonString); got: \(expr)")
+    }
+
+    @Test("epoch-stamped load commands pass the native load epoch into JS")
+    func epochStampedLoadCommandsRouteThroughEpistemosNamespace() {
+        let json = #"{"type":"doc","content":[]}"#.data(using: .utf8)!
+        #expect(EpdocEditorCommand.setContentForLoad(json: json, epoch: 7).javaScriptExpression()
+                == #"window.epistemos.setContent("{\"type\":\"doc\",\"content\":[]}", 7)"#)
+        #expect(EpdocEditorCommand.setMarkdownForLoad(markdown: "# Claim", epoch: 8).javaScriptExpression()
+                == ##"window.epistemos.setMarkdown("# Claim", 8)"##)
     }
 
     @Test("setMarkdown routes through window.epistemos.setMarkdown")
@@ -699,6 +1642,31 @@ nonisolated struct EpdocEditorBridgeTests {
                 == #"window.epistemos.runCommand("clearEpdocAIDiff", ...[])"#)
     }
 
+    @Test("tracked suggestion commands use the SuggestionAdapter bridge contract")
+    func trackedSuggestionCommandsUseAdapterBridgeContract() {
+        let payload = EpdocSuggestionSpanPayload(
+            id: "span-1",
+            author: "june",
+            turnID: "turn-1",
+            kind: "replacement",
+            from: 5,
+            to: 12,
+            mapVersion: 1,
+            before: "old",
+            after: "new",
+            rationale: "tighten",
+            sourceCitation: "source:alpha",
+            claimID: "claim-alpha"
+        )
+
+        #expect(EpdocEditorCommand.applySuggestion(payload: payload).javaScriptExpression()
+                == #"window.epistemos.runCommand("applySuggestion", ...[{"id":"span-1","author":"june","turnId":"turn-1","kind":"replacement","from":5,"to":12,"mapVersion":1,"before":"old","after":"new","rationale":"tighten","sourceCitation":"source:alpha","claimId":"claim-alpha"}])"#)
+        #expect(EpdocEditorCommand.acceptSuggestion(id: "span-1").javaScriptExpression()
+                == #"window.epistemos.runCommand("acceptSuggestion", ...["span-1"])"#)
+        #expect(EpdocEditorCommand.rejectSuggestion(id: "span-1").javaScriptExpression()
+                == #"window.epistemos.runCommand("rejectSuggestion", ...["span-1"])"#)
+    }
+
     @Test("setContentWidth routes through the namespaced inbound bridge")
     func setContentWidthCommand() {
         #expect(EpdocEditorCommand.setContentWidth(mode: .normal).javaScriptExpression() == #"window.epistemos.setContentWidth("720px")"#)
@@ -747,6 +1715,31 @@ nonisolated struct EpdocEditorBridgeTests {
                 "full-document JSON serialization must not run in the live update callback.")
         #expect(!updateBlock.contains("postDocumentStats(ed)"),
                 "CharacterCount word/character scans must not run in the live update callback.")
+    }
+
+    @Test("document editor exposes immediate snapshot flush for native saves")
+    func documentEditorExposesImmediateSnapshotFlushForNativeSaves() throws {
+        let inbound = try loadMirroredSourceTextFile("js-editor/src/bridge/inbound.ts")
+        let index = try loadMirroredSourceTextFile("js-editor/src/index.ts")
+        let webkitTypes = try loadMirroredSourceTextFile("js-editor/src/types/webkit.d.ts")
+        let chrome = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorChromeView.swift")
+
+        #expect(EpdocEditorCommand.flushDocumentSnapshot.javaScriptExpression() == "window.epistemos.flushDocumentSnapshot()")
+        #expect(inbound.contains("flushDocumentSnapshot(): void"))
+        #expect(inbound.contains("getMarkdown(): string"))
+        #expect(inbound.contains("postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot)"))
+        #expect(webkitTypes.contains("flushDocumentSnapshot(): void;"))
+        #expect(webkitTypes.contains("getMarkdown(): string;"))
+        #expect(index.contains("markdownSnapshotWithVisibleTextFallback(ed)"))
+        #expect(index.contains("function markdownBodyText(markdown: string): string"))
+        #expect(index.contains("visibleText.trim().length > 0 && markdownBodyText(markdown).trim().length === 0"),
+                "Live markdownDidChange snapshots must not save frontmatter-only serializer output over visible document text.")
+        #expect(chrome.contains("editor.state.doc.textBetween(0, editor.state.doc.content.size"),
+                "Native save/lens-switch snapshots must fall back to live visible editor text if Markdown serialization returns empty or frontmatter-only.")
+        #expect(chrome.contains("const markdownBodyText = (value) => {"))
+        #expect(chrome.contains("markdownBodyText(markdown).trim().length === 0"))
+        #expect(chrome.contains("if (typeof markdown === 'string' && markdown.trim().length > 0) return markdown;"))
+        #expect(chrome.contains("if (typeof visibleText === 'string' && visibleText.trim().length > 0) return visibleText;"))
     }
 
     @Test("heavy epdoc blocks are paint-contained for scroll fluidity")
@@ -811,5 +1804,315 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(css.contains("font-family: var(--epdoc-h1-font);"))
         #expect(css.contains("font-family: var(--epdoc-h2-font);"))
         #expect(css.contains("font-family: var(--epdoc-h3-font);"))
+    }
+
+    @MainActor
+    private static func makeBundledEditorWebView(
+        probe: EpdocWebKitBridgeProbe
+    ) -> (webView: WKWebView, userContentController: WKUserContentController) {
+        let userContentController = WKUserContentController()
+        userContentController.add(probe, name: "epdoc")
+
+        let configuration = WKWebViewConfiguration()
+        configuration.userContentController = userContentController
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.setURLSchemeHandler(
+            EpdocEditorURLSchemeHandler(),
+            forURLScheme: epdocEditorURLScheme
+        )
+
+        let webView = WKWebView(
+            frame: CGRect(x: 0, y: 0, width: 960, height: 640),
+            configuration: configuration
+        )
+        webView.navigationDelegate = probe
+        return (webView, userContentController)
+    }
+
+    @MainActor
+    private static func waitForBundledOutboundBridge(in webView: WKWebView) async throws {
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline {
+            if try await evaluateBool(
+                "typeof window.epdocOutboundBridge === 'object' && typeof window.epdocOutboundBridge.flushSync === 'function'",
+                in: webView
+            ) {
+                return
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw EpdocWebKitBridgeProbeError.timeout("bundled outbound bridge did not initialize")
+    }
+
+    @MainActor
+    private static func waitForBundledInboundCommands(in webView: WKWebView) async throws {
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline {
+            if try await evaluateBool(
+                "typeof window.epistemos === 'object' && typeof window.epistemos.runCommand === 'function' && typeof window.epistemos.setMarkdown === 'function' && typeof window.epistemos.getMarkdown === 'function'",
+                in: webView
+            ) {
+                return
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw EpdocWebKitBridgeProbeError.timeout("bundled inbound commands did not initialize")
+    }
+
+    @MainActor
+    private static func evaluateBool(_ script: String, in webView: WKWebView) async throws -> Bool {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+            webView.evaluateJavaScript(script) { result, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: (result as? Bool) == true)
+            }
+        }
+    }
+
+    @MainActor
+    private static func evaluateString(_ script: String, in webView: WKWebView) async throws -> String {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+            webView.evaluateJavaScript(script) { result, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: result as? String ?? "")
+            }
+        }
+    }
+
+    @MainActor
+    private static func waitForEditorText(
+        _ expected: String,
+        in webView: WKWebView,
+        timeout: TimeInterval = 8
+    ) async throws -> String {
+        let script = """
+        (() => {
+          const editor = window.epdocEditor;
+          if (!editor) return '';
+          return editor.state.doc.textBetween(0, editor.state.doc.content.size, ' ', ' ');
+        })()
+        """
+        let deadline = Date().addingTimeInterval(timeout)
+        var latest = ""
+        while Date() < deadline {
+            latest = try await evaluateString(script, in: webView)
+            if latest == expected {
+                return latest
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw EpdocWebKitBridgeProbeError.timeout(
+            "editor text did not become \(expected.debugDescription); latest \(latest.debugDescription)"
+        )
+    }
+
+    @MainActor
+    private static func evaluateScript(_ script: String, in webView: WKWebView) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            webView.evaluateJavaScript(script) { _, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume()
+            }
+        }
+    }
+}
+
+@MainActor
+private final class EpdocWebKitBridgeProbe: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+    private var didFinishNavigation = false
+    private var navigationError: Error?
+    private var messageBodies: [Any] = []
+
+    func waitForNavigation(timeout: TimeInterval = 12) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let navigationError {
+                throw navigationError
+            }
+            if didFinishNavigation {
+                return
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw EpdocWebKitBridgeProbeError.timeout("WKWebView did not finish loading editor.html")
+    }
+
+    func waitForDecodedMessages(
+        containingSuggestionID suggestionID: String,
+        markdown expectedMarkdown: String,
+        writebackBlockMarkdown expectedBlockMarkdown: String,
+        timeout: TimeInterval = 8
+    ) async throws -> [(message: EpdocBridgeMessage, epoch: Int?)] {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let decoded = messageBodies.flatMap { body in
+                EpdocBridgeMessage.decodeEnvelope(messageBody: body)
+            }
+            let hasWriteback = decoded.contains { entry in
+                if case let .markdownDidChange(markdown, writeback) = entry.message {
+                    return markdown == expectedMarkdown
+                        && writeback?.blockMarkdown == expectedBlockMarkdown
+                }
+                return false
+            }
+            let hasApplied = decoded.contains { entry in
+                if case let .suggestionApplied(payload) = entry.message {
+                    return payload.id == suggestionID
+                }
+                return false
+            }
+            let hasResolved = decoded.contains { entry in
+                if case let .suggestionResolved(resolution) = entry.message {
+                    return resolution.suggestionID == suggestionID
+                }
+                return false
+            }
+            if hasWriteback && hasApplied && hasResolved {
+                return decoded
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw EpdocWebKitBridgeProbeError.timeout(
+            "WKWebView did not deliver writeback and suggestion bridge payloads; observed \(debugSummaryForMessageBodies())"
+        )
+    }
+
+    func waitForSuggestionFlow(
+        containingSuggestionID suggestionID: String,
+        resolvedState: EpdocSuggestionResolutionState,
+        timeout: TimeInterval = 8
+    ) async throws -> [(message: EpdocBridgeMessage, epoch: Int?)] {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let decoded = messageBodies.flatMap { body in
+                EpdocBridgeMessage.decodeEnvelope(messageBody: body)
+            }
+            let hasApplied = decoded.contains { entry in
+                if case let .suggestionApplied(payload) = entry.message {
+                    return payload.id == suggestionID
+                }
+                return false
+            }
+            let hasResolved = decoded.contains { entry in
+                if case let .suggestionResolved(resolution) = entry.message {
+                    return resolution.suggestionID == suggestionID
+                        && resolution.state == resolvedState
+                }
+                return false
+            }
+            if hasApplied && hasResolved {
+                return decoded
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw EpdocWebKitBridgeProbeError.timeout(
+            "WKWebView did not deliver inbound suggestion flow payloads; observed \(debugSummaryForMessageBodies())"
+        )
+    }
+
+    private func debugSummaryForMessageBodies() -> String {
+        guard !messageBodies.isEmpty else { return "0 bodies" }
+        let summaries = messageBodies.suffix(12).enumerated().map { offset, body in
+            let index = messageBodies.count - messageBodies.suffix(12).count + offset
+            let rawDescription: String
+            if let dict = body as? [String: Any],
+               let type = dict["type"] as? String {
+                if type == "batch",
+                   let messages = dict["messages"] as? [Any] {
+                    let types = messages.compactMap { item in
+                        (item as? [String: Any])?["type"] as? String
+                    }
+                    rawDescription = "batch(\(types.joined(separator: ",")))"
+                } else {
+                    rawDescription = type
+                }
+            } else {
+                rawDescription = String(describing: Swift.type(of: body))
+            }
+            let decoded = EpdocBridgeMessage.decodeEnvelope(messageBody: body)
+                .map(Self.debugDescription(for:))
+                .joined(separator: ",")
+            return "#\(index): raw=\(rawDescription) decoded=[\(decoded)]"
+        }
+        return "\(messageBodies.count) bodies \(summaries.joined(separator: "; "))"
+    }
+
+    private static func debugDescription(for entry: (message: EpdocBridgeMessage, epoch: Int?)) -> String {
+        let epoch = entry.epoch.map(String.init) ?? "nil"
+        switch entry.message {
+        case .editorReady:
+            return "editorReady@\(epoch)"
+        case let .markdownDidChange(markdown, writeback):
+            let preview = String(markdown.prefix(32)).replacingOccurrences(of: "\n", with: "\\n")
+            let block = writeback?.blockMarkdown.replacingOccurrences(of: "\n", with: "\\n") ?? "nil"
+            return "markdown@\(epoch)(\(preview),writeback:\(block))"
+        case let .suggestionApplied(payload):
+            return "suggestionApplied@\(epoch)(\(payload.id))"
+        case let .suggestionResolved(resolution):
+            return "suggestionResolved@\(epoch)(\(resolution.suggestionID):\(resolution.state.rawValue))"
+        case .contentDidChange:
+            return "contentDidChange@\(epoch)"
+        case .loadSettled:
+            return "loadSettled@\(epoch)"
+        case .documentStatsChanged:
+            return "documentStatsChanged@\(epoch)"
+        case .caretChanged:
+            return "caretChanged@\(epoch)"
+        case .requestSlashMenu:
+            return "requestSlashMenu@\(epoch)"
+        case .requestBubbleMenu:
+            return "requestBubbleMenu@\(epoch)"
+        case .storeImageAsset:
+            return "storeImageAsset@\(epoch)"
+        case .requestHTMLWorkspace:
+            return "requestHTMLWorkspace@\(epoch)"
+        case let .error(message):
+            return "error@\(epoch)(\(message))"
+        }
+    }
+
+    nonisolated func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        MainActor.assumeIsolated {
+            messageBodies.append(message.body)
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        didFinishNavigation = true
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        navigationError = error
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        didFailProvisionalNavigation navigation: WKNavigation!,
+        withError error: Error
+    ) {
+        navigationError = error
+    }
+}
+
+private enum EpdocWebKitBridgeProbeError: Error, CustomStringConvertible {
+    case timeout(String)
+
+    var description: String {
+        switch self {
+        case .timeout(let message):
+            return message
+        }
     }
 }

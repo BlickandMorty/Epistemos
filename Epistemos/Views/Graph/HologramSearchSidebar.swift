@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-struct HologramSidebarNotesTreeSnapshot {
+struct HologramSidebarNotesTreeSnapshot: Sendable {
     let folderById: [String: GraphNodeRecord]
     let noteById: [String: GraphNodeRecord]
     let artifactById: [String: GraphNodeRecord]
@@ -25,21 +25,44 @@ struct HologramSidebarNotesTreeSnapshot {
     )
 }
 
+struct HologramSidebarCacheSnapshot: Sendable {
+    let notesTree: HologramSidebarNotesTreeSnapshot
+    let sortedSearchNodes: [GraphNodeRecord]
+}
+
 enum HologramSidebarNotesTreeBuilder {
+    @MainActor
     static func build(store: GraphStore) -> HologramSidebarNotesTreeSnapshot {
+        build(nodes: Array(store.nodes.values), edges: Array(store.edges.values))
+    }
+
+    nonisolated static func buildCache(
+        nodes: [GraphNodeRecord],
+        edges: [GraphEdgeRecord]
+    ) -> HologramSidebarCacheSnapshot {
+        HologramSidebarCacheSnapshot(
+            notesTree: build(nodes: nodes, edges: edges),
+            sortedSearchNodes: sortedNodeRecords(nodes)
+        )
+    }
+
+    nonisolated static func build(
+        nodes: [GraphNodeRecord],
+        edges: [GraphEdgeRecord]
+    ) -> HologramSidebarNotesTreeSnapshot {
         let folderById = Dictionary(
-            uniqueKeysWithValues: store.nodes.values
+            uniqueKeysWithValues: nodes
                 .filter { $0.type == .folder }
                 .map { ($0.id, $0) }
         )
         let noteById = Dictionary(
-            uniqueKeysWithValues: store.nodes.values
+            uniqueKeysWithValues: nodes
                 .filter { $0.type == .note }
                 .map { ($0.id, $0) }
         )
         let artifactTypes = Set(GraphNodeType.appLevelCases)
         let artifactById = Dictionary(
-            uniqueKeysWithValues: store.nodes.values
+            uniqueKeysWithValues: nodes
                 .filter { artifactTypes.contains($0.type) }
                 .map { ($0.id, $0) }
         )
@@ -54,7 +77,7 @@ enum HologramSidebarNotesTreeBuilder {
         var childFolderIds = Set<String>()
         var containedNoteIds = Set<String>()
 
-        for edge in store.edges.values where edge.type == .contains {
+        for edge in edges where edge.type == .contains {
             guard folderById[edge.sourceNodeId] != nil else { continue }
 
             if folderById[edge.targetNodeId] != nil {
@@ -104,7 +127,17 @@ enum HologramSidebarNotesTreeBuilder {
         )
     }
 
-    private static func sortedNodeIds<S: Sequence>(
+    nonisolated private static func sortedNodeRecords(_ nodes: [GraphNodeRecord]) -> [GraphNodeRecord] {
+        nodes.sorted { lhs, rhs in
+            let labelOrder = lhs.label.localizedCaseInsensitiveCompare(rhs.label)
+            if labelOrder == .orderedSame {
+                return lhs.id.localizedCaseInsensitiveCompare(rhs.id) == .orderedAscending
+            }
+            return labelOrder == .orderedAscending
+        }
+    }
+
+    nonisolated private static func sortedNodeIds<S: Sequence>(
         _ ids: S,
         in nodesById: [String: GraphNodeRecord]
     ) -> [String] where S.Element == String {
@@ -113,7 +146,7 @@ enum HologramSidebarNotesTreeBuilder {
         }
     }
 
-    private static func compareNodeLabels(
+    nonisolated private static func compareNodeLabels(
         _ lhs: String,
         _ rhs: String,
         in nodesById: [String: GraphNodeRecord]
@@ -127,7 +160,7 @@ enum HologramSidebarNotesTreeBuilder {
         return labelOrder == .orderedAscending
     }
 
-    private static func recursiveNoteCount(
+    nonisolated private static func recursiveNoteCount(
         folderId: String,
         childFolderIdsById: [String: [String]],
         noteIdsByFolderId: [String: [String]],
@@ -196,6 +229,7 @@ struct HologramSearchSidebar: View {
     @State private var resizeStartSize = CGSize(width: 400, height: 420)
     @State private var queryText = ""
     @State private var debouncedFilterTask: Task<Void, Never>?
+    @State private var cacheBuildTask: Task<Void, Never>?
     @State private var graphSearchResults: [GraphNodeRecord] = []
     @State private var graphSearchMatchCount = 0
     @State private var sortedGraphSearchNodes: [GraphNodeRecord] = []
@@ -284,11 +318,21 @@ struct HologramSearchSidebar: View {
         }
         .onAppear {
             refreshGraphSidebarCachesIfNeeded()
-            updateGraphSearchResults(for: queryText)
+            updateGraphSearchResultsIfNeeded(for: queryText)
         }
         .onChange(of: graphState.graphDataVersion) { _, _ in
+            guard graphState.currentRoute.isCanvas else { return }
             refreshGraphSidebarCachesIfNeeded()
-            updateGraphSearchResults(for: queryText)
+            updateGraphSearchResultsIfNeeded(for: queryText)
+        }
+        .onChange(of: graphState.currentRoute) { _, route in
+            guard route.isCanvas else {
+                cacheBuildTask?.cancel()
+                cacheBuildTask = nil
+                return
+            }
+            refreshGraphSidebarCachesIfNeeded()
+            updateGraphSearchResultsIfNeeded(for: queryText)
         }
         .onChange(of: queryEngine.resultVersion) { _, _ in
             guard !normalizedQueryText.isEmpty else { return }
@@ -299,6 +343,8 @@ struct HologramSearchSidebar: View {
         .onDisappear {
             debouncedFilterTask?.cancel()
             debouncedFilterTask = nil
+            cacheBuildTask?.cancel()
+            cacheBuildTask = nil
         }
         .unifiedFrostedGlass(
             theme: theme,
@@ -388,18 +434,36 @@ struct HologramSearchSidebar: View {
         .buttonStyle(.plain)
     }
 
+    @MainActor
     private func refreshGraphSidebarCachesIfNeeded() {
+        guard graphState.currentRoute.isCanvas else { return }
         let topologyVersion = graphState.store.topologyVersion
         guard cachedNotesTreeTopologyVersion != topologyVersion else { return }
-        cachedNotesTreeSnapshot = HologramSidebarNotesTreeBuilder.build(store: graphState.store)
-        sortedGraphSearchNodes = graphState.store.nodes.values.sorted { lhs, rhs in
-            let labelOrder = lhs.label.localizedCaseInsensitiveCompare(rhs.label)
-            if labelOrder == .orderedSame {
-                return lhs.id.localizedCaseInsensitiveCompare(rhs.id) == .orderedAscending
-            }
-            return labelOrder == .orderedAscending
+
+        cacheBuildTask?.cancel()
+        cacheBuildTask = Task(priority: .utility) { @MainActor in
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            let topologyVersion = graphState.store.topologyVersion
+            guard cachedNotesTreeTopologyVersion != topologyVersion else { return }
+            let nodeRecords = Array(graphState.store.nodes.values)
+            let edgeRecords = Array(graphState.store.edges.values)
+
+            let snapshot = await Task.detached(priority: .utility) {
+                HologramSidebarNotesTreeBuilder.buildCache(
+                    nodes: nodeRecords,
+                    edges: edgeRecords
+                )
+            }.value
+
+            guard !Task.isCancelled else { return }
+            guard cachedNotesTreeTopologyVersion != topologyVersion else { return }
+
+            cachedNotesTreeSnapshot = snapshot.notesTree
+            sortedGraphSearchNodes = snapshot.sortedSearchNodes
+            cachedNotesTreeTopologyVersion = topologyVersion
+            updateGraphSearchResultsIfNeeded(for: queryText)
         }
-        cachedNotesTreeTopologyVersion = topologyVersion
     }
 
     private var notesContent: some View {
@@ -712,13 +776,10 @@ struct HologramSearchSidebar: View {
         }
 
         if sortedGraphSearchNodes.isEmpty, !graphState.store.nodes.isEmpty {
-            sortedGraphSearchNodes = graphState.store.nodes.values.sorted { lhs, rhs in
-                let labelOrder = lhs.label.localizedCaseInsensitiveCompare(rhs.label)
-                if labelOrder == .orderedSame {
-                    return lhs.id.localizedCaseInsensitiveCompare(rhs.id) == .orderedAscending
-                }
-                return labelOrder == .orderedAscending
-            }
+            refreshGraphSidebarCachesIfNeeded()
+            graphSearchResults = []
+            graphSearchMatchCount = 0
+            return
         }
 
         var matches: [GraphNodeRecord] = []
@@ -732,6 +793,15 @@ struct HologramSearchSidebar: View {
         }
         graphSearchMatchCount = count
         graphSearchResults = matches
+    }
+
+    private func updateGraphSearchResultsIfNeeded(for text: String) {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            graphSearchResults = []
+            graphSearchMatchCount = 0
+            return
+        }
+        updateGraphSearchResults(for: text)
     }
 
     private func nodeRow(_ node: GraphNodeRecord, indent: Int = 0) -> some View {

@@ -55,9 +55,11 @@ struct MeetingNoteView: View {
             service.refreshFromVoiceInput()
         }
         .onAppear {
+            registerMeetingReadAloudProvider()
             service.refreshRecoverableDraft()
         }
         .onDisappear {
+            EpistemosVisibleReadAloudRegistry.shared.unregister(.meetingTranscript)
             service.tearDownCapture()
         }
         .confirmationDialog(
@@ -175,9 +177,9 @@ struct MeetingNoteView: View {
             }
             .disabled(service.transcriptText.isEmpty)
             // TTS (2026-07-04): read the meeting transcript aloud (Kokoro). The button
-            // honest-gates itself — disabled + "TTS unavailable" when the voice isn't installed.
+            // opens the Kokoro installer when voice files are missing.
             if !service.transcriptText.isEmpty {
-                ReadAloudButton(text: service.transcriptText, style: .icon)
+                ReadAloudButton(text: service.transcriptText, style: .icon, surface: .meetingTranscript)
             }
             ToolbarCapsuleButton(
                 title: "Save",
@@ -201,6 +203,12 @@ struct MeetingNoteView: View {
         guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func registerMeetingReadAloudProvider() {
+        EpistemosVisibleReadAloudRegistry.shared.register(.meetingTranscript) {
+            service.transcriptText
+        }
     }
 
     private var footer: some View {

@@ -109,3 +109,19 @@ honest version-gating with the smoke test as arbiter; TabularSuggestion-through-
 blind agent writes); reference-only embeds; xlsx quarantined to Rust; presence as a KINDRED subset;
 the failure table; the reviewer pressure-tests (esp. #1 command enumeration, #5 sneak-a-write,
 #6 CSV fuzz); five handoff cards as a form. R0–R7 phase bars stand with the amendments folded in.
+
+## H. Codex polish audit (2026-07-06 — post-handoff)
+Codex re-read the handoff, RECKONER package, sibling supersession notes, and spine contracts after
+Claude's #4 audit. Verdict: the accepted architecture stands, but several build-facing files still
+required "amendment archaeology" to avoid confusing the next implementation agent. This pass folded
+the binding amendments into the active body text and copy-prone skeleton lines:
+- `PLAN_RECKONER` now states the truth-flip, wasm 0.7.0 pin, 4-arg constructor, no wasm UserModel,
+  Swift-Charts-primary verdict, and remaining open questions directly in the main sections.
+- `BUILD_PROMPT_RECKONER` now tells R0 to verify settled IronCalc facts rather than rediscovering
+  them, and tells R6 to build Swift Charts first.
+- Spine bodies now match their headers for `ironcalc-client.ts`, `calc_facade.rs`,
+  `edit-intercept.ts`, `chart-vchart.ts`, `dataset-embed.ts`, `dataset_ops.rs`, and
+  `tabular_suggestion.rs`.
+- The accidental `.DS_Store` files in the RECKONER spine package were removed.
+No product-scope expansion was made; this pass only reconciles the docs with the already-accepted
+audit verdict so the package is easier and safer to hand to a builder.

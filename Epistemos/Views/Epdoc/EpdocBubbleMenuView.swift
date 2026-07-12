@@ -57,7 +57,7 @@ public struct EpdocBubbleMenuView: View {
                          tip: "Insert link (⌘⇧K)", command: .runCommand(name: "setLink",         argsJSON: emptyArgs))
             if !selectedText.isEmpty {
                 divider
-                ReadAloudButton(text: selectedText, style: .icon)
+                ReadAloudButton(text: selectedText, style: .icon, surface: .epdocSelection)
             }
         }
         .padding(.horizontal, 6)
@@ -68,6 +68,14 @@ public struct EpdocBubbleMenuView: View {
                 .strokeBorder(.separator, lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.18), radius: 12, x: 0, y: 4)
+        .onAppear {
+            EpistemosVisibleReadAloudRegistry.shared.register(.epdocSelection) {
+                selectedText
+            }
+        }
+        .onDisappear {
+            EpistemosVisibleReadAloudRegistry.shared.unregister(.epdocSelection)
+        }
     }
 
     @ViewBuilder

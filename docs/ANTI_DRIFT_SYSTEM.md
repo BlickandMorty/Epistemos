@@ -295,7 +295,7 @@ Last updated: [DATE] | Last commit: [HASH]
   - [ ] cs.disable-library-validation
   - [ ] automation.apple-events
 - [ ] PrivacyInfo.xcprivacy (exact XML from spec)
-  - [ ] FileTimestamp C617.1
+  - [ ] FileTimestamp C617.1 + 3B52.1
   - [ ] UserDefaults CA92.1
   - [ ] DiskSpace E174.1
 - [ ] Deployment target 15.0 everywhere

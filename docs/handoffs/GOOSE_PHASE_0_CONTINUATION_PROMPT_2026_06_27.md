@@ -1,6 +1,6 @@
 # Goose Phase 0 — Continuation + Verification Prompt (2026-06-27)
 
-> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** A continuation prompt for the DEAD reskin-Goose-surface program. The agent surface is now OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** A continuation prompt for the DEAD reskin-Goose-surface program. current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > 🛑 **SUPERSEDED 2026-06-29 — DO NOT PASTE THIS.** §7 is GREEN-LIT; Plan 1 is on Phase 1, Option 1 (no native
 > chat). The only loop prompt to paste is `docs/prompts/PROMPT_PLAN_1_GOOSE.md`. "STILL ON PHASE 0 / wait for §7 /

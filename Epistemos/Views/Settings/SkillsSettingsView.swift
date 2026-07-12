@@ -1,3 +1,4 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import SwiftUI
 
 struct SkillsDetailView: View {
@@ -833,3 +834,4 @@ private enum SkillsSettingsError: LocalizedError {
         }
     }
 }
+#endif

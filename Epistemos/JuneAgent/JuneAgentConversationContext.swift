@@ -14,10 +14,10 @@ enum JuneAgentConversationContext {
     private static let maxCloudTranscriptCharacters = 64 * 1024
     private static let maxCloudHistoryMessageCharacters = 8_000
     private static let localBaseInstructions =
-        "You are Workspace, a helpful on-device assistant inside Epistemos. " +
+        "You are June, a helpful on-device assistant inside Epistemos. " +
         "Answer concisely. You cannot browse the web or use tools in this local mode."
     private static let agentCloudBaseInstructions =
-        "You are Workspace, a helpful assistant inside Epistemos. " +
+        "You are June, a helpful assistant inside Epistemos. " +
         "Use MAS-approved tools only when they help, ask for approval before reading or writing vault data, " +
         "and cite vault-derived facts in the final answer."
 
@@ -73,7 +73,7 @@ enum JuneAgentConversationContext {
             let who: String
             switch msg.role {
             case "assistant":
-                who = "Workspace"
+                who = "June"
             case "system":
                 who = "System"
             case "tool":

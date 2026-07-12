@@ -465,7 +465,7 @@ struct BreakerRegistryTests {
 @Suite("Release Packaging Hardening")
 struct ReleasePackagingHardeningTests {
 
-    @Test("direct-distribution entitlements keep MLX and Rust FFI allowances wired per config")
+    @Test("direct-distribution entitlements keep narrowed Rust FFI allowances wired per config")
     func directDistributionEntitlementsStayWired() throws {
         let releaseEntitlements = try loadProductionHardeningRepoTextFile("Epistemos/Epistemos.entitlements")
         let debugEntitlements = try loadProductionHardeningRepoTextFile("Epistemos/Epistemos-Debug.entitlements")
@@ -474,7 +474,6 @@ struct ReleasePackagingHardeningTests {
 
         for key in [
             "com.apple.security.cs.allow-jit",
-            "com.apple.security.cs.allow-unsigned-executable-memory",
             "com.apple.security.cs.disable-library-validation",
         ] {
             #expect(releaseEntitlements.contains(key))
@@ -483,6 +482,8 @@ struct ReleasePackagingHardeningTests {
 
         #expect(!releaseEntitlements.contains("com.apple.security.app-sandbox"))
         #expect(debugEntitlements.contains("com.apple.security.app-sandbox"))
+        #expect(!releaseEntitlements.contains("com.apple.security.cs.allow-unsigned-executable-memory"))
+        #expect(!debugEntitlements.contains("com.apple.security.cs.allow-unsigned-executable-memory"))
         #expect(project.contains("CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;"))
         #expect(
             project.contains("CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos-Debug.entitlements;") ||
@@ -507,7 +508,8 @@ struct ReleasePackagingHardeningTests {
         #expect(bundler.contains("--include='SKILL.md'"))
         #expect(bundler.contains("bundle_default_skills"))
         #expect(bundler.contains("bundle_goose_runtime_binary"))
-        #expect(bundler.contains("bundle_goose_web_ui"))
+        #expect(bundler.contains("bundle_june_web"))
+        #expect(bundler.contains("remove_app_store_forbidden_runtime_artifacts"))
     }
 
     @Test("App Store target is sandboxed and excludes direct-distribution entitlements")
@@ -520,7 +522,6 @@ struct ReleasePackagingHardeningTests {
 
         for key in [
             "com.apple.security.app-sandbox",
-            "com.apple.security.cs.allow-jit",
             "com.apple.security.files.bookmarks.app-scope",
             "com.apple.security.files.user-selected.read-write",
             "com.apple.security.network.client",
@@ -530,8 +531,10 @@ struct ReleasePackagingHardeningTests {
 
         for prohibitedKey in [
             "com.apple.security.automation.apple-events",
+            "com.apple.security.cs.allow-jit",
             "com.apple.security.cs.allow-unsigned-executable-memory",
             "com.apple.security.cs.disable-library-validation",
+            "com.apple.security.network.server",
             "com.apple.security.files.bookmarks.document-scope",
             "com.apple.security.temporary-exception.mach-lookup.global-name",
         ] {
@@ -553,6 +556,7 @@ struct ReleasePackagingHardeningTests {
         #expect(projectSpec.contains("PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.appstore"))
         #expect(projectSpec.contains("INFOPLIST_FILE: Epistemos-AppStore-Info.plist"))
         #expect(projectSpec.contains("CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-AppStore.entitlements"))
+        #expect(projectSpec.contains("ENABLE_APP_SANDBOX: true"))
         #expect(projectSpec.contains("EPISTEMOS_APP_STORE MAS_SANDBOX"))
         #expect(project.contains("Epistemos-AppStore"))
         #expect(project.contains("PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;"))
@@ -560,33 +564,39 @@ struct ReleasePackagingHardeningTests {
                 project.contains("INFOPLIST_FILE = Epistemos-AppStore-Info.plist;"))
         #expect(project.contains("CODE_SIGN_ENTITLEMENTS = \"Epistemos/Epistemos-AppStore.entitlements\";") ||
                 project.contains("CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos-AppStore.entitlements;"))
+        let appStoreSandboxBuildSettingCount = project.components(separatedBy: "ENABLE_APP_SANDBOX = YES;").count - 1
+        #expect(appStoreSandboxBuildSettingCount >= 3)
     }
 
     @Test("App Store settings hide Pro-only channel skill and automation surfaces")
     func appStoreSettingsHideProOnlySurfaces() throws {
         let settings = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        let agentSection = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/AgentSectionDetailView.swift")
-        let authority = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/AuthoritySettingsView.swift")
+        let deployment = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/DeploymentProfileHealthRow.swift")
+        let extensions = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
+        let skills = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/SkillsSettingsView.swift")
+        let vaultMCP = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/VaultMCPServerSettingsRow.swift")
 
         #expect(settings.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
-        #expect(settings.contains("categories.append(.automation)"))
-        #expect(settings.contains("sections.append(.channels)"))
-        #expect(settings.contains("sections.append(.knowledgeFusion)"))
-        #expect(settings.contains(".iMessageDriver"))
+        #expect(settings.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
         #expect(settings.contains(".skills"))
+        #expect(settings.contains("sections.insert(.skills, at: 3)"))
         #expect(settings.contains("safeDetailSelection(for section: SettingsSection?)"))
-        #expect(settings.contains("case .channels, .knowledgeFusion, .iMessageDriver, .skills:"))
-        #expect(settings.contains("NotificationCenter.default.publisher(for: .showIMessageDriverSettings)"))
-        #expect(agentSection.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
-        #expect(agentSection.contains("[.authority, .spend, .structures]"))
-        #expect(agentSection.contains("case control"))
-        #expect(agentSection.contains("case overseer"))
-        #expect(agentSection.contains("ForEach(AgentTab.visibleTabs)"))
-        #expect(agentSection.contains("initialTab.isVisibleInCurrentBuild ? initialTab : .authority"))
-        #expect(authority.contains("isVisibleInAppStoreAuthority"))
-        #expect(authority.contains("AgentAuthorityQuickSetupPreset.allCases.filter { $0 != .lessInterruptions }"))
-        #expect(authority.contains("case .gitOperation,"))
-        #expect(authority.contains("return [.askFirst, .neverAllow]"))
+        #expect(settings.contains("if section == .skills"))
+        #expect(settings.contains("return .general"))
+        #expect(settings.contains("case .skills: GeneralDetailView()"))
+        #expect(settings.contains("case .skills: ExtensionsDetailView()"))
+        #expect(settings.contains("DeploymentProfileHealthRow()"))
+        #expect(settings.contains("CLIDiscoveryHealthRow()"))
+        #expect(deployment.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
+        #expect(deployment.contains("App Store (MAS sandbox)"))
+        #expect(deployment.contains("Pro (Developer ID)"))
+        #expect(deployment.contains("private static let proOnlyFeatures"))
+        #expect(deployment.contains("CLI passthrough (claude / codex / gemini / kimi)"))
+        #expect(deployment.contains("Skills"))
+        #expect(deployment.contains("Bash / MultiEdit / WebFetch local tools"))
+        #expect(extensions.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
+        #expect(skills.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
+        #expect(vaultMCP.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
     }
 
     // Cloud-only / Omega-removal migration: "App Store target does not link native
@@ -624,6 +634,9 @@ struct ReleasePackagingHardeningTests {
         let bridge = try loadProductionHardeningRepoTextFile("agent_core/src/bridge.rs")
         let registry = try loadProductionHardeningRepoTextFile("agent_core/src/tools/registry.rs")
         let script = try loadProductionHardeningRepoTextFile("build-agent-core.sh")
+        let epistemosCoreCargoToml = try loadProductionHardeningRepoTextFile("epistemos-core/Cargo.toml")
+        let epistemosCoreScript = try loadProductionHardeningRepoTextFile("build-epistemos-core.sh")
+        let project = try loadProductionHardeningRepoTextFile("project.yml")
 
         #expect(cargoToml.contains("[features]"))
         #expect(cargoToml.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
@@ -639,13 +652,20 @@ struct ReleasePackagingHardeningTests {
         #expect(script.contains("--features \"pro-build,lsp-runtime,edgeparse-pdf,parser-unpdf\""))
         #expect(!script.contains("liteparse-pdf"),
                 "direct app builds must use the Plan 3 EdgeParse/unpdf parser, not the older PDFium-backed path.")
-        #expect(script.contains(#"TEMP_OUTPUT="$(mktemp ../build-rust/libagent_core.XXXXXX)""#))
+        #expect(script.contains(#"OUTPUT_DIR="../build-rust""#))
+        #expect(script.contains(#"OUTPUT_DIR="../build-rust/appstore""#))
+        #expect(script.contains(#"TEMP_OUTPUT="$(mktemp "${OUTPUT_DIR}/libagent_core.XXXXXX")""#))
         #expect(!script.contains(#"libagent_core.XXXXXX.dylib"#),
                 "macOS mktemp does not randomize XXXXXX when it is followed by a suffix; concurrent Xcode builds collide on the literal temp path.")
         #expect(script.contains("trap cleanup_temp_output EXIT") && script.contains("trap - EXIT"),
                 "agent_core dylib staging must clean stale temp files on failure without deleting the finished dylib.")
-        #expect(script.contains(#"STAGING_LOCK="../build-rust/.libagent_core.lock""#))
+        #expect(script.contains(#"STAGING_LOCK="${OUTPUT_DIR}/.libagent_core.lock""#))
+        #expect(script.contains(#"mv -f "$TEMP_OUTPUT" "${OUTPUT_DIR}/libagent_core.dylib""#))
         #expect(script.contains(#"install_name_tool -id "@rpath/libagent_core.dylib" "$TEMP_OUTPUT""#))
+        #expect(epistemosCoreCargoToml.contains("mas-sandbox = []"))
+        #expect(epistemosCoreScript.contains("FEATURE_FLAGS"))
+        #expect(epistemosCoreScript.contains("--features mas-sandbox"))
+        #expect(project.contains(#"MAS_SANDBOX=1 bash \"${SRCROOT}/build-epistemos-core.sh\""#))
         #expect(bridge.contains("#[cfg(not(feature = \"pro-build\"))]"))
         #expect(bridge.contains("#[cfg(feature = \"pro-build\")]"))
         #expect(bridge.contains("register_discovered_stdio_mcp_tools"))
@@ -657,8 +677,19 @@ struct ReleasePackagingHardeningTests {
 
     @Test("Rust dylib staging paths avoid mktemp suffix collisions")
     func rustDylibStagingPathsAvoidMktempSuffixCollisions() throws {
+        let agentCoreScript = try loadProductionHardeningRepoTextFile("build-agent-core.sh")
+        #expect(agentCoreScript.contains(#"OUTPUT_DIR="../build-rust""#))
+        #expect(agentCoreScript.contains(#"OUTPUT_DIR="../build-rust/appstore""#))
+        #expect(agentCoreScript.contains(#"TEMP_OUTPUT="$(mktemp "${OUTPUT_DIR}/libagent_core.XXXXXX")""#))
+        #expect(!agentCoreScript.contains("libagent_core.XXXXXX.dylib"),
+                "macOS mktemp does not randomize XXXXXX when it is followed by a suffix; concurrent Xcode builds collide on the literal temp path.")
+        #expect(agentCoreScript.contains("trap cleanup_temp_output EXIT") && agentCoreScript.contains("trap - EXIT"),
+                "build-agent-core.sh must clean stale temp files on failure without deleting the finished dylib.")
+        #expect(agentCoreScript.contains(#"STAGING_LOCK="${OUTPUT_DIR}/.libagent_core.lock""#))
+        #expect(agentCoreScript.contains(#"install_name_tool -id "@rpath/libagent_core.dylib" "$TEMP_OUTPUT""#))
+        #expect(agentCoreScript.contains(#"mv -f "$TEMP_OUTPUT" "${OUTPUT_DIR}/libagent_core.dylib""#))
+
         let scripts = [
-            "build-agent-core.sh": "libagent_core",
             "build-omega-mcp.sh": "libomega_mcp",
             // "build-omega-ax.sh": "libomega_ax" removed with cloud-only/Omega removal 2026-07-03
             "build-epistemos-core.sh": "libepistemos_core",
@@ -683,7 +714,7 @@ struct ReleasePackagingHardeningTests {
         let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
 
         #expect(projectSpec.contains("CODE_SIGN_IDENTITY: \"-\""))
-        #expect(projectSpec.contains("DEVELOPMENT_TEAM: \"\""))
+        #expect(!projectSpec.contains("DEVELOPMENT_TEAM: \"\""))
         #expect(project.contains("CODE_SIGN_IDENTITY = \"-\";"))
         #expect(project.contains("DEVELOPMENT_TEAM = 3BNL2669SL;"))
         #expect(projectSpec.contains("CODE_SIGN_IDENTITY: \"Apple Development\""))
@@ -711,10 +742,13 @@ struct ReleasePackagingHardeningTests {
 
     @Test("prepared model manifest is bundled into app resources")
     func preparedModelManifestIsBundledIntoAppResources() throws {
-        let spec = try loadProductionHardeningRepoTextFile("project.yml")
+        let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
         let manifest = try loadProductionHardeningRepoTextFile("config/model_manifest.json")
 
-        #expect(spec.contains("config/model_manifest.json"))
+        #expect(bundler.contains("MODEL_MANIFEST_SOURCE"))
+        #expect(bundler.contains("$SRCROOT/config/model_manifest.json"))
+        #expect(bundler.contains("MODEL_MANIFEST_DEST=\"$RESOURCES_DIR/model_manifest.json\""))
+        #expect(bundler.contains("bundle_model_manifest"))
         #expect(manifest.contains("\"version\": 1"))
         #expect(manifest.contains("\"models\""))
     }
@@ -732,29 +766,18 @@ struct ReleasePackagingHardeningTests {
         let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
 
         #expect(bundler.contains("GOOSE_BINARY_DEST=\"$RESOURCES_DIR/goose\""))
-        #expect(bundler.contains("GOOSE_WEB_UI_DEST=\"$RESOURCES_DIR/goose-desktop\""))
+        #expect(bundler.contains("GOOSED_BINARY_DEST=\"$RESOURCES_DIR/goosed\""))
+        #expect(bundler.contains("bundle_goose_runtime_binary_named()"))
         #expect(bundler.contains("bundle_goose_runtime_binary()"))
-        #expect(bundler.contains("bundle_goose_web_ui()"))
-        #expect(bundler.contains("GOOSE_WEB_UI_STAGE_SCRIPT"))
-        #expect(bundler.contains("stage-goose-web-ui.sh"))
-        #expect(bundler.contains("is_acp_goose_web_ui()"))
-        #expect(bundler.contains("goose_web_ui_referenced_assets_exist()"))
-        #expect(bundler.contains("copy_goose_web_ui_atomically()"))
-        #expect(!bundler.contains("rsync -a --delete \"$source/\" \"$GOOSE_WEB_UI_DEST/\""))
-        #expect(bundler.contains("goose_web_ui_contains_required_markers()"))
-        #expect(bundler.contains("providersList_unstable"))
-        #expect(bundler.contains("providersCatalogList_unstable"))
-        #expect(bundler.contains("providersSetupCatalogList_unstable"))
-        #expect(bundler.contains("providersCatalogTemplate_unstable"))
-        #expect(bundler.contains("shared-getAcpClient-provider-inventory"))
-        #expect(bundler.contains("local-acp-config-GOOSE_TELEMETRY_ENABLED"))
-        #expect(bundler.contains("__epistemosGooseACPRequestSerialization"))
-        #expect(bundler.contains("__epistemosGooseProviderInventoryEvents"))
-        #expect(bundler.contains("__epistemosGooseProviderCatalogEvents"))
-        #expect(bundler.contains("provider-catalog-template-choice"))
         #expect(bundler.contains("if is_app_store_build; then"))
-        #expect(bundler.contains("rm -f \"$GOOSE_BINARY_DEST\""))
-        #expect(bundler.contains("rm -rf \"$GOOSE_WEB_UI_DEST\""))
+        #expect(bundler.contains("rm -f \"$dest\""))
+        #expect(bundler.contains("remove_app_store_forbidden_runtime_artifacts"))
+        #expect(bundler.contains("rm -f \"$RESOURCES_DIR/goose\""))
+        #expect(bundler.contains("rm -f \"$RESOURCES_DIR/goosed\""))
+        #expect(bundler.contains("rm -rf \"$RESOURCES_DIR/GooseRuntime\""))
+        #expect(bundler.contains("bundle_june_web"))
+        #expect(!bundler.contains("bundle_goose_web_ui"))
+        #expect(!bundler.contains("GOOSE_WEB_UI_DEST"))
         #expect(!bundler.contains("$HOME/Library/Application Support/Epistemos/GooseWebUI"))
     }
 
@@ -900,7 +923,8 @@ struct AuditHardeningRegressionTests {
         #expect(vaultSync.contains("func forceClearDerivedLocalStateForFullReset() async"))
         #expect(vaultSync.contains("let didSwitch = await vaultSync.switchToVaultAsync("))
         #expect(vaultSync.contains("if didSwitch {"))
-        #expect(vaultSync.contains("vaultSync.persistVaultSelection("))
+        #expect(vaultSync.contains("vaultSync.prepareVaultSelection("))
+        #expect(vaultSync.contains("vaultSync.commitPreparedVaultSelection("))
         #expect(setupAssistant.contains("VaultConnectionActions.connectSelectedVault(url: url, vaultSync: vaultSync)"))
         #expect(settings.contains("await AppBootstrap.shared?.resetAllData()"))
         #expect(resetBody.contains("let didClear = await vaultSync.stopWatchingAsync(preserveData: false)"))
@@ -913,6 +937,26 @@ struct AuditHardeningRegressionTests {
         #expect(!resetBody.contains("SDModelProfile"))
         #expect(resetBody.contains("NoteFileStorage.removeAllManagedBodies()"))
         #expect(resetBody.contains("UserDefaults.standard.set(false, forKey: \"epistemos.setupComplete\")"))
+    }
+
+    @Test("vault selection proves relaunch permission before replacing the active vault")
+    func vaultSelectionProvesRelaunchPermissionBeforeSwitching() throws {
+        let source = try loadProductionHardeningRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let start = try #require(source.range(of: "fileprivate static func connectSelectedVaultAsync("))
+        let end = try #require(
+            source.range(
+                of: "    static func connectSelectedVault(",
+                range: start.upperBound..<source.endIndex
+            )
+        )
+        let body = source[start.lowerBound..<end.lowerBound]
+        let prepare = try #require(body.range(of: "let preparedSelection = vaultSync.prepareVaultSelection("))
+        let switchVault = try #require(body.range(of: "let didSwitch = await vaultSync.switchToVaultAsync("))
+        let commit = try #require(body.range(of: "vaultSync.commitPreparedVaultSelection(preparedSelection)"))
+
+        #expect(body.contains("guard let preparedSelection"))
+        #expect(prepare.lowerBound < switchVault.lowerBound)
+        #expect(switchVault.lowerBound < commit.lowerBound)
     }
 
     @Test("Omega planner schemas stay aligned with registered MCP tools")

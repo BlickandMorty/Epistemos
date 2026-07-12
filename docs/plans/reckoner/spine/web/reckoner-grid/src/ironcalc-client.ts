@@ -8,13 +8,12 @@
 //  • Core loop (init/setUserInput/evaluate/getFormattedCellValue) VERIFIED exact — keep.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // ID: EPI-RP-09-RECKONER · Codename: RECKONER
-// IronCalc-WASM is the SOLE CALC AUTHORITY. Confirmed core loop (README verbatim
-// pattern): setUserInput → evaluate → getCellValueByIndex / getFormattedCellValue.
-// VERSION-GATED (OQ-1): constructor arity drifted — archived README shows
-// new Model('en','UTC') (2-arg); the 0.7.1 nodejs sibling shows 4-arg
-// (name, locale, tz, lang). Pin =0.7.1, read the shipped ironcalc.d.ts, then fix
-// the TODO below. IronCalc is pre-1.0 ("expect things to break until 1.0") —
-// the durable contract is calc_facade.rs in agent_core, not this wrapper.
+// IronCalc-WASM is the SOLE CALC AUTHORITY. Settled against the pinned
+// @ironcalc/wasm 0.7.0 package: Model(name, locale, timezone, language_id),
+// setUserInput -> evaluate -> getFormattedCellValue / getCellContent. The wasm
+// build exports no UserModel and no getCellValueByIndex. IronCalc is pre-1.0
+// ("expect things to break until 1.0") — the durable contract is calc_facade.rs
+// in agent_core, not this wrapper.
 // XLSX DOES NOT EXIST IN THE WASM BUILD — never import xlsx paths here; that
 // work belongs to agent_core/src/reckoner/csv_xlsx.rs.
 
@@ -24,7 +23,7 @@ let model: Model | null = null;
 
 export async function initCalc(): Promise<void> {
   await init(); // WebAssembly.instantiateStreaming via custom scheme (OQ-5: MIME application/wasm)
-  model = new Model("en", "UTC"); // TODO OQ-1: confirm arity from shipped .d.ts
+  model = new Model("Epistemos", "en", "UTC", "en");
 }
 
 export interface CellAddr { sheet: number; row: number; col: number }
@@ -36,9 +35,9 @@ export function routeToCalc(edit: { sheet: number; row: number; col: number; inp
   model.evaluate();
   // TODO: dirty-cell set — diff pre/post snapshot of the touched region plus
   // IronCalc-reported changes; NEVER trigger a full-sheet repaint per keystroke.
-  // TODO OQ-2: if the wasm build exports UserModel (diff history / undo /
-  // to_bytes / apply_external_diffs), lean on it for streamed agent edits;
-  // otherwise RECKONER owns that layer in agent_core.
+  // The wasm build has no UserModel. Model snapshot/diff helpers may be used
+  // for local tab continuity, while tracked agent edits stay in RECKONER's
+  // provenance/suggestion layer.
   return { dirty: [edit], formatted: new Map() };
 }
 

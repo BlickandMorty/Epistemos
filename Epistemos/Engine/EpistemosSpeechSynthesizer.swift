@@ -149,6 +149,44 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             ).isReady
     }
 
+    nonisolated static func logTextToSpeechReadiness(
+        context: String,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
+        fileManager: FileManager = .default
+    ) {
+        let status = KokoroVoiceGateStatus.status(
+            environment: environment,
+            modelRoot: modelRoot,
+            fileManager: fileManager
+        )
+        let legacyGateEnabled = FeatureGateOverride.resolved(
+            overrideKey: KokoroVoiceGateStatus.flagName,
+            envValue: environment[KokoroVoiceGateStatus.flagName]
+        )
+        let installedPackageCandidate = KokoroVoiceGateStatus.hasInstalledPackageCandidate(
+            modelRoot: modelRoot,
+            fileManager: fileManager
+        )
+        let pipelineLinked = KokoroCoreMLRuntimeLoader.isLinked
+        let manifestValid = status.state == .packageReady && status.packageEvidence != nil
+        let available = pipelineLinked && status.isReady
+        let rootPath = modelRoot?.path ?? "nil"
+        let readinessLog = Logger(subsystem: "com.epistemos", category: "Speech.Readiness")
+        readinessLog.notice(
+            "Kokoro readiness context=\(context, privacy: .public) legacyGateEnabled=\(legacyGateEnabled, privacy: .public) installedPackageCandidate=\(installedPackageCandidate, privacy: .public) modelRoot=\(rootPath, privacy: .public) manifestValid=\(manifestValid, privacy: .public) KokoroPipelineLinked=\(pipelineLinked, privacy: .public) isTextToSpeechAvailable=\(available, privacy: .public) headline=\(status.headline, privacy: .public)"
+        )
+        if let evidence = status.packageEvidence {
+            readinessLog.notice(
+                "Kokoro readiness evidence context=\(context, privacy: .public) modelPackages=\(evidence.modelPackageCount, privacy: .public) voices=\(evidence.voiceCount, privacy: .public) runtimeAssets=\(evidence.runtimeAssetCount, privacy: .public) manifestFiles=\(evidence.manifestFileCount, privacy: .public) declaredBytes=\(evidence.declaredPackageBytes, privacy: .public)"
+            )
+        } else {
+            readinessLog.warning(
+                "Kokoro readiness evidence missing context=\(context, privacy: .public) detail=\(status.detail, privacy: .public)"
+            )
+        }
+    }
+
     nonisolated static func textToSpeechStatusMessage(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
@@ -186,6 +224,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         guard !cleaned.isEmpty else {
             return "Nothing to read aloud."
         }
+        guard cleaned.count <= maxTextToSpeechInputCharacters else {
+            return "Kokoro text-to-speech is limited to \(maxTextToSpeechInputCharacters) characters. Select a shorter passage."
+        }
         guard isTextToSpeechAvailable(
             environment: environment,
             modelRoot: modelRoot,
@@ -196,9 +237,6 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
                 modelRoot: modelRoot,
                 fileManager: fileManager
             )
-        }
-        guard cleaned.count <= maxTextToSpeechInputCharacters else {
-            return "Kokoro text-to-speech is limited to \(maxTextToSpeechInputCharacters) characters. Select a shorter passage."
         }
         return textToSpeechStatusMessage(
             environment: environment,
@@ -234,9 +272,6 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         ) {
             kokoroEngine.connect(kokoroPlayer, to: kokoroEngine.mainMixerNode, format: format)
         }
-        // macOS pre-warms slowly on first use; voice-list enumeration
-        // is cheap and sidesteps the first-speak hitch.
-        _ = AVSpeechSynthesisVoice.speechVoices()
     }
 
     // MARK: - Speak API
@@ -256,14 +291,14 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return nil }
         guard cleaned.count <= Self.maxTextToSpeechInputCharacters else {
-            Self.log.info(
+            Self.log.notice(
                 "TTS unavailable chars=\(cleaned.count, privacy: .public); text exceeds Kokoro input cap"
             )
             return nil
         }
 
         guard Self.isTextToSpeechAvailable() else {
-            Self.log.info(
+            Self.log.notice(
                 "TTS unavailable chars=\(cleaned.count, privacy: .public); Kokoro package is not ready and AVSpeech fallback is disabled"
             )
             return nil
@@ -278,8 +313,23 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
 
         // Voice SELECTION: passed to Kokoro (renderRawText loads the matching voice pack, or
         // falls back to the starter voice for nil/unknown). Was previously ignored.
-        let selectedVoice = voiceIdentifier
-        let selectedEffect = effect ?? VoicePreferences.shared.readAloudEffect
+        let selectedVoice = Self.effectiveKokoroVoiceIdentifier(
+            explicit: voiceIdentifier,
+            globalDefault: Self.globalDefaultVoiceIdentifier(),
+            installedVoices: Self.installedEnglishKokoroVoices()
+        )
+        let requestedVoice = voiceIdentifier ?? Self.globalDefaultVoiceIdentifier() ?? "nil"
+        let selectedVoiceForLog = selectedVoice ?? "nil"
+        Self.log.notice(
+            "Kokoro TTS voice resolved requested=\(requestedVoice, privacy: .public) selected=\(selectedVoiceForLog, privacy: .public) englishOnly=true"
+        )
+        let requestedEffect = effect ?? VoicePreferences.shared.readAloudEffect
+        let selectedEffect = VoicePreferences.shippedReadAloudEffect(requestedEffect)
+        if selectedEffect != requestedEffect {
+            Self.log.notice(
+                "Kokoro TTS using clean MAS effect requested=\(requestedEffect.rawValue, privacy: .public)"
+            )
+        }
         _ = pitch
         let utteranceID = UUID().uuidString
         activeKokoroUtteranceID = utteranceID
@@ -290,13 +340,26 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             charactersSpoken: 0
         )
         let speed = Self.kokoroSpeedMultiplier(rate: prosody?.rate ?? rate)
+        let renderStartedAt = Date()
+        Self.log.notice(
+            "Kokoro TTS render started chars=\(cleaned.count, privacy: .public) voice=\(selectedVoice ?? "default", privacy: .public) speed=\(Double(speed), privacy: .public)"
+        )
         kokoroPlaybackTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let rendered = try await Task.detached(priority: .userInitiated) {
+                let renderTask = Task.detached(priority: .userInitiated) {
                     try KokoroCoreMLSynthesizer.renderRawText(cleaned, speed: speed, voiceIdentifier: selectedVoice)
-                }.value
+                }
+                let rendered = try await withTaskCancellationHandler {
+                    try await renderTask.value
+                } onCancel: {
+                    renderTask.cancel()
+                }
                 try Task.checkCancellation()
+                let renderElapsedMs = Int(Date().timeIntervalSince(renderStartedAt) * 1000)
+                Self.log.notice(
+                    "Kokoro TTS render finished chars=\(cleaned.count, privacy: .public) samples=\(rendered.samples.count, privacy: .public) sampleRate=\(rendered.sampleRateHz, privacy: .public) chunks=\(rendered.synthesizedChunkCount, privacy: .public) elapsedMs=\(renderElapsedMs, privacy: .public)"
+                )
                 try self.playKokoroAudio(
                     rendered,
                     utteranceID: utteranceID,
@@ -309,7 +372,7 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
                 self.failKokoroPlayback(utteranceID: utteranceID, error: error)
             }
         }
-        Self.log.info(
+        Self.log.notice(
             "Kokoro TTS queued chars=\(cleaned.count, privacy: .public) effect=\(selectedEffect.rawValue, privacy: .public)"
         )
         return utteranceID
@@ -376,16 +439,23 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     ) throws {
         guard activeKokoroUtteranceID == utteranceID else { return }
         let buffer = try pcmBuffer(for: rendered, effect: effect)
+        let durationSeconds = Double(rendered.samples.count) / Double(max(1, rendered.sampleRateHz))
+        Self.log.notice(
+            "Kokoro TTS playback preparing samples=\(rendered.samples.count, privacy: .public) sampleRate=\(rendered.sampleRateHz, privacy: .public) durationMs=\(Int(durationSeconds * 1000), privacy: .public) effect=\(effect.rawValue, privacy: .public) engineRunning=\(self.kokoroEngine.isRunning, privacy: .public)"
+        )
         if !kokoroEngine.isRunning {
             try kokoroEngine.start()
+            Self.log.notice("Kokoro TTS audio engine started")
         }
-        let durationSeconds = Double(rendered.samples.count) / Double(max(1, rendered.sampleRateHz))
         kokoroPlayer.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
             Task { @MainActor in
                 self?.completeKokoroPlayback(utteranceID: utteranceID)
             }
         }
         kokoroPlayer.play()
+        Self.log.notice(
+            "Kokoro TTS playback started samples=\(rendered.samples.count, privacy: .public) playerPlaying=\(self.kokoroPlayer.isPlaying, privacy: .public)"
+        )
         activeKokoroCharactersTotal = charactersTotal
         state = .speaking(
             utteranceId: utteranceID,
@@ -457,6 +527,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         Self.log.error(
             "Kokoro TTS failed domain=\(VoiceCaptureDiagnostics.safeDomain(nsError.domain), privacy: .public) code=\(nsError.code, privacy: .public)"
         )
+        EpistemosReadAloudDiagnostics.showFailureToast(
+            Self.kokoroFailureUserMessage(error)
+        )
         kokoroPlayer.stop()
         kokoroEngine.pause()
         kokoroProgressTask?.cancel()
@@ -467,8 +540,29 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         state = .idle
     }
 
+    private nonisolated static func kokoroFailureUserMessage(_ error: Error) -> String {
+        let detail: String
+        if let synthesisError = error as? KokoroCoreMLSynthesizer.SynthesisError,
+           let errorDescription = synthesisError.errorDescription,
+           !errorDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            detail = errorDescription
+        } else if let loadError = error as? KokoroCoreMLRuntimeLoader.LoadError,
+           let errorDescription = loadError.errorDescription,
+           !errorDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            detail = errorDescription
+        } else {
+            let nsError = error as NSError
+            detail = "audio pipeline error (\(VoiceCaptureDiagnostics.safeDomain(nsError.domain)) \(nsError.code))"
+        }
+        return VoiceCapturePresentationBounds.statusMessage(
+            "Kokoro read-aloud failed: \(detail)",
+            fallback: "Kokoro read-aloud failed. Check Settings > Voice."
+        )
+    }
+
     private func completeKokoroPlayback(utteranceID: String) {
         guard activeKokoroUtteranceID == utteranceID else { return }
+        Self.log.notice("Kokoro TTS playback completed")
         kokoroProgressTask?.cancel()
         kokoroProgressTask = nil
         activeKokoroUtteranceID = nil
@@ -609,6 +703,14 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         }
     }
 
+    nonisolated static func installedEnglishKokoroVoices(
+        modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
+        fileManager: FileManager = .default
+    ) -> [VoiceOption] {
+        installedKokoroVoices(modelRoot: modelRoot, fileManager: fileManager)
+            .filter(isEnglishKokoroVoiceOption)
+    }
+
     private nonisolated static func isSafeKokoroVoiceName(_ name: String) -> Bool {
         !name.isEmpty && name.count <= 64
             && name.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }
@@ -639,6 +741,67 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         default:  gender = ""
         }
         return (String(displayName), language + gender)
+    }
+
+    private nonisolated static func isEnglishKokoroVoiceOption(_ voice: VoiceOption) -> Bool {
+        voice.language.localizedCaseInsensitiveContains("English")
+            && isEnglishKokoroVoiceIdentifier(voice.identifier)
+    }
+
+    private nonisolated static func isEnglishKokoroVoiceIdentifier(_ identifier: String) -> Bool {
+        identifier.hasPrefix("af_")
+            || identifier.hasPrefix("am_")
+            || identifier.hasPrefix("bf_")
+            || identifier.hasPrefix("bm_")
+    }
+
+    nonisolated static func effectiveKokoroVoiceIdentifier(
+        explicit: String?,
+        globalDefault: String?,
+        installedVoices: [VoiceOption]
+    ) -> String? {
+        let installedEnglishIDs = Set(
+            installedVoices
+                .filter(isEnglishKokoroVoiceOption)
+                .map(\.identifier)
+        )
+        if let explicit, installedEnglishIDs.contains(explicit) {
+            return explicit
+        }
+        if let globalDefault, installedEnglishIDs.contains(globalDefault) {
+            return globalDefault
+        }
+        return preferredEnglishKokoroVoiceIdentifier(from: installedVoices)
+            ?? KokoroVoiceGateStatus.starterVoiceIdentifier
+    }
+
+    nonisolated static func normalizedEnglishKokoroVoiceIdentifier(
+        _ identifier: String?,
+        installedVoices: [VoiceOption]
+    ) -> String? {
+        guard let identifier else { return nil }
+        let installedEnglishIDs = Set(
+            installedVoices
+                .filter(isEnglishKokoroVoiceOption)
+                .map(\.identifier)
+        )
+        return installedEnglishIDs.contains(identifier) ? identifier : nil
+    }
+
+    nonisolated static func preferredEnglishKokoroVoiceIdentifier(from voices: [VoiceOption]) -> String? {
+        let installedIDs = Set(voices.map(\.identifier))
+        for voiceID in [
+            KokoroVoiceGateStatus.starterVoiceIdentifier,
+            "af_nicole",
+            "af_bella",
+            "am_michael",
+            "am_puck",
+            "am_fenrir",
+            "bf_emma"
+        ] where installedIDs.contains(voiceID) {
+            return voiceID
+        }
+        return voices.first(where: isEnglishKokoroVoiceOption)?.identifier
     }
 
     /// Strip Markdown syntax so read-aloud speaks the CONTENT, not the symbols

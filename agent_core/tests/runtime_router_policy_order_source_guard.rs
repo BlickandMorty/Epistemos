@@ -21,16 +21,13 @@ fn route_body() -> &'static str {
     &RUNTIME_ROUTER_SOURCE[start..end]
 }
 
-fn default_preferred_lanes_body() -> &'static str {
+fn mas_model_preference_table_body() -> &'static str {
     let start = index_of(
         RUNTIME_ROUTER_SOURCE,
-        "nonisolated public static func defaultPreferredLanes(for role: RuntimeRole) -> [RuntimeLane]",
+        "#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n    nonisolated public static let modelPreferenceTable",
     );
-    let end = index_of(
-        RUNTIME_ROUTER_SOURCE,
-        "nonisolated private static func defaultLocalPolicy(for role: RuntimeRole)",
-    );
-    &RUNTIME_ROUTER_SOURCE[start..end]
+    let end = index_of(&RUNTIME_ROUTER_SOURCE[start..], "    #else");
+    &RUNTIME_ROUTER_SOURCE[start..start + end]
 }
 
 #[test]
@@ -99,29 +96,29 @@ fn preferred_lane_hint_only_reorders_the_governed_chain() {
 }
 
 #[test]
-fn tool_caller_chain_keeps_agentic_cloud_before_local_chat_fallback() {
-    let lanes = default_preferred_lanes_body();
-    let tool_caller = {
-        let start = index_of(lanes, "case .toolCaller:");
-        let end = index_of(&lanes[start..], "case .trivial:");
+fn mas_agent_chain_keeps_agentic_cloud_before_local_chat_fallbacks() {
+    let lanes = mas_model_preference_table_body();
+    let agent = {
+        let start = index_of(lanes, "\"june.cloud-first.agent\": [");
+        let end = index_of(&lanes[start..], "\"june.cloud-first.reasoning\": [");
         &lanes[start..start + end]
     };
-    let cloud_openai = index_of(tool_caller, ".cloud(provider: \"openai\")");
-    let cloud_claude = index_of(tool_caller, ".cloud(provider: \"claude\")");
-    let apple = index_of(tool_caller, ".appleIntelligence");
-    let gguf = index_of(tool_caller, ".gguf");
-    let stub = index_of(tool_caller, ".stub");
+    let cloud_openai = index_of(agent, ".cloud(provider: \"openai\")");
+    let cloud_claude = index_of(agent, ".cloud(provider: \"claude\")");
+    let apple = index_of(agent, ".appleIntelligence");
+    let gguf = index_of(agent, ".gguf");
+    let stub = index_of(agent, ".stub");
 
     assert!(
-        cloud_openai < apple && cloud_claude < apple && cloud_openai < gguf && cloud_claude < gguf,
-        "tool-caller routes must try agentic cloud lanes before local chat fallback"
+        cloud_openai < apple && cloud_claude < apple,
+        "MAS agent routes must try agentic cloud lanes before Apple Intelligence chat fallback"
     );
     assert!(
         apple < gguf && gguf < stub,
-        "local chat fallbacks must stay ordered before the internal stub reject bucket"
+        "GGUF must stay after Apple Intelligence and before the internal stub reject bucket"
     );
     assert!(
-        !tool_caller.contains(".mlx"),
-        "current MAS routing must not reintroduce local MLX tool lanes without an admitted deterministic grammar lane"
+        !lanes.contains(".mlx"),
+        "current MAS routing must not introduce the parked local MLX lane"
     );
 }

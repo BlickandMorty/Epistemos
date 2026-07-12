@@ -25,6 +25,7 @@
 
 export interface OutboundMessageBase {
   type: string;
+  epoch?: number;
 }
 
 export interface EditorReadyMessage extends OutboundMessageBase {
@@ -33,20 +34,68 @@ export interface EditorReadyMessage extends OutboundMessageBase {
 
 export interface ContentDidChangeMessage extends OutboundMessageBase {
   type: 'contentDidChange';
+  epoch: number;
   /** Stringified ProseMirror JSON (the canonical .epdoc body). */
   json: string;
 }
 
+export interface MarkdownWritebackRegionPayload {
+  from: number;
+  to: number;
+  byteFrom: number;
+  byteTo: number;
+  codeUnitFrom: number;
+  codeUnitTo: number;
+  changedFrom: number;
+  changedTo: number;
+  blockIndexFrom: number;
+  blockIndexTo: number;
+  blockMarkdown: string;
+}
+
 export interface MarkdownDidChangeMessage extends OutboundMessageBase {
   type: 'markdownDidChange';
+  epoch: number;
   /** Full-fidelity Markdown snapshot from @tiptap/markdown. */
   markdown: string;
+  /** LUMENLENS L3: changed block byte range for minimal-diff writeback. */
+  writeback?: MarkdownWritebackRegionPayload;
 }
 
 export interface DocumentStatsChangedMessage extends OutboundMessageBase {
   type: 'documentStatsChanged';
+  epoch: number;
   wordCount: number;
   characterCount: number;
+}
+
+export interface LoadSettledMessage extends OutboundMessageBase {
+  type: 'loadSettled';
+  epoch: number;
+}
+
+export interface SuggestionResolvedMessage extends OutboundMessageBase {
+  type: 'suggestionResolved';
+  epoch: number;
+  suggestionId: string;
+  state: 'accepted' | 'rejected';
+}
+
+export interface SuggestionAppliedMessage extends OutboundMessageBase {
+  type: 'suggestionApplied';
+  epoch: number;
+  id: string;
+  author: string;
+  turnId: string;
+  kind: string;
+  from: number;
+  to: number;
+  mapVersion: number;
+  before: string;
+  after: string;
+  rationale?: string;
+  sourceCitation?: string;
+  claimId?: string;
 }
 
 export interface RectPayload {
@@ -54,7 +103,7 @@ export interface RectPayload {
 }
 
 export interface SelectionPayload {
-  from: number; to: number; empty: boolean;
+  from: number; to: number; empty: boolean; text?: string;
 }
 
 export interface ActiveMarksPayload {
@@ -120,6 +169,9 @@ export type OutboundMessage =
   | ContentDidChangeMessage
   | MarkdownDidChangeMessage
   | DocumentStatsChangedMessage
+  | LoadSettledMessage
+  | SuggestionAppliedMessage
+  | SuggestionResolvedMessage
   | CaretChangedMessage
   | RequestSlashMenuMessage
   | RequestBubbleMenuMessage

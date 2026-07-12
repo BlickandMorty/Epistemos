@@ -1,6 +1,10 @@
 # RAW corpus — Plan 9 Data-tab research
 
-> ⚠️ **RAW RESEARCH INPUT — DO NOT BUILD FROM THIS FILE.** Verbatim Plan-9 research corpus (3 GPT singletons + the owner's Claude synthesis, the weighted spine). Adjudicated + clone-verified in docs/research/PLAN9_ADJUDICATION_WORKING_2026_07_03.md; the canonical build doc is docs/prompts/PROMPT_PLAN_9_DATA_TABLES.md. Provenance only.
+> ⚠️ **RAW RESEARCH INPUT — DO NOT BUILD FROM THIS FILE.** Verbatim Plan-9 research corpus (3 GPT
+> singletons + the owner's Claude synthesis, the weighted spine). It contains pre-RECKONER wording
+> that is now superseded: GRDB-as-truth, OpenChamber/goose Pro wiring, docked/in-tab chat, and
+> five-views-v1. The canonical build docs are `docs/prompts/PROMPT_PLAN_9_DATA_TABLES.md`,
+> `docs/prompts/RESEARCH_PROMPT_PLAN_9_RECKONER.md`, and `docs/plans/reckoner/`. Provenance only.
 
 ## THE CLAUDE SYNTHESIS (owner-weighted spine)
 

@@ -5,7 +5,6 @@ struct HTMLWorkspaceEditorView: View {
     let theme: EpistemosTheme?
     let externalRevision: Int
     @Environment(\.colorScheme) private var colorScheme
-    @State var gooseRegenerator = HTMLWorkspaceGooseRegenerator()
     @State var previewPackage: HTMLWorkspacePackage
     @State var selectedPane: HTMLWorkspaceSourcePane = .html
     @State var selectedRouteName: String?
@@ -70,6 +69,7 @@ struct HTMLWorkspaceEditorView: View {
                 self.previewRouteName = nil
             }
             expirePendingRegeneratePreviewIfNeeded(for: newValue)
+            registerHTMLWorkspaceReadAloudProvider()
             schedulePreviewUpdate(newValue)
         }
         .onChange(of: colorScheme) { _, _ in
@@ -81,6 +81,19 @@ struct HTMLWorkspaceEditorView: View {
         .onChange(of: externalRevision) { _, _ in
             liveDOMSnapshot = nil
             previewPackage = package
+            registerHTMLWorkspaceReadAloudProvider()
+        }
+        .onChange(of: selectedPane) { _, _ in
+            registerHTMLWorkspaceReadAloudProvider()
+        }
+        .onChange(of: selectedRouteName) { _, _ in
+            registerHTMLWorkspaceReadAloudProvider()
+        }
+        .onChange(of: previewRouteName) { _, _ in
+            registerHTMLWorkspaceReadAloudProvider()
+        }
+        .onChange(of: layoutMode) { _, _ in
+            registerHTMLWorkspaceReadAloudProvider()
         }
         .onChange(of: inspectorVisible) { _, visible in
             if !visible {
@@ -88,16 +101,17 @@ struct HTMLWorkspaceEditorView: View {
             }
         }
         .onAppear {
+            registerHTMLWorkspaceReadAloudProvider()
             resetInvisiblesDefaultIfNeeded()
         }
         .onDisappear {
+            EpistemosVisibleReadAloudRegistry.shared.unregister(.htmlWorkspaceSource)
             previewUpdateTask?.cancel()
             previewUpdateTask = nil
             regenerateTask?.cancel()
             regenerateTask = nil
             regenerateContextTask?.cancel()
             regenerateContextTask = nil
-            gooseRegenerator.stop()
         }
         .sheet(isPresented: $regenerateSheetPresented) {
             HTMLWorkspaceRegenerateSheet(
@@ -194,6 +208,7 @@ struct HTMLWorkspaceEditorView: View {
             .labelStyle(.titleAndIcon)
             .help("Save")
 
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             Button {
                 openRegenerateSheet()
             } label: {
@@ -202,6 +217,7 @@ struct HTMLWorkspaceEditorView: View {
             .labelStyle(.titleAndIcon)
             .disabled(isRegenerating)
             .help("Regenerate surface")
+            #endif
 
             Menu {
                 Section("Surface") {
@@ -254,12 +270,14 @@ struct HTMLWorkspaceEditorView: View {
                     ) {
                         self.setAppBridgeEnabled(!package.manifest.sandboxPolicy.allowAppBridge)
                     }
+                    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
                     Button(
                         package.manifest.sandboxPolicy.allowPythonRuntime ? "Disable Python Runtime" : "Enable Python Runtime",
                         systemImage: "chevron.left.forwardslash.chevron.right"
                     ) {
                         self.setPythonRuntimeEnabled(!package.manifest.sandboxPolicy.allowPythonRuntime)
                     }
+                    #endif
                     Button("Test Runtime Bridges", systemImage: "stethoscope", action: testRuntimeBridgeProbes)
                         .disabled(isRegenerating)
                     Button("Test App Bridge", systemImage: "point.3.connected.trianglepath", action: testAppBridge)
@@ -268,10 +286,12 @@ struct HTMLWorkspaceEditorView: View {
                         .disabled(isRegenerating)
                     Button("Test Console Capture", systemImage: "terminal", action: testConsoleCapture)
                         .disabled(isRegenerating)
+                    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
                     Button("Test Python Runtime", systemImage: "chevron.left.forwardslash.chevron.right", action: testPythonRuntime)
                         .disabled(!package.manifest.sandboxPolicy.allowPythonRuntime || isRegenerating)
                     Button("Insert Python Demo", systemImage: "chevron.left.forwardslash.chevron.right", action: insertPythonDemo)
                         .disabled(isRegenerating)
+                    #endif
                 }
             } label: {
                 Label("Tools", systemImage: "slider.horizontal.3")
@@ -589,8 +609,12 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var pythonRuntimeStatusText: String {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return "Python parked"
+        #else
         guard package.manifest.sandboxPolicy.allowPythonRuntime else { return "Python off" }
         return HTMLWorkspacePythonRuntime.availabilityStatusText
+        #endif
     }
 
     private var generationProvenanceText: String {
@@ -606,6 +630,42 @@ struct HTMLWorkspaceEditorView: View {
 
     private var selectedPaneMetricText: String {
         selectedPane.metricText(for: package, domSnapshot: domSnapshot)
+    }
+
+    private func registerHTMLWorkspaceReadAloudProvider() {
+        EpistemosVisibleReadAloudRegistry.shared.register(.htmlWorkspaceSource) {
+            htmlWorkspaceReadAloudText()
+        }
+        EpistemosVisibleReadAloudRegistry.shared.markActive(.htmlWorkspaceSource)
+    }
+
+    private func htmlWorkspaceReadAloudText() -> String {
+        let rawTitle = package.manifest.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayTitle = rawTitle.isEmpty ? "HTML Workspace" : rawTitle
+        let paneTitle: String
+        let rawText: String
+        let treatsAsHTML: Bool
+
+        if layoutMode == .preview {
+            paneTitle = previewRouteName.map { "Preview route \($0)" } ?? "Preview"
+            rawText = previewRouteName.flatMap { package.routes[$0] } ?? package.indexHTML
+            treatsAsHTML = true
+        } else {
+            if selectedPane == .routes, let activeRouteName {
+                paneTitle = "routes/\(activeRouteName)"
+                rawText = package.routes[activeRouteName] ?? ""
+            } else {
+                paneTitle = selectedPane.fileName
+                rawText = sourceText(for: selectedPane)
+            }
+            treatsAsHTML = selectedPane == .html || selectedPane == .routes
+        }
+
+        let body = HTMLWorkspaceReadAloudText.plainVisibleText(
+            from: rawText,
+            treatsAsHTML: treatsAsHTML
+        )
+        return "\(displayTitle). \(paneTitle). \(body)"
     }
 
     var sortedRouteNames: [String] {
@@ -758,6 +818,11 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func setPythonRuntimeEnabled(_ enabled: Bool) {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        if enabled {
+            statusText = HTMLWorkspacePythonRuntime.availabilityStatusText
+        }
+        #else
         guard package.manifest.sandboxPolicy.allowPythonRuntime != enabled else { return }
         var updated = package
         updated.manifest.sandboxPolicy.allowPythonRuntime = enabled
@@ -773,6 +838,7 @@ struct HTMLWorkspaceEditorView: View {
         } else {
             statusText = enabled ? "Python runtime enabled" : "Python runtime disabled"
         }
+        #endif
     }
 
 
@@ -990,5 +1056,42 @@ struct HTMLWorkspaceEditorView: View {
             guard !Task.isCancelled else { return }
             previewPackage = newPackage
         }
+    }
+}
+
+private enum HTMLWorkspaceReadAloudText {
+    static func plainVisibleText(from text: String, treatsAsHTML: Bool) -> String {
+        let source = treatsAsHTML ? stripHTMLForSpeech(text) : text
+        return source
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func stripHTMLForSpeech(_ html: String) -> String {
+        var text = html
+        let dropRules = [
+            #"(?is)<script\b[^>]*>.*?</script>"#,
+            #"(?is)<style\b[^>]*>.*?</style>"#,
+            #"(?is)<!--.*?-->"#
+        ]
+        for rule in dropRules {
+            text = text.replacingOccurrences(of: rule, with: " ", options: .regularExpression)
+        }
+        text = text.replacingOccurrences(of: #"(?i)<br\s*/?>"#, with: " ", options: .regularExpression)
+        text = text.replacingOccurrences(of: #"(?i)</(p|div|section|article|header|footer|li|tr|h[1-6])>"#, with: ". ", options: .regularExpression)
+        text = text.replacingOccurrences(of: #"<[^>]+>"#, with: " ", options: .regularExpression)
+        let entities = [
+            "&nbsp;": " ",
+            "&amp;": "&",
+            "&lt;": "<",
+            "&gt;": ">",
+            "&quot;": "\"",
+            "&#39;": "'",
+            "&apos;": "'"
+        ]
+        for (entity, replacement) in entities {
+            text = text.replacingOccurrences(of: entity, with: replacement)
+        }
+        return text
     }
 }

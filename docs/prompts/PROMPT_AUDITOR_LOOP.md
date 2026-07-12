@@ -1,6 +1,12 @@
 # AUDITOR — canon-consistency loop prompt (paste to a 4th terminal; run with /loop)
 
-> 🔴 **SUPERSEDED-IN-FRAME 2026-07-02 (OpenChamber pivot).** This auditor loop checked consistency against the PRE-pivot canon (Goose-as-surface reskin / Option 1 / Goose-only). If re-run, it must audit against CURRENT canon instead: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine of several; native pill + companion mascots wanted; arXiv/Obscura kept dedicated. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+> 🔴 **ARCHIVED / DO NOT PASTE AS-IS (refreshed 2026-07-06).** This loop checked consistency
+> against older pre-KEELSTONE/RECKONER canon. If re-run, audit against CURRENT docs instead:
+> `docs/plans/HANDOFF_CODEX_2026_07_06.md`, `docs/prompts/MASTER_PLAN_INDEX_2026_07_03.md`, and
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md`. Current anchor: MAS/June only;
+> OpenChamber/ProAgent names are legacy excision targets under KEELSTONE; RECKONER has no
+> standalone Data room and no new/docked chat; builders use autonomous defaults and do not wait for
+> owner in-app verification.
 
 > A continuous doc-auditor. It keeps the docs the 3 build agents read CONSISTENT during implementation — catching
 > drift like the native-chat/§7 staleness automatically. It edits ONLY docs (never code), never deletes a doc, and
@@ -22,14 +28,16 @@ EACH CYCLE:
   1. Re-run ALL 10 invariant checks from the LEDGER (the grep commands). Record pass/fail + file:line.
   2. UPDATE the LEDGER STATUS column (✅/⚠️) + a one-line note per check.
   3. RECONCILE drift you are CONFIDENT about, at the SOURCE: add a top "🛑 SUPERSEDED 2026-06-29" banner to a stale doc, or an inline "🛑 [DELETED 2026-06-29 — <why>]" marker on a stale line. Point to the winning canon. NEVER delete the doc (nuance is preserved on purpose).
-  4. PARK anything AMBIGUOUS (you're not sure of owner intent) under the LEDGER "OWNER REVIEW" section — do NOT guess-edit it.
+  4. For ambiguity, choose the smallest non-destructive current-canon default and record it in the
+     ledger. Park only destructive, irreversible, or scope-changing choices for owner review.
   5. Spot-check NEW drift beyond the 10: any new doc/edit that contradicts Option 1 / the lens model / the spring values / retheme-not-replace / two-token-sources / graph-untouched → banner or park it.
   6. Commit (docs only). Report a one-line cycle summary (e.g., "cycle N: 10/10 ✅, bannered FOO:12, 0 owner-review").
 
 HARD RULES:
   × NEVER edit code, run builds, or stage another agent's uncommitted files (Plan-2/3/browser/agent_core WIP). Docs only.
   × NEVER delete a doc — banner/mark it (the many docs are kept for nuance).
-  × NEVER guess owner intent — park ambiguous drift in OWNER REVIEW.
+  × NEVER guess destructive owner intent — use current-canon defaults for reversible doc cleanup,
+    and park only destructive/scope-changing decisions.
   × Read-first · no-contradiction · preserve-nuance · break-nothing on every edit.
   × Don't relitigate the locked decisions; ENFORCE them (Option 1, the lens model, the verified tokens/springs, two token sources, graph-untouched, only-paste = PROMPT_PLAN_1/2/3).
 

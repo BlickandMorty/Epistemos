@@ -12,6 +12,7 @@ public final class RuntimeRouter: @unchecked Sendable {
 
     private static let log = Logger(subsystem: "com.epistemos.app", category: "RuntimeRouter")
 
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
     nonisolated public static let modelPreferenceTable: [String: [RuntimeLane]] = [
         "june.cloud-first.agent": [
             .cloud(provider: "openai"),
@@ -40,6 +41,36 @@ public final class RuntimeRouter: @unchecked Sendable {
             .stub,
         ],
     ]
+    #else
+    nonisolated public static let modelPreferenceTable: [String: [RuntimeLane]] = [
+        "june.cloud-first.agent": [
+            .cloud(provider: "openai"),
+            .cloud(provider: "claude"),
+            .appleIntelligence,
+            .gguf,
+            .stub,
+        ],
+        "june.cloud-first.reasoning": [
+            .cloud(provider: "claude"),
+            .cloud(provider: "openai"),
+            .appleIntelligence,
+            .gguf,
+            .stub,
+        ],
+        "june.cloud-first.quick": [
+            .cloud(provider: "openai"),
+            .cloud(provider: "claude"),
+            .appleIntelligence,
+            .gguf,
+            .stub,
+        ],
+        "june.cloud-first.vision": [
+            .cloud(provider: "openai"),
+            .cloud(provider: "claude"),
+            .stub,
+        ],
+    ]
+    #endif
 
     nonisolated public static let localPolicyTable: [RuntimeRole: RoutePolicy] = [
         .code: .init(minimumConfidence: 0.74, maximumComplexity: 0.54, maximumToolCount: 0, minimumContextWindow: 16_384),
@@ -163,18 +194,44 @@ public final class RuntimeRouter: @unchecked Sendable {
         }
     }
 
+    nonisolated private static var openAIFirstFallbackLanes: [RuntimeLane] {
+        var lanes: [RuntimeLane] = [
+            .cloud(provider: "openai"),
+            .cloud(provider: "claude"),
+            .appleIntelligence,
+        ]
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        lanes.append(.gguf)
+        #endif
+        lanes.append(.stub)
+        return lanes
+    }
+
+    nonisolated private static var claudeFirstFallbackLanes: [RuntimeLane] {
+        var lanes: [RuntimeLane] = [
+            .cloud(provider: "claude"),
+            .cloud(provider: "openai"),
+            .appleIntelligence,
+        ]
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        lanes.append(.gguf)
+        #endif
+        lanes.append(.stub)
+        return lanes
+    }
+
     nonisolated public static func defaultPreferredLanes(for role: RuntimeRole) -> [RuntimeLane] {
         switch role {
         case .code:
-            return Self.modelPreferenceTable["june.cloud-first.agent"] ?? [.cloud(provider: "openai"), .cloud(provider: "claude"), .appleIntelligence, .gguf, .stub]
+            return Self.modelPreferenceTable["june.cloud-first.agent"] ?? Self.openAIFirstFallbackLanes
         case .reasoning:
-            return Self.modelPreferenceTable["june.cloud-first.reasoning"] ?? [.cloud(provider: "claude"), .cloud(provider: "openai"), .appleIntelligence, .gguf, .stub]
+            return Self.modelPreferenceTable["june.cloud-first.reasoning"] ?? Self.claudeFirstFallbackLanes
         case .quick:
-            return Self.modelPreferenceTable["june.cloud-first.quick"] ?? [.cloud(provider: "openai"), .cloud(provider: "claude"), .appleIntelligence, .gguf, .stub]
+            return Self.modelPreferenceTable["june.cloud-first.quick"] ?? Self.openAIFirstFallbackLanes
         case .toolCaller:
-            return Self.modelPreferenceTable["june.cloud-first.agent"] ?? [.cloud(provider: "openai"), .cloud(provider: "claude"), .appleIntelligence, .gguf, .stub]
+            return Self.modelPreferenceTable["june.cloud-first.agent"] ?? Self.openAIFirstFallbackLanes
         case .trivial:
-            return Self.modelPreferenceTable["june.cloud-first.quick"] ?? [.cloud(provider: "openai"), .cloud(provider: "claude"), .appleIntelligence, .gguf, .stub]
+            return Self.modelPreferenceTable["june.cloud-first.quick"] ?? Self.openAIFirstFallbackLanes
         case .vision:
             return Self.modelPreferenceTable["june.cloud-first.vision"] ?? [.cloud(provider: "openai"), .cloud(provider: "claude"), .stub]
         }

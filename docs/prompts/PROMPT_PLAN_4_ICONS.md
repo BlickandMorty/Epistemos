@@ -1,7 +1,18 @@
 # PLAN 4 — Theme-Canonical Monochrome Iconography build prompt (SAVED — paste later)
 
-> 🔴 **OWNER OVERRIDE — 2026-07-02 (READ FIRST). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.**
-> The iconography spine is still wanted, but its home changed: the Agent surface is now **OpenChamber (goose + OpenCode engines)**, so the mono icon work **folds into the OpenChamber June-theme token pass** (theme OpenChamber's own icon set + the native chrome to the Epistemos monochrome, theme-DERIVED for all palettes incl. custom — not a separate reskin of a Goose web UI). The mono set also feeds: the **native pill nav** icons, the **companion MASCOT** presentation (emotes/badges), and the **model/provider/tool marks** shown per-engine. Ignore references to Goose-web-specific model/provider logo plumbing as the *primary* target — the primary target is OpenChamber + native chrome. Otherwise this plan is low-conflict; the design-directive + detail below stand.
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. Iconography now
+> targets the MAS app only: native chrome, MAS/June, Epdoc/LumenLens, Reckoner,
+> ResearchHub, Quick Capture, settings, and bundled WKWebView surfaces. Any
+> Experimental/1Code/Goose-web token mirror language is parked unless it maps to
+> MAS-bundled June or editor/grid web assets.
+
+> 🔴 **OWNER OVERRIDE — 2026-07-06 (READ FIRST).** OpenChamber/ProAgent are deletion targets,
+> not current surfaces. The iconography spine is still wanted, but its active home is now the
+> MAS app: **MAS/June**, native chrome, LUMENLENS/Reckoner/editor surfaces, and feature
+> rooms. The mono icon work feeds the native pill nav, MAS-safe status/mascot accents,
+> model/provider/tool marks shown per-engine, and any current web-agent token mirror. Ignore
+> references to Goose-web or OpenChamber-specific logo plumbing as primary targets.
 
 > 🎨 **OWNER DESIGN DIRECTIVE — 2026-06-30 (CURRENT CANON, identical in EVERY plan):** the look = **HIGH-QUALITY FLAT · MINIMAL · THEME-AWARE · OPTIMIZED.** KEEP the Apple-native **FRAME** — rounded-corner window, vibrancy, traffic-lights, the calibrated springs (the curved-white native window the owner likes STAYS). **SURFACES (panels · buttons · lists · inputs) are FLAT + BORDERLESS:** NO thick outlines, NO hard box borders, NO 1px rules — differentiate by a subtle background tint + spacing + a very soft shadow only. NOT the old thick-outline pixel-art look, and NOT translucent-glass on every surface. **TOTAL THEME-AWARENESS:** every surface (native + editor-web + Goose-web) reads the Epistemos tokens for ALL palettes incl. the user CUSTOM palette; no hardcoded color; two-token-sources in lock-step. Full doctrine: `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
 

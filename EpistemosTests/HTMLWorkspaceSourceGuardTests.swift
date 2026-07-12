@@ -141,6 +141,89 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(webViewResetRange.upperBound <= stopLoadingRange.lowerBound)
     }
 
+    @Test("app-bridge replies never evaluate JavaScript during preview navigation")
+    func appBridgeRepliesAreNavigationSafe() throws {
+        let previewSource = try loadMirroredSourceTextFile(
+            "Epistemos/Views/HTMLWorkspace/HTMLWorkspacePreviewView.swift"
+        )
+        let start = try #require(
+            previewSource.range(
+                of: "private func dispatchAppBridgeResponse(command: HTMLWorkspaceSafeAPI.Command, in webView: WKWebView?)"
+            )
+        )
+        let end = try #require(
+            previewSource.range(
+                of: "private static func optionalJavaScriptStringLiteral",
+                range: start.upperBound..<previewSource.endIndex
+            )
+        )
+        let dispatch = String(previewSource[start.lowerBound..<end.lowerBound])
+
+        #expect(dispatch.contains("guard let webView, !isDetached else { return }"))
+        #expect(dispatch.contains("guard !isLoadingPreview, !webView.isLoading else { return }"))
+        let loadingGuard = try #require(
+            dispatch.range(of: "guard !isLoadingPreview, !webView.isLoading else { return }")
+        )
+        let evaluation = try #require(dispatch.range(of: "webView.evaluateJavaScript(script)"))
+        #expect(loadingGuard.lowerBound < evaluation.lowerBound)
+    }
+
+    @Test("stale data-patch completions cannot replace a newer preview render")
+    func staleDataPatchCompletionsAreDiscarded() throws {
+        let previewSource = try loadMirroredSourceTextFile(
+            "Epistemos/Views/HTMLWorkspace/HTMLWorkspacePreviewView.swift"
+        )
+        let start = try #require(previewSource.range(of: "func patchDataJSON("))
+        let end = try #require(
+            previewSource.range(
+                of: "func refreshLiveDOMSnapshot",
+                range: start.upperBound..<previewSource.endIndex
+            )
+        )
+        let patchFunction = String(previewSource[start.lowerBound..<end.lowerBound])
+
+        #expect(patchFunction.contains("!self.isLoadingPreview"))
+        #expect(patchFunction.contains("!webView.isLoading"))
+        #expect(patchFunction.contains("self.lastRenderedShellIdentity == shellIdentity"))
+        #expect(patchFunction.contains("self.lastRenderedDataJSON == dataJSON"))
+        #expect(patchFunction.contains("self.lastRenderedHTML == renderedFallbackHTML"))
+        let identityGuard = try #require(
+            patchFunction.range(of: "self.lastRenderedShellIdentity == shellIdentity")
+        )
+        let staleFallback = try #require(
+            patchFunction.range(of: "if error != nil || (result as? String) != \"patched\"")
+        )
+        #expect(identityGuard.lowerBound < staleFallback.lowerBound)
+    }
+
+    @Test("only the active HTML preview navigation may finish loading state")
+    func previewNavigationCompletionIsIdentityGuarded() throws {
+        let previewSource = try loadMirroredSourceTextFile(
+            "Epistemos/Views/HTMLWorkspace/HTMLWorkspacePreviewView.swift"
+        )
+
+        #expect(previewSource.contains("private var activeNavigation: WKNavigation?"))
+        #expect(previewSource.contains("activeNavigation = webView.loadHTMLString("))
+        #expect(previewSource.contains("finishPreviewNavigation(navigation, in: webView, didLoadPage: true)"))
+        #expect(previewSource.contains("finishPreviewNavigation(navigation, in: webView, didLoadPage: false)"))
+        let finishStart = try #require(
+            previewSource.range(of: "private func finishPreviewNavigation(")
+        )
+        let policyStart = try #require(
+            previewSource.range(
+                of: "decidePolicyFor navigationAction",
+                range: finishStart.upperBound..<previewSource.endIndex
+            )
+        )
+        let finish = String(previewSource[finishStart.lowerBound..<policyStart.lowerBound])
+
+        #expect(finish.contains("guard let activeNavigation, navigation === activeNavigation else { return }"))
+        #expect(finish.contains("self.activeNavigation = nil"))
+        let identityGuard = try #require(finish.range(of: "navigation === activeNavigation"))
+        let loadingMutation = try #require(finish.range(of: "isLoadingPreview = false"))
+        #expect(identityGuard.lowerBound < loadingMutation.lowerBound)
+    }
+
     @Test("HTML workspace exposes explicit attachment helpers")
     func htmlWorkspaceExposesExplicitAttachmentHelpers() throws {
         let chatTypes = try loadMirroredSourceTextFile("Epistemos/Models/ChatTypes.swift")

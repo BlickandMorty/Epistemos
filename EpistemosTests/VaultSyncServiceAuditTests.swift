@@ -66,6 +66,45 @@ struct VaultSyncServiceAuditTests {
         }
     }
 
+    actor OrderedExportProbe {
+        private var invocationCount = 0
+        private var firstStarted = false
+        private var firstReleased = false
+        private var startWaiters: [CheckedContinuation<Void, Never>] = []
+        private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+
+        func begin() async -> Int {
+            invocationCount += 1
+            let invocation = invocationCount
+            if invocation == 1 {
+                firstStarted = true
+                let waiters = startWaiters
+                startWaiters.removeAll()
+                waiters.forEach { $0.resume() }
+                if !firstReleased {
+                    await withCheckedContinuation { releaseWaiters.append($0) }
+                }
+            }
+            return invocation
+        }
+
+        func waitUntilFirstStarted() async {
+            guard !firstStarted else { return }
+            await withCheckedContinuation { startWaiters.append($0) }
+        }
+
+        func releaseFirst() {
+            firstReleased = true
+            let waiters = releaseWaiters
+            releaseWaiters.removeAll()
+            waiters.forEach { $0.resume() }
+        }
+
+        func count() -> Int {
+            invocationCount
+        }
+    }
+
     final class ManagedBodyCountProbe: Sendable {
         private let lock = NSLock()
         nonisolated(unsafe) private var count = 0
@@ -281,6 +320,47 @@ struct VaultSyncServiceAuditTests {
         }
     }
 
+    @Test("file-first saves for one note serialize complete transactions")
+    func fileFirstBodySavesSerializePerPage() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+        let targetURL = vaultURL.appendingPathComponent("Ordered.md")
+        let page = SDPage(title: "Ordered")
+        page.filePath = targetURL.path
+        context.insert(page)
+        try context.save()
+
+        let firstBody = "first body"
+        let secondBody = "second body"
+        let probe = OrderedExportProbe()
+        service.setExportPageOverrideForTesting { _, _ in
+            let invocation = await probe.begin()
+            let body = invocation == 1 ? firstBody : secondBody
+            return (targetURL.path, SDPage.bodyHash(body))
+        }
+
+        let firstSave = Task { @MainActor in
+            await service.savePageBodyFileFirst(pageId: page.id, body: firstBody)
+        }
+        await probe.waitUntilFirstStarted()
+        let secondSave = Task { @MainActor in
+            await service.savePageBodyFileFirst(pageId: page.id, body: secondBody)
+        }
+        await Task.yield()
+        await Task.yield()
+
+        #expect(await probe.count() == 1)
+        await probe.releaseFirst()
+        #expect(await firstSave.value)
+        #expect(await secondSave.value)
+        #expect(await probe.count() == 2)
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(12),
         condition: @escaping @MainActor () async -> Bool
@@ -405,6 +485,25 @@ struct VaultSyncServiceAuditTests {
         #expect(validation.failureReason == nil)
     }
 
+    @Test("startup bookmark validation treats transient MAS readability failures as retryable")
+    func startupBookmarkValidationTreatsTransientMASReadabilityFailuresAsRetryable() {
+        let validation = VaultSyncService.startupBookmarkValidationForTesting(
+            bookmarkExists: true,
+            resolvedURL: URL(fileURLWithPath: "/tmp/vault", isDirectory: true),
+            isStale: false,
+            usedSecurityScope: true,
+            accessGranted: true,
+            isReadable: false,
+            requiresSecurityScopedVaultAccess: true
+        )
+
+        #expect(validation.bookmarkExists)
+        #expect(validation.isReadyForAutomaticRestore == false)
+        #expect(validation.failureReason == "Saved vault bookmark points to a missing or unreadable directory.")
+        #expect(validation.isRetryableAutomaticRestorePreflightFailure)
+        #expect(validation.shouldBlockAutomaticRestore == false)
+    }
+
     @Test("MAS startup bookmark validation rejects plain resolved bookmarks")
     func masStartupBookmarkValidationRejectsPlainResolvedBookmarks() {
         let validation = VaultSyncService.startupBookmarkValidationForTesting(
@@ -420,6 +519,51 @@ struct VaultSyncServiceAuditTests {
         #expect(validation.bookmarkExists)
         #expect(validation.isReadyForAutomaticRestore == false)
         #expect(validation.failureReason == "Saved vault bookmark is not security-scoped and must be re-selected.")
+        #expect(validation.shouldBlockAutomaticRestore)
+    }
+
+    @Test("MAS startup bookmark validation checks readability while security scope is active")
+    func masStartupBookmarkValidationChecksReadabilityWhileScopeIsActive() {
+        let vaultURL = URL(fileURLWithPath: "/tmp/mas-scoped-vault", isDirectory: true)
+        var scopeActive = false
+        var checkedExistsWhileScoped = false
+        var checkedReadableWhileScoped = false
+        var stoppedAfterReadabilityCheck = false
+
+        let validation = VaultSyncService.scopedStartupBookmarkValidationForTesting(
+            resolvedURL: vaultURL,
+            isStale: false,
+            usedSecurityScope: true,
+            accessSecurityScope: { _ in
+                scopeActive = true
+                return true
+            },
+            stopSecurityScope: { _ in
+                #expect(checkedExistsWhileScoped)
+                #expect(checkedReadableWhileScoped)
+                stoppedAfterReadabilityCheck = true
+                scopeActive = false
+            },
+            fileExists: { path in
+                #expect(path == vaultURL.path)
+                #expect(scopeActive)
+                checkedExistsWhileScoped = true
+                return true
+            },
+            isReadableFile: { path in
+                #expect(path == vaultURL.path)
+                #expect(scopeActive)
+                checkedReadableWhileScoped = true
+                return true
+            },
+            requiresSecurityScopedVaultAccess: true
+        )
+
+        #expect(validation.bookmarkExists)
+        #expect(validation.isReadyForAutomaticRestore)
+        #expect(validation.failureReason == nil)
+        #expect(stoppedAfterReadabilityCheck)
+        #expect(scopeActive == false)
     }
 
     @Test("vault sync test hooks do not overwrite live vault defaults")
@@ -434,8 +578,9 @@ struct VaultSyncServiceAuditTests {
         let livePath = UserDefaults.standard.string(forKey: lastVaultPathKey)
 
         service.setUserDefaultsForTesting(isolatedDefaults)
-        service.persistVaultSelection(vaultURL)
+        let didPersist = service.persistVaultSelection(vaultURL)
 
+        #expect(didPersist)
         #expect(UserDefaults.standard.data(forKey: vaultBookmarkKey) == liveBookmark)
         #expect(UserDefaults.standard.string(forKey: lastVaultPathKey) == livePath)
         #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
@@ -451,8 +596,9 @@ struct VaultSyncServiceAuditTests {
         let liveBookmark = UserDefaults.standard.data(forKey: vaultBookmarkKey)
         let livePath = UserDefaults.standard.string(forKey: lastVaultPathKey)
 
-        service.persistVaultSelection(vaultURL)
+        let didPersist = service.persistVaultSelection(vaultURL)
 
+        #expect(didPersist)
         #expect(UserDefaults.standard.data(forKey: vaultBookmarkKey) == liveBookmark)
         #expect(UserDefaults.standard.string(forKey: lastVaultPathKey) == livePath)
     }
@@ -473,8 +619,9 @@ struct VaultSyncServiceAuditTests {
             return Data("plain-bookmark".utf8)
         }
 
-        service.persistVaultSelection(vaultURL)
+        let didPersist = service.persistVaultSelection(vaultURL)
 
+        #expect(didPersist)
         #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) == Data("plain-bookmark".utf8))
         #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
     }
@@ -496,10 +643,45 @@ struct VaultSyncServiceAuditTests {
             return Data("plain-bookmark".utf8)
         }
 
-        service.persistVaultSelection(vaultURL)
+        let didPersist = service.persistVaultSelection(vaultURL)
 
+        #expect(!didPersist)
         #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) == nil)
-        #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
+        #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == nil)
+        #expect(!isolatedDefaults.bool(forKey: "epistemos.hasEverConnectedAVault"))
+    }
+
+    @Test("failed MAS vault selection preserves the previous relaunch grant")
+    func failedMASVaultSelectionPreservesPreviousGrant() throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let isolatedDefaults = makeIsolatedDefaults()
+        let previousBookmark = Data("previous-security-scoped-bookmark".utf8)
+        let previousPath = "/previous/vault"
+        let previousTrustedPath = "/previous/trusted-vault"
+        let candidateURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: candidateURL) }
+
+        isolatedDefaults.set(previousBookmark, forKey: vaultBookmarkKey)
+        isolatedDefaults.set(previousPath, forKey: lastVaultPathKey)
+        isolatedDefaults.set(previousTrustedPath, forKey: "epistemos.confirmedSuspiciousVaultPath")
+        isolatedDefaults.set(true, forKey: "epistemos.hasEverConnectedAVault")
+        service.setUserDefaultsForTesting(isolatedDefaults)
+        service.setRequiresSecurityScopedVaultAccessForTesting(true)
+        service.setBookmarkDataWriterForTesting { _, _ in
+            throw CocoaError(.fileWriteNoPermission)
+        }
+
+        let didPersist = service.persistVaultSelection(candidateURL)
+
+        #expect(!didPersist)
+        #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) == previousBookmark)
+        #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == previousPath)
+        #expect(
+            isolatedDefaults.string(forKey: "epistemos.confirmedSuspiciousVaultPath")
+                == previousTrustedPath
+        )
+        #expect(isolatedDefaults.bool(forKey: "epistemos.hasEverConnectedAVault"))
     }
 
     @Test("MAS watch policy refuses unscoped vault starts")

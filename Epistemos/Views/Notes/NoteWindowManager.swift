@@ -682,8 +682,20 @@ final class NoteWindowManager {
 
     /// Read the current body text from the live NSTextView when a note window is open.
     func editorBody(for pageId: String) -> String? {
-        guard let window = windows[pageId] else { return nil }
-        return Self.findTextView(in: window.contentView)?.string
+        guard let window = windows.first(where: { rootPageId, _ in
+            rootPageId == pageId || navigationStates[rootPageId]?.currentPageId == pageId
+        })?.value else {
+            return nil
+        }
+        return Self.editorBody(in: window, matchingPageId: pageId)
+    }
+
+    static func editorBody(in window: NSWindow, matchingPageId pageId: String) -> String? {
+        NoteEditorViewFinder.findTextView(in: window, matchingPageId: pageId)?.string
+    }
+
+    static func editorBody(in rootView: NSView?, matchingPageId pageId: String) -> String? {
+        NoteEditorViewFinder.findTextView(in: rootView, matchingPageId: pageId)?.string
     }
 
     /// Prefer the live editor body for an open note window, then fall back to the persisted body file.

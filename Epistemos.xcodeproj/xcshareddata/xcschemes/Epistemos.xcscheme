@@ -15,9 +15,23 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "973D4C8C4633FC9F5CEF0985"
-               BuildableName = "Epistemos.app"
-               BlueprintName = "Epistemos"
+               BlueprintIdentifier = "D30E77DBB7C16B42612B2335"
+               BuildableName = "Epistemos-AppStore.app"
+               BlueprintName = "Epistemos-AppStore"
+               ReferencedContainer = "container:Epistemos.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A5BC3560F9D79CC3603CB663"
+               BuildableName = "EpistemosAppStoreKeelstoneTests.xctest"
+               BlueprintName = "EpistemosAppStoreKeelstoneTests"
                ReferencedContainer = "container:Epistemos.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -32,9 +46,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "973D4C8C4633FC9F5CEF0985"
-            BuildableName = "Epistemos.app"
-            BlueprintName = "Epistemos"
+            BlueprintIdentifier = "D30E77DBB7C16B42612B2335"
+            BuildableName = "Epistemos-AppStore.app"
+            BlueprintName = "Epistemos-AppStore"
             ReferencedContainer = "container:Epistemos.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -44,9 +58,9 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "37D6F96B1B2A55707390C24A"
-               BuildableName = "EpistemosTests.xctest"
-               BlueprintName = "EpistemosTests"
+               BlueprintIdentifier = "A5BC3560F9D79CC3603CB663"
+               BuildableName = "EpistemosAppStoreKeelstoneTests.xctest"
+               BlueprintName = "EpistemosAppStoreKeelstoneTests"
                ReferencedContainer = "container:Epistemos.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -68,9 +82,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "973D4C8C4633FC9F5CEF0985"
-            BuildableName = "Epistemos.app"
-            BlueprintName = "Epistemos"
+            BlueprintIdentifier = "D30E77DBB7C16B42612B2335"
+            BuildableName = "Epistemos-AppStore.app"
+            BlueprintName = "Epistemos-AppStore"
             ReferencedContainer = "container:Epistemos.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -87,9 +101,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "973D4C8C4633FC9F5CEF0985"
-            BuildableName = "Epistemos.app"
-            BlueprintName = "Epistemos"
+            BlueprintIdentifier = "D30E77DBB7C16B42612B2335"
+            BuildableName = "Epistemos-AppStore.app"
+            BlueprintName = "Epistemos-AppStore"
             ReferencedContainer = "container:Epistemos.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

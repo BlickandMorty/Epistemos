@@ -5,15 +5,11 @@ options:
     macOS: "26.0"
   xcodeVersion: "16.0"
   defaultConfig: Debug
-# Explicit build-configuration set. Debug + Release keep the historical implicit
-# behavior; Experimental is the Developer-ID lane for the embedded 1Code agent
-# surface (§16) — a Release-type build that additionally defines
-# EPISTEMOS_EXPERIMENTAL and KINDRED_ENABLED on the main Epistemos target
-# (see its settings.configs).
+# MAS-only build configuration set. The normal `Epistemos` scheme builds the
+# canonical `Epistemos-AppStore` target, with June and its in-process agent core.
 configs:
   Debug: debug
   Release: release
-  Experimental: release
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -51,139 +47,6 @@ settings:
       COPY_PHASE_STRIP: true
 
 targets:
-  Epistemos:
-    type: application
-    platform: macOS
-    sources:
-      - path: Epistemos
-        type: syncedFolder
-        excludes:
-          - Engine/ClaudeManagedRuntime.swift
-          - Omega/Knowledge/ODIATraceGenerator.swift
-          - Omega/Knowledge/TraceDataMixer.swift
-          - Resources/CoreEditor/chunks/**
-          - Resources/chunks/**
-          - Vault/KnowledgeGraphService.swift
-      - path: LocalPackages/MarkEdit/MarkEditMac/Sources
-        type: syncedFolder
-        excludes:
-          - Main/Application/**
-          - Main/AppDocumentController.swift
-          - Shortcuts/**
-          - Scripting/EditorDocument+Scripting.swift
-          - Scripting/NSColor+Scripting.swift
-          - Updater/**
-      - path: build-rust/swift-bindings
-        type: syncedFolder
-        includes:
-          - "*.swift"
-    resources:
-      - path: Epistemos/Resources
-        excludes:
-          - CoreEditor/chunks/**
-          - chunks/**
-          - LaunchAgents/**
-      - path: Epistemos/Resources/PrivacyInfo.xcprivacy
-      - path: LocalPackages/MarkEdit/MarkEditMac/Resources
-        excludes:
-          - Assets.xcassets/**
-      - path: LocalPackages/MarkEdit/MarkEditMac/Base.lproj
-      - path: LocalPackages/MarkEdit/MarkEditMac/mul.lproj
-      - path: LocalPackages/MarkEdit/MarkEditMac/AppShortcuts.xcstrings
-    settings:
-      base:
-        PRODUCT_NAME: Epistemos
-        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.app
-        INFOPLIST_FILE: Epistemos-Info.plist
-        GENERATE_INFOPLIST_FILE: false
-        MACOSX_DEPLOYMENT_TARGET: "26.0"
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        CODE_SIGN_STYLE: Automatic
-        "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Development"
-        SWIFT_EMIT_LOC_STRINGS: true
-        ENABLE_PREVIEWS: true
-        SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
-        LD_RUNPATH_SEARCH_PATHS:
-          - "@executable_path"
-          - "@executable_path/../Frameworks"
-          - "@loader_path/../Frameworks"
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt
-        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
-      configs:
-        Debug:
-          CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: 3BNL2669SL
-          CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-Debug.entitlements
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_EXPERIMENTAL KINDRED_ENABLED EPISTEMOS_LINK_SUBSTRATE_RT"
-        Release:
-          CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: 3BNL2669SL
-          CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements
-          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
-          ENABLE_HARDENED_RUNTIME: true
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_EXPERIMENTAL KINDRED_ENABLED EPISTEMOS_LINK_SUBSTRATE_RT"
-        # Experimental agent surface (embedded 1Code, §16). Developer-ID lane:
-        # same signing/hardened-runtime posture as Release, plus the compile flag
-        # that activates Epistemos/ExperimentalAgent/**. build-experimental-web.sh
-        # (in the shared preBuild below) graceful-skips when the fork isn't staged.
-        Experimental:
-          CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: 3BNL2669SL
-          CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements
-          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
-          ENABLE_HARDENED_RUNTIME: true
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_EXPERIMENTAL KINDRED_ENABLED EPISTEMOS_LINK_SUBSTRATE_RT"
-    preBuildScripts:
-      - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-opencode-runtime.sh\" && bash \"${SRCROOT}/build-experimental-web.sh\""
-        basedOnDependencyAnalysis: false
-    postBuildScripts:
-      - name: Bundle Runtime Assets
-        script: bash "${SRCROOT}/bundle-app-runtime-assets.sh"
-        basedOnDependencyAnalysis: false
-    dependencies:
-      - package: GRDB
-      - package: Grape
-      # WORK = OpenCode shell (owner 2026-06-21): SwiftTerm = the native terminal view
-      # (NSView LocalProcessTerminalView + PTY) that renders OpenCode's REAL terminal TUI
-      # natively (Option A — keep the real terminal UI, not an Electron GUI, not a native
-      # rebuild). Drives WorkShellLaunchSpec via startProcess. Pure Swift, MIT.
-      - package: SwiftTerm
-        product: SwiftTerm
-      - package: KokoroPipeline
-        product: KokoroPipeline
-      - package: MarkEditCore
-      - package: MarkEditKit
-      - package: MarkEditModules
-        product: AppKitControls
-      - package: MarkEditModules
-        product: AppKitExtensions
-      - package: MarkEditModules
-        product: FileDrop
-      - package: MarkEditModules
-        product: FileVersion
-      - package: MarkEditModules
-        product: FontPicker
-      - package: MarkEditModules
-        product: Previewer
-      - package: MarkEditModules
-        product: SettingsUI
-      - package: MarkEditModules
-        product: Statistics
-      - package: MarkEditModules
-        product: TextBundle
-      - package: MarkEditModules
-        product: TextCompletion
-      - sdk: AppKit.framework
-      - sdk: SwiftUI.framework
-      - sdk: SwiftData.framework
-      - sdk: Foundation.framework
-      - sdk: CryptoKit.framework
-      - sdk: Security.framework
-      - sdk: Network.framework
-      - sdk: AppIntents.framework
-      - sdk: CoreSpotlight.framework
-
   Epistemos-AppStore:
     type: application
     platform: macOS
@@ -191,7 +54,6 @@ targets:
       - path: Epistemos
         type: syncedFolder
         excludes:
-          - Engine/ClaudeManagedRuntime.swift
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
           - Resources/CoreEditor/chunks/**
@@ -234,6 +96,7 @@ targets:
         "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Development"
         CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-AppStore.entitlements
         CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
+        ENABLE_APP_SANDBOX: true
         SWIFT_EMIT_LOC_STRINGS: true
         ENABLE_PREVIEWS: true
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
@@ -241,7 +104,7 @@ targets:
           - "@executable_path"
           - "@executable_path/../Frameworks"
           - "@loader_path/../Frameworks"
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt
         SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
       configs:
         Debug:
@@ -255,7 +118,7 @@ targets:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
     preBuildScripts:
       - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\""
+        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-epistemos-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-june-web.sh\""
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
@@ -269,6 +132,10 @@ targets:
     dependencies:
       - package: GRDB
       - package: Grape
+      # June selected local models: pinned in-process llama.cpp; no subprocess,
+      # server, JIT, or downloaded executable runtime.
+      - package: EpistemosLlama
+        product: EpistemosLlama
       - package: KokoroPipeline
         product: KokoroPipeline
       - package: MarkEditCore
@@ -353,180 +220,6 @@ targets:
       - sdk: SwiftUI.framework
       - sdk: AppIntents.framework
 
-  EpistemosTests:
-    type: bundle.unit-test
-    platform: macOS
-    sources:
-      - path: EpistemosTests
-        type: syncedFolder
-    dependencies:
-      - target: Epistemos
-    preBuildScripts:
-      - name: Bundle Test Source Mirror
-        script: |
-          set -euo pipefail
-          output_dir="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SourceMirror"
-          mkdir -p "${output_dir}"
-
-          prune_artifact_directories() {
-            local destination_root="$1"
-
-            if [ ! -d "${destination_root}" ]; then
-              return 0
-            fi
-
-            find "${destination_root}" -type d \( \
-              -name 'target' -o \
-              -name '.build' -o \
-              -name 'build' -o \
-              -name 'DerivedData' -o \
-              -name '.git' -o \
-              -name 'node_modules' -o \
-              -name '.venv' -o \
-              -name 'venv' -o \
-              -name '__pycache__' \
-            \) -prune -exec rm -rf {} +
-          }
-
-          copy_tree() {
-            local relative_root="$1"
-            local source_root="${PROJECT_DIR}/${relative_root}"
-            local destination_root="${output_dir}/${relative_root}"
-
-            if [ ! -d "${source_root}" ]; then
-              rm -rf "${destination_root}"
-              return 0
-            fi
-
-            mkdir -p "${destination_root}"
-            prune_artifact_directories "${destination_root}"
-            rsync -a --delete --prune-empty-dirs \
-              --exclude='target/' \
-              --exclude='.build/' \
-              --exclude='build/' \
-              --exclude='DerivedData/' \
-              --exclude='.git/' \
-              --exclude='node_modules/' \
-              --exclude='vendor/browser-use/' \
-              --exclude='.venv/' \
-              --exclude='venv/' \
-              --exclude='__pycache__/' \
-              --include='*/' \
-              --include='*.swift' \
-              --include='*.rs' \
-              --include='*.py' \
-              --include='*.ts' \
-              --include='*.tsx' \
-              --include='*.css' \
-              --include='*.html' \
-              --include='*.sh' \
-              --include='*.yml' \
-              --include='*.yaml' \
-              --include='*.toml' \
-              --include='*.h' \
-              --include='*.pbxproj' \
-              --include='*.plist' \
-              --include='*.md' \
-              --include='*.json' \
-              --include='*.jsonl' \
-              --include='*.png' \
-              --include='lean-toolchain' \
-              --include='*.lean' \
-              --include='*.metal' \
-              --include='*.xcprivacy' \
-              --include='*.entitlements' \
-              --include='*.udl' \
-              --include='*.xcscheme' \
-              --include='*.xcworkspacedata' \
-              --exclude='*' \
-              "${source_root}/" "${destination_root}/"
-          }
-
-          copy_file() {
-            local relative_path="$1"
-            local source_path="${PROJECT_DIR}/${relative_path}"
-            local destination_path="${output_dir}/${relative_path}"
-
-            if [ ! -f "${source_path}" ]; then
-              rm -f "${destination_path}"
-              return 0
-            fi
-
-            mkdir -p "$(dirname "${destination_path}")"
-            rsync -a "${source_path}" "${destination_path}"
-          }
-
-          copy_tree "Epistemos"
-          copy_tree "EpistemosTests"
-          copy_tree "XPCServices"
-          copy_tree "agent_core"
-          copy_tree "artifacts/falsifiers/page_gather"
-          copy_tree "artifacts/falsifiers/ulp_oracle"
-          copy_tree "artifacts/lattice-coordinate-explainer"
-          copy_tree "epistemos-code-index"
-          copy_tree "epistemos-shadow"
-          copy_tree "graph-engine"
-          copy_tree "graph-engine-bridge"
-          copy_tree "epistemos-core"
-          copy_tree "epistemos-research"
-          copy_tree "epistemos-vault"
-          copy_tree "lean"
-          copy_tree "omega-mcp"
-          copy_tree "substrate-core"
-          copy_tree "substrate-rt"
-          copy_tree "syntax-core"
-          copy_tree "syntax-core-bridge"
-          copy_tree "js-editor/src"
-          copy_file "js-editor/package.json"
-          copy_file "js-editor/webpack.config.js"
-          copy_tree "scripts"
-          copy_tree "Tools"
-          copy_tree "docs"
-          copy_tree ".agents"
-          copy_tree ".github"
-          copy_tree "config"
-          copy_tree "LocalPackages"
-          copy_tree "Epistemos.xcodeproj"
-
-          copy_file "AGENTS.md"
-          copy_file "CLAUDE.md"
-          copy_file "EPISTEMOS-NORTH-STAR.md"
-          copy_file "Epistemos-Bridging-Header.h"
-          copy_file "Epistemos-Info.plist"
-          copy_file "Epistemos-AppStore-Info.plist"
-          copy_file "project.yml"
-          copy_file "Makefile"
-          copy_file "TESTING_GUIDE.md"
-          copy_file "patch-uniffi-bindings.py"
-          copy_file "bundle-app-runtime-assets.sh"
-          copy_file "embed-and-sign-rust-dylib.sh"
-          copy_file "build-rust.sh"
-          copy_file "build-syntax-core.sh"
-          copy_file "build-omega-mcp.sh"
-          copy_file "build-epistemos-core.sh"
-          copy_file "build-agent-core.sh"
-          copy_file "build-epistemos-shadow.sh"
-          copy_file "build-epistemos-code-index.sh"
-          copy_file "build-substrate-rt.sh"
-          copy_file "build-tiptap-bundle.sh"
-          copy_file "build-coreeditor-bundle.sh"
-        basedOnDependencyAnalysis: false
-    settings:
-      base:
-        PRODUCT_NAME: EpistemosTests
-        PRODUCT_MODULE_NAME: EpistemosTests
-        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.tests
-        GENERATE_INFOPLIST_FILE: true
-        MACOSX_DEPLOYMENT_TARGET: "26.0"
-        CODE_SIGN_IDENTITY: "-"
-        CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: 3BNL2669SL
-        ALWAYS_SEARCH_USER_PATHS: false
-        BUNDLE_LOADER: "$(TEST_HOST)"
-        SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
-        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
-
   EpistemosAppStoreKeelstoneTests:
     type: bundle.unit-test
     platform: macOS
@@ -535,6 +228,29 @@ targets:
         type: syncedFolder
     dependencies:
       - target: Epistemos-AppStore
+    postBuildScripts:
+      - name: Stage Repository Source Guards
+        script: |
+          set -euo pipefail
+          fixture_root="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RepositorySourceFixtures"
+          source_guard="${SRCROOT}/EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift"
+
+          /bin/rm -rf "${fixture_root}"
+          /bin/mkdir -p "${fixture_root}"
+
+          /usr/bin/sed -n 's/.*loadRepoTextFile("\([^"]*\)").*/\1/p' "${source_guard}" \
+            | /usr/bin/sort -u \
+            | while IFS= read -r relative_path; do
+                source_path="${SRCROOT}/${relative_path}"
+                destination_path="${fixture_root}/${relative_path}"
+                if [[ ! -f "${source_path}" ]]; then
+                  echo "error: missing repository source guard input: ${relative_path}" >&2
+                  exit 1
+                fi
+                /bin/mkdir -p "$(/usr/bin/dirname "${destination_path}")"
+                /bin/cp "${source_path}" "${destination_path}"
+              done
+        basedOnDependencyAnalysis: false
     settings:
       base:
         PRODUCT_NAME: EpistemosAppStoreKeelstoneTests
@@ -563,11 +279,6 @@ packages:
   Grape:
     url: https://github.com/SwiftGraphs/Grape
     from: 1.1.0
-  # WORK = OpenCode shell native terminal view (owner 2026-06-21). SwiftTerm
-  # (migueldeicaza/SwiftTerm, MIT) — the macOS NSView terminal emulator + PTY host.
-  # Vendored locally (lean ~5 MB, offline-deterministic) like vmlx-swift.
-  SwiftTerm:
-    path: LocalPackages/SwiftTerm
   KokoroPipeline:
     path: LocalPackages/KokoroPipeline
   MarkEditCore:
@@ -576,16 +287,21 @@ packages:
     path: LocalPackages/MarkEdit/MarkEditKit
   MarkEditModules:
     path: LocalPackages/MarkEdit/MarkEditMac/Modules
+  # June selected local models. The pinned, sha256-verified XCFramework is
+  # installed per checkout by scripts/fetch-llama-xcframework.sh.
+  EpistemosLlama:
+    path: LocalPackages/EpistemosLlama
 schemes:
   Epistemos:
     build:
       targets:
-        Epistemos: all
+        Epistemos-AppStore: all
+        EpistemosAppStoreKeelstoneTests: [test]
     test:
       targets:
-        - EpistemosTests
+        - EpistemosAppStoreKeelstoneTests
     run:
-      executable: Epistemos
+      executable: Epistemos-AppStore
     archive:
       config: Release
   Epistemos-AppStore:
@@ -600,15 +316,3 @@ schemes:
       executable: Epistemos-AppStore
     archive:
       config: Release
-  # Experimental agent surface (embedded 1Code, §16). Builds the main Epistemos
-  # target under the Experimental config so EPISTEMOS_EXPERIMENTAL is defined.
-  Epistemos-Experimental:
-    build:
-      targets:
-        Epistemos: all
-      config: Experimental
-    run:
-      config: Experimental
-      executable: Epistemos
-    archive:
-      config: Experimental

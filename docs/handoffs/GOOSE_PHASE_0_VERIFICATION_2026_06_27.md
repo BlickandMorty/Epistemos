@@ -1,6 +1,6 @@
 # Goose Phase 0 - Independent Verification
 
-> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Verification artifact of the DEAD reskin-Goose-surface program. The agent surface is OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Verification artifact of the DEAD reskin-Goose-surface program. current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > 🛑 **SUPERSEDED 2026-06-29:** §7 is GREEN-LIT → the "§7 Owner Sign-Off Checklist" below is HISTORICAL (no sign-off
 > pending; Plan 1 is on Phase 1). Keep the 5 proofs green as ongoing verification, but do NOT "wait for sign-off."

@@ -25,6 +25,14 @@ interface ChartBar {
   value: number;
 }
 
+interface ChartProvenance {
+  kind?: 'manual' | 'dataset' | 'agent' | 'template';
+  source?: string;
+  ledgerPointer?: string;
+  datasetId?: string;
+  range?: string;
+}
+
 interface EpdocChartSpec {
   type: ChartKind;
   title?: string;
@@ -32,6 +40,7 @@ interface EpdocChartSpec {
   y?: ChartAxis;
   points?: ChartPoint[];
   bars?: ChartBar[];
+  provenance: ChartProvenance | null;
 }
 
 declare module '@tiptap/core' {
@@ -105,7 +114,10 @@ export const EpdocChartNode = Node.create({
       const syntax = document.createElement('span');
       syntax.classList.add('epdoc-chart-syntax');
       syntax.textContent = chartKindLabel(node.textContent);
-      header.append(title, syntax);
+      const provenance = document.createElement('span');
+      provenance.classList.add('epdoc-chart-provenance');
+      provenance.textContent = chartProvenanceLabel(node.textContent);
+      header.append(title, syntax, provenance);
       dom.appendChild(header);
 
       const preview = document.createElement('div');
@@ -131,6 +143,7 @@ export const EpdocChartNode = Node.create({
           if (updatedNode.type !== node.type) return false;
           source.textContent = updatedNode.textContent;
           syntax.textContent = chartKindLabel(updatedNode.textContent);
+          provenance.textContent = chartProvenanceLabel(updatedNode.textContent);
           renderChartInto(preview, updatedNode.textContent);
           return true;
         },
@@ -144,6 +157,12 @@ function chartKindLabel(source: string): string {
   return spec ? spec.type : 'chart';
 }
 
+function chartProvenanceLabel(source: string): string {
+  const spec = parseChartSpec(source);
+  if (!spec) return 'provenance unavailable';
+  return chartProvenanceSummary(spec) ?? 'provenance required';
+}
+
 function parseChartSpec(source: string): EpdocChartSpec | null {
   try {
     const value = JSON.parse(source) as Partial<EpdocChartSpec>;
@@ -155,6 +174,7 @@ function parseChartSpec(source: string): EpdocChartSpec | null {
       y: normalizeAxis(value.y),
       points: Array.isArray(value.points) ? value.points.map(normalizePoint).filter(isPoint) : undefined,
       bars: Array.isArray(value.bars) ? value.bars.map(normalizeBar).filter(isBar) : undefined,
+      provenance: normalizeProvenance(value.provenance),
     };
   } catch {
     return null;
@@ -196,6 +216,23 @@ function normalizeBar(value: unknown): ChartBar | null {
   return { label: candidate.label, value: candidate.value };
 }
 
+function normalizeProvenance(value: unknown): ChartProvenance | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  const provenance: ChartProvenance = {};
+  const rawKind = candidate.kind;
+  if (isProvenanceKind(rawKind)) provenance.kind = rawKind;
+  if (typeof candidate.source === 'string') provenance.source = candidate.source.trim();
+  if (typeof candidate.ledgerPointer === 'string') provenance.ledgerPointer = candidate.ledgerPointer.trim();
+  if (typeof candidate.datasetId === 'string') provenance.datasetId = candidate.datasetId.trim();
+  if (typeof candidate.range === 'string') provenance.range = candidate.range.trim();
+  return hasChartProvenance(provenance) ? provenance : null;
+}
+
+function isProvenanceKind(value: unknown): value is NonNullable<ChartProvenance['kind']> {
+  return value === 'manual' || value === 'dataset' || value === 'agent' || value === 'template';
+}
+
 function isPoint(value: ChartPoint | null): value is ChartPoint {
   return value !== null;
 }
@@ -211,6 +248,10 @@ function renderChartInto(container: HTMLElement, source: string): void {
     container.appendChild(errorBox('Invalid chart JSON'));
     return;
   }
+  if (!hasChartProvenance(spec.provenance)) {
+    container.appendChild(errorBox('Chart provenance required before render'));
+    return;
+  }
 
   const svg = createSvg(720, 360);
   const title = spec.title ?? `${spec.type[0].toUpperCase()}${spec.type.slice(1)} chart`;
@@ -223,6 +264,20 @@ function renderChartInto(container: HTMLElement, source: string): void {
   }
 
   container.appendChild(svg);
+}
+
+function hasChartProvenance(provenance: ChartProvenance | null): provenance is ChartProvenance {
+  if (!provenance) return false;
+  return Boolean(provenance.ledgerPointer || provenance.source || provenance.datasetId);
+}
+
+function chartProvenanceSummary(spec: EpdocChartSpec): string | null {
+  const provenance = spec.provenance;
+  if (!hasChartProvenance(provenance)) return null;
+  if (provenance.ledgerPointer) return provenance.ledgerPointer;
+  if (provenance.datasetId && provenance.range) return `${provenance.datasetId} ${provenance.range}`;
+  if (provenance.datasetId) return provenance.datasetId;
+  return provenance.source ?? null;
 }
 
 function renderPointChart(svg: SVGSVGElement, spec: EpdocChartSpec): void {

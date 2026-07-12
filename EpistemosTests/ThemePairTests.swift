@@ -1560,7 +1560,7 @@ struct ThemePairTests {
         #expect(plist["CFBundleIconFile"] == nil)
 
         let project = try loadProjectFile()
-        #expect(project.contains("PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;"))
+        #expect(project.contains("PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.legacydev;"))
         #expect(project.contains("PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;"))
     }
 

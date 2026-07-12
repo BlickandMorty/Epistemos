@@ -119,6 +119,79 @@ struct BackgroundGraphLoadingTests {
         #expect(store.edgeCount == 0)
     }
 
+    @Test("cooperative record loading preserves graph contents")
+    @MainActor
+    func cooperativeRecordLoadingPreservesGraphContents() async {
+        let store = GraphStore()
+        let nodes = (0..<600).map { index in
+            GraphNodeRecord(
+                id: "cooperative-node-\(index)",
+                type: .note,
+                label: "Cooperative Node \(index)",
+                sourceId: "source-\(index)",
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: .now,
+                position: .zero,
+                velocity: .zero
+            )
+        }
+        let edges = (1..<600).map { index in
+            GraphEdgeRecord(
+                id: "cooperative-edge-\(index)",
+                sourceNodeId: "cooperative-node-\(index - 1)",
+                targetNodeId: "cooperative-node-\(index)",
+                type: .reference,
+                weight: 1.0,
+                createdAt: .now
+            )
+        }
+
+        await store.loadFromRecordsCooperatively(
+            nodeRecords: nodes,
+            edgeRecords: edges,
+            batchSize: 64
+        )
+
+        #expect(store.nodeCount == 600)
+        #expect(store.edgeCount == 599)
+        #expect(store.nodes["cooperative-node-599"]?.label == "Cooperative Node 599")
+    }
+
+    @Test("cooperative graph load preserves deterministic newest-first order")
+    @MainActor
+    func cooperativeRecordLoadingPreservesNewestFirstOrder() async {
+        let store = GraphStore()
+        let older = Date(timeIntervalSince1970: 10)
+        let newer = Date(timeIntervalSince1970: 20)
+        let nodes = [
+            GraphNodeRecord(
+                id: "same-b", type: .note, label: "Same B", sourceId: nil,
+                metadata: GraphNodeMetadata(), weight: 1, createdAt: newer,
+                position: .zero, velocity: .zero
+            ),
+            GraphNodeRecord(
+                id: "older", type: .note, label: "Older", sourceId: nil,
+                metadata: GraphNodeMetadata(), weight: 1, createdAt: older,
+                position: .zero, velocity: .zero
+            ),
+            GraphNodeRecord(
+                id: "same-a", type: .note, label: "Same A", sourceId: nil,
+                metadata: GraphNodeMetadata(), weight: 1, createdAt: newer,
+                position: .zero, velocity: .zero
+            ),
+        ]
+
+        await store.loadFromRecordsCooperatively(nodeRecords: nodes, edgeRecords: [], batchSize: 1)
+        var orderedIDs: [String] = []
+        store.forEachNodeNewestFirst { node in
+            orderedIDs.append(node.id)
+            return true
+        }
+
+        #expect(orderedIDs == ["same-a", "same-b", "older"])
+    }
+
     // MARK: - BackgroundGraphActor
 
     @Test("BackgroundGraphActor loads records from SwiftData on background thread")
@@ -223,9 +296,9 @@ struct BackgroundGraphLoadingTests {
         #expect(graphState.graphDataVersion == 1)
     }
 
-    @Test("async loadGraph rebuilds dirty stale persisted structural graph")
+    @Test("async loadGraph defers dirty persisted structural graph refresh until render")
     @MainActor
-    func asyncLoadGraphRebuildsDirtyStalePersistedGraph() async throws {
+    func asyncLoadGraphDefersDirtyPersistedStructuralRefreshUntilRender() async throws {
         let container = try makeTestContainer()
         let context = container.mainContext
 
@@ -241,9 +314,10 @@ struct BackgroundGraphLoadingTests {
 
         #expect(graphState.isLoaded)
         #expect(!graphState.needsRefresh)
+        #expect(graphState.pendingRebuild)
         #expect(graphState.store.nodeCount == 1)
-        #expect(graphState.store.nodes.values.contains { $0.label == "Actual Imported Note" })
-        #expect(!graphState.store.nodes.values.contains { $0.label == "Codex Reopen Smoke" })
+        #expect(graphState.store.nodes.values.contains { $0.label == "Codex Reopen Smoke" })
+        #expect(!graphState.store.nodes.values.contains { $0.label == "Actual Imported Note" })
         #expect(graphState.graphDataVersion == 1)
     }
 
@@ -271,8 +345,14 @@ struct BackgroundGraphLoadingTests {
     @Test("fragile graph first-open wiring keeps async bootstrap and recommit hooks intact")
     func fragileGraphFirstOpenWiringKeepsAsyncBootstrapAndRecommitHooksIntact() throws {
         let controllerSource = try loadRepoTextFile("Epistemos/Views/Graph/HologramController.swift")
+        let appSource = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
         let graphStateSource = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
         let graphViewSource = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+        let structuralRefresh = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: graphStateSource,
+            startingAt: "func refreshStructuralDataAsync(container: ModelContainer) async -> Bool",
+            endingBefore: "    private func applyIncrementalStructuralRefresh("
+        ))
 
         #expect(controllerSource.contains("if autoLoadGraph, !hasActiveVault {\n            graphState.resetForVaultLifecycle()\n        }"),
                 "Opening the graph with no active vault must leave the graph empty instead of rebuilding stale local records.")
@@ -282,15 +362,29 @@ struct BackgroundGraphLoadingTests {
                 "First graph open loads persisted data asynchronously; without a snap request, .epdoc artifact graphs can load off-camera until the user searches.")
         #expect(controllerSource.contains("await graphState.loadGraph(container: modelContainer)"))
         #expect(controllerSource.contains("overlay = HologramOverlay("))
-        #expect(controllerSource.contains("if autoLoadGraph, hasActiveVault, needsRefresh, let modelContainer {"))
-        #expect(controllerSource.contains("let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)"))
-        #expect(controllerSource.contains("if !refreshedIncrementally {"))
-        #expect(controllerSource.contains("graphState.shouldSnapNextGlobalRecommitCamera = true"))
+        #expect(controllerSource.contains("if autoLoadGraph, hasActiveVault, needsRefresh, graphState.isLoaded {"))
+        #expect(controllerSource.contains("graphState.deferStructuralRefreshUntilGraphIsVisible()"))
         #expect(controllerSource.contains("graphState.requestRecommit()"))
+        #expect(!controllerSource.contains("let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)"),
+                "Overlay construction must not run GraphBuilder; dirty structural refresh should be render-time background work.")
+        #expect(appSource.contains("ensureEmbeddedGraphLoadStarted(bootstrap: bootstrap)"),
+                "Embedded home graph must kick the same async graph load before the UI flips to graph.")
+        #expect(appSource.contains("guard bootstrap.vaultSync.vaultURL != nil else {\n            graphState.resetForVaultLifecycle()\n            return\n        }"))
+        #expect(appSource.contains("if !graphState.isLoaded {\n            graphState.shouldSnapNextGlobalRecommitCamera = true"))
+        #expect(appSource.contains("Task(priority: .utility) {\n                await graphState.loadGraph(container: modelContainer)\n            }"))
+        #expect(appSource.contains("graphState.deferStructuralRefreshUntilGraphIsVisible()"))
+        #expect(appSource.contains("graphState.requestRecommit()"))
 
         #expect(graphStateSource.contains("guard !isLoaded, !isLoadingGraph else { return }"))
-        #expect(graphStateSource.contains("store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)"))
-        #expect(graphStateSource.contains("if (needsRefresh || store.nodeCount == 0), !isBuildingStructural {"))
+        #expect(graphStateSource.contains("await store.loadFromRecordsCooperatively("))
+        #expect(graphStateSource.contains("nodeRecords: records.nodes"))
+        #expect(graphStateSource.contains("edgeRecords: records.edges"))
+        #expect(structuralRefresh.contains("await store.loadFromRecordsCooperatively("))
+        #expect(!structuralRefresh.contains("store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)"))
+        #expect(try loadRepoTextFile("Epistemos/Graph/GraphStore.swift").contains("await Task.yield()"))
+        #expect(graphStateSource.contains("if store.nodeCount == 0, !isBuildingStructural {"))
+        #expect(graphStateSource.contains("deferStructuralRefreshUntilGraphIsVisible()"))
+        #expect(graphStateSource.contains("pendingRebuild = true"))
         #expect(graphStateSource.contains("_ = await refreshStructuralDataAsync(container: container)"))
         #expect(graphStateSource.contains("if isLoaded {"))
         #expect(graphStateSource.contains("requestRecommit()"))

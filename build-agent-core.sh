@@ -13,20 +13,10 @@ fi
 
 cd "$(dirname "$0")/agent_core"
 
-FEATURE_ARGS=()
-# V2.3 (2026-05-05): the lsp-runtime feature ships the in-process LSP
-# kernel + the lsp_send_message_json / lsp_poll_response_json /
-# lsp_lifecycle_state_debug FFI exports the Swift `RustLSPTransport`
-# consumes. Carries zero new Cargo dependencies (hand-rolled
-# JSON-RPC over serde_json which is already a dep) so this is a
-# free addition for both MAS + Pro builds.
-if [ "${TARGET_NAME:-}" = "Epistemos-AppStore" ] || [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" = "com.epistemos.appstore" ]; then
-    FEATURE_ARGS+=(--no-default-features --features "mas-build,lsp-runtime")
-else
-    # Keep the Plan 3 PDF parser wired when the direct/pro app build disables
-    # Cargo defaults. The older liteparse/PDFium path stays opt-in.
-    FEATURE_ARGS+=(--no-default-features --features "pro-build,lsp-runtime,edgeparse-pdf,parser-unpdf")
-fi
+# The repository has one supported product build: the MAS target. Keep its
+# in-process LSP bridge in the same artifact as the June agent core.
+FEATURE_ARGS=(--no-default-features --features "mas-build,lsp-runtime")
+OUTPUT_DIR="../build-rust/appstore"
 
 CARGO_TARGET_ARGS=(--lib)
 if [ "${AGENT_CORE_BUILD_BINS:-0}" = "1" ]; then
@@ -56,9 +46,9 @@ else
     X86_64_LIB_PATH="target/x86_64-apple-darwin/release/libagent_core.dylib"
 fi
 
-mkdir -p ../build-rust
-STAGING_LOCK="../build-rust/.libagent_core.lock"
-TEMP_OUTPUT="$(mktemp ../build-rust/libagent_core.XXXXXX)"
+mkdir -p "$OUTPUT_DIR"
+STAGING_LOCK="${OUTPUT_DIR}/.libagent_core.lock"
+TEMP_OUTPUT="$(mktemp "${OUTPUT_DIR}/libagent_core.XXXXXX")"
 cleanup_temp_output() {
     rm -f "$TEMP_OUTPUT"
     if [ -d "$STAGING_LOCK" ] && [ "$(cat "$STAGING_LOCK/pid" 2>/dev/null || true)" = "$$" ]; then
@@ -95,13 +85,13 @@ fi
 install_name_tool -id "@rpath/libagent_core.dylib" "$TEMP_OUTPUT"
 
 acquire_staging_lock
-rm -f ../build-rust/libagent_core.a
-rm -f ../build-rust/libagent_core.dylib
-mv -f "$TEMP_OUTPUT" ../build-rust/libagent_core.dylib
+rm -f "${OUTPUT_DIR}/libagent_core.a"
+rm -f "${OUTPUT_DIR}/libagent_core.dylib"
+mv -f "$TEMP_OUTPUT" "${OUTPUT_DIR}/libagent_core.dylib"
 
 if [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${FRAMEWORKS_FOLDER_PATH:-}" ]; then
     bash ../embed-and-sign-rust-dylib.sh \
-        ../build-rust/libagent_core.dylib \
+        "${OUTPUT_DIR}/libagent_core.dylib" \
         "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/libagent_core.dylib"
 fi
 
@@ -144,7 +134,7 @@ cp ../build-rust/swift-bindings/agent_coreFFI.h ../build-rust/swift-bindings/age
 cp ../build-rust/swift-bindings/agent_coreFFI.modulemap ../build-rust/swift-bindings/agent_coreFFI/module.modulemap
 
 if [ -z "${TARGET_BUILD_DIR:-}" ]; then
-    codesign --force --sign - ../build-rust/libagent_core.dylib
+    codesign --force --sign - "${OUTPUT_DIR}/libagent_core.dylib"
 fi
 
 cleanup_temp_output

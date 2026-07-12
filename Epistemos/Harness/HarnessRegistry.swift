@@ -1,4 +1,4 @@
-#if !EPISTEMOS_APP_STORE
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import Foundation
 import os
 
@@ -578,4 +578,4 @@ enum HarnessError: Error, LocalizedError {
         }
     }
 }
-#endif // !EPISTEMOS_APP_STORE -- Harness registry depends on gated subprocess eval suite
+#endif

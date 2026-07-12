@@ -60,6 +60,37 @@ nonisolated enum KokoroVoiceProSettingsModel {
     }
 }
 
+nonisolated enum KokoroVoiceInstallPresentation {
+    static let voiceSystemImage = "waveform"
+    static let installSystemImage = "arrow.down.circle"
+    static let sheetTitle = "Install Kokoro Voice"
+    static let sheetSubtitle = "Kokoro-82M read-aloud"
+    static let readyStatus = "Kokoro read-aloud is ready."
+    static let unavailableLabel = "Install voice"
+    static let unavailableAccessibilityLabel = "Install Kokoro voice"
+    static let starterInstallTitle = "Install Starter Voice"
+    static let highestQualityInstallTitle = "Install Highest Quality Voice"
+
+    static func installHelp(statusMessage: String) -> String {
+        "Install Kokoro voice to read aloud. \(statusMessage)"
+    }
+
+    static func installTitle(for tier: KokoroModelDownloadService.Tier) -> String {
+        switch tier {
+        case .starter:
+            return starterInstallTitle
+        case .standard:
+            return "Install Standard Voice"
+        case .highestQuality:
+            return highestQualityInstallTitle
+        }
+    }
+
+    static func installHelp(for tier: KokoroModelDownloadService.Tier) -> String {
+        "Download and install the \(tier.title.lowercased()) Kokoro voice package. \(tier.approximateSizeLabel)."
+    }
+}
+
 @MainActor
 struct KokoroVoiceDownloadControls: View {
     @Environment(UIState.self) private var ui
@@ -95,12 +126,12 @@ struct KokoroVoiceDownloadControls: View {
             switch downloader.phase {
             case .idle, .installed, .failed:
                 ToolbarCapsuleButton(
-                    title: idleButtonTitle,
+                    title: actionButtonTitle,
                     systemImage: "arrow.down.circle",
                     role: .primaryAction,
                     chromePolicy: .alwaysSurface,
-                    helpText: idleButtonHelp,
-                    accessibilityLabel: idleButtonAccessibilityLabel
+                    helpText: actionButtonHelp,
+                    accessibilityLabel: actionButtonHelp
                 ) {
                     onDownload()
                 }
@@ -122,6 +153,20 @@ struct KokoroVoiceDownloadControls: View {
                     .foregroundStyle(mutedTint)
             }
 
+            if downloader.isBusy {
+                ToolbarCapsuleButton(
+                    title: "Cancel",
+                    systemImage: "xmark.circle",
+                    role: .toolbarUtility,
+                    chromePolicy: .alwaysSurface,
+                    helpText: "Cancel Kokoro voice download",
+                    accessibilityLabel: "Cancel Kokoro voice download"
+                ) {
+                    downloader.cancel()
+                }
+                .disabled(!downloader.isBusy)
+            }
+
             if case let .failed(message) = downloader.phase {
                 Text(message)
                     .font(.caption)
@@ -131,8 +176,130 @@ struct KokoroVoiceDownloadControls: View {
         }
     }
 
+    private var actionButtonTitle: String {
+        if case .failed = downloader.phase {
+            return "Retry \(selectedTier.title) Voice"
+        }
+        return idleButtonTitle
+    }
+
+    private var actionButtonHelp: String {
+        if case .failed = downloader.phase {
+            return "Retry downloading and installing the \(selectedTier.title.lowercased()) Kokoro voice package. \(selectedTier.approximateSizeLabel)."
+        }
+        return idleButtonAccessibilityLabel.isEmpty ? idleButtonHelp : idleButtonAccessibilityLabel
+    }
+
     private static func megabytes(_ bytes: Int64) -> String {
         String(format: "%.0f MB", Double(bytes) / 1_000_000)
+    }
+}
+
+@MainActor
+struct KokoroVoiceInstallPrompt: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(UIState.self) private var ui
+
+    @State private var status = KokoroVoiceGateStatus.status()
+    @State private var selectedTier: KokoroModelDownloadService.Tier = .starter
+
+    private var downloader: KokoroModelDownloadService { KokoroModelDownloadService.shared }
+
+    private var mutedTint: Color {
+        ui.theme.resolved.mutedForeground.color
+    }
+
+    private var statusText: String {
+        if EpistemosSpeechSynthesizer.isTextToSpeechAvailable() {
+            return KokoroVoiceInstallPresentation.readyStatus
+        }
+        return EpistemosSpeechSynthesizer.textToSpeechStatusMessage()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: KokoroVoiceInstallPresentation.voiceSystemImage)
+                    .symbolRenderingMode(.hierarchical)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(ui.theme.resolved.accent.color)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(KokoroVoiceInstallPresentation.sheetTitle)
+                        .font(.headline)
+                    Text(KokoroVoiceInstallPresentation.sheetSubtitle)
+                        .font(.caption)
+                        .foregroundStyle(mutedTint)
+                }
+
+                Spacer(minLength: 0)
+
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: "xmark",
+                    role: .toolbarUtility,
+                    chromePolicy: .bareUntilPressed,
+                    helpText: "Close",
+                    accessibilityLabel: "Close"
+                ) {
+                    dismiss()
+                }
+            }
+
+            Text(statusText)
+                .font(.caption)
+                .foregroundStyle(mutedTint)
+                .fixedSize(horizontal: false, vertical: true)
+
+            KokoroVoiceDownloadControls(
+                selectedTier: $selectedTier,
+                isDisabled: EpistemosSpeechSynthesizer.isTextToSpeechAvailable(),
+                idleButtonTitle: installButtonTitle,
+                idleButtonHelp: installButtonHelp,
+                idleButtonAccessibilityLabel: installButtonHelp
+            ) {
+                downloader.startInstall(tier: selectedTier)
+            }
+
+            if EpistemosSpeechSynthesizer.isTextToSpeechAvailable() {
+                ToolbarCapsuleButton(
+                    title: "Done",
+                    systemImage: "checkmark.circle",
+                    role: .primaryAction,
+                    chromePolicy: .alwaysSurface,
+                    helpText: "Close Kokoro voice installer",
+                    accessibilityLabel: "Close Kokoro voice installer"
+                ) {
+                    dismiss()
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 430)
+        .onAppear {
+            status = KokoroVoiceGateStatus.status()
+            EpistemosSpeechSynthesizer.logTextToSpeechReadiness(context: "kokoro-install-prompt")
+        }
+        .onChange(of: downloader.phase) { _, newPhase in
+            switch newPhase {
+            case .installed, .idle, .failed:
+                status = KokoroVoiceGateStatus.status()
+            case .preparing, .downloading, .installing:
+                break
+            }
+        }
+    }
+
+    private var installButtonTitle: String {
+        status.state == .packageReady
+            ? "Replace \(selectedTier.title) Voice"
+            : KokoroVoiceInstallPresentation.installTitle(for: selectedTier)
+    }
+
+    private var installButtonHelp: String {
+        status.state == .packageReady
+            ? "Download and replace the installed Kokoro voice with the \(selectedTier.title.lowercased()) package. \(selectedTier.approximateSizeLabel)."
+            : KokoroVoiceInstallPresentation.installHelp(for: selectedTier)
     }
 }
 
@@ -143,7 +310,7 @@ struct KokoroVoiceProSettingsSection: View {
     @State private var installMessage: String?
     @State private var isInstalling = false
     @State private var isRemoving = false
-    @State private var selectedDownloadTier: KokoroModelDownloadService.Tier = .highestQuality
+    @State private var selectedDownloadTier: KokoroModelDownloadService.Tier = .starter
 
     private var downloader: KokoroModelDownloadService { KokoroModelDownloadService.shared }
 
@@ -166,14 +333,19 @@ struct KokoroVoiceProSettingsSection: View {
     }
 
     private var downloadButtonTitle: String {
-        status.state == .packageReady ? "Download & Replace Voice" : "Download Kokoro Voice"
+        if status.state == .packageReady {
+            return "Download & Replace Voice"
+        }
+        return selectedDownloadTier == .highestQuality
+            ? KokoroVoiceInstallPresentation.highestQualityInstallTitle
+            : KokoroVoiceInstallPresentation.installTitle(for: selectedDownloadTier)
     }
 
     private var downloadButtonHelp: String {
         if status.state == .packageReady {
             return "Download and replace the installed Kokoro voice quality"
         }
-        return "Download and install the Kokoro neural voice"
+        return KokoroVoiceInstallPresentation.installHelp(for: selectedDownloadTier)
     }
 
     var body: some View {
@@ -182,7 +354,7 @@ struct KokoroVoiceProSettingsSection: View {
 
         Section("Kokoro Voice") {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "waveform.badge.sparkles")
+                Image(systemName: KokoroVoiceInstallPresentation.voiceSystemImage)
                     .symbolRenderingMode(.hierarchical)
                     .frame(width: 18, height: 18)
                     .foregroundStyle(mutedTint)
@@ -276,8 +448,8 @@ struct KokoroVoiceProSettingsSection: View {
                     systemImage: "arrow.clockwise",
                     role: .toolbarUtility,
                     chromePolicy: .alwaysSurface,
-                    helpText: "Refresh Pro voice status",
-                    accessibilityLabel: "Refresh Pro voice status"
+                    helpText: "Refresh Kokoro voice status",
+                    accessibilityLabel: "Refresh Kokoro voice status"
                 ) {
                     status = KokoroVoiceGateStatus.status()
                 }
@@ -288,6 +460,9 @@ struct KokoroVoiceProSettingsSection: View {
                         .controlSize(.small)
                 }
             }
+        }
+        .onAppear {
+            EpistemosSpeechSynthesizer.logTextToSpeechReadiness(context: "voice-settings-kokoro-section")
         }
         .onChange(of: downloader.phase) { _, newPhase in
             if case .installed = newPhase {

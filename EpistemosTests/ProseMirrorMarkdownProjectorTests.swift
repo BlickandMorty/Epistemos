@@ -557,7 +557,7 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
 
     @Test("Epdoc chart node emits ```chart fence with JSON source")
     func epdocChartFence() {
-        let chartJSON = #"{"type":"scatter","points":[{"x":0.7,"y":0.9}]}"#
+        let chartJSON = #"{"type":"scatter","provenance":{"kind":"manual","source":"swift-projector-test"},"points":[{"x":0.7,"y":0.9}]}"#
         let d = Self.doc([
             ProseMirrorNode(
                 type: "epdocChart",
@@ -568,6 +568,7 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         #expect(out.contains("```chart"), "chart MUST open with ```chart; got: \(out)")
         #expect(!out.contains("```epdoc-chart"), "chart MUST NOT emit the legacy epdoc-chart fence; got: \(out)")
         #expect(out.contains(#""type":"scatter""#), "chart JSON body must be present; got: \(out)")
+        #expect(out.contains(#""provenance""#), "chart JSON provenance must be present before render/export; got: \(out)")
         #expect(out.hasSuffix("```\n"), "chart MUST close with ```; got: \(out)")
     }
 

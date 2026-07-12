@@ -105,6 +105,7 @@ assert.equal(typeof renderChartInto, 'function');
 const scatter = JSON.stringify({
   type: 'scatter',
   title: 'Confidence vs impact',
+  provenance: { kind: 'dataset', datasetId: 'dataset:metrics.dataset.md', range: 'A1:B3', ledgerPointer: 'claim:chart-scatter' },
   x: { label: 'Confidence', min: 0, max: 1 },
   y: { label: 'Impact', min: 0, max: 1 },
   points: [
@@ -115,6 +116,7 @@ const scatter = JSON.stringify({
 
 const line = JSON.stringify({
   type: 'line',
+  provenance: { kind: 'manual', source: 'check-chart-node:line' },
   points: [
     { x: 1, y: 0.42, label: 'Capture' },
     { x: 2, y: 0.58, label: 'Source pass' },
@@ -123,6 +125,7 @@ const line = JSON.stringify({
 
 const bar = JSON.stringify({
   type: 'bar',
+  provenance: { kind: 'manual', source: 'check-chart-node:bar' },
   bars: [
     { label: 'Primary', value: 8 },
     { label: 'Dataset', value: 5 },
@@ -132,6 +135,7 @@ const bar = JSON.stringify({
 assert.equal(parseChartSpec(scatter).type, 'scatter');
 assert.equal(parseChartSpec(line).type, 'line');
 assert.equal(parseChartSpec(bar).type, 'bar');
+assert.equal(parseChartSpec('{"type":"bar","bars":[{"label":"A","value":1}]}').provenance, null);
 assert.equal(parseChartSpec('{"type":"pie"}'), null);
 assert.equal(parseChartSpec('not json'), null);
 
@@ -153,7 +157,11 @@ const invalidContainer = render('not json');
 assert.equal(countByClass(invalidContainer, 'epdoc-chart-error'), 1);
 assert.ok(flatText(invalidContainer).includes('Invalid chart JSON'));
 
-const emptyContainer = render('{"type":"scatter","points":[]}');
+const missingProvenanceContainer = render('{"type":"scatter","points":[{"x":1,"y":2}]}');
+assert.equal(countByClass(missingProvenanceContainer, 'epdoc-chart-error'), 1);
+assert.ok(flatText(missingProvenanceContainer).includes('Chart provenance required before render'));
+
+const emptyContainer = render('{"type":"scatter","provenance":{"source":"check-chart-node:empty"},"points":[]}');
 assert.ok(flatText(emptyContainer).includes('Add points to render this chart'));
 
 console.log('chart node renderer check passed');

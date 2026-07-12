@@ -2,11 +2,95 @@ import Foundation
 import SwiftUI
 import WebKit
 
+@MainActor
+final class MarkEditCoreEditorLiveTextRegistry {
+    static let shared = MarkEditCoreEditorLiveTextRegistry()
+
+    struct Registration: Equatable {
+        let key: UUID
+        let token: UUID
+    }
+
+    private struct Entry {
+        let token: UUID
+        let fetch: @MainActor () async -> String?
+    }
+
+    private var entries: [UUID: Entry] = [:]
+
+    private init() {}
+
+    func register(
+        key: UUID,
+        fetch: @escaping @MainActor () async -> String?
+    ) -> Registration {
+        let token = UUID()
+        entries[key] = Entry(token: token, fetch: fetch)
+        return Registration(key: key, token: token)
+    }
+
+    func unregister(_ registration: Registration) {
+        guard entries[registration.key]?.token == registration.token else { return }
+        entries.removeValue(forKey: registration.key)
+    }
+
+    func replaceFetch(
+        for registration: Registration,
+        fetch: @escaping @MainActor () async -> String?
+    ) {
+        guard entries[registration.key]?.token == registration.token else { return }
+        entries[registration.key] = Entry(token: registration.token, fetch: fetch)
+    }
+
+    func fetchText(for key: UUID) async -> String? {
+        guard let entry = entries[key] else { return nil }
+        if let value = await entry.fetch() {
+            return value
+        }
+        guard let retryEntry = entries[key], retryEntry.token == entry.token else { return nil }
+        return await retryEntry.fetch()
+    }
+}
+
+@MainActor
+private final class MarkEditCoreEditorLiveTextQueryPromise {
+    private enum State {
+        case pending
+        case resolved(String?)
+    }
+
+    private var state: State = .pending
+    private var waiters: [CheckedContinuation<String?, Never>] = []
+
+    func resume(returning value: String?) {
+        guard case .pending = state else { return }
+        state = .resolved(value)
+        let currentWaiters = waiters
+        waiters.removeAll(keepingCapacity: false)
+        for waiter in currentWaiters {
+            waiter.resume(returning: value)
+        }
+    }
+
+    func value() async -> String? {
+        switch state {
+        case .resolved(let value):
+            return value
+        case .pending:
+            return await withCheckedContinuation { continuation in
+                waiters.append(continuation)
+            }
+        }
+    }
+}
+
+@MainActor
 final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply {
     var text: Binding<String>
     var cursorLine: Binding<Int>
     var cursorColumn: Binding<Int>
     var totalLines: Binding<Int>
+    var onContentDirty: (@MainActor () -> Void)?
     weak var webView: WKWebView?
 
     private var hasLoadedEditor = false
@@ -16,25 +100,33 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
     private var lastAppliedState: MarkEditCoreEditorState?
     private var lastSelectionRequestID: UUID?
     private var isApplyingFromSwift = false
+    private var hasPendingEditorTextSnapshot = false
+    private var didReportPendingContentDirty = false
     private var isDetached = false
     private var loadGeneration = 0
     private var bootstrapResetGeneration: Int?
+    private var terminalLoadFailureGeneration: Int?
+    private var readOnlyApplicationGeneration = 0
+    private var liveTextRegistration: MarkEditCoreEditorLiveTextRegistry.Registration?
 
     init(
         text: Binding<String>,
         cursorLine: Binding<Int>,
         cursorColumn: Binding<Int>,
-        totalLines: Binding<Int>
+        totalLines: Binding<Int>,
+        onContentDirty: (@MainActor () -> Void)? = nil
     ) {
         self.text = text
         self.cursorLine = cursorLine
         self.cursorColumn = cursorColumn
         self.totalLines = totalLines
+        self.onContentDirty = onContentDirty
     }
 
     func loadEditor(into webView: WKWebView, initialState: MarkEditCoreEditorState) {
         isDetached = false
         loadGeneration += 1
+        readOnlyApplicationGeneration += 1
         hasLoadedEditor = false
         pendingState = nil
         pendingSelectionRequest = nil
@@ -42,19 +134,41 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         lastAppliedState = nil
         lastSelectionRequestID = nil
         isApplyingFromSwift = false
+        hasPendingEditorTextSnapshot = false
+        didReportPendingContentDirty = false
         bootstrapResetGeneration = nil
+        terminalLoadFailureGeneration = nil
         let html = MarkEditCoreEditorDocument.html(for: initialState)
         webView.loadHTMLString(html, baseURL: MarkEditCoreEditorBridge.baseURL)
     }
 
     func detach(from webView: WKWebView) {
+        if let liveTextRegistration {
+            let finalTextPromise: MarkEditCoreEditorLiveTextQueryPromise
+            if hasLoadedEditor, !webView.isLoading {
+                finalTextPromise = Self.requestCurrentEditorText(from: webView)
+            } else {
+                finalTextPromise = MarkEditCoreEditorLiveTextQueryPromise()
+                finalTextPromise.resume(returning: text.wrappedValue)
+            }
+            MarkEditCoreEditorLiveTextRegistry.shared.replaceFetch(for: liveTextRegistration) {
+                await finalTextPromise.value()
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                MarkEditCoreEditorLiveTextRegistry.shared.unregister(liveTextRegistration)
+            }
+            self.liveTextRegistration = nil
+        }
         isDetached = true
         loadGeneration += 1
+        readOnlyApplicationGeneration += 1
         hasLoadedEditor = false
         pendingState = nil
         pendingSelectionRequest = nil
         loadingState = nil
         isApplyingFromSwift = false
+        hasPendingEditorTextSnapshot = false
+        didReportPendingContentDirty = false
         webView.navigationDelegate = nil
         webView.configuration.userContentController.removeScriptMessageHandler(
             forName: MarkEditCoreEditorBridge.messageHandlerName
@@ -68,6 +182,46 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         lastAppliedState = nil
         lastSelectionRequestID = nil
         bootstrapResetGeneration = nil
+        terminalLoadFailureGeneration = nil
+    }
+
+    func registerLiveTextQuery(key: UUID?, webView: WKWebView) {
+        if liveTextRegistration?.key == key { return }
+        if let liveTextRegistration {
+            MarkEditCoreEditorLiveTextRegistry.shared.unregister(liveTextRegistration)
+            self.liveTextRegistration = nil
+        }
+        guard let key else { return }
+        liveTextRegistration = MarkEditCoreEditorLiveTextRegistry.shared.register(key: key) { [weak self, weak webView] in
+            guard let self, let webView else { return nil }
+            return await self.fetchCurrentEditorText(from: webView)
+        }
+    }
+
+    private func fetchCurrentEditorText(from webView: WKWebView) async -> String? {
+        guard !isDetached, hasLoadedEditor, !webView.isLoading else { return nil }
+        let generation = loadGeneration
+        let promise = Self.requestCurrentEditorText(from: webView)
+        let value = await promise.value()
+        guard !isDetached, generation == loadGeneration else { return nil }
+        return value
+    }
+
+    private static func requestCurrentEditorText(
+        from webView: WKWebView
+    ) -> MarkEditCoreEditorLiveTextQueryPromise {
+        let promise = MarkEditCoreEditorLiveTextQueryPromise()
+        webView.evaluateJavaScript("window.webModules?.core?.getEditorText?.()") { value, error in
+            guard error == nil, let value = value as? String else {
+                promise.resume(returning: nil)
+                return
+            }
+            promise.resume(returning: value)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            promise.resume(returning: nil)
+        }
+        return promise
     }
 
     func update(
@@ -91,6 +245,10 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             return
         }
         if let lastAppliedState, state.requiresReload(comparedTo: lastAppliedState) {
+            guard !(hasPendingEditorTextSnapshot && state.text == lastAppliedState.text) else {
+                pendingState = state
+                return
+            }
             loadEditor(into: webView, initialState: state)
             return
         }
@@ -110,6 +268,16 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             )
         }
 
+        if let last = lastAppliedState,
+           state.isEditable != last.isEditable {
+            applyReadOnlyMode(
+                isReadOnly: !state.isEditable,
+                desiredState: state,
+                to: webView
+            )
+            lastAppliedState = last.replacingEditable(state.isEditable)
+        }
+
         guard state != lastAppliedState else { return }
         resetEditor(to: state, in: webView, documentChanged: false)
     }
@@ -125,6 +293,45 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             palette: palette
         ) else { return }
         webView.evaluateJavaScript(script)
+    }
+
+    private func applyReadOnlyMode(
+        isReadOnly: Bool,
+        desiredState: MarkEditCoreEditorState,
+        to webView: WKWebView
+    ) {
+        guard !isDetached, hasLoadedEditor, !webView.isLoading else { return }
+        readOnlyApplicationGeneration += 1
+        let applicationGeneration = readOnlyApplicationGeneration
+        let currentLoadGeneration = loadGeneration
+        let readOnlyLiteral = isReadOnly ? "true" : "false"
+        let script = """
+        (() => {
+          if (!window.webModules?.config?.setReadOnlyMode || !window.editor) {
+            return false;
+          }
+          window.webModules.config.setReadOnlyMode(\(readOnlyLiteral));
+          return window.editor.state.readOnly === \(readOnlyLiteral);
+        })();
+        """
+        webView.evaluateJavaScript(script) { [weak self, weak webView] result, error in
+            guard let self,
+                  let webView,
+                  !self.isDetached,
+                  currentLoadGeneration == self.loadGeneration,
+                  applicationGeneration == self.readOnlyApplicationGeneration else { return }
+            guard error == nil, result as? Bool == true else {
+                let currentState = self.lastAppliedState ?? desiredState
+                self.lastAppliedState = currentState.replacingEditable(!desiredState.isEditable)
+                let retryState = (self.pendingState ?? currentState)
+                    .replacingEditable(desiredState.isEditable)
+                self.pendingState = retryState
+                guard !self.hasPendingEditorTextSnapshot else { return }
+                self.pendingState = nil
+                self.loadEditor(into: webView, initialState: retryState)
+                return
+            }
+        }
     }
 
     private func resetEditor(
@@ -364,13 +571,20 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
     }
 
     private func showLoadFailure(in webView: WKWebView, message: String, force: Bool = false) {
-        // `force` lets the terminal readiness-poll failure paint even while the WebView is still
-        // "loading" (a genuinely stuck load after ~8s) — otherwise the editor is left silently
-        // blank with no diagnostic. Every other caller already pre-checks !isLoading, so their
-        // behavior is unchanged. Painting on a mid-load (but not detached) WebView is crash-safe.
-        guard !isDetached, force || !webView.isLoading else { return }
+        guard !isDetached else { return }
         hasLoadedEditor = false
         isApplyingFromSwift = false
+        if webView.isLoading {
+            guard force else { return }
+            terminalLoadFailureGeneration = loadGeneration
+            webView.stopLoading()
+            webView.loadHTMLString(
+                Self.loadFailureDocument(message: message),
+                baseURL: nil
+            )
+            return
+        }
+        guard !webView.isLoading else { return }
         let messageData = try? JSONEncoder().encode(message)
         let messageJSON = messageData.flatMap { String(data: $0, encoding: .utf8) } ?? "\"MarkEdit CoreEditor failed to load.\""
         let script = """
@@ -387,6 +601,28 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         })();
         """
         webView.evaluateJavaScript(script)
+    }
+
+    private static func loadFailureDocument(message: String) -> String {
+        let escaped = message
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+        return """
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="color-scheme" content="light dark">
+            <style>
+              :root { color-scheme: light dark; }
+              body { margin: 16px; background: Canvas; color: CanvasText; }
+              pre { margin: 0; white-space: pre-wrap; font: 13px -apple-system, BlinkMacSystemFont, sans-serif; }
+            </style>
+          </head>
+          <body><pre>\(escaped)</pre></body>
+        </html>
+        """
     }
 
     private static func resetFailureMessage(result: Any?, error: Error?) -> String {
@@ -409,6 +645,7 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         didFinish navigation: WKNavigation!
     ) {
         guard !isDetached else { return }
+        guard terminalLoadFailureGeneration != loadGeneration else { return }
         waitForCoreEditorReady(in: webView, generation: loadGeneration)
     }
 
@@ -434,12 +671,33 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         guard !isDetached else { return }
-        // Content process crashed (OOM / renderer fault) — the editor blanks. Log for crash telemetry.
-        // Auto-recovery (reset + reload) is deferred pending per-editor data-loss verification: a naive
-        // reload can autosave-overwrite with empty content (analyzed for the Epdoc editor) — see the
-        // SS-FOLLOWON ledger.
-        Log.notes.error(
-            "MarkEdit code editor web content process terminated \u{2014} editor blanked; reopen to recover")
+        let recoveryState = pendingState ?? lastAppliedState ?? loadingState
+        guard let recoveryState else {
+            Log.notes.error(
+                "MarkEdit code editor web content process terminated; no host editor state is available for safe recovery"
+            )
+            return
+        }
+        let hadPendingEditorTextSnapshot = hasPendingEditorTextSnapshot
+        let recoveryText = Self.preferredRecoveryText(
+            hostText: text.wrappedValue,
+            stateText: recoveryState.text
+        )
+        let recoveredState = recoveryState.replacingText(recoveryText)
+        loadEditor(into: webView, initialState: recoveredState)
+        if hadPendingEditorTextSnapshot {
+            Log.notes.error(
+                "MarkEdit code editor web content process terminated; reloading with the last host snapshot after an unsnapshotted edit signal"
+            )
+        } else {
+            Log.notes.error(
+                "MarkEdit code editor web content process terminated; reloading with the last host snapshot"
+            )
+        }
+    }
+
+    nonisolated static func preferredRecoveryText(hostText: String, stateText: String) -> String {
+        stateText.isEmpty && !hostText.isEmpty ? hostText : stateText
     }
 
     func webView(
@@ -498,12 +756,28 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         }
 
         let applying = payload["applying"] as? Bool ?? false
+        if payload["contentDirty"] as? Bool == true {
+            hasPendingEditorTextSnapshot = true
+            if !isApplyingFromSwift, !applying, !didReportPendingContentDirty {
+                didReportPendingContentDirty = true
+                self.onContentDirty?()
+            }
+        }
+
         guard !isApplyingFromSwift, !applying,
               let next = payload["text"] as? String else { return }
 
+        hasPendingEditorTextSnapshot = false
+        didReportPendingContentDirty = false
         text.wrappedValue = next
         if let applied = lastAppliedState {
             lastAppliedState = applied.replacingText(next)
+        }
+        if let pendingState {
+            self.pendingState = pendingState.replacingText(next)
+        }
+        if let webView {
+            flushPendingState(in: webView)
         }
     }
 
@@ -600,12 +874,27 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
       let lastLine = -1;
       let lastColumn = -1;
       let lastLineCount = -1;
-      let pending = { value: false };
+      const textSnapshotDelays = {
+        small: 240,
+        medium: 420,
+        large: 700,
+      };
+      const metadataPending = { value: false };
+      let textSnapshotTimer = null;
+      let contentDirty = { value: false };
 
-      const postSnapshot = (kind) => {
+      const textSnapshotDelay = () => {
+        const length = window.editor?.state?.doc?.length ?? 0;
+        if (length >= 80000) { return textSnapshotDelays.large; }
+        if (length >= 20000) { return textSnapshotDelays.medium; }
+        return textSnapshotDelays.small;
+      };
+
+      const postSnapshot = (kind, options = {}) => {
         try {
           if (!window.editor || !window.webModules?.core?.getEditorText) { return; }
-          const text = window.webModules.core.getEditorText();
+          const includeText = options.includeText === true;
+          const text = includeText ? window.webModules.core.getEditorText() : null;
           const state = window.editor.state;
           const head = state.selection.main.head;
           const line = state.doc.lineAt(head);
@@ -613,47 +902,81 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
           const lineCount = state.doc.lines;
           if (
             kind !== "ready" &&
-            text === lastText &&
+            !contentDirty.value &&
+            (!includeText || text === lastText) &&
             line.number === lastLine &&
             column === lastColumn &&
             lineCount === lastLineCount
           ) {
             return;
           }
-          lastText = text;
+          if (includeText) {
+            lastText = text;
+            contentDirty.value = false;
+          }
           lastLine = line.number;
           lastColumn = column;
           lastLineCount = lineCount;
-          window.webkit?.messageHandlers?.epistemosMarkEditCoreEditor?.postMessage({
+          const payload = {
             kind,
-            text,
             line: line.number,
             column,
             lineCount,
             applying: Boolean(window.__epistemosApplyingMarkEditState),
-          });
+            contentDirty: contentDirty.value,
+          };
+          if (includeText) {
+            payload.text = text;
+          }
+          window.webkit?.messageHandlers?.epistemosMarkEditCoreEditor?.postMessage(payload);
         } catch (error) {
           console.error("[Epistemos] MarkEdit snapshot failed", error);
         }
       };
 
-      const scheduleSnapshot = () => {
-        if (pending.value) { return; }
-        pending.value = true;
+      const postTextSnapshot = (kind) => {
+        if (textSnapshotTimer !== null) {
+          clearTimeout(textSnapshotTimer);
+          textSnapshotTimer = null;
+        }
+        postSnapshot(kind, { includeText: true });
+      };
+
+      const scheduleMetadataSnapshot = () => {
+        if (metadataPending.value) { return; }
+        metadataPending.value = true;
         requestAnimationFrame(() => {
-          pending.value = false;
-          postSnapshot("snapshot");
+          metadataPending.value = false;
+          postSnapshot("cursor", { includeText: false });
         });
       };
 
-      document.addEventListener("input", scheduleSnapshot, true);
-      document.addEventListener("keyup", scheduleSnapshot, true);
-      document.addEventListener("mouseup", scheduleSnapshot, true);
-      document.addEventListener("selectionchange", scheduleSnapshot, true);
-      window.addEventListener("pagehide", () => postSnapshot("pagehide"));
-      setInterval(() => postSnapshot("snapshot"), 250);
-      setTimeout(() => postSnapshot("ready"), 0);
-      setTimeout(() => postSnapshot("ready"), 250);
+      const scheduleTextSnapshot = () => {
+        contentDirty.value = true;
+        scheduleMetadataSnapshot();
+        if (textSnapshotTimer !== null) {
+          clearTimeout(textSnapshotTimer);
+        }
+        textSnapshotTimer = setTimeout(() => {
+          postTextSnapshot("snapshot");
+        }, textSnapshotDelay());
+      };
+
+      document.addEventListener("input", scheduleTextSnapshot, true);
+      document.addEventListener("keyup", scheduleMetadataSnapshot, true);
+      document.addEventListener("mouseup", scheduleMetadataSnapshot, true);
+      document.addEventListener("selectionchange", scheduleMetadataSnapshot, true);
+      window.addEventListener("pagehide", () => postTextSnapshot("pagehide"));
+      window.addEventListener("beforeunload", () => postTextSnapshot("beforeunload"));
+      setInterval(() => {
+        if (contentDirty.value) {
+          scheduleTextSnapshot();
+        } else {
+          postSnapshot("cursor", { includeText: false });
+        }
+      }, 1000);
+      setTimeout(() => postSnapshot("ready", { includeText: true }), 0);
+      setTimeout(() => postSnapshot("ready", { includeText: true }), 250);
       return true;
     })();
     """

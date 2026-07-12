@@ -86,6 +86,9 @@ final class KokoroModelDownloadService {
 
     private nonisolated static let repositoryID = "mattmireles/kokoro-coreml"
     private nonisolated static let maxManifestBytes = 512 * 1024
+    private nonisolated static let maxInstallBytes: Int64 = 1_342_177_280
+    private nonisolated static let maxDeclaredFileCount = 256
+    private nonisolated static let maxRepositoryPathBytes = 1_024
     private nonisolated static let hashChunkBytes = 1 * 1024 * 1024
     private nonisolated static let maxDownloadAttempts = 3
     private nonisolated static let retryBaseDelayNanoseconds: UInt64 = 350_000_000
@@ -179,6 +182,7 @@ final class KokoroModelDownloadService {
         case invalidURL(String)
         case httpFailure(path: String, statusCode: Int?, requestID: String?)
         case transportFailure(path: String, reason: String)
+        case byteCountMismatch(path: String, expected: Int64, actual: Int64)
         case checksumMismatch(String)
 
         var errorDescription: String? {
@@ -198,6 +202,8 @@ final class KokoroModelDownloadService {
                 return "\(message)."
             case .transportFailure(let path, let reason):
                 return "A Kokoro voice file could not be downloaded (\(path)): \(reason)."
+            case .byteCountMismatch(let path, let expected, let actual):
+                return "A downloaded Kokoro file had the wrong size (\(path), expected \(expected) bytes, received \(actual))."
             case .checksumMismatch(let path):
                 return "A downloaded Kokoro file failed verification (\(path))."
             }
@@ -228,7 +234,20 @@ final class KokoroModelDownloadService {
         guard voiceFiles.contains(where: { $0.relativePath == KokoroVoiceGateStatus.starterVoicePath }) else {
             throw DownloadError.invalidManifest
         }
-        let totalBytes = (requiredFiles + voiceFiles).reduce(Int64(0)) { $0 + $1.bytes }
+        let declaredFiles = requiredFiles + voiceFiles
+        guard declaredFiles.count <= maxDeclaredFileCount else {
+            throw DownloadError.invalidManifest
+        }
+        let normalizedDestinations = declaredFiles.map {
+            $0.relativePath.precomposedStringWithCanonicalMapping.lowercased()
+        }
+        guard Set(normalizedDestinations).count == normalizedDestinations.count,
+              let totalBytes = boundedDeclaredTotalBytes(
+                  declaredFiles.map(\.bytes),
+                  maximum: maxInstallBytes
+              ) else {
+            throw DownloadError.invalidManifest
+        }
 
         let stagingRoot = fileManager.temporaryDirectory
             .appendingPathComponent("kokoro-download-\(UUID().uuidString)", isDirectory: true)
@@ -287,6 +306,7 @@ final class KokoroModelDownloadService {
     nonisolated private static func downloadFile(
         repositoryPath: String,
         revision: String,
+        expectedBytes: Int64,
         destination: URL,
         fileManager: FileManager
     ) async throws -> String {
@@ -297,6 +317,15 @@ final class KokoroModelDownloadService {
         }
         defer { try? fileManager.removeItem(at: temporaryURL) }
         try validateHTTPResponse(response, repositoryPath: repositoryPath)
+        let attributes = try fileManager.attributesOfItem(atPath: temporaryURL.path)
+        let actualBytes = (attributes[.size] as? NSNumber)?.int64Value ?? -1
+        guard actualBytes == expectedBytes else {
+            throw DownloadError.byteCountMismatch(
+                path: repositoryPath,
+                expected: expectedBytes,
+                actual: actualBytes
+            )
+        }
         let digest = try sha256Hex(ofFileAt: temporaryURL)
         if fileManager.fileExists(atPath: destination.path) {
             try fileManager.removeItem(at: destination)
@@ -444,7 +473,7 @@ final class KokoroModelDownloadService {
             return statusCode == 408 || statusCode == 409 || statusCode == 425 || statusCode == 429 || statusCode >= 500
         case .transportFailure:
             return true
-        case .invalidManifest, .invalidURL, .checksumMismatch:
+        case .invalidManifest, .invalidURL, .byteCountMismatch, .checksumMismatch:
             return false
         }
     }
@@ -475,6 +504,7 @@ final class KokoroModelDownloadService {
         let digest = try await downloadFileWithMainFallback(
             repositoryPath: file.relativePath,
             revision: revision,
+            expectedBytes: file.bytes,
             destination: destination,
             fileManager: fileManager
         )
@@ -486,6 +516,7 @@ final class KokoroModelDownloadService {
     nonisolated private static func downloadFileWithMainFallback(
         repositoryPath: String,
         revision: String,
+        expectedBytes: Int64,
         destination: URL,
         fileManager: FileManager
     ) async throws -> String {
@@ -493,6 +524,7 @@ final class KokoroModelDownloadService {
             return try await downloadFile(
                 repositoryPath: repositoryPath,
                 revision: revision,
+                expectedBytes: expectedBytes,
                 destination: destination,
                 fileManager: fileManager
             )
@@ -505,6 +537,7 @@ final class KokoroModelDownloadService {
             return try await downloadFile(
                 repositoryPath: repositoryPath,
                 revision: "main",
+                expectedBytes: expectedBytes,
                 destination: destination,
                 fileManager: fileManager
             )
@@ -548,10 +581,48 @@ final class KokoroModelDownloadService {
 
     nonisolated private static func declaredFile(path: String, bytes: Any?, sha: Any?) throws -> DeclaredFile {
         guard let byteCount = int64Value(bytes), byteCount > 0,
-              let digest = (sha as? String)?.lowercased(), !digest.isEmpty else {
+              isSafeRelativeRepositoryPath(path),
+              let digest = (sha as? String)?.lowercased(),
+              isSHA256Hex(digest) else {
             throw DownloadError.invalidManifest
         }
         return DeclaredFile(relativePath: path, bytes: byteCount, sha256: digest)
+    }
+
+    nonisolated static func isSafeRelativeRepositoryPath(_ path: String) -> Bool {
+        guard !path.isEmpty,
+              path.utf8.count <= maxRepositoryPathBytes,
+              !path.hasPrefix("/"),
+              !path.contains("\\"),
+              !path.contains("?"),
+              !path.contains("#"),
+              path == path.trimmingCharacters(in: .whitespacesAndNewlines),
+              !path.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
+            return false
+        }
+        let components = path.split(separator: "/", omittingEmptySubsequences: false)
+        return components.allSatisfy { component in
+            !component.isEmpty && component != "." && component != ".."
+        }
+    }
+
+    nonisolated static func isSHA256Hex(_ value: String) -> Bool {
+        value.utf8.count == 64 && value.utf8.allSatisfy { byte in
+            (48...57).contains(byte) || (65...70).contains(byte) || (97...102).contains(byte)
+        }
+    }
+
+    nonisolated static func boundedDeclaredTotalBytes(
+        _ byteCounts: [Int64],
+        maximum: Int64
+    ) -> Int64? {
+        guard maximum > 0 else { return nil }
+        var total: Int64 = 0
+        for byteCount in byteCounts {
+            guard byteCount > 0, byteCount <= maximum - total else { return nil }
+            total += byteCount
+        }
+        return total
     }
 
     nonisolated private static func int64Value(_ value: Any?) -> Int64? {

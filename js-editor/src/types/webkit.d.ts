@@ -32,10 +32,11 @@ interface Window {
   epdocEditor?: import('@tiptap/core').Editor;
   /** Namespaced inbound command surface — installed by bridge/inbound.ts. */
   epistemos?: {
-    setContent(json: string): void;
+    setContent(json: string, epoch?: number): void;
     getMarkdown(): string;
-    setMarkdown(markdown: string): void;
+    setMarkdown(markdown: string, epoch?: number): void;
     setContentWidth(value: string): void;
+    flushDocumentSnapshot(): void;
     setFindQuery(query: string, caseSensitive?: boolean): boolean;
     findNext(query: string, caseSensitive?: boolean): boolean;
     findPrevious(query: string, caseSensitive?: boolean): boolean;

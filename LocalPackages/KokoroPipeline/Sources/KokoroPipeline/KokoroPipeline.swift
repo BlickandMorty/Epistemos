@@ -175,11 +175,16 @@ public struct DurationModelChoice {
 /// hundreds of milliseconds per model. For app integration, call init
 /// on a background thread or use pre-compiled ``.mlmodelc`` bundles.
 public class KokoroPipeline: KokoroModelProvider {
-    private let durationModels: [String: MLModel] // keyed by DurationModelChoice.cacheKey
     private let durationChoices: [DurationModelChoice]
-    private let f0ntrainModels: [Int: MLModel]  // keyed by T_frames
-    private let decoderPreModels: [Int: MLModel] // keyed by bucket seconds
-    private let generatorModels: [Int: MLModel]  // keyed by bucket seconds
+    private let durationPackageURLs: [String: URL] // keyed by DurationModelChoice.cacheKey
+    private let f0ntrainPackageURLs: [Int: URL]  // keyed by T_frames
+    private let decoderPrePackageURLs: [Int: URL] // keyed by bucket seconds
+    private let generatorPackageURLs: [Int: URL]  // keyed by bucket seconds
+    private let modelCacheLock = NSRecursiveLock()
+    private var durationModels: [String: MLModel] = [:]
+    private var f0ntrainModels: [Int: MLModel] = [:]
+    private var decoderPreModels: [Int: MLModel] = [:]
+    private var generatorModels: [Int: MLModel] = [:]
 
     /// Learned weights from SourceModuleHnNSF.l_linear.
     private let linearWeights: [Float]
@@ -188,7 +193,7 @@ public class KokoroPipeline: KokoroModelProvider {
     /// Available bucket durations in seconds.
     private let availableBuckets: [Int]
 
-    /// Load all models from a directory.
+    /// Locate models from a directory. Core ML models are loaded lazily on first use.
     ///
     /// Expected files:
     /// - ``kokoro_duration_t{T}.mlpackage`` for each token size, or legacy ``kokoro_duration.mlpackage``
@@ -196,9 +201,9 @@ public class KokoroPipeline: KokoroModelProvider {
     /// - ``kokoro_decoder_pre_{N}s.mlpackage`` for each bucket
     /// - ``kokoro_decoder_har_post_{N}s.mlpackage`` for each bucket
     ///
-    /// Note: ``MLModel.compileModel`` is called synchronously. For app
-    /// integration, call init on a background queue or use pre-compiled
-    /// ``.mlmodelc`` bundles to avoid blocking the main thread.
+    /// Note: first use of a specific model still calls ``MLModel.compileModel`` synchronously.
+    /// Keeping this lazy prevents a short preview from compiling/loading every duration and
+    /// bucket model before it can speak.
     public init(
         modelsDirectory: URL,
         buckets: [Int] = PipelineConstants.defaultBuckets,
@@ -208,59 +213,46 @@ public class KokoroPipeline: KokoroModelProvider {
         // Duration models. Use padded mask-aware packages for production by
         // default; exact native packages are an opt-in benchmark path.
         let durationChoices = Self.discoverDurationChoices(modelsDirectory: modelsDirectory)
-        var durModels: [String: MLModel] = [:]
-        for choice in durationChoices {
-            let config = MLModelConfiguration()
-            config.computeUnits = .cpuAndGPU
-            durModels[choice.cacheKey] = try MLModel(
-                contentsOf: MLModel.compileModel(at: choice.packageURL),
-                configuration: config
-            )
-        }
-        guard !durModels.isEmpty else {
+        guard !durationChoices.isEmpty else {
             throw PipelineError.modelNotLoaded("duration")
         }
-        self.durationModels = durModels
         self.durationChoices = durationChoices
+        self.durationPackageURLs = Dictionary(
+            uniqueKeysWithValues: durationChoices.map { ($0.cacheKey, $0.packageURL) }
+        )
 
         // F0Ntrain models (one per bucket's T_frames)
-        var f0Models: [Int: MLModel] = [:]
+        var f0PackageURLs: [Int: URL] = [:]
         for sec in buckets {
             if let t = PipelineConstants.tFramesForBucket[sec] {
                 let url = modelsDirectory.appendingPathComponent("kokoro_f0ntrain_t\(t).mlpackage")
                 if FileManager.default.fileExists(atPath: url.path) {
-                    let config = MLModelConfiguration()
-                    config.computeUnits = .cpuAndGPU
-                    f0Models[t] = try MLModel(contentsOf: MLModel.compileModel(at: url), configuration: config)
+                    f0PackageURLs[t] = url
                 }
             }
         }
-        self.f0ntrainModels = f0Models
+        self.f0ntrainPackageURLs = f0PackageURLs
 
         // DecoderPre models (Phase 4: CoreML, no longer bridge)
-        var decPreModels: [Int: MLModel] = [:]
+        var decPrePackageURLs: [Int: URL] = [:]
         for sec in buckets {
             let url = modelsDirectory.appendingPathComponent("kokoro_decoder_pre_\(sec)s.mlpackage")
             if FileManager.default.fileExists(atPath: url.path) {
-                let config = MLModelConfiguration()
-                config.computeUnits = .cpuAndNeuralEngine
-                decPreModels[sec] = try MLModel(contentsOf: MLModel.compileModel(at: url), configuration: config)
+                decPrePackageURLs[sec] = url
             }
         }
-        self.decoderPreModels = decPreModels
+        self.decoderPrePackageURLs = decPrePackageURLs
 
         // Generator (HAR-post) models
-        var genModels: [Int: MLModel] = [:]
+        var genPackageURLs: [Int: URL] = [:]
         for sec in buckets {
             let url = modelsDirectory.appendingPathComponent("kokoro_decoder_har_post_\(sec)s.mlpackage")
             if FileManager.default.fileExists(atPath: url.path) {
-                let config = MLModelConfiguration()
-                config.computeUnits = .cpuAndGPU
-                genModels[sec] = try MLModel(contentsOf: MLModel.compileModel(at: url), configuration: config)
+                genPackageURLs[sec] = url
             }
         }
-        self.generatorModels = genModels
-        self.availableBuckets = Array(genModels.keys.sorted())
+        self.generatorPackageURLs = genPackageURLs
+        self.availableBuckets = Array(genPackageURLs.keys.sorted())
 
         self.linearWeights = linearWeights
         self.linearBias = linearBias
@@ -400,31 +392,65 @@ public class KokoroPipeline: KokoroModelProvider {
     }
 
     public func durationModel(choice: DurationModelChoice) throws -> MLModel {
-        guard let model = durationModels[choice.cacheKey] else {
+        modelCacheLock.lock()
+        defer { modelCacheLock.unlock() }
+        if let model = durationModels[choice.cacheKey] {
+            return model
+        }
+        guard let url = durationPackageURLs[choice.cacheKey] else {
             throw PipelineError.modelNotLoaded(choice.cacheKey)
         }
+        let model = try Self.loadModel(at: url, computeUnits: .cpuAndGPU)
+        durationModels[choice.cacheKey] = model
         return model
     }
 
     public func f0ntrainModel(tFrames: Int) throws -> MLModel {
-        guard let model = f0ntrainModels[tFrames] else {
+        modelCacheLock.lock()
+        defer { modelCacheLock.unlock() }
+        if let model = f0ntrainModels[tFrames] {
+            return model
+        }
+        guard let url = f0ntrainPackageURLs[tFrames] else {
             throw PipelineError.modelNotLoaded("f0ntrain_t\(tFrames)")
         }
+        let model = try Self.loadModel(at: url, computeUnits: .cpuAndGPU)
+        f0ntrainModels[tFrames] = model
         return model
     }
 
     public func decoderPreModel(bucketSec: Int) throws -> MLModel {
-        guard let model = decoderPreModels[bucketSec] else {
+        modelCacheLock.lock()
+        defer { modelCacheLock.unlock() }
+        if let model = decoderPreModels[bucketSec] {
+            return model
+        }
+        guard let url = decoderPrePackageURLs[bucketSec] else {
             throw PipelineError.modelNotLoaded("decoder_pre_\(bucketSec)s")
         }
+        let model = try Self.loadModel(at: url, computeUnits: .cpuAndNeuralEngine)
+        decoderPreModels[bucketSec] = model
         return model
     }
 
     public func generatorModel(bucketSec: Int) throws -> MLModel {
-        guard let model = generatorModels[bucketSec] else {
+        modelCacheLock.lock()
+        defer { modelCacheLock.unlock() }
+        if let model = generatorModels[bucketSec] {
+            return model
+        }
+        guard let url = generatorPackageURLs[bucketSec] else {
             throw PipelineError.modelNotLoaded("decoder_har_post_\(bucketSec)s")
         }
+        let model = try Self.loadModel(at: url, computeUnits: .cpuAndGPU)
+        generatorModels[bucketSec] = model
         return model
+    }
+
+    private static func loadModel(at url: URL, computeUnits: MLComputeUnits) throws -> MLModel {
+        let config = MLModelConfiguration()
+        config.computeUnits = computeUnits
+        return try MLModel(contentsOf: MLModel.compileModel(at: url), configuration: config)
     }
 
 }

@@ -514,7 +514,7 @@ pub async fn reset_live_scheduler() {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{CancellationToken, TaskCtx, canonical_task_names};
+    use super::super::{canonical_task_names, CancellationToken, TaskCtx};
     use super::*;
     use std::sync::OnceLock;
     use std::time::Duration;

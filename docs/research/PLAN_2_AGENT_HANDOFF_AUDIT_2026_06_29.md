@@ -1,6 +1,6 @@
 # Plan 2 Agent Handoff Audit (2026-06-29)
 
-> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** Plan-2 editor audit findings largely stand (editors = simplify/polish). STALE: any "note-context feeds Plan-1's Goose WebView/reskin under Option 1 / embedded Epdoc minichat" — the agent surface is OpenChamber (Pro) / June+goose-in-process (MAS); the Epdoc minichat is DEFERRED (shared files + companion mascot + note provenance). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** Plan-2 editor audit findings largely stand (editors = simplify/polish). STALE: any "note-context feeds Plan-1's Goose WebView/reskin under Option 1 / embedded Epdoc minichat" — current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; the Epdoc minichat is DEFERRED (shared files + companion mascot + note provenance). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
 
 Purpose: give the next Plan 2/editor agent a no-bullshit record of what changed, what was stale, and what still needs
 runtime proof. This file is an addendum to `PROMPT_PLAN_2_EDITOR.md`, `EDITOR_CANONICAL_PLAN_2026_06_27.md`, and

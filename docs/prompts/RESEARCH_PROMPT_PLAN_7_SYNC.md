@@ -2,16 +2,20 @@
 
 **ID:** `EPI-RP-07-KEELSTONE` · **Codename:** KEELSTONE · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: if reused,
+> research KEELSTONE for the MAS/App Store product only. Treat prior
+> Experimental/1Code schema work as parked-lane leak/deletion evidence, not an
+> active target.
+
 > Paste below `─── BEGIN ───` into a deep-research model. Output = build-ready dossier. Owner
 > authored 2026-07-06; scope expanded the same day to fold in **build-schema/config solidification +
 > deep performance-optimization/hardening + release-readiness** — this plan is the app's structural
-> *keel*. **Build split: both builds (MAS + 1Code/Experimental).** MAS is the strict constraint
-> surface (sandbox + file coordination).
+> *keel*. After the 2026-07-07 pivot, research the MAS/App Store product line only. MAS is the strict constraint
+> surface (sandbox + file coordination); 1Code/Experimental becomes parked-lane leak/deletion evidence.
 >
-> **Surfaces today = MAS/June + 1Code/Experimental ONLY. There is no live "Pro" surface — but the
-> flag-less base build config still mounts the deprecated OpenChamber/ProAgent surface
-> (`LandingView` `#else` branch). Resolving that (retire OpenChamber/ProAgent + collapse to two
-> configs + make Experimental the base) is explicitly IN SCOPE here.**
+> **Surface today = MAS/June.** There is no live Pro, Experimental, or OpenChamber surface. Resolving
+> stale build config residue means delete OpenChamber/ProAgent and prove parked lanes do not leak into
+> the MAS archive.
 
 ─── BEGIN RESEARCH BRIEF ───
 
@@ -26,9 +30,8 @@ Design against the file names below.
 Epistemos = macOS-native PKM. The **vault = markdown files on disk** (chosen by the user, accessed
 via a security-scoped bookmark) is the single source of truth; a **derived index** (FTS/embeddings)
 mirrors it for search. The vault may live in iCloud Drive / Dropbox / a plain folder and be edited
-by **other apps** concurrently. Two builds: **MAS** (sandbox + hardened runtime; file access only
-via security-scoped bookmarks + `NSFileCoordinator`) and **1Code/Experimental** (Developer ID).
-Ships in **both**. There is **no proprietary cloud** — "sync" = coexisting safely with the user's
+by **other apps** concurrently. Active build: **MAS** (sandbox + hardened runtime; file access only
+via security-scoped bookmarks + `NSFileCoordinator`). There is **no proprietary cloud** — "sync" = coexisting safely with the user's
 own file-sync + keeping the derived index consistent, not building a server.
 
 ## 2. Thesis
@@ -97,40 +100,38 @@ other plans rest on.
   during write) and a first-run/upgrade matrix.
 
 ### D6 — Build-schema / config solidification + the base-app question ★ (owner-asked)
-Ground truth to design against: Epistemos builds via **compile flags** — `EPISTEMOS_APP_STORE`
-(→ June, MAS) and `EPISTEMOS_EXPERIMENTAL` (→ 1Code, Developer-ID). `xcodegen` `project.yml` is the
-source of truth (two app targets: `Epistemos` (Dev-ID) + `Epistemos-AppStore` (MAS); configs
-Debug/Release/Experimental). A hard `#error` forbids `EXPERIMENTAL && APP_STORE`. Today the
-**flag-less base config still mounts the deprecated OpenChamber/ProAgent surface** via
-`LandingView`'s `#else` branch. `PRO_BUILD` is dead (3 comment-only refs).
-- **Answer the owner's question explicitly: is a flag-less "base app" needed, or just two configs?**
-  Research the cleanest end-state: collapse to exactly **two shipping configurations** —
-  **Experimental (Developer-ID, base default)** and **MAS (App Store)** — and eliminate the vestigial
-  flag-less/OpenChamber path. Detail the safest migration: retire `Epistemos/ProAgent/*`, the
-  `.research-clones/openchamber` clone + `build-openchamber-web.sh` preBuild step, collapse
-  `LandingView`'s `#if APP_STORE / #elseif EXPERIMENTAL / #else OpenChamber` to a clean two-way, and
-  make Experimental the base — WITHOUT tripping the `#error` (never add EXPERIMENTAL to the shared
-  base config the App Store target inherits via `$(inherited)`; scope it to the `Epistemos` target).
+Ground truth to design against: Epistemos is now MAS-first. `EPISTEMOS_APP_STORE`
+(→ June, MAS) is the active release surface; `EPISTEMOS_EXPERIMENTAL`,
+Developer-ID, 1Code, and OpenChamber paths are parked leak/deletion evidence.
+`xcodegen` `project.yml` is the source of truth, and a hard `#error` must still
+forbid incompatible parked macros from coexisting with App Store flags.
+- **Answer the owner's question explicitly: is a flag-less "base app" needed?**
+  Research the cleanest MAS-only end-state: eliminate the vestigial
+  flag-less/OpenChamber path, do not make Experimental the base, and prove the
+  App Store archive resolves only MAS/June. Detail the safest deletion sequence:
+  remove `Epistemos/ProAgent/*`, the `.research-clones/openchamber` clone +
+  `build-openchamber-web.sh` preBuild step, and collapse `LandingView` to the
+  MAS surface with parked-lane leak checks.
 - **Solidify the schema:** one authoritative table of {config → flags → surface → signing/entitlements
   → distribution}. Guardrails (a lint/`#error` matrix) so the two configs can never drift or a third
   reappear. Cite xcodegen + Xcode build-setting inheritance reality.
-- Sequence + risk for the OpenChamber retirement (it's wired into `LandingView`, `UIState`,
+- Sequence + risk for the OpenChamber/ProAgent deletion (it's wired into `LandingView`, `UIState`,
   `SubstrateHealthPanel`, tests) — do it like a clean excision, verified BUILD SUCCEEDED per step.
 
 ### D7 — Deep performance optimization + hardening (shippable floor) ★
 Fold the owner's perf/hardening doctrine into the release keel. Research + specify a **hardening &
-performance floor** both configs must clear before v1:
+performance floor** the MAS/App Store product must clear before v1:
 - **Performance:** the "instant open" budget (agent surface, editor, landing), memory/energy floors
   (the app already does memory-pressure relief, bounded caches, lazy-init, WebView pooling — extend
   to a measured budget in `perf-budgets.toml`), cold-start, large-vault (10k+ notes) behavior,
   thermal. Define the metrics + how they're gated in CI. Cite Instruments/os_signpost/MetricKit.
 - **Hardening:** the four audit lenses + robustness patterns already in canon (FFI truth boundary,
   supervision-not-polling, ring-buffer circuit breaker, thermal↔breaker, loopback-origin pinning,
-  agent-destructive-op safety, untrusted-ingest, data-core integrity, subprocess hardening on the
-  Dev-ID lane). Turn them into a **per-release gate** where a HIGH finding blocks ship like a broken
-  build. Include the embedded-1Code-backend supervision (child-process ledger, clean reap on quit).
-- MAS specifics: sandbox, hardened runtime, entitlements minimalism, notarization; Experimental
-  (Dev-ID) subprocess hardening. Cite Apple's hardened-runtime/notarization + App Sandbox docs.
+  agent-destructive-op safety, untrusted-ingest, data-core integrity, and parked-lane
+  subprocess/server leak checks). Turn them into a **per-release gate** where a HIGH finding blocks ship like a broken
+  build. Do not design embedded-1Code-backend supervision as active work.
+- MAS specifics: sandbox, hardened runtime, entitlements minimalism, App Store archive hygiene.
+  Cite Apple's hardened-runtime/notarization + App Sandbox docs where relevant.
 
 ### D8 — Competitive synthesis
 - How Obsidian (no server, file truth, Sync add-on), iCloud-based apps (Bear/Apple Notes), and
@@ -142,8 +143,7 @@ performance floor** both configs must clear before v1:
 KEELSTONE is the fabric's structural integrity — it hardens the contracts everyone plugs into:
 - **F1 vault:** external-change reconciliation IS the vault bus's integrity — never lose or desync a
   note any feature wrote.
-- **F2 capability:** the release gate verifies every capability's honest gating; the two-config schema
-  defines exactly which surfaces host the capability registry (June/MAS + 1Code/Experimental).
+- **F2 capability:** the release gate verifies every capability's honest gating; MAS/June is the active capability-registry host, and parked 1Code/Experimental capabilities are absent from the App Store archive.
 - **F3/F4/F5/F6:** the hardening floor covers presence, graph, provenance-ledger, and state-bus
   robustness (supervision-not-polling, circuit breakers, data-core integrity) so the fabric holds
   under load/failure. Schema-solidification guarantees exactly TWO consistent fabric hosts.
@@ -158,11 +158,11 @@ review + notarization docs. Flag sandbox-gated behaviors. Distinguish observed v
 durability model (D2). 4. Index consistency + self-heal (D3). 5. Vault lifecycle/bookmark harden (D4).
 6. **The v1 release quality gate** (D5 — headline: checklist + automated harness + soak/upgrade
 matrix). 7. **Build-schema solidification** (D6 — headline: the definitive {config → flag → surface →
-signing → distribution} table + the base-app answer + the OpenChamber/ProAgent retirement + drift
+signing → distribution} table + the base-app answer + the OpenChamber/ProAgent deletion + drift
 guardrails). 8. **Performance + hardening floor** (D7 — headline: budgets + the per-release hardening
 gate where a HIGH blocks ship). 9. Competitive table + novel edge (D8). 10. **Phased build order**
 (durable write core → external detection → reconciliation → conflict UX → index self-heal → schema
-collapse + OpenChamber retirement → perf/hardening floor → release gate), each with a witnessable
+collapse + OpenChamber/ProAgent deletion → perf/hardening floor → release gate), each with a witnessable
 proven-done bar; flag Plan 6 (Capture writes) dependency. 11. Open questions.
 
 ## 8. Anti-patterns

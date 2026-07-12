@@ -1,3 +1,5 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+
 import SwiftUI
 
 // Surface A — the wave quick chat column (Plan 1-MAS §2.3). One calm column
@@ -285,3 +287,5 @@ struct QuickChatStageView: View {
         controller.send(text)
     }
 }
+
+#endif

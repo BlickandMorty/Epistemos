@@ -103,13 +103,16 @@ pub mod pty;
 
 pub mod providers {
     pub mod claude;
+    #[cfg(not(feature = "mas-build"))]
     pub mod gemini;
     // Pro-only: the on-device GGUF provider shells out to a hardened `llama-cli`
     // subprocess, which the MAS sandbox forbids. Invisible to MAS compilation.
     #[cfg(feature = "pro-build")]
     pub mod gguf_cli;
     pub mod openai;
+    #[cfg(not(feature = "mas-build"))]
     pub mod openai_compatible;
+    #[cfg(not(feature = "mas-build"))]
     pub mod perplexity;
     pub mod pricing;
     pub mod schema;
@@ -142,16 +145,6 @@ pub mod shared_memory;
 #[cfg(feature = "pro-build")]
 pub mod tirith;
 pub mod undo;
-
-// Goose=WORK seam (R-GOOSE, Seam B) — isolated + inert; nothing in agent_loop /
-// agent_runtime references it (GOOSE GUARDRAIL: Chat/Act unchanged).
-pub mod work;
-
-// WORK code-intelligence tools — ⚠️ REDUNDANT under Architecture C (OpenCode has a built-in
-// LSP; re-eval owner 2026-06-21). Kept (not blind-deleted) pending the OpenCode runtime vendor,
-// then removed; `lsp_runtime` stays for the native editors. Gated behind `lsp-runtime`; isolated.
-#[cfg(feature = "lsp-runtime")]
-pub mod work_lsp_tools;
 
 // RAG preflight tool selection (Deterministic Schema Engine, P8.2 spec §B): pick the
 // ~3-5 tools relevant to a turn so local models keep a tight, focused tool footprint.
@@ -222,8 +215,6 @@ pub mod tools {
     pub mod browser_schema;
     #[cfg(feature = "pro-build")]
     pub mod browser_screenshot;
-    #[cfg(feature = "pro-build")]
-    pub mod cli_passthrough;
     #[cfg(feature = "pro-build")]
     pub mod computer_use;
     #[cfg(feature = "pro-build")]

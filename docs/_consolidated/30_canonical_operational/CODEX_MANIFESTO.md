@@ -91,7 +91,9 @@ The spec for any feature is the **intersection** of:
 9. **Handoff logs** (handoffs/YYYY-MM-DD-*.md) — what prior sessions actually shipped
 10. **Progress tracker** (AGENT_PROGRESS.md, PROGRESS.md) — what's already marked done
 
-When docs conflict between tiers or within a tier, **stop and ask the user which is authoritative.** Do not silently pick.
+When docs conflict between tiers or within a tier, use the highest current canon named by the
+living/master index, record the conflict, and continue with the smallest reversible path. Ask the
+user only when the choice is destructive, irreversible, or scope-changing. Do not silently pick.
 
 ### Law 4: Verify Before You Build
 
@@ -101,7 +103,8 @@ Before implementing, grep the codebase:
 grep -rn "<function-name>\|<struct-name>\|<FFI-symbol>" agent_core/ graph-engine/ substrate-core/ Epistemos/
 ```
 
-Prior sessions may have landed the work. If it exists, **report it and stop.** Do not rebuild.
+Prior sessions may have landed the work. If it exists, report it, reuse it, and move to the next
+real item. Do not rebuild existing work.
 
 If partial work exists, name exactly what's there and what's missing before continuing.
 

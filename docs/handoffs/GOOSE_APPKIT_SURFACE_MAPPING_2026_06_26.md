@@ -1,6 +1,6 @@
 # Goose → AppKit Surface Mapping
 
-> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Maps Goose routes to a native AppKit reskin surface — the DEAD approach. The agent surface is now OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Maps Goose routes to a native AppKit reskin surface — the DEAD approach. current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > 🛑 **SUPERSEDED 2026-06-29 (Option 1 + Unification).** §7 GREEN-LIT; Plan 1 on Phase 1. The chat path is **NOT**
 > native after any gate — chat + every Goose feature stays in the reskinned WebView, PERMANENTLY (native = frame +

@@ -1,5 +1,20 @@
 # Build Prompt — Experimental Agent Surface (1Code embedded)
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: this prompt is
+> parked. Do not start, resume, or reprompt Experimental/1Code work while
+> MAS-only is active. Preserve this file as historical provenance and salvage
+> useful ideas only through MAS-June/App Store-safe architecture.
+
+> HISTORICAL 1Code UI NOTE — parked by the MAS-only lock. The older "Keep 1Code's UI" language below
+> means preserve the working chat behavior, engine, transport, and information
+> layout. It does **not** mean preserve donor 1Code/Goose visible components.
+> If Experimental/1Code is ever explicitly reopened, replace visible donor component
+> language with Epistemos-owned high-quality components or owned CSS surfaces:
+> shell, workspace rail, sidebar rows, composer, status strip, command palette,
+> buttons, cards, popovers, transcript viewport, and tool/action surfaces. No
+> wrapper-only, skin-only, or token/package-only pass satisfies this. See
+> `docs/plans/1code-v2/BUILD_PROMPT_1CODE_V2.md`.
+
 **Read this once, fully, before writing code.** It is self-contained. Every load-bearing claim
 carries its evidence inline as `file:line` (read first-hand in the pinned clone) or a trust tag.
 You do **not** need to open any research corpus — the nuance is folded in here. Where a fact is
@@ -354,8 +369,12 @@ reload** (that kills the session).
 Upstream 1Code is thin in a few places. This surface must ship harder. Each item below is a
 shipping-gate row, not optional polish.
 
-**Reuse Epistemos's proven infrastructure (it encodes real, already-paid bug fixes)** `[VERIFIED-CODE]`:
-- **Runtime supervisor** (`ProAgent/ProAgentRuntimeSupervisor.swift`): `Status` enum +
+**Reuse Epistemos's neutral AgentSurface infrastructure (it encodes real, already-paid bug fixes)** `[VERIFIED-CODE]`:
+Do **not** import or preserve `Epistemos/ProAgent/*`; KEELSTONE deletes it. If a needed pattern still
+exists only under a ProAgent name, extract/rename it to neutral `AgentSurface*` or Experimental-owned
+code first, then delete the branded source.
+- **Runtime supervisor pattern** (`Epistemos/AgentSurface/AgentSurfaceRuntimeSupport.swift` plus
+  Experimental supervisor code): `Status` enum +
   `start()`/`stop()` + health poll; **off-main process spawn** (an inline `@MainActor` spawn froze
   the UI on notarized-binary code-sig validation — spawn inside `Task.detached`, carry each `Process`
   across the actor boundary in an `@unchecked Sendable` box); **ephemeral ports 49300–64900** (above
@@ -363,16 +382,17 @@ shipping-gate row, not optional polish.
   an **env allowlist** for children; a **time-bounded (4s) Keychain→env bridge** (a sync Keychain
   read can hang forever on a first-launch ACL prompt — race it, spawn without keys on timeout). Model
   the 1Code backend supervisor on this.
-- **Crash-durable child ledger** (`ProAgentChildLedger.swift`): persist `(pid, kernel start-time)`;
+- **Crash-durable child ledger** (`Epistemos/AgentSurface/AgentSurfaceChildLedger.swift`): persist `(pid, kernel start-time)`;
   sweep strays at next `start()` (TERM → 1.5s grace → KILL). Reuse for the Node backend + node-pty /
   git children.
-- **Script-message bridge discipline** (`ProAgentSurfaceView.swift`): validate every payload (shape
+- **Script-message bridge discipline** (neutral AgentSurface/Experimental WKWebView shim): validate every payload (shape
   + length caps); reply by injecting a JSON string literal escaped for `\ " \n U+2028 U+2029` +
   control chars; promise/`callId` round-trip; **no secret ever crosses into JS.** This is the
   template for `onecode-shim.js`.
 - **Theme injector, origin-allowlist navigation reroute, MCP vault-fusion writer, perf discipline**
-  (`ProAgentThemeBridge`, `ProAgentNavigationDecider`, `WorkOpenCodeRuntime.writeMergedFusionConfig`
-  + `omega_mcp_stdio`, `ProAgentPerf.swift` + `docs/perf-budgets.toml`). The instant-open recipe:
+  (extract any still-useful ProAgent-derived behavior into neutral `AgentSurface*`/Experimental
+  helpers; `WorkOpenCodeRuntime.writeMergedFusionConfig` + `omega_mcp_stdio`; `docs/perf-budgets.toml`).
+  The instant-open recipe:
   eager WebView + placeholder, off-main spawn, keep the WebView alive across tab switches.
 
 **New hardening this surface must add (beyond what upstream ships):**
@@ -506,14 +526,14 @@ detect/install · **tool-approval policy + audit log** · **process/worktree rea
   (`project.yml:228,233` sets `"$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX …"` per config; existing
   schemes: `Epistemos.xcscheme`, `Epistemos-AppStore.xcscheme`).
 - Gate all surface code `#if EPISTEMOS_EXPERIMENTAL` in a new `Epistemos/ExperimentalAgent/` group
-  (mirror of the ProAgent `#if !EPISTEMOS_APP_STORE` pattern). Experimental is a Developer-ID lane:
+  (mirror the neutral AppSurface compile-time gating pattern, not ProAgent). Experimental is a Developer-ID lane:
   add a compile-time assert that `EPISTEMOS_EXPERIMENTAL` and `EPISTEMOS_APP_STORE` never coexist
   (`#if EPISTEMOS_EXPERIMENTAL && EPISTEMOS_APP_STORE` → `#error`).
 
-**Donor artifact pipeline — `build-experimental-web.sh` (mirror the proven `build-openchamber-web.sh`):**
+**Donor artifact pipeline — `build-experimental-web.sh` (standalone; do not depend on `build-openchamber-web.sh`):**
 - **Content-hash gate** on the fork's lockfile → unchanged checkouts skip npm + build entirely.
 - Build the renderer dist with the embed flag; **REFUSE any dist containing a service worker** (the
-  proven stale-bundle guard — the openchamber script already enforces this).
+  stale-bundle guard — this must live in the Experimental script because OpenChamber packaging is deleted).
 - Bundle the headless backend (esbuild/bun) + prune to production `node_modules`; include the
   drizzle migrations.
 - **⚠️ Rebuild native modules (better-sqlite3, node-pty) against the PINNED NODE ABI** — plain
@@ -522,8 +542,8 @@ detect/install · **tool-approval policy + audit log** · **process/worktree rea
 - Stage EVERYTHING as **one tarball** (`experimental-web.tar.gz`) — the Xcode resource copy flattens
   directory trees (proven `Multiple commands produce` collision). Unpack once at runtime to
   Application Support, **size+mtime version-stamped** (supervisor precedent).
-- **Share the pinned Node 25.8.2 runtime** with the OpenChamber surface (the "native-ABI anchor" the
-  repo already vendors) — one `node` binary serves both surfaces; real size win.
+- **Use a neutral pinned Node 25.8.2 runtime resource** for Experimental/1Code. Do not reference
+  `openchamber-runtime`; KEELSTONE renames/removes that path as part of deletion.
 
 **Signing / notarization:**
 - Individually sign every `.node`, the bundled `node`, and each CLI binary with Developer ID +

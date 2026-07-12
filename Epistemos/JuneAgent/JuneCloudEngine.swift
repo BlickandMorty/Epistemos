@@ -1,4 +1,4 @@
-#if EPISTEMOS_APP_STORE
+#if EPISTEMOS_LEGACY_RECEIPT_PROXY
 import Foundation
 import os
 
@@ -103,4 +103,4 @@ nonisolated final class JuneCloudEngine: @unchecked Sendable {
         }
     }
 }
-#endif
+#endif // EPISTEMOS_LEGACY_RECEIPT_PROXY — parked; MAS June cloud turns use in-process agent_core

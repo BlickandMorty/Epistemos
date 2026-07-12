@@ -1,6 +1,6 @@
 # HTML Workspace — Regenerate: the "not-a-demo" spec (owner-locked 2026-06-30)
 
-> 🟢 **MOSTLY LIVE 2026-07-02.** The HTML Workspace regenerate spec is a capability surface (Plan 2/3 lane) largely unaffected by the OpenChamber pivot. Re-anchor ONLY any "Goose-web reskin / Option 1 / agent = reskinned Goose" reference to: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🟢 **MOSTLY LIVE 2026-07-02.** The HTML Workspace regenerate spec is a capability surface (Plan 2/3 lane) largely unaffected by the OpenChamber pivot. Re-anchor ONLY any "Goose-web reskin / Option 1 / agent = reskinned Goose" reference to: Current surfaces = Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > Plan 2 item (1). Owner decided (2026-06-30): make regenerate the **FULL version** — genuinely robust (not a demo),
 > pixel-minimal styled, **with preset action buttons**. Presets = **Layout + Add-a-thing + Vault-data** (owner
@@ -73,8 +73,9 @@ All of this work stays in the **regenerate / preview / data-feed / preset / inte
 Workspace. It must **NOT** modify, refactor, restyle, or destabilize the **code editor / Source lens** — MarkEdit /
 CoreEditor / the L3 code chrome / the HTML Workspace *source panes* (which ride the MarkEdit/CoreEditor Source lane).
 That surface was the biggest breakage source before; leave it alone. If a regenerate/workspace change would require
-touching the code-editor code paths, STOP and flag it instead of proceeding. The interactive workspace changes the
-*preview/rendered* space and its context wiring, never the code-editing engine.
+touching the code-editor code paths, mark that regenerate subtask blocked, leave the code-editor paths untouched, and
+continue through non-protected regenerate/preview/data-feed work. The interactive workspace changes the *preview/rendered*
+space and its context wiring, never the code-editing engine.
 
 ## Proof bar (before calling it done)
 Cold-launch the app → open an HTML Workspace → (a) one preset from each family produces a working surface via live stream;

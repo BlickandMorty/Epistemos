@@ -241,6 +241,9 @@ extension HTMLWorkspaceEditorView {
     }
 
     func testPythonRuntime() {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        statusText = HTMLWorkspacePythonRuntime.availabilityStatusText
+        #else
         guard package.manifest.sandboxPolicy.allowPythonRuntime else {
             statusText = "Python runtime disabled"
             return
@@ -251,6 +254,7 @@ extension HTMLWorkspaceEditorView {
         statusText = HTMLWorkspacePythonRuntime.isAvailable
             ? "Python runtime probe requested"
             : "Python runtime probe requested; \(HTMLWorkspacePythonRuntime.availabilityStatusText)"
+        #endif
     }
 
     func testRuntimeBridgeProbes() {
@@ -258,7 +262,9 @@ extension HTMLWorkspaceEditorView {
         layoutMode = .split
         appBridgeProbeNonce &+= 1
         consoleProbeNonce &+= 1
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         pythonProbeNonce &+= 1
+        #endif
         statusText = "Runtime bridge probes requested"
     }
 
@@ -277,6 +283,9 @@ extension HTMLWorkspaceEditorView {
     }
 
     func insertPythonDemo() {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        statusText = HTMLWorkspacePythonRuntime.availabilityStatusText
+        #else
         do {
             let updated = try HTMLWorkspacePythonDemoScaffold.apply(to: package)
             package = updated
@@ -290,6 +299,7 @@ extension HTMLWorkspaceEditorView {
         } catch {
             statusText = failedStatus("Python demo", error: error)
         }
+        #endif
     }
 
     func importHTML() {

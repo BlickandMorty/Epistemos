@@ -20,12 +20,13 @@ struct LiveNoteExecutorTests {
             withIntermediateDirectories: true
         )
         try originalBody.write(to: noteURL, atomically: true, encoding: .utf8)
+        let originalEditorBody = VaultIndexActor.parseFrontMatter(originalBody).1
 
         let page = SDPage(title: "Release Brief")
         page.filePath = noteURL.path
         page.subfolder = "Projects"
-        page.saveBody(originalBody)
-        page.lastSyncedBodyHash = SDPage.bodyHash(originalBody)
+        page.saveBody(originalEditorBody)
+        page.lastSyncedBodyHash = SDPage.bodyHash(originalEditorBody)
         page.lastSyncedAt = .now
         page.needsVaultSync = false
         context.insert(page)
@@ -49,10 +50,12 @@ struct LiveNoteExecutorTests {
         #expect(mutator.stagedDiff?.relativePath == "Projects/release-brief.md")
         #expect(mutator.stagedDiff?.summary == "Update live note Release Brief")
         #expect(mutator.stagedDiff?.commitMessage.contains("[VAULT:UPDATE]") == true)
+        #expect(mutator.stagedDiff?.before == originalBody)
+        #expect(mutator.stagedDiff?.after.contains("live_note: true") == true)
         #expect(mutator.stagedDiff?.after.contains("Revenue call moved to April 12, 2026.") == true)
-        #expect(storedBody == originalBody)
+        #expect(storedBody == originalEditorBody)
         #expect(vaultBody == originalBody)
-        #expect(page.lastSyncedBodyHash == SDPage.bodyHash(originalBody))
+        #expect(page.lastSyncedBodyHash == SDPage.bodyHash(originalEditorBody))
         #expect(page.needsVaultSync == false)
     }
 
@@ -71,12 +74,13 @@ struct LiveNoteExecutorTests {
             withIntermediateDirectories: true
         )
         try originalBody.write(to: noteURL, atomically: true, encoding: .utf8)
+        let originalEditorBody = VaultIndexActor.parseFrontMatter(originalBody).1
 
         let page = SDPage(title: "Release Brief")
         page.filePath = noteURL.path
         page.subfolder = "Projects"
-        page.saveBody(originalBody)
-        page.lastSyncedBodyHash = SDPage.bodyHash(originalBody)
+        page.saveBody(originalEditorBody)
+        page.lastSyncedBodyHash = SDPage.bodyHash(originalEditorBody)
         page.lastSyncedAt = .now
         page.needsVaultSync = false
         context.insert(page)
@@ -100,12 +104,14 @@ struct LiveNoteExecutorTests {
         let commitReference = try await mutator.approvePendingDiff()
         let updatedBody = page.loadBody(mapped: true)
         let vaultBody = try String(contentsOf: noteURL, encoding: .utf8)
+        let parsedVaultBody = VaultIndexActor.parseFrontMatter(vaultBody)
         let lastCommit = try gitOutput(arguments: ["-C", vaultRoot.path, "log", "-1", "--pretty=%B"])
         let blocks = try fetchBlocks(pageId: page.id, from: context)
 
         #expect(commitReference.isEmpty == false)
+        #expect(parsedVaultBody.0["live_note"] == "true")
+        #expect(parsedVaultBody.1 == updatedBody)
         #expect(updatedBody.contains("Revenue call moved to April 12, 2026."))
-        #expect(vaultBody == updatedBody)
         #expect(blocks.contains { $0.content.contains("Revenue call moved to April 12, 2026.") })
         #expect(page.wordCount == updatedBody.split(separator: " ").count)
         #expect(page.lastSyncedBodyHash == SDPage.bodyHash(updatedBody))

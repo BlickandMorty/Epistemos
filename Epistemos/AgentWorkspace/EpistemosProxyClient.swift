@@ -1,3 +1,4 @@
+#if EPISTEMOS_LEGACY_RECEIPT_PROXY
 import Foundation
 import OSLog
 
@@ -216,3 +217,4 @@ nonisolated final class EpistemosProxyClient: @unchecked Sendable {
     }
     #endif
 }
+#endif // EPISTEMOS_LEGACY_RECEIPT_PROXY — parked; MAS June uses owner API keys through in-process agent_core

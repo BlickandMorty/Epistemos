@@ -138,6 +138,22 @@ public final class VoicePreferences {
 
     public static let shared = VoicePreferences()
 
+    public nonisolated static var allowsReadAloudEffects: Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        false
+        #else
+        true
+        #endif
+    }
+
+    public nonisolated static func shippedReadAloudEffect(_ requested: VoiceEffect) -> VoiceEffect {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        .clean
+        #else
+        requested
+        #endif
+    }
+
     private init() {
         // Conservative defaults: STT/TTS surfaces default to MANUAL
         // mode so users opt INTO automation explicitly. Per-model
@@ -203,11 +219,12 @@ public final class VoicePreferences {
                   let effect = VoiceEffect(rawValue: raw) else {
                 return .clean
             }
-            return effect
+            return Self.shippedReadAloudEffect(effect)
         }
         set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: VoicePreferenceKeys.readAloudEffect)
-            voiceLog.debug("voice pref \(VoicePreferenceKeys.readAloudEffect, privacy: .public) → \(newValue.rawValue, privacy: .public)")
+            let shippedEffect = Self.shippedReadAloudEffect(newValue)
+            UserDefaults.standard.set(shippedEffect.rawValue, forKey: VoicePreferenceKeys.readAloudEffect)
+            voiceLog.debug("voice pref \(VoicePreferenceKeys.readAloudEffect, privacy: .public) → \(shippedEffect.rawValue, privacy: .public)")
         }
     }
 
@@ -233,11 +250,11 @@ public final class VoicePreferences {
             """
         case VoicePreferenceKeys.perModelVoicePersona:
             return """
-            This legacy preference is kept for migration only. Shipped text-to-speech is Kokoro-only and remains unavailable until native Kokoro playback is wired.
+            This legacy preference is kept for migration only. Shipped text-to-speech uses the checked local Kokoro runtime and one global English voice selection.
             """
         case VoicePreferenceKeys.quickCaptureReadBack:
             return """
-            Auto mode will read each completed sentence aloud as you pause typing in Quick Capture once native Kokoro playback is wired. Manual mode keeps read-back opt-in via the speaker button. Manual is the conservative default. Apple AVSpeech is not used as a fallback.
+            Auto mode reads each completed sentence aloud as you pause typing in Quick Capture when Kokoro is installed and ready. Manual mode keeps read-back opt-in via the speaker button. Manual is the conservative default. Apple AVSpeech is not used as a fallback.
             """
         default:
             return ""

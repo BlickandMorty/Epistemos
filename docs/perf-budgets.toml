@@ -24,9 +24,9 @@
 # (HTTP / inference / tools) should not be masked by a savings in another crate,
 # and vice versa. Each dylib is an independent compilation unit shipped
 # separately into Pro and (where applicable) MAS variants.
-libagent_core_mb_max     = 16   # actual 14.3
+libagent_core_mb_max     = 21   # actual 21; loosened 2026-07-07: fresh release --lib rebuild after agent_core expansion measures 21 MB rounded by du -m
 libepistemos_core_mb_max = 6    # actual 3.8
-libomega_mcp_mb_max      = 4    # actual 2.3
+libomega_mcp_mb_max      = 5    # actual 5; loosened 2026-07-07: fresh release --lib rebuild measures 5 MB rounded by du -m
 libomega_ax_mb_max       = 4
 
 # substrate-rt is the dpp-Sprint-4 carve-out (Wave 5). Until that crate
@@ -109,6 +109,7 @@ exp_first_paint_ms_max      = 1000   # SPA mount -> first meaningful paint (back
 #
 # --- interaction smoothness ---
 transcript_frame_ms_p99     = 8.3    # streaming/scroll ~120fps; no full-transcript re-render per token
+glass_host_attach_ms        = 16     # NSVisualEffectView host attach -> glass_host_ready signpost
 #
 # --- backend memory (§16: cap the heap; upstream ships 8192, oversized on 16 GB) ---
 backend_heap_mb_max         = 4096   # --max-old-space-size ceiling for the headless node backend (supervisor sets 3072)

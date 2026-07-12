@@ -1,6 +1,6 @@
 # THE BIG IDEA — Epistemos Grand Convergence (2026-06-22)
 
-> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The product VISION here is durable; the agent-surface mechanics are re-scoped: Agent surface = OpenChamber (Pro) + goose/OpenCode engines; MAS = June + goose in-process; goose = one engine (not "the one surface / Goose-only"). Read the vision; re-anchor surface/engine specifics to canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The product VISION here is durable; the agent-surface mechanics are re-scoped: Current surfaces = Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine (not "the one surface / Goose-only"). Read the vision; re-anchor surface/engine specifics to canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
 
 Owner asked: what is the big idea? What does it all do, how does it converge, is it ONE brain or two/three?
 Is it all folded into the plan? Any conflicts / gaps / missing IP? This is the single unifying picture +

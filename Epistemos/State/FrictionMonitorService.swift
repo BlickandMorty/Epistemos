@@ -45,7 +45,18 @@ actor FrictionMonitorService {
     // MARK: - Event Recording
 
     func record(_ event: EditorTelemetryEvent) async {
+        await record([event])
+    }
+
+    func record(_ batch: [EditorTelemetryEvent]) async {
+        guard !batch.isEmpty else { return }
         guard await isEnabled() else { return }
+        for event in batch {
+            await recordEnabled(event)
+        }
+    }
+
+    private func recordEnabled(_ event: EditorTelemetryEvent) async {
         if case .aiStreamEnd = event.kind { return }
 
         // Note switch: flush old buffer, start a new session

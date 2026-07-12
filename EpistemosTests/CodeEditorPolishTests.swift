@@ -7,7 +7,7 @@ import Testing
 /// (per `docs/CODE_EDITOR_POLISH_SCOPE.md`).
 ///
 /// - `CodeEditorContentDebouncer` (item 2): coalesces rapid keystrokes
-///   to a single delivery after a 300 ms quiet window.
+///   to a single delivery after the editor save quiet window.
 /// - `OutlineParserCache` (item 3): hash-keyed memoization of
 ///   `OutlineParser.parse` so repeated refreshes on unchanged content
 ///   short-circuit instead of re-walking the document.
@@ -41,7 +41,8 @@ nonisolated struct CodeEditorPolishTests {
         #expect(workspaceSource.contains("private func cachedSourceEditorContent(page: SDPage, route: SourceEditorRoute) -> String"))
         #expect(workspaceSource.contains("content: cachedSourceEditorContent(page: page, route: route)"))
         #expect(workspaceSource.contains("if CodeLanguage.isMarkdownDocument(path: filePath)"))
-        #expect(workspaceSource.contains("private func saveMarkdownSourceContent(page: SDPage, filePath: String, content: String, noteBacked: Bool = false)"))
+        #expect(workspaceSource.contains("private func persistSourceEditorContent("))
+        #expect(workspaceSource.contains("private func persistMarkdownSourceEditorContent("))
         #expect(workspaceSource.contains("private func currentSourceRouteMatches(pageId: String, filePath: String) -> Bool"))
         #expect(workspaceSource.contains("let currentRoute = sourceFileRoute(for: currentPage)"))
         #expect(workspaceSource.contains("private struct SourceEditorPersistedContent"))
@@ -153,6 +154,8 @@ nonisolated struct CodeEditorPolishTests {
                 "Markdown Source should seed a same-page snapshot before any async file read can fail.")
         #expect(workspaceSource.contains("private func markdownSourceFallbackContent(for page: SDPage, filePath: String? = nil) -> String"),
                 "Markdown Source fallback should be an explicit note-backed policy.")
+        #expect(workspaceSource.contains("return markdownSourceFallbackContent(for: page, filePath: route.filePath)"),
+                "Markdown Source must synchronously mount from persisted note state before async source snapshots arrive.")
         #expect(workspaceSource.contains("VaultIndexActor.buildMarkdownSource("),
                 "Markdown Source fallback must preserve the same front-matter envelope as vault export.")
         #expect(workspaceSource.contains("let seededMarkdownSource = isMarkdownSource"),
@@ -165,6 +168,10 @@ nonisolated struct CodeEditorPolishTests {
                 "Immediate Source snapshots should live in the note workspace, not as an extra editor storage layer.")
         #expect(workspaceSource.contains("modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: persistedContent.body)"),
                 "Markdown Source snapshots must provide the front-matter-stripped body that Prose expects.")
+        #expect(workspaceSource.contains("private func refreshMarkdownSourceSnapshot(for page: SDPage)"),
+                "Document/Prose saves must refresh the raw Markdown Source snapshot instead of leaving stale frontmatter-only cache.")
+        #expect(workspaceSource.contains("modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: markdown)\n        refreshMarkdownSourceSnapshot(for: page)"),
+                "Document surface saves must refresh Source's raw Markdown cache immediately after accepting the new body.")
         #expect(workspaceSource.contains("case .document, .source, .preview:\n            return currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page)"),
                 "Switching away from Source must flush the live Source snapshot instead of clobbering it with stale persisted body.")
         #expect(workspaceSource.contains("guard let currentPage = pages.first,"),
@@ -189,10 +196,10 @@ nonisolated struct CodeEditorPolishTests {
                 "Cmd-S must flush the active editor before hitting disk.")
         #expect(workspaceSource.contains("case .saveToDisk:\n            saveCurrentNoteToDisk()"),
                 "The visible Save to Disk action must flush Source snapshots, not just call vaultSync directly.")
-        #expect(workspaceSource.contains("let sourceContent = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath)"),
-                "Source-mode saves should force-persist the latest CodeEditor snapshot.")
-        #expect(workspaceSource.contains("saveCodeFileContent(page: page, filePath: route.filePath, content: sourceContent, noteBacked: route.isNoteBacked)"),
-                "Source-mode saves should use the code-file save path so markdown front matter and code files persist immediately.")
+        #expect(workspaceSource.contains("MarkEditCoreEditorLiveTextRegistry.shared.fetchText("),
+                "Source-mode saves should query the mounted editor instead of trusting a delayed host snapshot.")
+        #expect(workspaceSource.contains("let saved = await enqueueSourceEditorPersistence("),
+                "Source-mode saves should await the ordered markdown/code writer before a lens switch or teardown completes.")
         #expect(!workspaceSource.contains("case .saveToDisk:\n            vaultSync.savePage(pageId: pageId)"),
                 "Save to Disk must not bypass the Source snapshot.")
         #expect(workspaceSource.contains("CodeEditorLineMetrics.lineCount(content)"),
@@ -394,14 +401,17 @@ nonisolated struct CodeEditorPolishTests {
                 "flush must synchronously save the visible editor text before detach drops pending debounce work.")
     }
 
-    @Test("default quiet window is 300 ms (matches CODE_EDITOR_POLISH_SCOPE.md)")
-    func defaultQuietWindowIs300() {
-        #expect(CodeEditorContentDebouncer.defaultQuietWindowMs == 300)
+    @Test("default quiet window is 900 ms to keep saves off active typing")
+    func defaultQuietWindowIs900() {
+        #expect(CodeEditorContentDebouncer.defaultQuietWindowMs == 900)
     }
 
     @Test("CodeEditorView wires CodeEditorContentDebouncer into the live text-change path")
     func codeEditorViewUsesCanonicalDebouncer() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let coordinator = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
+        let workspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(source.contains("@State private var contentDebouncer: CodeEditorContentDebouncer?"),
                 "CodeEditorView must retain the Phase-S debouncer instead of leaving it as standalone scaffold.")
@@ -409,10 +419,70 @@ nonisolated struct CodeEditorPolishTests {
                 "CodeEditorView should construct the canonical debouncer when the editor appears.")
         #expect(source.contains("ensureContentDebouncer().enqueue(newText)"),
                 "Text changes must enqueue into CodeEditorContentDebouncer, not bypass it with a local Task debounce.")
+        #expect(source.contains("@State private var textSnapshotRevision: UInt64 = 0"))
+        #expect(source.contains("guard textSnapshotTask == nil else { return }"),
+                "Source snapshots should share one quiet-window worker instead of retaining one task/String revision per keystroke.")
+        #expect(source.contains("guard scheduledRevision == textSnapshotRevision else { continue }"))
+        #expect(!source.contains("private func scheduleTextSnapshotPublish(_ newText: String)"))
+        #expect(source.contains("@State private var livePreviewRevision: UInt64 = 0"))
+        #expect(source.contains("guard livePreviewTask == nil else { return }"))
+        #expect(source.contains("guard scheduledRevision == livePreviewRevision else { continue }"))
+        #expect(!source.contains("private func scheduleLivePreviewUpdate(for content: String)"))
+        #expect(source.contains("@State private var outlineRefreshRevision: UInt64 = 0"))
+        #expect(source.contains("guard outlineRefreshTask == nil else { return }"))
+        #expect(source.contains("guard scheduledRevision == outlineRefreshRevision else { continue }"))
+        #expect(!source.contains("private func scheduleOutlineRefresh(for content: String"))
         #expect(source.contains("let onTextSnapshot: ((String) -> Void)?"),
                 "Hosts need an immediate live text snapshot separate from debounced persistence.")
-        let snapshotRange = try #require(source.range(of: "onTextSnapshot?(newText)"))
-        let enqueueRange = try #require(source.range(of: "ensureContentDebouncer().enqueue(newText)"))
+        #expect(source.contains("let onEditStarted: (() -> Void)?"))
+        #expect(source.contains("onContentDirty: onEditStarted"))
+        #expect(adapter.contains("var onContentDirty: (@MainActor () -> Void)?"))
+        #expect(adapter.contains("context.coordinator.onContentDirty = onContentDirty"))
+        #expect(coordinator.contains("var onContentDirty: (@MainActor () -> Void)?"))
+        #expect(coordinator.contains("private var didReportPendingContentDirty = false"))
+        #expect(coordinator.contains("self.onContentDirty?()"))
+        #expect(adapter.contains("var liveTextQueryKey: UUID?"))
+        #expect(adapter.contains("context.coordinator.registerLiveTextQuery(key: liveTextQueryKey, webView: webView)"))
+        #expect(coordinator.contains("final class MarkEditCoreEditorLiveTextRegistry"))
+        #expect(coordinator.contains("guard entries[registration.key]?.token == registration.token else { return }"))
+        #expect(coordinator.contains("replaceFetch(for: liveTextRegistration)"))
+        #expect(coordinator.contains("let retryEntry = entries[key], retryEntry.token == entry.token"))
+        #expect(coordinator.contains("window.webModules?.core?.getEditorText?.()"))
+        #expect(coordinator.contains("DispatchQueue.main.asyncAfter(deadline: .now() + 1)"))
+        #expect(coordinator.contains("if (contentDirty.value)"))
+        #expect(!coordinator.contains("if (contentDirty) {"))
+        #expect(workspace.contains("onEditStarted: {\n                        markDocumentEditorDirtyBeforeDebouncedSave()"))
+        #expect(workspace.contains("private func markEditorDirtyBeforeDebouncedSave()"))
+        #expect(workspace.contains("private func markDocumentEditorDirtyBeforeDebouncedSave()"))
+        #expect(workspace.contains("themeOverride: noteWorkspaceTheme,\n                onEditStarted: {\n                    markEditorDirtyBeforeDebouncedSave()"))
+        #expect(workspace.contains("_ = noteSession.recordUserEdit(source: .user)"))
+        #expect(workspace.contains("liveTextQueryKey: sourceEditorLiveTextQueryKey"))
+        let liveQueryRange = try #require(workspace.range(of: "MarkEditCoreEditorLiveTextRegistry.shared.fetchText("))
+        let sourcePersistRange = try #require(workspace.range(
+            of: "let saved = await enqueueSourceEditorPersistence(",
+            range: liveQueryRange.upperBound..<workspace.endIndex
+        ))
+        #expect(liveQueryRange.lowerBound < sourcePersistRange.lowerBound,
+                "Lens-switch and teardown persistence must query the mounted Source buffer first.")
+        #expect(workspace.contains("guard flushResult != .blocked else { return }"),
+                "A failed final Source save must not be reported as a clean lease close.")
+        #expect(workspace.contains("if liveContent == nil, hadDirtyLease"))
+        #expect(workspace.contains("refusing to close or switch dirty Source without a live editor snapshot"),
+                "Dirty Source must fail closed if teardown has already made an exact buffer query impossible.")
+        #expect(workspace.contains("@State private var sourcePersistenceTask: Task<Bool, Never>?"))
+        #expect(workspace.contains("let predecessor = sourcePersistenceTask"))
+        #expect(workspace.contains("_ = await predecessor.value"),
+                "Every Source write must await its predecessor so commit order matches enqueue order.")
+        #expect(workspace.contains("if sourceEditorRevision == editorRevision"))
+        #expect(workspace.contains("_ = noteSession.recordUserEdit(source: .user)"),
+                "An older completed write must leave a newer edit dirty instead of declaring the session clean.")
+        let liveTextChange = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: source,
+            startingAt: ".onChange(of: text) { _, newText in",
+            endingBefore: "            .onChange(of: initialContent)"
+        ))
+        let snapshotRange = try #require(liveTextChange.range(of: "scheduleTextSnapshotPublish()"))
+        let enqueueRange = try #require(liveTextChange.range(of: "ensureContentDebouncer().enqueue(newText)"))
         #expect(snapshotRange.lowerBound < enqueueRange.lowerBound,
                 "Source lens snapshots should update before the save debouncer can defer persistence.")
         #expect(!source.contains("try? await Task.sleep(for: .milliseconds(500))"),
@@ -421,12 +491,20 @@ nonisolated struct CodeEditorPolishTests {
         let detachRange = try #require(source.range(of: "contentDebouncer?.detach()"))
         #expect(flushRange.lowerBound < detachRange.lowerBound,
                 "CodeEditorView must flush the visible Source text before detaching the debouncer during lens switches.")
+        #expect(source.contains("if liveTextQueryKey == nil {\n                        contentDebouncer?.flush(text)"),
+                "A workspace-owned live flush must not race a second stale host-snapshot write during teardown.")
     }
 
     @Test("MarkEdit Source engines flush latest text during teardown")
     func markEditSourceEnginesFlushLatestTextDuringTeardown() throws {
         let markEditChrome = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
         let coreEditorCoordinator = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
+        let detachStart = try #require(coreEditorCoordinator.range(of: "func detach(from webView: WKWebView)"))
+        let detachEnd = try #require(coreEditorCoordinator.range(
+            of: "func registerLiveTextQuery(key: UUID?, webView: WKWebView)",
+            range: detachStart.upperBound..<coreEditorCoordinator.endIndex
+        ))
+        let coreDetach = String(coreEditorCoordinator[detachStart.lowerBound..<detachEnd.lowerBound])
 
         let flushRange = try #require(markEditChrome.range(of: "flushCurrentTextBeforeDetach(from: viewController)"))
         let pollingCancelRange = try #require(markEditChrome.range(of: "pollingTask?.cancel()"))
@@ -436,6 +514,43 @@ nonisolated struct CodeEditorPolishTests {
         #expect(markEditChrome.contains("applyObservedText(nextText)"))
         #expect(coreEditorCoordinator.contains(#"window.addEventListener("pagehide", () => postSnapshot("pagehide"));"#),
                 "CoreEditor fallback should push a final snapshot when WebKit starts unloading the Source page.")
+        #expect(coreDetach.contains("if hasLoadedEditor, !webView.isLoading"))
+        #expect(coreDetach.contains("Self.requestCurrentEditorText(from: webView)"))
+        #expect(coreDetach.contains("finalTextPromise.resume(returning: text.wrappedValue)"))
+        let readyBranch = try #require(coreDetach.range(of: "if hasLoadedEditor, !webView.isLoading"))
+        let liveQuery = try #require(coreDetach.range(
+            of: "Self.requestCurrentEditorText(from: webView)",
+            range: readyBranch.upperBound..<coreDetach.endIndex
+        ))
+        let fallbackBranch = try #require(coreDetach.range(
+            of: "} else {",
+            range: liveQuery.upperBound..<coreDetach.endIndex
+        ))
+        #expect(readyBranch.lowerBound < liveQuery.lowerBound && liveQuery.lowerBound < fallbackBranch.lowerBound,
+                "Source teardown must not evaluate JavaScript against a loading or not-yet-ready CoreEditor page.")
+    }
+
+    @Test("MarkEdit Source terminal failure never injects into a loading page")
+    func markEditSourceTerminalFailureStopsLoadingBeforePresentation() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
+        let failureStart = try #require(source.range(of: "private func showLoadFailure("))
+        let failureEnd = try #require(source.range(
+            of: "private static func resetFailureMessage",
+            range: failureStart.upperBound..<source.endIndex
+        ))
+        let failureSource = String(source[failureStart.lowerBound..<failureEnd.lowerBound])
+
+        #expect(failureSource.contains("if webView.isLoading"))
+        #expect(failureSource.contains("guard force else { return }"))
+        #expect(failureSource.contains("terminalLoadFailureGeneration = loadGeneration"))
+        #expect(failureSource.contains("webView.stopLoading()"))
+        #expect(failureSource.contains("webView.loadHTMLString("))
+        #expect(failureSource.contains("Self.loadFailureDocument(message: message)"))
+        #expect(failureSource.contains("guard !webView.isLoading else { return }"))
+        #expect(!failureSource.contains("force || !webView.isLoading"))
+        #expect(!failureSource.contains("Painting on a mid-load"))
+        #expect(source.contains("guard terminalLoadFailureGeneration != loadGeneration else { return }"))
+        #expect(source.contains("terminalLoadFailureGeneration = nil"))
     }
 
     @Test("CodeEditorView feeds live preferences into MarkEdit CoreEditor")
@@ -526,6 +641,43 @@ nonisolated struct CodeEditorPolishTests {
                 "The existing code-editor wrap preference must reach CoreEditor.")
         #expect(!source.contains("private let useMinimalTheme = false"),
                 "The old native minimal-theme switch must not be the default code syntax gate anymore.")
+    }
+
+    @Test("CoreEditor lease transitions change read-only state in place")
+    func coreEditorLeaseTransitionsChangeReadOnlyStateInPlace() throws {
+        let state = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
+        let coordinator = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
+        let reloadSection = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: state,
+            startingAt: "func requiresReload(comparedTo other: MarkEditCoreEditorState) -> Bool",
+            endingBefore: "    private var clampedTabWidth"
+        ))
+
+        #expect(state.contains("func replacingEditable(_ nextIsEditable: Bool)"))
+        #expect(!reloadSection.contains("isEditable != other.isEditable"))
+        #expect(coordinator.contains("private func applyReadOnlyMode("))
+        #expect(coordinator.contains("window.webModules.config.setReadOnlyMode("))
+        #expect(coordinator.contains("window.editor.state.readOnly ==="))
+        #expect(coordinator.contains("readOnlyApplicationGeneration"))
+        #expect(coordinator.contains("state.isEditable != last.isEditable"))
+    }
+
+    @Test("CoreEditor process recovery never prefers an empty renderer over host text")
+    func coreEditorProcessRecoveryNeverPrefersEmptyRendererOverHostText() throws {
+        #expect(MarkEditCoreEditorCoordinator.preferredRecoveryText(
+            hostText: "let host = true\n",
+            stateText: ""
+        ) == "let host = true\n")
+        #expect(MarkEditCoreEditorCoordinator.preferredRecoveryText(
+            hostText: "stale host\n",
+            stateText: "let newer = true\n"
+        ) == "let newer = true\n")
+
+        let coordinator = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
+        #expect(coordinator.contains("let recoveryState = pendingState ?? lastAppliedState ?? loadingState"))
+        #expect(coordinator.contains("preferredRecoveryText("))
+        #expect(coordinator.contains("loadEditor(into: webView, initialState: recoveredState)"))
+        #expect(!coordinator.contains("editor blanked; reopen to recover"))
     }
 
     @Test("Code editors reset legacy invisibles-on installs back to a clean source view")
@@ -903,8 +1055,16 @@ nonisolated struct CodeEditorPolishTests {
                 "CoreEditor should report line counts from CodeMirror doc metadata instead of Swift splitting large buffers on cursor movement.")
         #expect(adapter.contains("requestAnimationFrame(() => {"),
                 "CoreEditor snapshots should be frame-coalesced rather than running per-event heavyweight work.")
-        #expect(adapter.contains("document.addEventListener(\"selectionchange\", scheduleSnapshot, true)"),
+        #expect(adapter.contains("document.addEventListener(\"selectionchange\", scheduleMetadataSnapshot, true)"),
                 "Cursor/selection tracking should come from the CoreEditor bridge.")
+        #expect(adapter.contains("document.addEventListener(\"input\", scheduleTextSnapshot, true)"),
+                "Content snapshots must be driven by the input path, not by selection/cursor events.")
+        #expect(adapter.contains("const textSnapshotDelays = {"),
+                "Large CoreEditor buffers need adaptive text snapshot delays instead of per-frame full-document IPC.")
+        #expect(adapter.contains("payload.text = text"),
+                "Only explicit text snapshots should include the full editor buffer in the WK bridge payload.")
+        #expect(!adapter.contains("setInterval(() => postSnapshot(\"snapshot\"), 250);"),
+                "CoreEditor must not serialize the whole document on a fixed 250ms poll.")
         #expect(!editor.contains("textController?.textView"),
                 "CodeEditorView must not depend on the old native text controller for the default MarkEdit surface.")
         #expect(!editor.contains("gutterView"),

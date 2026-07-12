@@ -99,6 +99,7 @@ fn build_artifact() -> Result<agent_core::falsifier_artifacts::FalsifierArtifact
     let privacy_required_reason_apis_declared = [
         "NSPrivacyAccessedAPICategoryFileTimestamp",
         "C617.1",
+        "3B52.1",
         "NSPrivacyAccessedAPICategorySystemBootTime",
         "35F9.1",
         "NSPrivacyAccessedAPICategoryDiskSpace",

@@ -1,6 +1,27 @@
 # OWNER REQUESTS LEDGER (2026-06-18) — the authoritative checklist
 
-> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** This ledger of owner requests is durable HISTORY — but any item framed as "reskin Goose / Goose-as-the-surface / Option 1 / Goose-only / MAS = reskinned goose webview" is now re-scoped: Agent surface = OpenChamber (Pro) + goose/OpenCode engines; MAS = June + goose IN-PROCESS backend; goose = one engine. arXiv + Obscura KEPT dedicated (Obscura automation-engine-vs-browser = open owner flag). Read requests as intent; re-anchor surface/engine specifics to canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+> **ACTIVE PIVOT 2026-07-07 (MAS-first sellable Epistemos).** Owner steer:
+> "Strategy pivot: pause Pro/Experimental expansion. Near-term product target is
+> MAS-first sellable Epistemos." Also: "Do not continue 1Code/THE R,
+> native-shell/Craft, Kindred companion, arbitrary subprocess/tool-terminal, or Pro
+> runtime/model experiments unless explicitly reauthorized." Interpreted intent:
+> all prior active work that depends on Pro/Experimental expansion, donor 1Code UI,
+> native-shell/Craft, Kindred, arbitrary subprocess/tool-terminal surfaces, or Pro
+> runtime/model experimentation is paused/deferred and must not continue without a
+> fresh explicit owner authorization. Active work is MAS-safe only: KEELSTONE =
+> vault truth, file safety, sandbox/bookmarks, App Store target, release gates;
+> LUMENLENS = Epdoc/editor fidelity, minimal writeback, provenance, lens
+> disclosure/export, notebook manifest, MAS-safe tabs. Any mini chat must be
+> MAS-safe, Epdoc-owned, and routed through stable adapters; it must not import
+> donor 1Code UI or depend on Experimental child-process/session UI. Acceptance
+> checks before future edits: identify the MAS-safe lane, update the lane intent
+> ledger/checkpoint first, prove no forbidden donor/Experimental/runtime dependency
+> is becoming the active surface, and preserve App Store sandbox constraints.
+> Non-goal: dressing Pro/Experimental/1Code surfaces as MAS UI. Next action from
+> this update: ledger-only pivot recorded; no implementation resumes unless the
+> owner reauthorizes a MAS-safe lane.
+
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** This ledger of owner requests is durable HISTORY — but any item framed as "reskin Goose / Goose-as-the-surface / Option 1 / Goose-only / MAS = reskinned goose webview" is now re-scoped: Current surfaces = Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; MAS = June + goose IN-PROCESS backend; goose = one engine. arXiv + Obscura KEPT dedicated (Obscura automation-engine-vs-browser = open owner flag). Read requests as intent; re-anchor surface/engine specifics to canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
 
 > **READ-FIRST (owner 2026-06-19):** before editing/building, READ the unified capstone
 > `docs/research/MASTER_SYNTHESIS_2026_06_19.md` (the one plan: keystone + build-once

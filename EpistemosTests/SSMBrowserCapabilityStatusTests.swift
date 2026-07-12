@@ -24,12 +24,19 @@ struct SSMBrowserCapabilityStatusTests {
         #expect(live.contains { $0.contains("Tracker") || $0.contains("ad blocking") })
     }
 
-    @Test("the Obscura stealth engine + anti-fingerprint are honestly marked NOT live (no fake-green)")
-    func stealthSeamsAreMarkedNotLive() {
+    @Test("parked browser lanes follow the active product boundary")
+    func parkedBrowserLanesFollowProductBoundary() {
         let deferred = BrowserCapabilityStatus.capabilities.filter { !$0.isLive }.map(\.name)
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        #expect(deferred.isEmpty)
+        #expect(!BrowserCapabilityStatus.summary.localizedCaseInsensitiveContains("Pro"))
+        #expect(!BrowserCapabilityStatus.summary.localizedCaseInsensitiveContains("Obscura"))
+        #expect(!BrowserCapabilityStatus.summary.localizedCaseInsensitiveContains("browser-use"))
+        #else
         #expect(deferred.contains { $0.contains("Obscura") })          // owner-cut native stealth engine is a stub
         #expect(deferred.contains { $0.contains("Anti-fingerprint") }) // not built
         #expect(!deferred.contains { $0.contains("scraper") })         // schema extraction is now live
+        #endif
     }
 
     @Test("counts + summary are consistent + honest (real-but-not-stealth, never 'complete')")
@@ -37,9 +44,14 @@ struct SSMBrowserCapabilityStatusTests {
         let total = BrowserCapabilityStatus.capabilities.count
         #expect(BrowserCapabilityStatus.liveCount + BrowserCapabilityStatus.deferredCount == total)
         #expect(BrowserCapabilityStatus.liveCount > 0)        // real scraping/privacy works
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        #expect(BrowserCapabilityStatus.deferredCount == 0)
+        #expect(BrowserCapabilityStatus.summary.contains("active MAS capabilities"))
+        #else
         #expect(BrowserCapabilityStatus.deferredCount > 0)    // the stealth browser does not
         #expect(BrowserCapabilityStatus.summary.contains("cut/stub"))
         #expect(BrowserCapabilityStatus.summary.contains("superseded by browser-use"))
+        #endif
         #expect(BrowserCapabilityStatus.summary.contains("WKContentRuleList"))
     }
 }

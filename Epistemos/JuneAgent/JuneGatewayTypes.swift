@@ -14,12 +14,15 @@ nonisolated enum JuneModelID {
 
 nonisolated enum JuneGatewayError: LocalizedError {
     case cloudNotConfigured
+    case cloudConsentRequired(provider: String, destination: String)
     case modelPreparing(String)
 
     var errorDescription: String? {
         switch self {
         case .cloudNotConfigured:
-            return "Cloud access is not configured. Connect OpenAI or Anthropic in Settings, or pick an on-device model."
+            return "Cloud access is not configured. Add an OpenAI or Anthropic API key in Settings, or pick Apple Intelligence."
+        case .cloudConsentRequired(let provider, let destination):
+            return "Cloud data consent is off for \(provider). Open Settings > June Models, review the \(destination) disclosure, and enable consent before retrying. Nothing was sent."
         case .modelPreparing(let detail):
             return detail
         }
@@ -43,12 +46,8 @@ nonisolated enum JuneGatewayReplyID: Sendable {
         if let string = rawValue as? String {
             guard string.utf8.count <= Self.maxStringBytes else { return nil }
             self = .string(string)
-        } else if rawValue is Bool {
-            return nil
-        } else if let int = rawValue as? Int {
-            guard abs(Double(int)) <= Self.maxSafeNumericMagnitude else { return nil }
-            self = .int(int)
         } else if let number = rawValue as? NSNumber {
+            guard CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
             let double = number.doubleValue
             guard double.isFinite,
                   abs(double) <= Self.maxSafeNumericMagnitude else { return nil }
@@ -59,6 +58,9 @@ nonisolated enum JuneGatewayReplyID: Sendable {
             } else {
                 self = .double(double)
             }
+        } else if let int = rawValue as? Int {
+            guard abs(Double(int)) <= Self.maxSafeNumericMagnitude else { return nil }
+            self = .int(int)
         } else {
             return nil
         }

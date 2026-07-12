@@ -3,6 +3,53 @@ import Foundation
 
 #if canImport(KokoroPipeline)
 import KokoroPipeline
+
+private nonisolated final class KokoroCoreMLPipelineCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cache: [String: KokoroPipeline] = [:]
+
+    func pipeline(
+        for resources: KokoroCoreMLRuntimeLoader.RuntimeResources,
+        builder: () throws -> KokoroPipeline
+    ) throws -> KokoroPipeline {
+        let key = cacheKey(for: resources)
+        lock.lock()
+        if let cached = cache[key] {
+            lock.unlock()
+            return cached
+        }
+        lock.unlock()
+
+        let pipeline = try builder()
+        lock.lock()
+        if let cached = cache[key] {
+            lock.unlock()
+            return cached
+        }
+        cache[key] = pipeline
+        lock.unlock()
+        return pipeline
+    }
+
+    private func cacheKey(for resources: KokoroCoreMLRuntimeLoader.RuntimeResources) -> String {
+        let manifestStamp = fileStamp(at: resources.manifestURL)
+        return [
+            resources.coreMLDirectoryURL.resolvingSymlinksInPath().path,
+            manifestStamp,
+            "\(resources.buckets)",
+            "\(resources.durationTokenSizes)",
+        ].joined(separator: "|")
+    }
+
+    private func fileStamp(at url: URL) -> String {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path) else {
+            return "missing"
+        }
+        let size = attrs[.size] as? NSNumber
+        let modified = attrs[.modificationDate] as? Date
+        return "\(size?.uint64Value ?? 0):\(modified?.timeIntervalSince1970 ?? 0)"
+    }
+}
 #endif
 
 nonisolated enum KokoroCoreMLRuntimeLoader {
@@ -178,14 +225,18 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
     }
 
     #if canImport(KokoroPipeline)
+    private static let pipelineCache = KokoroCoreMLPipelineCache()
+
     static func loadPipeline(resources: RuntimeResources) throws -> KokoroPipeline {
         do {
-            return try KokoroPipeline(
-                modelsDirectory: resources.coreMLDirectoryURL,
-                buckets: resources.buckets,
-                linearWeights: resources.hnsfWeights.linearWeights,
-                linearBias: resources.hnsfWeights.linearBias
-            )
+            return try pipelineCache.pipeline(for: resources) {
+                try KokoroPipeline(
+                    modelsDirectory: resources.coreMLDirectoryURL,
+                    buckets: resources.buckets,
+                    linearWeights: resources.hnsfWeights.linearWeights,
+                    linearBias: resources.hnsfWeights.linearBias
+                )
+            }
         } catch {
             throw LoadError.pipelineLoadFailed(runtimeDiagnostic(error))
         }

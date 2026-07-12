@@ -15,13 +15,13 @@ both. A research/plan artifact carrying ID `X` may never silently absorb content
 
 | Plan | Codename | Research-prompt ID | Build |
 |---|---|---|---|
-| 2 — Editor (lens + companion-edit layer + PDF) | **LUMENLENS** | `EPI-RP-02-LUMENLENS` | both (companion layer 1Code-only) |
-| 4 — Iconography (marks + mascot art/rig) | **SIGILRY** | `EPI-RP-04-SIGILRY` | both |
-| 5 — Companion (living multi-surface agent) | **KINDRED** | `EPI-RP-05-KINDRED` | **1Code-only** |
-| 6 — Quick Capture (unstructured + voice) | **EMBERCATCH** | `EPI-RP-06-EMBERCATCH` | both |
-| 7 — Sync + Release + Schema-solidification | **KEELSTONE** | `EPI-RP-07-KEELSTONE` | both |
-| 8 — ResearchHub (multi-source feed) | **LODESTAR** | `EPI-RP-08-LODESTAR` | both |
-| 9 — Data (Univer render × IronCalc calc, vault-artifact truth) | **RECKONER** | `EPI-RP-09-RECKONER` | both |
+| 2 — Editor (lens + MAS-June edit layer + PDF) | **LUMENLENS** | `EPI-RP-02-LUMENLENS` | MAS |
+| 4 — Iconography (marks + MAS-safe status art) | **SIGILRY** | `EPI-RP-04-SIGILRY` | MAS |
+| 5 — Companion (living multi-surface agent) | **KINDRED** | `EPI-RP-05-KINDRED` | parked provenance |
+| 6 — Quick Capture (unstructured + voice) | **EMBERCATCH** | `EPI-RP-06-EMBERCATCH` | MAS |
+| 7 — Sync + Release + Schema-solidification | **KEELSTONE** | `EPI-RP-07-KEELSTONE` | MAS |
+| 8 — ResearchHub (multi-source feed) | **LODESTAR** | `EPI-RP-08-LODESTAR` | MAS |
+| 9 — Data (Univer render × IronCalc calc, vault-artifact truth) | **RECKONER** | `EPI-RP-09-RECKONER` | MAS |
 
 Codenames are deliberately distinctive nouns with no generic overlap. Do not reuse, abbreviate, or
 invent new ones without adding a row here first (this table is the single source of truth).
@@ -29,7 +29,7 @@ invent new ones without adding a row here first (this table is the single source
 Registry notes (2026-07-06): Plan 9's engine canon (`PROMPT_PLAN_9_DATA_TABLES.md` + adjudication,
 clone-verified) stands, but its PRODUCT SHAPE was reshaped the same day (room cut → triad piece;
 see the canon's RESHAPE + §0 supersession map) — the official re-research brief for the new
-direction is `RESEARCH_PROMPT_PLAN_9_RECKONER.md` (hardens the reshape against LUMENLENS+KINDRED;
+direction is `RESEARCH_PROMPT_PLAN_9_RECKONER.md` (hardens the reshape against LUMENLENS and parked-KINDRED seams;
 engine keystones are locked, not re-litigated). Plan 10 (Experimental/1Code surface) and Plans 1/3
 retain their existing canonical names outside this registry — they predate it and are not
 re-research targets.
@@ -92,9 +92,9 @@ six briefs consistent and upgradeable from one place.
 Epistemos is one living app, not a bundle of rooms. Every brief MUST include a headline **"Deep
 Fabric Integration"** section designing how the feature plugs into each relevant contract in
 [`INTEGRATION_FABRIC.md`](INTEGRATION_FABRIC.md): **F1 vault bus · F2 agent capability registry ·
-F3 companion presence · F4 knowledge graph · F5 provenance & citation · F6 state/event bus.** The
+F3 MAS status/provenance · F4 knowledge graph · F5 provenance & citation · F6 state/event bus.** The
 bar is the ResearchHub worked example there: a room is not something you visit, it is a capability
 the agents drive, whose objects live in the vault, link in the graph, cite through the ledger, and
-light up the companion while it works. This is graded by the **Integration-depth** rubric axis (§3);
+surface real MAS-safe activity/status while it works. This is graded by the **Integration-depth** rubric axis (§3);
 a silo dossier fails. Scoped-doc anti-collision (§2) and deep product integration are orthogonal —
 keep the research scoped, design the integration deep.

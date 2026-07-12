@@ -1327,7 +1327,7 @@ actor VaultIndexActor {
             fileURL = URL(filePath: existingPath)
         } else {
             // New page — create file in vault root (or subfolder if set)
-            let baseName = sanitizeFileName(page.title)
+            let baseName = Self.sanitizeFileName(page.title)
             let parentURL: URL
             if let subfolder = page.subfolder {
                 parentURL = vaultURL.appendingPathComponent(subfolder, isDirectory: true)
@@ -1426,17 +1426,38 @@ actor VaultIndexActor {
         guard let page = try modelContext.fetch(descriptor).first else { return nil }
         guard let oldPath = page.filePath else { return nil }
 
+        guard let renamedPath = try Self.renamePageFileOnDisk(
+            oldPath: oldPath,
+            newTitle: newTitle,
+            vaultURL: vaultURL
+        ) else { return nil }
+
+        page.filePath = renamedPath
+        try saveContext("renamed page file")
+        log.info(
+            "Renamed page file: \(URL(fileURLWithPath: oldPath).lastPathComponent, privacy: .public) → \(URL(fileURLWithPath: renamedPath).lastPathComponent, privacy: .public)"
+        )
+        return renamedPath
+    }
+
+    /// Move a tracked page file without touching SwiftData. Live editor callers
+    /// use this helper and commit the returned path through the main context so
+    /// an active `@Query` is never invalidated by a second context saving the
+    /// same `SDPage` during an autosave.
+    nonisolated static func renamePageFileOnDisk(
+        oldPath: String,
+        newTitle: String,
+        vaultURL: URL
+    ) throws -> String? {
         let oldURL = URL(filePath: oldPath)
         let parentURL = oldURL.deletingLastPathComponent()
         let oldExtension = oldURL.pathExtension
-        let newBaseName = sanitizeFileBaseName(newTitle, preservingExtension: oldExtension)
+        let newBaseName = Self.sanitizeFileBaseName(newTitle, preservingExtension: oldExtension)
         let newFileName = oldExtension.isEmpty ? "\(newBaseName).md" : "\(newBaseName).\(oldExtension)"
         var newURL = parentURL.appendingPathComponent(newFileName)
 
-        // Skip if the filename is already correct
         guard newURL.path != oldURL.path else { return oldURL.path }
 
-        // Dedup if target already exists (and isn't the same file)
         var suffix = 1
         while FileManager.default.fileExists(atPath: newURL.path) {
             if suffix > 100 {
@@ -1454,13 +1475,9 @@ actor VaultIndexActor {
             suffix += 1
         }
 
-        // Move the file
         guard FileManager.default.fileExists(atPath: oldURL.path) else { return nil }
         try CoordinatedVaultFileMutation.moveItem(at: oldURL, to: newURL)
-        updateCodeSidecarAfterFileRename(oldURL: oldURL, newURL: newURL, vaultURL: vaultURL)
-        page.filePath = newURL.path
-        try saveContext("renamed page file")
-        log.info("Renamed page file: \(oldURL.lastPathComponent, privacy: .public) → \(newURL.lastPathComponent, privacy: .public)")
+        Self.updateCodeSidecarAfterFileRename(oldURL: oldURL, newURL: newURL, vaultURL: vaultURL)
         return newURL.path
     }
 
@@ -1721,13 +1738,18 @@ actor VaultIndexActor {
             }()
             let incomingBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
             let liveEditorIsDirty = liveEditorBody.map { editorBody in
-                guard let lastSyncedBodyHash = page.lastSyncedBodyHash else {
-                    return editorBody != currentBody
-                }
-                return SDPage.bodyHash(editorBody) != lastSyncedBodyHash
+                Self.liveEditorBodyConflictsWithVaultBody(
+                    liveEditorBody: editorBody,
+                    vaultBody: currentBody,
+                    lastSyncedBodyHash: page.lastSyncedBodyHash
+                )
             } ?? false
-            let localDraftIsDirty = page.needsVaultSync
-                && SDPage.bodyHash(localDraftBody) != incomingBodyHash
+            let localDraftIsDirty = Self.localDraftConflictsWithVaultBody(
+                liveEditorBody: liveEditorBody,
+                localDraftBody: localDraftBody,
+                incomingBodyHash: incomingBodyHash,
+                needsVaultSync: page.needsVaultSync
+            )
             let preserveBody = liveEditorIsDirty || localDraftIsDirty
             let importedBodyChanged = page.lastSyncedBodyHash != incomingBodyHash
 
@@ -1779,10 +1801,15 @@ actor VaultIndexActor {
                     page.lastSyncedBodyHash = incomingBodyHash
                     page.lastSyncedAt = .now
                     page.needsVaultSync = false
-                    // Notify editor to reload — vault replaced the body externally.
-                    let changedId = page.id
-                    Task { @MainActor in
-                        NoteFileStorage.notifyBodyChanged(pageId: changedId)
+                    if Self.shouldNotifyEditorOfImportedVaultBody(
+                        liveEditorBody: liveEditorBody,
+                        localDraftBody: localDraftBody,
+                        vaultBody: currentBody
+                    ) {
+                        let changedId = page.id
+                        Task { @MainActor in
+                            NoteFileStorage.notifyBodyChanged(pageId: changedId)
+                        }
                     }
                 }
                 page.updatedAt = .now
@@ -1973,6 +2000,40 @@ actor VaultIndexActor {
             return Self.largeVaultFileFingerprint(for: fileURL, fallbackByteCount: body.utf8.count)
         }
         return SDPage.bodyHash(body)
+    }
+
+    nonisolated static func liveEditorBodyConflictsWithVaultBody(
+        liveEditorBody: String,
+        vaultBody: String,
+        lastSyncedBodyHash: String?
+    ) -> Bool {
+        if liveEditorBody == vaultBody {
+            return false
+        }
+        guard let lastSyncedBodyHash else {
+            return true
+        }
+        return SDPage.bodyHash(liveEditorBody) != lastSyncedBodyHash
+    }
+
+    nonisolated static func localDraftConflictsWithVaultBody(
+        liveEditorBody: String?,
+        localDraftBody: String,
+        incomingBodyHash: String,
+        needsVaultSync: Bool
+    ) -> Bool {
+        guard liveEditorBody == nil, needsVaultSync else {
+            return false
+        }
+        return SDPage.bodyHash(localDraftBody) != incomingBodyHash
+    }
+
+    nonisolated static func shouldNotifyEditorOfImportedVaultBody(
+        liveEditorBody: String?,
+        localDraftBody: String,
+        vaultBody: String
+    ) -> Bool {
+        (liveEditorBody ?? localDraftBody) != vaultBody
     }
 
     nonisolated private static func largeVaultFileFingerprint(
@@ -2252,7 +2313,7 @@ actor VaultIndexActor {
     }
 
     /// Sanitize a title for use as a filename (Obsidian-compatible superset).
-    private func sanitizeFileName(_ title: String) -> String {
+    nonisolated private static func sanitizeFileName(_ title: String) -> String {
         var s = title
         // Normalize smart quotes
         s = s.replacingOccurrences(of: "\u{2018}", with: "'")
@@ -2276,8 +2337,11 @@ actor VaultIndexActor {
         return s.isEmpty ? "Untitled" : s
     }
 
-    private func sanitizeFileBaseName(_ title: String, preservingExtension extensionToPreserve: String) -> String {
-        let sanitized = sanitizeFileName(title)
+    nonisolated private static func sanitizeFileBaseName(
+        _ title: String,
+        preservingExtension extensionToPreserve: String
+    ) -> String {
+        let sanitized = Self.sanitizeFileName(title)
         let preservedExtension = extensionToPreserve
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -2302,7 +2366,11 @@ actor VaultIndexActor {
         return sanitized
     }
 
-    private func updateCodeSidecarAfterFileRename(oldURL: URL, newURL: URL, vaultURL: URL) {
+    nonisolated private static func updateCodeSidecarAfterFileRename(
+        oldURL: URL,
+        newURL: URL,
+        vaultURL: URL
+    ) {
         guard let oldRelativePath = Self.vaultRelativePath(for: oldURL, in: vaultURL),
               let newRelativePath = Self.vaultRelativePath(for: newURL, in: vaultURL)
         else { return }
@@ -2341,7 +2409,9 @@ actor VaultIndexActor {
                 try? CoordinatedVaultFileMutation.removeItem(at: oldSidecarURL)
             }
         } catch {
-            log.warning("Failed to migrate code sidecar after rename: \(error.localizedDescription, privacy: .public)")
+            Logger(subsystem: "com.epistemos", category: "VaultIndex").warning(
+                "Failed to migrate code sidecar after rename: \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 

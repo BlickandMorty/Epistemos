@@ -1,5 +1,12 @@
 # Build Prompt — MAS "June" Agent Surface: Deep Audit, Connect, and Harden to Enterprise Grade
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: this is the
+> primary active agent work. Read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. Do not treat
+> this as a parallel track to 1Code; MAS/June is now the sole active agent
+> surface. Absorb useful Epdoc assist, notes, data, research, and capability
+> workflows through MAS-safe June + in-process `agent_core`.
+
 ## ⚡ READ-FIRST PRIORITY LEDGER (if you skim nothing else, obey these)
 1. **In-process ONLY (no subprocess/sidecar); honest capability (local = chat, never fake tools on local).**
 2. **Preserve thinking blocks; stream everything; secrets in Keychain; MCP over the HTTP allowlist, never stdio.**
@@ -16,8 +23,10 @@
 - **Boundary breach:** "one tiny edit" to the Experimental lane or the data core. → Forbidden; flag it.
 - **Trophy skill:** forge a SKILL.md nothing reuses, or run a cycle that ignores the library. → Under-compounded.
 
-**Read this whole file before touching anything. This is the parallel track to the 1Code Experimental
-build — you own the MAS June surface; do not touch `Epistemos/ExperimentalAgent/**` or the 1Code fork.**
+**Read this whole file before touching anything. This is now the sole active
+agent-surface build path: MAS June + in-process `agent_core`. 1Code and
+Experimental files are parked provenance; do not reactivate, route through, or
+depend on them.**
 
 This surface already exists (`Epistemos/JuneAgent/**`, ~2,773 lines, MAS-sandboxed). Your job is **not**
 to rebuild it. It is to (A) **deeply research your own code** and map every seam, (B) **connect the
@@ -55,7 +64,7 @@ From the project canon (`CLAUDE.md`). A violation is a HIGH that blocks the comm
    force-unwraps, no `print()` in production paths; every `unsafe` block gets a `// SAFETY:` comment.
 8. **MAS sandbox law.** Sandboxed + App Store entitlements only. Vault access via **security-scoped
    bookmarks**. MCP is **HTTP over a fixed HTTPS allowlist — NEVER stdio.** **Forbidden tools
-   (Pro-only, must be absent on MAS):** `cli_passthrough`, `terminal`, bash `registry`, `stdio_mcp`,
+   (Developer-ID/Experimental-only, must be absent on MAS):** `cli_passthrough`, `terminal`, bash `registry`, `stdio_mcp`,
    `imessage`, `apple`/osascript, `code_execution`, schedule/extension-installer UIs. Cloud calls go
    through the **receipt-gated proxy** with a short-lived, rotated Keychain bearer token.
 9. **Zero test regressions.** `swift test` + `cargo test --manifest-path agent_core/Cargo.toml` stay green.
@@ -275,8 +284,9 @@ reads like a grimoire of profound, load-bearing on-device integrations no cloud 
    scheduled/loop wrapper drives you with an older prompt, this file supersedes it.
 5. Never fake capability to close a row (§0.2). Never reintroduce a subprocess (§0.1). Report honestly —
    no "done" without the DoD proof.
-6. Rails: you own `Epistemos/JuneAgent/**` + the MAS engine lane; **do not touch the 1Code Experimental
-   surface** (the other agent owns it) or unrelated lanes; never `git add -A`; commit narrowly.
+6. Rails: you own `Epistemos/JuneAgent/**` + the MAS engine lane; **do not
+   reactivate the 1Code Experimental surface** or unrelated lanes; never
+   `git add -A`; commit narrowly.
 
 **Definition of success, restated:** a MAS user opens June and it is a genuinely useful, deeply
 integrated agent — it streams thinking, uses tools against their vault, honestly says what it can't do

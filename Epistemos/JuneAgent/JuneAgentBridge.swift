@@ -92,6 +92,14 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
                 handleGetNoteInvoke(callId: callId, args: args)
                 return
             }
+            if cmd == "ensure_hermes_bridge_session" {
+                handleEnsureHermesBridgeSessionInvoke(callId: callId, args: args)
+                return
+            }
+            if cmd == "set_venice_model" {
+                handleSetVeniceModelInvoke(callId: callId, args: args)
+                return
+            }
             let result = handleInvoke(cmd: cmd, args: args)
             resolveInvoke(callId: callId, result: result)
         case Self.eventsChannel:
@@ -160,18 +168,14 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
     /// CONSUME EpistemosSpeechSynthesizer (owned by the app-wide voice agent);
     /// never edit it, never put voice/audio code in the webview. Honest gate —
     /// speak() itself refuses when Kokoro isn't ready (no AVSpeech fallback),
-    /// and voiceIdentifier nil uses the user's ModelVoicePickerSection pick.
+    /// and the agent helper applies the user's voice + read-aloud filter.
     private func handleSpeak(action: String, text: String) {
         let synth = EpistemosSpeechSynthesizer.shared
         if action == "stop" {
             synth.stop()
             return
         }
-        // Bound to the engine's OWN input cap (not an arbitrary smaller number)
-        // so a long reply reads in full up to what Kokoro supports, while still
-        // defending against untrusted webview payloads. Anything within the cap
-        // never trips speak()'s length guard.
-        _ = synth.speak(String(text.prefix(EpistemosSpeechSynthesizer.maxTextToSpeechInputCharacters)))
+        _ = EpistemosAgentReadAloud.speak(text, synthesizer: synth, surface: .juneLatestAssistantReply)
     }
 
     private func handleSystemPromptForgePreviewInvoke(callId: Int, args: [String: Any]) {
@@ -196,17 +200,12 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             )
             return
         }
-        let activeVaultURL = Self.activeVaultURL()
-        Task { [weak self] in
-            let payload = await Task.detached(priority: .userInitiated) {
-                JuneSystemPromptForge.previewPayload(
-                    originalText: text,
-                    patternIDs: patternIDs,
-                    activeVaultURL: activeVaultURL
-                )
-            }.value
-            self?.resolveInvoke(callId: callId, result: payload.dictionary)
-        }
+        let payload = JuneSystemPromptForge.previewPayload(
+            originalText: text,
+            patternIDs: patternIDs,
+            activeVaultURL: nil
+        )
+        resolveInvoke(callId: callId, result: payload.dictionary)
     }
 
     private func handleGetNoteInvoke(callId: Int, args: [String: Any]) {
@@ -233,6 +232,72 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
         }
     }
 
+    private func handleEnsureHermesBridgeSessionInvoke(callId: Int, args: [String: Any]) {
+        let request = args["request"] as? [String: Any] ?? [:]
+        guard let sessionID = Self.boundedNativeID(request["sessionId"]) else {
+            rejectInvoke(callId: callId, message: "A bounded sessionId is required.")
+            return
+        }
+
+        let model = ((request["model"] as? String) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !model.isEmpty {
+            guard gateway.setSessionModel(model, for: sessionID) else {
+                rejectInvoke(
+                    callId: callId,
+                    message: gateway.modelSelectionFailureMessage(model)
+                )
+                return
+            }
+        }
+        if let title = request["title"] as? String, !title.isEmpty {
+            gateway.store.renameSession(
+                id: sessionID,
+                title: Self.boundedTitle(title)
+            )
+        }
+        resolveInvoke(callId: callId, result: NSNull())
+    }
+
+    private func handleSetVeniceModelInvoke(callId: Int, args: [String: Any]) {
+        let request = args["request"] as? [String: Any] ?? [:]
+        let mode = (request["mode"] as? String) ?? "generation"
+        let modelID = ((request["modelId"] as? String) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        switch mode {
+        case "generation":
+            guard gateway.setDefaultModel(modelID) else {
+                rejectInvoke(callId: callId, message: gateway.modelSelectionFailureMessage(modelID))
+                return
+            }
+        case "transcription":
+            guard modelID == "local" else {
+                rejectInvoke(callId: callId, message: "Only on-device dictation is available for transcription in MAS June.")
+                return
+            }
+        default:
+            rejectInvoke(callId: callId, message: "This model category is unavailable in MAS June.")
+            return
+        }
+
+        resolveInvoke(
+            callId: callId,
+            result: [
+                "transcriptionProvider": "local",
+                "transcriptionModel": "local",
+                "generationModel": gateway.currentDefaultModelID(),
+                "imageModel": "",
+            ]
+        )
+    }
+
+    private func rejectInvoke(callId: Int, message: String) {
+        runJS?(
+            "window.__EPISTEMOS_TAURI_SHIM__ && window.__EPISTEMOS_TAURI_SHIM__.resolveInvoke(\(callId), null, \(Self.jsStringLiteral(message)));"
+        )
+    }
+
     private func resolveInvoke(callId: Int, result: Any?) {
         let payload: Any = result ?? NSNull()
         // Top-level scalars are valid JSON fragments; wrap to keep
@@ -253,8 +318,9 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
     // MARK: - Invoke command table
 
     /// Honest Swift-side answers for the boot + send-path command set the
-    /// Phase-0 spike enumerated. Hermes-session commands are REAL (backed by
-    /// the gateway's durable store). Notes/folders are read-only native
+    /// Phase-0 spike enumerated. The legacy Hermes-named session commands are
+    /// compatibility aliases backed by the MAS in-process June gateway and its
+    /// durable store. Notes/folders are read-only native
     /// metadata/detail projections; mutations remain native/review-owned.
     private func handleInvoke(cmd: String, args: [String: Any]) -> Any? {
         let request = args["request"] as? [String: Any] ?? [:]
@@ -271,8 +337,9 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             // lane reachable only by the accidental absence of a `credits`
             // field. Omitting subscription makes hasKnownNonLiveSubscription
             // return false, so the gate can NEVER block the free lane. Honest:
-            // MAS subscriptions are StoreKit-managed (Phase 4), independent of
-            // the OS-Accounts view, so subscription state here is genuinely N/A.
+            // MAS June has no active cloud subscription product; owner API keys
+            // and provider consent are configured in native Settings, so the
+            // June OS-Accounts subscription state is genuinely N/A.
             return [
                 "signedIn": true,
                 "configured": true,
@@ -280,6 +347,8 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
                 "user": ["id": "local-user", "handle": "you", "displayName": "You"],
                 "balance": ["usdMillis": 0],
             ]
+        case "ensure_hermes_bridge_gateway":
+            return Self.bridgeStatusPayload
         case "hermes_bridge_status", "start_hermes_bridge":
             return Self.bridgeStatusPayload
         case "stop_hermes_bridge":
@@ -314,20 +383,6 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             let enabled = (request["enabled"] as? Bool) ?? true
             Self.setSkillEnabled(name: name, enabled: enabled)
             return ["ok": true, "name": name, "enabled": enabled]
-        case "ensure_hermes_bridge_session":
-            if let sessionID = request["sessionId"] as? String {
-                if let title = request["title"] as? String, !title.isEmpty {
-                    gateway.store.renameSession(
-                        id: sessionID,
-                        title: Self.boundedTitle(title)
-                    )
-                }
-                if let model = request["model"] as? String,
-                   !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    _ = gateway.setSessionModel(model, for: sessionID)
-                }
-            }
-            return NSNull()
         case "delete_hermes_bridge_session":
             if let sessionID = request["sessionId"] as? String {
                 gateway.forgetSession(sessionID)
@@ -392,22 +447,38 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             return JuneSystemPromptForge.resetPayload()
         case "list_venice_models":
             let mode = (request["mode"] as? String) ?? "generation"
-            return [
-                "mode": mode,
-                "modelType": "text",
-                "selectedModel": gateway.currentDefaultModelID(),
-                "models": gateway.modelsPayload(),
-            ]
-        case "set_venice_model":
-            if let modelId = request["modelId"] as? String {
-                gateway.setDefaultModel(modelId)
+            switch mode {
+            case "generation":
+                return [
+                    "mode": mode,
+                    "modelType": "text",
+                    "selectedModel": gateway.currentDefaultModelID(),
+                    "models": gateway.modelsPayload(),
+                ]
+            case "transcription":
+                return [
+                    "mode": mode,
+                    "modelType": "transcription",
+                    "selectedModel": "local",
+                    "models": [[
+                        "provider": "",
+                        "id": "local",
+                        "name": "On-device dictation",
+                        "modelType": "transcription",
+                        "description": "Uses Epistemos' local dictation pipeline. This is separate from June's agent/chat models.",
+                        "privacy": "private",
+                        "traits": ["on-device", "speech-to-text"],
+                        "capabilities": [String](),
+                    ]],
+                ]
+            default:
+                return [
+                    "mode": mode,
+                    "modelType": mode,
+                    "selectedModel": "",
+                    "models": [[String: Any]](),
+                ]
             }
-            return [
-                "transcriptionProvider": "local",
-                "transcriptionModel": "local",
-                "generationModel": gateway.currentDefaultModelID(),
-                "imageModel": "",
-            ]
         case "check_recording_source_readiness":
             let mode = (request["sourceMode"] as? String) ?? "microphoneOnly"
             return ["sourceMode": mode, "ready": false, "sources": [[String: Any]]()]
@@ -456,11 +527,14 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
     }
 
     private static func bootstrapPayload() -> [String: Any] {
-        [
+        let providerConfigured = CloudModelProvider.juneAgentProviders.contains { provider in
+            AppBootstrap.shared?.inferenceState.hasCachedCloudAccess(for: provider) == true
+        }
+        return [
             "folders": nativeFoldersPayload(),
             "notes": nativeNotesPayload(folderID: nil),
             "activeRecoveries": [[String: Any]](),
-            "providerConfigured": true,
+            "providerConfigured": providerConfigured,
         ]
     }
 
@@ -687,7 +761,7 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
         #if canImport(agent_coreFFI)
         let generatedAtMs = Int64((Date().timeIntervalSince1970 * 1000).rounded())
         let bundleID = Self.replayBundleID(sessionID: sessionID, answerPacketID: answerPacketID)
-        let bytes: [UInt8]
+        let bytes: Data
         do {
             bytes = try exportReplayBundleEpbundleBytes(
                 bundleId: bundleID,
@@ -745,14 +819,22 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             "wsUrl": "epistemos://gateway",
             "token": "", // no secret in webview JS — in-process bridge needs none
             "port": 0,
-            "command": "in-process agent_core",
+            "command": "in-process June gateway",
             "hermesHome": "",
             "providerProxyPort": 0,
             "pid": 0,
             "sandboxed": true,
             "fullMode": false,
+            "runtimeKind": "mas-in-process-june-gateway",
+            "message": "MAS uses June's in-process agent gateway; no external agent runtime or server is started.",
         ]
-        return ["running": true, "connection": connection, "connections": [connection]]
+        return [
+            "running": true,
+            "runtimeKind": "mas-in-process-june-gateway",
+            "message": "MAS uses June's in-process agent gateway; no external agent runtime or server is started.",
+            "connection": connection,
+            "connections": [connection],
+        ]
     }()
 
     private static let dictationSettingsPayload: [String: Any] = {

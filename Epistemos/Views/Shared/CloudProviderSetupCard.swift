@@ -46,10 +46,12 @@ nonisolated enum CloudProviderSetupDiagnostics {
 
 @MainActor
 enum CloudProviderSetupAutomation {
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private nonisolated static let logger = Logger(subsystem: "Epistemos", category: "CloudProviderSetupAutomation")
     private nonisolated static let googleOAuthClientConfigKeychainKey = "epistemos.google.oauthClientConfig"
     private nonisolated static let googleOAuthClientFilenameDefaultsKey = "epistemos.google.oauthClientFilename"
     private nonisolated static let googleOAuthProjectIDDraftDefaultsKey = "epistemos.google.oauthProjectIDDraft"
+    #endif
 
     static func clipboardKeyCandidate() -> String? {
         guard let rawValue = NSPasteboard.general.string(forType: .string)?
@@ -64,21 +66,25 @@ enum CloudProviderSetupAutomation {
     static func pasteAndSave(
         provider: CloudModelProvider,
         inference: InferenceState
-    ) async -> Bool {
+    ) async -> ConnectionTestResult {
         guard let clipboardValue = clipboardKeyCandidate() else {
-            _ = inference.recordCloudProviderValidationFailure(
+            return inference.recordCloudProviderValidationFailure(
                 for: provider,
                 message: provider.missingClipboardCredentialMessage
             )
-            return false
         }
         inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
         let didSave = inference.setAPIKey(clipboardValue, for: provider)
-        guard didSave else { return false }
-        _ = await inference.validateAPIKey(for: provider)
-        return true
+        guard didSave else {
+            return ConnectionTestResult(
+                success: false,
+                message: inference.cloudValidationState(for: provider).statusText
+            )
+        }
+        return await inference.validateAPIKey(for: provider)
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     static func loadGoogleOAuthClientConfigData() -> Data? {
         guard let rawValue = Keychain.load(for: googleOAuthClientConfigKeychainKey)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
@@ -165,6 +171,7 @@ enum CloudProviderSetupAutomation {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+    #endif
 }
 
 struct CloudProviderAccountConnectionRow: View {

@@ -14,6 +14,7 @@ struct MarkEditCoreEditorState: Equatable {
     let showInvisibles: Bool
     let useSpaces: Bool
     let tabWidth: Int
+    let isEditable: Bool
 
     func resetMessageJSON(documentChanged: Bool) -> String? {
         MarkEditCoreEditorResetMessage(
@@ -32,7 +33,7 @@ struct MarkEditCoreEditorState: Equatable {
             showLineNumbers: showLineNumbers,
             showActiveLineIndicator: true,
             invisiblesBehavior: showInvisibles ? "always" : "never",
-            readOnlyMode: false,
+            readOnlyMode: !isEditable,
             typewriterMode: false,
             focusMode: false,
             lineWrapping: wrapLines,
@@ -68,7 +69,8 @@ struct MarkEditCoreEditorState: Equatable {
             showLineNumbers: showLineNumbers,
             showInvisibles: showInvisibles,
             useSpaces: useSpaces,
-            tabWidth: tabWidth
+            tabWidth: tabWidth,
+            isEditable: isEditable
         )
     }
 
@@ -88,16 +90,34 @@ struct MarkEditCoreEditorState: Equatable {
             showLineNumbers: showLineNumbers,
             showInvisibles: showInvisibles,
             useSpaces: useSpaces,
-            tabWidth: tabWidth
+            tabWidth: tabWidth,
+            isEditable: isEditable
         )
     }
 
-    // #7: `themeName` is intentionally EXCLUDED here. A theme flip used to
+    func replacingEditable(_ nextIsEditable: Bool) -> MarkEditCoreEditorState {
+        MarkEditCoreEditorState(
+            text: text,
+            mode: mode,
+            themeName: themeName,
+            themePalette: themePalette,
+            fontFace: fontFace,
+            fontSize: fontSize,
+            lineHeight: lineHeight,
+            wrapLines: wrapLines,
+            showLineNumbers: showLineNumbers,
+            showInvisibles: showInvisibles,
+            useSpaces: useSpaces,
+            tabWidth: tabWidth,
+            isEditable: nextIsEditable
+        )
+    }
+
+    // #7: `themeName` and `isEditable` are intentionally EXCLUDED here. A theme flip used to
     // force a full `loadEditor` reload, which re-embeds the last-synced text
     // and drops any keystroke typed inside the ~250ms reload window (plus a
-    // blank flash). The CoreEditor coordinator now pushes a theme change
-    // in-place through the live `webModules.config.setTheme` bridge, so a
-    // theme-only delta must NOT trip a reload. Every other field still does.
+    // blank flash). Lease handoffs had the same problem for read-only changes.
+    // The coordinator now pushes both through live CoreEditor config bridges.
     func requiresReload(comparedTo other: MarkEditCoreEditorState) -> Bool {
         mode != other.mode ||
             fontFace != other.fontFace ||

@@ -1,4 +1,4 @@
-#if !EPISTEMOS_APP_STORE
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import Foundation
 
 enum AgentSurfaceSubprocessEnvironment {

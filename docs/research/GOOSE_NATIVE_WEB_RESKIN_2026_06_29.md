@@ -1,6 +1,6 @@
 # Goose Native-Feel Web Reskin — LIVING RESEARCH (started 2026-06-29)
 
-> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The reusable tokens/springs code-to-lift recipe here is DURABLE. STALE: the whole "reskin GOOSE's own web UI" APPLICATION — the agent surface is OpenChamber (Pro) / June+goose-in-process (MAS). Mine the recipe, ignore the goose-reskin how-to. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The reusable tokens/springs code-to-lift recipe here is DURABLE. STALE: the whole "reskin GOOSE's own web UI" APPLICATION — current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets. Mine the recipe, ignore the goose-reskin how-to. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 
 > 🎨 **OWNER DESIGN STATUS — 2026-06-30 CURRENT CANON:** Goose should look like the approved Claude-desktop-style

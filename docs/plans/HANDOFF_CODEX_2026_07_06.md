@@ -35,15 +35,19 @@ KINDRED/EMBERCATCH/KEELSTONE/LODESTAR/RECKONER + rubric) · `docs/prompts/INTEGR
   .dataset.md) = dataset truth; GRDB = derived cache. Charts = Swift Charts primary.
   Dual-zone/defined-names + record-level objects = explicit post-v1 DEFERRALS.
 
-## 2. IMMEDIATE finish-off tasks for Codex (in order)
+## 2. IMMEDIATE finish-off tasks for Codex / builder supervisors (in order, autonomous)
 
-1. **Owner sends the KEELSTONE reprompt** (text in the #4 checkpoint message + encoded in
-   `docs/plans/keelstone/BUILD_PROMPT_KEELSTONE.md` coordination item 4 / plan §15.10): dataset-
-   artifact indexed-set extensibility + conflict delegation + soak extensions + AtomicVaultWriter
-   Data overload. If owner asks Codex to verify instead: check the KEELSTONE agent's recent
-   commits honor §15 (esp. 15.1 order, 15.5 body-truth Phase 4.5, 15.10).
+1. **Apply/verify the KEELSTONE RECKONER addendum without waiting for the owner.** The reprompt text
+   is already encoded in `docs/plans/keelstone/BUILD_PROMPT_KEELSTONE.md` coordination item 4 and
+   plan §15.10: dataset-artifact indexed-set extensibility + conflict delegation + soak
+   extensions + AtomicVaultWriter Data overload. Supervising agents must check the KEELSTONE
+   agent's recent commits honor §15 (esp. 15.1 order, 15.5 body-truth Phase 4.5, 15.10); if the
+   agent has not folded it in, send the encoded addendum or implement the doc-required seam at the
+   next clean point. No human action is required for this step.
 2. **Supervise/verify KEELSTONE build progress** against its plan §8 tracker (witnessable bars,
-   not compiles). Its work must demonstrate Phases 0–4 before LUMENLENS starts.
+   not compiles). Its work must demonstrate Phases 0–4 before LUMENLENS starts. If Phases 0–4 are
+   not demonstrated, continue KEELSTONE verification/repair; do not start LUMENLENS and do not
+   wait for owner confirmation.
 3. **When the owner returns SIGILRY research** (`docs/prompts/RESEARCH_PROMPT_PLAN_4_ICONS.md` is
    the brief they'll run): repeat THE AUDIT PATTERN — (a) read the wave fully; (b) fan out
    verification agents juxtaposing every claim against this repo + sibling plan docs (check:
@@ -54,7 +58,8 @@ KINDRED/EMBERCATCH/KEELSTONE/LODESTAR/RECKONER + rubric) · `docs/prompts/INTEGR
    `docs/plans/sigilry/`; (f) deliver a numbered checkpoint (#5) with links. Same for LODESTAR
    (#6), EMBERCATCH (#7).
 4. **When LUMENLENS build starts:** paste `docs/plans/lumenlens/BUILD_PROMPT_LUMENLENS.md` to ONE
-   agent. Addendum + P-AMEND 1–13 bind. KEELSTONE 0–4 must be demonstrated first — else stop.
+   agent. Addendum + P-AMEND 1–13 bind. KEELSTONE 0–4 must be demonstrated first; if not, return
+   to KEELSTONE until the evidence exists.
 
 ## 3. Standing rules (violations have burned this repo before)
 - **Pathspec-scoped commits ONLY**: `git commit --only -m "..." -- <files>`. Parallel agents
@@ -72,13 +77,17 @@ KINDRED/EMBERCATCH/KEELSTONE/LODESTAR/RECKONER + rubric) · `docs/prompts/INTEGR
 - Read-before-edit; verify code/disk before asserting; spine headers + §-AMENDs override wave
   bodies; amendments are the binding layer.
 
-## 4. Open owner decisions (do NOT resolve silently)
-1. KINDRED landing/creation handoff: options a/b/c — recommendation (c); owner confirms before K7.
-2. RECKONER truth-flip + charts inversion + dual-zone deferral: accepted by audit; owner can
-   reverse any with one word (supersession blocks say where).
-3. LUMENLENS L4 undo decision (retain-WebView vs documented v1 undo-loss) — decided at phase start.
+## 4. Decision defaults (do NOT drift; do NOT wait silently)
+1. KINDRED landing/creation handoff: default to recommendation (c) — landing = calm roster +
+   query/deep-link; creation/management in 1Code — unless the owner explicitly reverses before K7.
+2. RECKONER truth-flip + charts inversion + dual-zone deferral: accepted by audit and treated as
+   binding. Owner can reverse any with one word later, but builders proceed with the accepted
+   defaults until then.
+3. LUMENLENS L4 undo decision: phase-start default = retain the WebView/history if feasible; if
+   evidence proves infeasible, document the measured failure and implement the explicit v1
+   undo-loss caveat rather than waiting for an owner call.
 4. Research order for remaining plans: SIGILRY next (K3 consumes its rig), then LODESTAR,
-   EMBERCATCH.
+   EMBERCATCH. If owner is absent, keep this order.
 
 ## 5. Sequence map (the one the owner asked to re-orient by)
 RESEARCH/AUDIT: ✅KEELSTONE ✅LUMENLENS ✅KINDRED ✅RECKONER → ⬜SIGILRY → ⬜LODESTAR → ⬜EMBERCATCH.

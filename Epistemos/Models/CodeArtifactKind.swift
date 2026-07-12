@@ -260,12 +260,20 @@ nonisolated public enum CodeArtifactKind: String, Codable, Sendable, Hashable, C
         case .markdown:
             return "# \(safeName)\n\n"
         case .shell:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            return """
+            # \(safeName).sh
+            # Created via Epistemos. Command execution is unavailable in the App Store build.
+
+            """
+            #else
             return """
             #!/usr/bin/env bash
             # \(safeName).sh — created via Epistemos.
             set -euo pipefail
 
             """
+            #endif
         case .sql:
             return "-- \(safeName).sql — created via Epistemos.\n"
         case .plain:

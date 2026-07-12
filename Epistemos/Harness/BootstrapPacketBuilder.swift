@@ -113,6 +113,7 @@ enum HarnessTaskType: String, Codable, Sendable {
 enum BootstrapPacketBuilder {
     private static let log = Logger(subsystem: "com.epistemos", category: "BootstrapPacket")
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     /// Maximum entries in the file tree summary.
     private static let maxTreeEntries = 50
     /// Maximum depth for file tree traversal.
@@ -123,6 +124,7 @@ enum BootstrapPacketBuilder {
         "node_modules", "target", ".cache", "__pycache__",
         "Pods", ".cocoapods", "xcuserdata", ".DS_Store"
     ]
+    #endif
 
     // MARK: - Public API
 
@@ -144,6 +146,31 @@ enum BootstrapPacketBuilder {
         harnessVersion: String = "v1.0.0"
     ) -> BootstrapPacket {
         let resolvedType = taskType ?? HarnessTaskType.classify(objective)
+
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return BootstrapPacket(
+            workingDirectory: workingDirectory?.path ?? "mas-sandbox",
+            projectName: nil,
+            fileTreeSummary: "  (local runtime discovery parked in the App Store build)",
+            openFiles: Array(openFiles.prefix(5)),
+            taskType: resolvedType.rawValue,
+            taskObjective: objective,
+            sessionNumber: sessionNumber,
+            progressSummary: progressSummary.map { String($0.prefix(1200)) },
+            pendingTaskCount: pendingTaskCount,
+            availableTools: [],
+            activeCapability: "readOnly",
+            languageRuntimes: [],
+            packageManagers: [],
+            repoState: nil,
+            activeVault: activeVault,
+            relevantDocumentTitles: relevantDocumentTitles.map { Array($0.prefix(5)) },
+            thermalLevel: currentThermalLevel(),
+            localModelAvailable: false,
+            harnessVersion: harnessVersion,
+            timestamp: ISO8601DateFormatter().string(from: Date())
+        )
+        #else
         let workDir = workingDirectory ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 
         let tree = buildFileTreeSummary(root: workDir)
@@ -174,6 +201,7 @@ enum BootstrapPacketBuilder {
             harnessVersion: harnessVersion,
             timestamp: ISO8601DateFormatter().string(from: Date())
         )
+        #endif
     }
 
     /// Render the packet as a system-prompt-friendly string.
@@ -260,11 +288,16 @@ enum BootstrapPacketBuilder {
         // additional cache_control markers downstream of this block can
         // pad further (skills + persona + tool definitions are the
         // canonical extra blocks).
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return body
+        #else
         return body + "\n\n" + Self.cachePadding
+        #endif
     }
 
     // MARK: - Cache padding (W10.4-FIX)
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     /// Stable operating-principle preamble appended to every packet so the
     /// rendered prompt clears the prompt-cache minimum threshold. Lives as
     /// a `let` constant rather than an interpolation so single-character
@@ -468,6 +501,7 @@ enum BootstrapPacketBuilder {
 
         return RepoState(branch: branch, lastCommitHash: nil, uncommittedChanges: uncommitted)
     }
+    #endif
 
     private nonisolated static func currentThermalLevel() -> String {
         switch ProcessInfo.processInfo.thermalState {

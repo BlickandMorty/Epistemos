@@ -1,6 +1,6 @@
 # Goose Native New Surface — Deep Research Round 1
 
-> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Research for the DEAD "native/reskin Goose surface" approach. The agent surface is now OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Research for the DEAD "native/reskin Goose surface" approach. current surfaces are Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 > 🛑 **SUPERSEDED 2026-06-29 (Option 1 + Unification).** §7 GREEN-LIT; Plan 1 on Phase 1. **NO native chat, NO
 > Gate-7 flip, NO `useNativeChatPath`, NO native transcript/hub/composer** — chat + every Goose feature stays in

@@ -39,6 +39,140 @@ struct KokoroVoiceSelectionTests {
         #expect(byId["am_adam"]?.language == "American English · Male")
         #expect(byId["bf_alice"]?.displayName == "Alice")
         #expect(byId["bf_alice"]?.language == "British English · Female")
+
+        let englishIDs = Set(EpistemosSpeechSynthesizer.installedEnglishKokoroVoices(modelRoot: root).map(\.identifier))
+        #expect(englishIDs == ["af_heart", "am_adam", "bf_alice"])
+    }
+
+    @Test("default Kokoro voice stays on an installed English voice")
+    func defaultKokoroVoiceStaysEnglish() throws {
+        let voices = [
+            EpistemosSpeechSynthesizer.VoiceOption(
+                identifier: "ef_dora",
+                displayName: "Dora",
+                language: "Spanish · Female",
+                quality: .premium
+            ),
+            EpistemosSpeechSynthesizer.VoiceOption(
+                identifier: "am_michael",
+                displayName: "Michael",
+                language: "American English · Male",
+                quality: .premium
+            ),
+            EpistemosSpeechSynthesizer.VoiceOption(
+                identifier: "af_heart",
+                displayName: "Heart",
+                language: "American English · Female",
+                quality: .premium
+            )
+        ]
+
+        #expect(
+            EpistemosSpeechSynthesizer.preferredEnglishKokoroVoiceIdentifier(from: voices)
+                == KokoroVoiceGateStatus.starterVoiceIdentifier
+        )
+        #expect(
+            EpistemosSpeechSynthesizer.effectiveKokoroVoiceIdentifier(
+                explicit: "ef_dora",
+                globalDefault: "com.apple.speech.synthesis.voice.not-kokoro",
+                installedVoices: voices
+            ) == KokoroVoiceGateStatus.starterVoiceIdentifier
+        )
+        #expect(
+            EpistemosSpeechSynthesizer.effectiveKokoroVoiceIdentifier(
+                explicit: nil,
+                globalDefault: nil,
+                installedVoices: []
+            ) == KokoroVoiceGateStatus.starterVoiceIdentifier
+        )
+    }
+
+    @Test("English-only Kokoro catalogue filters non-English installed voices")
+    func englishOnlyCatalogueFiltersNonEnglishVoices() throws {
+        let root = try makeModelRoot(voiceFiles: ["af_heart.bin", "ef_dora.bin", "jf_alpha.bin", "bm_george.bin"])
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let allIDs = Set(EpistemosSpeechSynthesizer.installedKokoroVoices(modelRoot: root).map(\.identifier))
+        #expect(allIDs == ["af_heart", "bm_george", "ef_dora", "jf_alpha"])
+
+        let englishIDs = Set(EpistemosSpeechSynthesizer.installedEnglishKokoroVoices(modelRoot: root).map(\.identifier))
+        #expect(englishIDs == ["af_heart", "bm_george"])
+    }
+
+    @Test("normalizes stale picker selections to installed English Kokoro voices")
+    func normalizesStalePickerSelectionsToEnglishKokoroVoices() {
+        let voices = [
+            EpistemosSpeechSynthesizer.VoiceOption(
+                identifier: "af_heart",
+                displayName: "Heart",
+                language: "American English · Female",
+                quality: .premium
+            ),
+            EpistemosSpeechSynthesizer.VoiceOption(
+                identifier: "am_michael",
+                displayName: "Michael",
+                language: "American English · Male",
+                quality: .premium
+            ),
+            EpistemosSpeechSynthesizer.VoiceOption(
+                identifier: "ef_dora",
+                displayName: "Dora",
+                language: "Spanish · Female",
+                quality: .premium
+            )
+        ]
+
+        #expect(
+            EpistemosSpeechSynthesizer.normalizedEnglishKokoroVoiceIdentifier(
+                "am_michael",
+                installedVoices: voices
+            ) == "am_michael"
+        )
+        #expect(
+            EpistemosSpeechSynthesizer.normalizedEnglishKokoroVoiceIdentifier(
+                "ef_dora",
+                installedVoices: voices
+            ) == nil
+        )
+        #expect(
+            EpistemosSpeechSynthesizer.normalizedEnglishKokoroVoiceIdentifier(
+                "com.apple.speech.synthesis.voice.samantha",
+                installedVoices: voices
+            ) == nil
+        )
+        #expect(
+            EpistemosSpeechSynthesizer.normalizedEnglishKokoroVoiceIdentifier(
+                nil,
+                installedVoices: voices
+            ) == nil
+        )
+    }
+
+    @Test("MAS read-aloud effect policy forces clean shipped output")
+    func masReadAloudEffectPolicyForcesCleanShippedOutput() {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        #expect(!VoicePreferences.allowsReadAloudEffects)
+        #expect(VoicePreferences.shippedReadAloudEffect(.pixelArt) == .clean)
+        #else
+        #expect(VoicePreferences.allowsReadAloudEffects)
+        #expect(VoicePreferences.shippedReadAloudEffect(.pixelArt) == .pixelArt)
+        #endif
+    }
+
+    @Test("Kokoro preview text is phonemized instead of sent as raw English letters")
+    func previewTextUsesEnglishPhonemes() {
+        let symbols = ["k", "ˈ", "O", "ə", "ɹ", "ɪ", "z", " ", "ɛ", "d", "i", "."]
+        let vocabulary = Dictionary(uniqueKeysWithValues: symbols.enumerated().map { ($0.element, Int32($0.offset + 1)) })
+
+        let phonemes = KokoroCoreMLSynthesizer.englishPhonemeSymbols(
+            for: "Kokoro is ready.",
+            vocabulary: vocabulary
+        )
+
+        #expect(phonemes.contains("ə"))
+        #expect(phonemes.contains("ɹ"))
+        #expect(phonemes.contains("ɛ"))
+        #expect(!phonemes.starts(with: ["k", "o", "k", "o", "r", "o"]))
     }
 
     @Test("excludes non-.bin files and unsafe voice names")

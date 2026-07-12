@@ -1,5 +1,22 @@
 # Epistemos — Project Rules
 
+## MAS-Only Strategic Pivot — 2026-07-07
+
+Instruction lock ID: `MAS-ONLY-SHIP-LOCK-2026-07-07`.
+
+Read `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` before any feature
+plan or handoff. Current execution is MAS-only: `Epistemos-AppStore`,
+`EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, June, and in-process `agent_core`.
+Pro/Developer-ID/Experimental/1Code/OpenChamber/Kindred runtime work is parked
+unless a later owner directive explicitly reopens it.
+
+When older docs say "both builds", "Experimental", "Pro", "1Code",
+"Kindred", "browser-use", "subprocess OK", or similar, translate the product
+idea into an App Store-safe MAS implementation or mark it as parked provenance.
+Do not ship hidden sidecars, runtime subprocesses, local servers, terminal/code
+execution, stdio MCP, Node backends, or browser-use Chromium paths on the
+active product line.
+
 ## Architecture
 - Swift 6.0 + Rust (UniFFI FFI) + Metal compute shaders
 - GRDB for persistence, MLX-Swift for the current live local inference lane;
@@ -15,11 +32,11 @@
 ## NON-NEGOTIABLE CONSTRAINTS
 - NO HIDDEN SIDECAR. Current app inference and orchestration stay in-process via Rust FFI or MLX-Swift. The legacy agent subprocess was removed 2026-05-05; orchestration now lives in `agent_core::agent_runtime` (Rust, in-process). LocalAgentPromptBuilder.swift and LocalAgentGatewayPolicy.swift in Epistemos/LocalAgent/ are the canonical local-agent path. Hermes namespace fully purged from code 2026-05-05 (LocalAgent prefix replaces it on the Swift side, Runtime prefix on the Rust side). Runtime-plural candidates from the 2026-06-06 TurboVec/QAT canon (GGUF/llama.cpp, LiteRT-LM, local OpenAI-compatible endpoints, custom Metal) are Pro Gated/Research until explicit owner approval, MAS/Pro boundary review, no-hidden-fallback proof, RunEventLog, AnswerPacket, rollback, and harness witnesses land.
 - REAL APIs ONLY. Every cloud endpoint verified against provider docs. No fake features.
-- HONEST CAPABILITY GATING. Local models get fast/thinking/research. Cloud models get agent/liveAgent. Never fake agent capability for local models.
+- HONEST CAPABILITY GATING. Local models get low-latency/thinking/research. Cloud models get agent/liveAgent. Never fake agent capability for local models.
 - RESEARCH-FIRST FOR EVERY TASK. Before code, docs, refactors, reroutes,
   reductions, or "simple" edits, search
   `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`, read the canonical local
-  source it names, then verify current code/logs. Use a quick local pass for
+  source it names, then verify current code/logs. Use a focused local pass for
   simple edits and a deeper pass for architecture/high-risk work; do not waste
   tokens reading unrelated docs. If local canon has no structured answer or
   current API/OS/model/package/App Store/security facts matter, run targeted web
@@ -29,7 +46,7 @@
   "zero-copy" means UMA, shared buffers, IOSurface, in-process, single-binary,
   deterministic provenance, no hot-path subprocess, no tensor copies,
   direct/bare-metal path, and "as complex as a brain, as simple as an app, as
-  fast as a jet."
+  responsive as a jet."
 - Zero test regressions against the 2,679-test suite.
 - PRESERVE THINKING BLOCKS. When stop_reason is "tool_use", pass the ENTIRE content array back including thinking blocks + signatures. Dropping them kills the agent.
 - STREAM EVERYTHING. Forward every token to the delegate immediately. No buffering.
@@ -53,6 +70,70 @@
   T4 or higher: compiled in the correct MAS/Pro scope, reachable, visible,
   verified, logged, rollback-bound, AnswerPacket-visible, and release-audit
   honest. L1 metadata/source-guard passes are blue architecture proof only.
+- DEEP REASONING DISCIPLINE. Do not optimize for the appearance of immediacy on
+  substantive work. Multi-file, architecture, UI/UX, agent/runtime, data-loss,
+  release, and root-instruction tasks need deep source reading, semantic local
+  research, contradiction checks, deliberate skill/tool selection, batched
+  implementation, and evidence sized to the claim. Before editing on those
+  tasks, state the goal, hard constraints, done bar, and verification plan; keep
+  a short running checklist when work spans multiple steps. Search local canon
+  with semantic expansion, read target files/call sites/tests/fixtures/build
+  scripts/feature docs, inspect current code/logs, and do not rely on older
+  prompt stacks when they conflict with current owner intent. Validate current
+  or external facts with targeted web research using primary/official sources
+  where possible, especially for APIs, OS behavior, packages, models, App Store
+  policy, security, frameworks, and UI libraries. For UI/UX work, research the
+  active app surface plus current robust reference implementations, component
+  libraries, design-system docs, and popular repos before choosing a stack or
+  component grammar. Serious work must not be called done after an abbreviated
+  or shallow pass; if meaningful research, implementation, and evidence have
+  not happened, report the incomplete state and continue. Narrow mechanical
+  edits, direct command answers, and one-line fixes do not need artificial
+  delay, but they still require reading the file being changed. Use applicable
+  local skills/tools when they fit the task: `agentic-engineering-protocol`,
+  `thermo-nuclear-code-quality-review`, `Recursive App Audit`, `Epistemos
+  Release Audit`, and browser/computer-use or runtime tooling for visual/manual
+  evidence. Load matching skill instructions before acting, and record what was
+  used or why an obvious skill was skipped. After editing, inspect the diff,
+  search for contradictions or stale directives, run relevant verification, and
+  state any unproven area.
+- OWNER-INTENT HARDENING LOCK. Instruction lock ID:
+  `OWNER-INTENT-HARDENING-LOCK-2026-07-07`. For substantive work, especially
+  prose/brain-dump/steering messages, keep an intent checkpoint in the active
+  progress/evidence doc, or create a scoped `INTENT_LEDGER.md` beside the
+  active feature docs if no ledger exists. Preserve the owner's verbatim query
+  or exact excerpt, interpreted intent, hard constraints, non-goals, acceptance
+  checks, contradictions/questions, and next action. Update it before the next
+  implementation edit after every owner steer. In UI/product work, `revamp`,
+  `upgrade`, `refactor`, `V2`, `new stack`, `replace`, `whole new thing`, and
+  `not a wrapper/reskin/polish` mean structural and visible replacement of the
+  relevant component/route/behavior unless the owner explicitly narrows the
+  ask. Do not convert those words into wrapper divs, token-only changes,
+  package-presence proof, or shallow polish.
+- SURGICAL EDITS AND BATCHED VERIFICATION. Read the target file and nearby
+  contract before editing; after editing, re-read the changed region and inspect
+  the diff. Replace whole files only when the active plan requires it or the old
+  and new ownership, blast radius, tests, and rollback path are mapped. During
+  long implementation sessions, builds/tests may be batched only by keeping a
+  verification-debt ledger: deferred command, touched files, risk reason,
+  expected proof, and checkpoint trigger. Batch cadence never permits skipping
+  evidence, claiming completion without tests, or delaying immediate narrow
+  checks for risky/shared behavior. Never run competing `xcodebuild` jobs.
+- CONTINUING HARDENING LOOP. When a feature plan, implementation phase, or
+  refactor appears complete, completion starts the next hardening pass. Invoke
+  `deep-hardening-loop` and combine it with `thermo-nuclear-code-quality-review`,
+  `Recursive App Audit`, `Epistemos Release Audit`, Playwright/browser/
+  screenshot tooling, and security skills as the scope warrants. Continue
+  auditing, researching, testing, hardening, and improving the implemented
+  scope until the owner explicitly stops or a real blocker prevents useful
+  progress. Keep the loop focused on seams, tests, evidence, docs, release
+  risk, and regressions; do not absorb unrelated feature scope.
+- SCOPED FEATURE DIRECTIVES. If and only if the task explicitly concerns
+  Experimental/1Code visible agent renderer replacement, read
+  `THE_R_PLAN.md`, `THE_R_RESEARCH_BACKLOG.md`, and
+  `THE_R_FULL_LOOP_PROMPT.md`. Do not apply those feature-specific steps to
+  unrelated Keelstone, LumenLens, Kindred, runtime, model, vault, editor,
+  release, research, or docs work.
 
 ## Code Standards
 - Use @Observable, not ObservableObject

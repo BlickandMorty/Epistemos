@@ -955,8 +955,8 @@ impl VaultExecutor {
 // ── UniFFI-exported vault functions ──────────────────────────────────────────
 
 /// True iff `execute_vault_tool` ACTUALLY executes this tool name (vault file/search/wikilink/patch ops).
-/// The single source of "what the Rust vault surface can run" — used to HONESTLY scope the stdio fusion
-/// server's `tools/list` so an external agent (OpenCode) never sees a vault tool it can't call. Keep this
+/// The single source of "what the Rust vault surface can run" — used to keep any caller's
+/// advertised tool list aligned with actual vault capabilities. Keep this
 /// list in lock-step with `execute_vault_tool`'s match arms below (a parity test guards drift). Graph tools
 /// are covered separately by `graph_tools::is_graph_tool`.
 pub fn is_vault_tool(tool_name: &str) -> bool {

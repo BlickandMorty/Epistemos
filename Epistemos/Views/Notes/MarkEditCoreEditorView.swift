@@ -34,7 +34,10 @@ struct MarkEditCodeEditorRepresentable: View {
     var showInvisibles: Bool
     var useSpaces: Bool
     var tabWidth: Int
+    var isEditable: Bool = true
     var selectionRequest: CoreEditorSelectionRequest?
+    var onContentDirty: (@MainActor () -> Void)?
+    var liveTextQueryKey: UUID?
 
     var body: some View {
         MarkEditCoreEditorRepresentable(
@@ -50,7 +53,10 @@ struct MarkEditCodeEditorRepresentable: View {
             showInvisibles: showInvisibles,
             useSpaces: useSpaces,
             tabWidth: tabWidth,
-            selectionRequest: selectionRequest
+            isEditable: isEditable,
+            selectionRequest: selectionRequest,
+            onContentDirty: onContentDirty,
+            liveTextQueryKey: liveTextQueryKey
         )
     }
 }
@@ -70,6 +76,9 @@ struct MarkEditMarkdownEditorRepresentable: View {
     var tabWidth: Int
     var filePath: String?
     var selectionRequest: CoreEditorSelectionRequest?
+    var isEditable: Bool = true
+    var onContentDirty: (@MainActor () -> Void)?
+    var liveTextQueryKey: UUID?
     // Security (bridge audit 2026-07-03, latent HIGH): default FALSE. The `true`
     // branch installs MarkEdit's full native file/service/clipboard API on a
     // page-world "bridge" handler (arbitrary file read/write/delete, runService,
@@ -110,7 +119,10 @@ struct MarkEditMarkdownEditorRepresentable: View {
             showInvisibles: showInvisibles,
             useSpaces: useSpaces,
             tabWidth: tabWidth,
-            selectionRequest: selectionRequest
+            isEditable: isEditable,
+            selectionRequest: selectionRequest,
+            onContentDirty: onContentDirty,
+            liveTextQueryKey: liveTextQueryKey
         )
     }
 }
@@ -492,14 +504,18 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
     var showInvisibles: Bool
     var useSpaces: Bool
     var tabWidth: Int
+    var isEditable: Bool
     var selectionRequest: CoreEditorSelectionRequest?
+    var onContentDirty: (@MainActor () -> Void)?
+    var liveTextQueryKey: UUID?
 
     func makeCoordinator() -> MarkEditCoreEditorCoordinator {
         MarkEditCoreEditorCoordinator(
             text: $text,
             cursorLine: $cursorLine,
             cursorColumn: $cursorColumn,
-            totalLines: $totalLines
+            totalLines: $totalLines,
+            onContentDirty: onContentDirty
         )
     }
 
@@ -528,6 +544,7 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
         webView.setValue(false, forKey: "drawsBackground")
         context.coordinator.webView = webView
         context.coordinator.loadEditor(into: webView, initialState: state)
+        context.coordinator.registerLiveTextQuery(key: liveTextQueryKey, webView: webView)
         return webView
     }
 
@@ -536,6 +553,8 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
         context.coordinator.cursorLine = $cursorLine
         context.coordinator.cursorColumn = $cursorColumn
         context.coordinator.totalLines = $totalLines
+        context.coordinator.onContentDirty = onContentDirty
+        context.coordinator.registerLiveTextQuery(key: liveTextQueryKey, webView: webView)
         context.coordinator.update(
             webView: webView,
             state: state,
@@ -565,7 +584,8 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
             showLineNumbers: showLineNumbers,
             showInvisibles: showInvisibles,
             useSpaces: useSpaces,
-            tabWidth: tabWidth
+            tabWidth: tabWidth,
+            isEditable: isEditable
         )
     }
 }

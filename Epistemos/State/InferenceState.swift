@@ -76,6 +76,22 @@ nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// The only cloud providers admitted to the MAS June agent loop.
+    /// Derive this from capability truth so Settings, routing, and June cannot
+    /// drift into separate provider lists.
+    nonisolated static let juneAgentProviders: [CloudModelProvider] =
+        allCases.filter(\.supportsAgentTier)
+
+    /// Providers whose credentials and validation state belong to the active
+    /// product. Parked provider implementations remain available to direct
+    /// builds without making MAS load or expose their saved credentials.
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+    nonisolated static let activeProductProviders = juneAgentProviders
+    #else
+    nonisolated static let activeProductProviders = allCases
+    #endif
+
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     /// Whether a plain CHAT turn (Fast / Thinking / Pro — NOT agent mode) may attach
     /// the read/write vault tools for this provider. Distinct from
     /// `supportsAgentTier` (the first-class agent-LOOP driver gate = OpenAI/Anthropic
@@ -119,6 +135,7 @@ nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
             allProvidersArmed: Self.cloudChatToolsAllProvidersArmed
         )
     }
+    #endif
 }
 
 nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
@@ -216,11 +233,23 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
     var summary: String {
         switch self {
         case .openAI:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Use OpenAI as the active cloud provider with an API key stored in Apple Keychain."
+            #else
             "Use OpenAI as the active cloud provider with ChatGPT account access or a legacy API key."
+            #endif
         case .anthropic:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Use Anthropic as the active cloud provider with an API key stored in Apple Keychain."
+            #else
             "Use Anthropic as the active cloud provider with Claude Code credentials or a legacy API key."
+            #endif
         case .google:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Use Google Gemini as the active cloud provider with an API key stored in Apple Keychain."
+            #else
             "Use Google Gemini as the active cloud provider with Desktop OAuth or a legacy API key."
+            #endif
         case .zai:
             "Use Z.AI / GLM as the active cloud provider. The public API path is direct-key today."
         case .kimi:
@@ -234,6 +263,10 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+    nonisolated static let preferredOrder: [AIProviderSelection] =
+        CloudModelProvider.juneAgentProviders.map { AIProviderSelection(cloudProvider: $0) }
+    #else
     nonisolated static let preferredOrder: [AIProviderSelection] = [
         .openAI,
         .anthropic,
@@ -242,6 +275,7 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
         .kimi,
         .localOnly,
     ]
+    #endif
 }
 
 nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
@@ -249,8 +283,10 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     case openAIGPT54 = "openai:gpt-5.4"
     case openAIGPT54Mini = "openai:gpt-5.4-mini"
     case openAIGPT54Nano = "openai:gpt-5.4-nano"
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     case openAIGPT53Codex = "openai:gpt-5.3-codex"
     case openAIGPT53CodexSpark = "openai:gpt-5.3-codex-spark"
+    #endif
     case openAIGPT52 = "openai:gpt-5.2"
     case openAIGPT41 = "openai:gpt-4.1"
     case openAIGPT41Mini = "openai:gpt-4.1-mini"
@@ -294,9 +330,12 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     var provider: CloudModelProvider {
         switch self {
         case .openAIGPT55, .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano,
-             .openAIGPT53Codex, .openAIGPT53CodexSpark, .openAIGPT52,
-             .openAIGPT41, .openAIGPT41Mini, .openAIO3, .openAIO3Mini:
+             .openAIGPT52, .openAIGPT41, .openAIGPT41Mini, .openAIO3, .openAIO3Mini:
             .openAI
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .openAIGPT53Codex, .openAIGPT53CodexSpark:
+            .openAI
+        #endif
         case .anthropicClaudeFable5, .anthropicClaudeOpus48,
              .anthropicClaudeSonnet5, .anthropicClaudeHaiku45,
              .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
@@ -325,8 +364,10 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .openAIGPT54: "gpt-5.4"
         case .openAIGPT54Mini: "gpt-5.4-mini"
         case .openAIGPT54Nano: "gpt-5.4-nano"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAIGPT53Codex: "gpt-5.3-codex"
         case .openAIGPT53CodexSpark: "gpt-5.3-codex-spark"
+        #endif
         case .openAIGPT52: "gpt-5.2"
         case .openAIGPT41: "gpt-4.1"
         case .openAIGPT41Mini: "gpt-4.1-mini"
@@ -375,8 +416,10 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .openAIGPT54: "GPT-5.4"
         case .openAIGPT54Mini: "GPT-5.4 Mini"
         case .openAIGPT54Nano: "GPT-5.4 Nano"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAIGPT53Codex: "GPT-5.3 Codex"
         case .openAIGPT53CodexSpark: "GPT-5.3 Codex Spark"
+        #endif
         case .openAIGPT52: "GPT-5.2"
         case .openAIGPT41: "GPT-4.1"
         case .openAIGPT41Mini: "GPT-4.1 Mini"
@@ -425,8 +468,10 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .openAIGPT54: "GPT-5.4"
         case .openAIGPT54Mini: "GPT-5.4 Mini"
         case .openAIGPT54Nano: "GPT-5.4 Nano"
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAIGPT53Codex: "GPT-5.3 Codex"
         case .openAIGPT53CodexSpark: "Codex Spark"
+        #endif
         case .openAIGPT52: "GPT-5.2"
         case .openAIGPT41: "GPT-4.1"
         case .openAIGPT41Mini: "GPT-4.1 Mini"
@@ -502,8 +547,10 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             "Fast OpenAI cloud chat, subagents, and lower-latency tool work."
         case .openAIGPT54Nano:
             "Cheap high-volume routing, rewrites, and lightweight automation."
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAIGPT53Codex, .openAIGPT53CodexSpark:
             "Codex-optimized OpenAI model for coding-agent workflows."
+        #endif
         case .openAIGPT52:
             "Balanced GPT-5 cloud work when GPT-5.4 is unavailable."
         case .openAIGPT41:
@@ -576,9 +623,12 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     var supportsStructuredOutput: Bool {
         switch self {
         case .openAIGPT55, .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano,
-             .openAIGPT53Codex, .openAIGPT53CodexSpark, .openAIGPT52,
-             .openAIGPT41, .openAIGPT41Mini:
+             .openAIGPT52, .openAIGPT41, .openAIGPT41Mini:
             return true
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .openAIGPT53Codex, .openAIGPT53CodexSpark:
+            return true
+        #endif
         case .openAIO3, .openAIO3Mini:
             return false // reasoning models — structured output not guaranteed
         case .anthropicClaudeFable5, .anthropicClaudeOpus48,
@@ -597,10 +647,16 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var supportedOperatingModes: [EpistemosOperatingMode] {
         switch self {
-        case .openAIGPT55, .openAIGPT54, .openAIGPT53Codex:
+        case .openAIGPT55, .openAIGPT54:
             [.fast, .thinking, .pro, .agent]
-        case .openAIGPT54Mini, .openAIGPT53CodexSpark:
+        case .openAIGPT54Mini:
             [.fast, .agent]
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .openAIGPT53Codex:
+            [.fast, .thinking, .pro, .agent]
+        case .openAIGPT53CodexSpark:
+            [.fast, .agent]
+        #endif
         case .openAIGPT54Nano:
             [.fast]
         case .openAIGPT52:
@@ -664,8 +720,12 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     var supportsNativeReasoningEffortControl: Bool {
         switch self {
         case .openAIGPT55, .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano,
-             .openAIGPT53Codex, .openAIGPT53CodexSpark, .openAIGPT52:
+             .openAIGPT52:
             true
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .openAIGPT53Codex, .openAIGPT53CodexSpark:
+            true
+        #endif
         case .anthropicClaudeFable5, .anthropicClaudeOpus48,
              .anthropicClaudeSonnet5, .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
              .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
@@ -764,8 +824,12 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .openAIGPT55:
             1_048_576
-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT53Codex, .openAIGPT53CodexSpark:
+        case .openAIGPT54, .openAIGPT54Mini:
             400_000
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .openAIGPT53Codex, .openAIGPT53CodexSpark:
+            400_000
+        #endif
         case .openAIGPT41:
             128_000
         case .openAIGPT52:
@@ -805,9 +869,12 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     var supportsVision: Bool {
         switch self {
         case .openAIGPT55, .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano,
-             .openAIGPT53Codex, .openAIGPT53CodexSpark, .openAIGPT52,
-             .openAIGPT41, .openAIGPT41Mini:
+             .openAIGPT52, .openAIGPT41, .openAIGPT41Mini:
             true
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        case .openAIGPT53Codex, .openAIGPT53CodexSpark:
+            true
+        #endif
         case .openAIO3, .openAIO3Mini:
             false  // reasoning-only, no vision
         case .anthropicClaudeFable5, .anthropicClaudeOpus48,
@@ -866,6 +933,32 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         allCases.filter { $0.provider == provider }
     }
 
+    /// Exact cloud models that MAS June can instantiate without silently
+    /// substituting a different model in `agent_core`.
+    nonisolated static func juneAgentModels(for provider: CloudModelProvider) -> [CloudTextModelID] {
+        switch provider {
+        case .openAI:
+            return [
+                .openAIGPT55,
+                .openAIGPT54,
+                .openAIGPT54Mini,
+                .openAIGPT54Nano,
+                .openAIGPT52,
+                .openAIGPT41,
+                .openAIGPT41Mini,
+                .openAIO3Mini,
+            ]
+        case .anthropic:
+            return [
+                .anthropicClaudeSonnet46,
+                .anthropicClaudeOpus47,
+                .anthropicClaudeHaiku45,
+            ]
+        case .google, .zai, .kimi, .minimax, .deepseek:
+            return []
+        }
+    }
+
     nonisolated static func from(rawValueOrVendorID value: String) -> CloudTextModelID? {
         if let direct = CloudTextModelID(rawValue: value) {
             return direct
@@ -878,7 +971,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         return legacyMigrationMap[value]
     }
 
-    private nonisolated static let legacyMigrationMap: [String: CloudTextModelID] = [
+    private nonisolated static let legacyMigrationMap: [String: CloudTextModelID] = {
+        var map: [String: CloudTextModelID] = [
         "gpt-4o": .openAIGPT54Mini,
         "openai:gpt-4o": .openAIGPT54Mini,
         "gpt-4o-mini": .openAIGPT54Mini,
@@ -889,8 +983,6 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         "openai:gpt-5.4": .openAIGPT54,
         "gpt-5.4-mini": .openAIGPT54Mini,
         "openai:gpt-5.4-mini": .openAIGPT54Mini,
-        "gpt-5.3-codex": .openAIGPT53Codex,
-        "gpt-5.3-codex-spark": .openAIGPT53CodexSpark,
         "gpt-5.3": .openAIGPT54,
         "gpt-5.2": .openAIGPT52,
         "gpt-5.1": .openAIGPT52,
@@ -941,7 +1033,13 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         "MiniMax-M2.1": .minimaxM21,
         "deepseek-chat": .deepseekChat,
         "deepseek-reasoner": .deepseekReasoner,
-    ]
+        ]
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        map["gpt-5.3-codex"] = .openAIGPT53Codex
+        map["gpt-5.3-codex-spark"] = .openAIGPT53CodexSpark
+        #endif
+        return map
+    }()
 }
 
 nonisolated enum CloudProviderValidationState: Sendable, Equatable {
@@ -1047,12 +1145,16 @@ nonisolated enum ColorRole: Sendable, Equatable {
 
 extension CloudModelProvider {
     var supportsAccountConnection: Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        false
+        #else
         switch self {
         case .openAI, .anthropic, .google:
             true
         case .zai, .kimi, .minimax, .deepseek:
             false
         }
+        #endif
     }
 
     var manualCredentialTitle: String {
@@ -1112,11 +1214,23 @@ extension CloudModelProvider {
     var setupHelpText: String {
         switch self {
         case .openAI:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Use an OpenAI API key with MAS June. The key is stored in Apple Keychain."
+            #else
             "Recommended account path. Sign in with ChatGPT and Epistemos uses the OpenAI Codex session directly. Legacy API keys stay available only as a fallback."
+            #endif
         case .anthropic:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Use an Anthropic API key with MAS June. The key is stored in Apple Keychain."
+            #else
             "Preferred account path. Import your Claude Code session so Epistemos can use Claude access without a pasted key. Legacy API keys stay available only as a fallback."
+            #endif
         case .google:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Google is not connected to MAS June."
+            #else
             "Real OAuth path. In Google Cloud Console, create an OAuth client ID for a Desktop app, download that client JSON, enter the matching Google Cloud project ID, then sign in with Google for Gemini without a pasted API key."
+            #endif
         case .zai:
             "Z.AI / GLM currently uses the direct API route in Epistemos. Open the platform, create an API key, then save it here."
         case .kimi:
@@ -1131,11 +1245,23 @@ extension CloudModelProvider {
     var automationHintText: String {
         switch self {
         case .openAI:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Fastest path for MAS June: open OpenAI API keys, create a key, then use Paste + Save."
+            #else
             "Best path: Sign in with ChatGPT. If you already use Codex CLI, you can import that session. Manual API keys are now the legacy path."
+            #endif
         case .anthropic:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Fastest path for MAS June: open Anthropic API keys, create a key, then use Paste + Save."
+            #else
             "Best path: import Claude Code credentials. If you prefer the direct API console route, the legacy key path is still tucked away below."
+            #endif
         case .google:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Google is not connected to MAS June."
+            #else
             "Best path: in Google Cloud Console, create an OAuth client ID for a Desktop app, download that client JSON, choose it here, enter the same Google Cloud project ID, then sign in with your Google account. Legacy Gemini API keys are only the fallback."
+            #endif
         case .zai:
             "Fastest path: open Z.AI, create an API key, then use Paste + Save."
         case .kimi:
@@ -1150,11 +1276,23 @@ extension CloudModelProvider {
     var accountSetupTitle: String {
         switch self {
         case .openAI:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Add an OpenAI API key"
+            #else
             "Use your OpenAI account"
+            #endif
         case .anthropic:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Add an Anthropic API key"
+            #else
             "Use your Anthropic account"
+            #endif
         case .google:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Add a Google API key"
+            #else
             "Use your Google account"
+            #endif
         case .zai:
             "Connect Z.AI / GLM"
         case .kimi:
@@ -1169,11 +1307,23 @@ extension CloudModelProvider {
     var accountSetupHelpText: String {
         switch self {
         case .openAI:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Use an OpenAI API key with MAS June. The key is stored in Apple Keychain."
+            #else
             "Sign in with ChatGPT first. Manual API key tools stay tucked under Legacy API Key if you need them."
+            #endif
         case .anthropic:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Use an Anthropic API key with MAS June. The key is stored in Apple Keychain."
+            #else
             "Use your Claude account first by importing Claude Code credentials. Expand Legacy API Key only if you want the console-key path."
+            #endif
         case .google:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Google is not connected to MAS June."
+            #else
             "Connect Google OAuth first with the Desktop-app client JSON from Google Cloud Console and the matching Google Cloud project ID, then fall back to Legacy API Key only when needed."
+            #endif
         case .zai:
             "Use the provider portal to create an API key, then save it here. Z.AI's public API path in Epistemos is direct-key today."
         case .kimi:
@@ -1186,6 +1336,9 @@ extension CloudModelProvider {
     }
 
     var accountActionTitle: String {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        credentialActionTitle
+        #else
         switch self {
         case .openAI:
             "Sign in with ChatGPT"
@@ -1202,6 +1355,7 @@ extension CloudModelProvider {
         case .deepseek:
             "Open DeepSeek API Keys"
         }
+        #endif
     }
 
     var credentialActionTitle: String {
@@ -1273,9 +1427,17 @@ extension CloudModelProvider {
     var modelSummary: String {
         switch self {
         case .openAI:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "GPT-5.5, GPT-5.4 family, GPT-5.2, GPT-4.1, o3-mini"
+            #else
             "GPT-5.5, GPT-5.4, Codex"
+            #endif
         case .anthropic:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            "Claude Sonnet 4.6, Opus 4.7, Haiku 4.5"
+            #else
             "Claude Fable 5, Opus 4.8, Sonnet 5"
+            #endif
         case .google:
             "Gemini 3.1 Pro, 3.1 Flash Lite"
         case .zai:
@@ -1313,7 +1475,11 @@ extension CloudModelProvider {
         case .openAI:
             .openAIGPT55
         case .anthropic:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            .anthropicClaudeSonnet46
+            #else
             .anthropicClaudeSonnet5
+            #endif
         case .google:
             .googleGemini31ProPreview
         case .zai:
@@ -1332,6 +1498,9 @@ extension CloudModelProvider {
         hasSavedAPIKey: Bool,
         validationState: CloudProviderValidationState
     ) -> CloudProviderAccountConnectionSummary? {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return nil
+        #else
         guard supportsAccountConnection else { return nil }
 
         if let oauthCredential {
@@ -1386,11 +1555,15 @@ extension CloudModelProvider {
             title: "No account session connected",
             detail: detail
         )
+        #endif
     }
 
     func accountGuidanceText(
         validationState: CloudProviderValidationState
     ) -> String? {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return nil
+        #else
         guard supportsAccountConnection else { return nil }
 
         switch self {
@@ -1430,8 +1603,10 @@ extension CloudModelProvider {
         case .zai, .kimi, .minimax, .deepseek:
             return nil
         }
+        #endif
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private func verifiedAccountDetail(accountLabel: String?) -> String {
         if let accountLabel {
             return "Connected as \(accountLabel)."
@@ -1489,6 +1664,7 @@ extension CloudModelProvider {
         }
         return message
     }
+    #endif
 }
 
 nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable {
@@ -1530,7 +1706,7 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         case .appleIntelligence:
             "Apple Intelligence"
         case .localMLX:
-            "Local Models Removed"
+            "Legacy MLX Selection (Unavailable)"
         case .cloud(let model):
             model.displayName
         }
@@ -1582,7 +1758,7 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         case .appleIntelligence:
             "Apple Intelligence"
         case .localMLX:
-            "Local Removed"
+            "Legacy MLX"
         case .cloud(let model):
             model.compactDisplayName
         }
@@ -2141,12 +2317,12 @@ final class InferenceState {
 
     private func initializeDeferredCloudCredentialState() {
         isBootstrappingCloudCredentials = true
-        missingCloudAPIKeyProviders = Set(CloudModelProvider.allCases)
-        missingCloudOAuthProviders = Set(CloudModelProvider.allCases)
+        missingCloudAPIKeyProviders = Set(CloudModelProvider.activeProductProviders)
+        missingCloudOAuthProviders = Set(CloudModelProvider.activeProductProviders)
         cachedCloudAPIKeys.removeAll()
         cachedCloudOAuthCredentials.removeAll()
         cloudProviderValidationStates = Dictionary(
-            uniqueKeysWithValues: CloudModelProvider.allCases.map { ($0, .missing) }
+            uniqueKeysWithValues: CloudModelProvider.activeProductProviders.map { ($0, .missing) }
         )
     }
 
@@ -2176,7 +2352,7 @@ final class InferenceState {
         missingCloudAPIKeyProviders = snapshot.missingAPIKeyProviders
         cachedCloudOAuthCredentials = snapshot.oauthCredentials
         missingCloudOAuthProviders = snapshot.missingOAuthProviders
-        cloudProviderValidationStates = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
+        cloudProviderValidationStates = CloudModelProvider.activeProductProviders.reduce(into: [:]) { partialResult, provider in
             let hasConfiguredAccess = snapshot.apiKeys[provider] != nil
                 || snapshot.oauthCredentials[provider] != nil
             partialResult[provider] = hasConfiguredAccess ? .unchecked : .missing
@@ -2189,7 +2365,7 @@ final class InferenceState {
         keychainSave: (String, String) -> Bool,
         keychainDelete: (String) -> Void
     ) {
-        for provider in CloudModelProvider.allCases {
+        for provider in CloudModelProvider.activeProductProviders {
             if let existing = keychainLoad(provider.apiKeyKeychainKey)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                !existing.isEmpty {
@@ -2218,7 +2394,7 @@ final class InferenceState {
         var oauthCredentials: [CloudModelProvider: CloudProviderOAuthCredential] = [:]
         var missingOAuthProviders: Set<CloudModelProvider> = []
 
-        for provider in CloudModelProvider.allCases {
+        for provider in CloudModelProvider.activeProductProviders {
             if let key = keychainLoad(provider.apiKeyKeychainKey)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                !key.isEmpty {
@@ -2227,6 +2403,9 @@ final class InferenceState {
                 missingAPIKeyProviders.insert(provider)
             }
 
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            missingOAuthProviders.insert(provider)
+            #else
             if let rawValue = keychainLoad(provider.oauthKeychainKey)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                !rawValue.isEmpty,
@@ -2235,6 +2414,7 @@ final class InferenceState {
             } else {
                 missingOAuthProviders.insert(provider)
             }
+            #endif
         }
 
         return CloudCredentialSnapshot(
@@ -2512,8 +2692,10 @@ final class InferenceState {
 
     func runtimeProviderDisplayName(for provider: CloudModelProvider) -> String {
         switch provider {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAI where openAIUsesCodexAccountRuntime:
             return "Codex"
+        #endif
         case .anthropic where anthropicUsesClaudeCodeAccountRuntime:
             return "Claude Code"
         default:
@@ -2526,7 +2708,11 @@ final class InferenceState {
     /// `runtimeProviderDisplayName` does, so the logo matches the label.
     func providerBrand(for provider: CloudModelProvider) -> ProviderBrand {
         let accountRuntime: Bool = switch provider {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAI: openAIUsesCodexAccountRuntime
+        #else
+        case .openAI: false
+        #endif
         case .anthropic: anthropicUsesClaudeCodeAccountRuntime
         default: false
         }
@@ -2535,8 +2721,10 @@ final class InferenceState {
 
     func runtimeControlTitle(for provider: CloudModelProvider) -> String {
         switch provider {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .openAI where openAIUsesCodexAccountRuntime:
             return "Codex"
+        #endif
         case .anthropic where anthropicUsesClaudeCodeAccountRuntime:
             return "Claude Code"
         case .anthropic:
@@ -2832,10 +3020,14 @@ final class InferenceState {
 
     var activeCloudModels: [CloudTextModelID] {
         guard let provider = activeCloudProvider else { return [] }
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return supportedCloudModels(for: provider)
+        #else
         if provider == .openAI, openAIUsesCodexAccountRuntime {
             return supportedCloudModels(for: provider)
         }
         return CloudTextModelID.models(for: provider)
+        #endif
     }
 
     func cloudModels(for provider: CloudModelProvider) -> [CloudTextModelID] {
@@ -2873,6 +3065,9 @@ final class InferenceState {
     /// through to a transient keychain read; callers get a correct answer
     /// and observable state stays stable.
     func apiKey(for provider: CloudModelProvider) -> String? {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard CloudModelProvider.activeProductProviders.contains(provider) else { return nil }
+        #endif
         if let cached = cachedCloudAPIKeys[provider] {
             return cached
         }
@@ -2896,6 +3091,9 @@ final class InferenceState {
     /// Read-only lookup. Same SwiftUI-safety contract as `apiKey(for:)`.
     /// Cache writes happen only on explicit refresh / set / clear paths.
     func oauthCredential(for provider: CloudModelProvider) -> CloudProviderOAuthCredential? {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        nil
+        #else
         if let cached = cachedCloudOAuthCredentials[provider] {
             return cached
         }
@@ -2909,6 +3107,7 @@ final class InferenceState {
             return nil
         }
         return credential
+        #endif
     }
 
     func resolvedCloudCredential(for provider: CloudModelProvider) async throws -> CloudProviderResolvedCredential {
@@ -2923,6 +3122,9 @@ final class InferenceState {
     }
 
     func resetCloudProviderValidationState(for provider: CloudModelProvider) {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard CloudModelProvider.activeProductProviders.contains(provider) else { return }
+        #endif
         cloudProviderValidationStates[provider] = hasConfiguredCloudAccess(for: provider)
             ? .unchecked
             : .missing
@@ -2941,6 +3143,23 @@ final class InferenceState {
             return true
         }
         return oauthCredential(for: provider) != nil
+    }
+
+    /// UI/catalog fast path: answers only from the credential snapshot that
+    /// has already landed on the main actor. June's WKScriptMessageHandler
+    /// calls this while the webview is booting; it must never fall through to
+    /// `SecItemCopyMatching` and block the main thread behind the deferred
+    /// keychain bootstrap.
+    func hasCachedCloudAccess(for provider: CloudModelProvider) -> Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard CloudModelProvider.activeProductProviders.contains(provider) else { return false }
+        #endif
+        if let cached = cachedCloudAPIKeys[provider]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !cached.isEmpty {
+            return true
+        }
+        return cachedCloudOAuthCredentials[provider] != nil
     }
 
     private func fallbackChatModelSelection(excluding excludedProvider: CloudModelProvider? = nil) -> ChatModelSelection {
@@ -2967,6 +3186,9 @@ final class InferenceState {
 
     @discardableResult
     func setAPIKey(_ value: String, for provider: CloudModelProvider) -> Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard CloudModelProvider.activeProductProviders.contains(provider) else { return false }
+        #endif
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             keychainDelete(provider.apiKeyKeychainKey)
@@ -3006,6 +3228,9 @@ final class InferenceState {
 
     @discardableResult
     func setOAuthCredential(_ credential: CloudProviderOAuthCredential?, for provider: CloudModelProvider) -> Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard CloudModelProvider.activeProductProviders.contains(provider), credential == nil else { return false }
+        #endif
         guard let credential else {
             keychainDelete(provider.oauthKeychainKey)
             cachedCloudOAuthCredentials.removeValue(forKey: provider)
@@ -3042,6 +3267,14 @@ final class InferenceState {
     }
 
     func validateCloudAccess(for provider: CloudModelProvider) async -> ConnectionTestResult {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard CloudModelProvider.activeProductProviders.contains(provider) else {
+            return ConnectionTestResult(
+                success: false,
+                message: "\(provider.displayName) is not connected to MAS June."
+            )
+        }
+        #endif
         guard hasConfiguredCloudAccess(for: provider) else {
             cloudProviderValidationStates[provider] = .missing
             return ConnectionTestResult(
@@ -3051,6 +3284,16 @@ final class InferenceState {
                     : "No \(provider.displayName) API key is saved yet."
             )
         }
+
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard AgentCloudConsentStore.shared.hasConsent(for: provider) else {
+            cloudProviderValidationStates[provider] = .unchecked
+            return ConnectionTestResult(
+                success: false,
+                message: "Cloud data consent is off for \(provider.displayName). Enable it in Settings > June Models before Check Access. Nothing was sent."
+            )
+        }
+        #endif
 
         cloudProviderValidationStates[provider] = .checking
         let result = await withCloudValidationTimeout(for: provider) {
@@ -3126,6 +3369,17 @@ final class InferenceState {
 
     func importOpenAIAccount() async -> ConnectionTestResult {
         cloudProviderValidationStates[.openAI] = .checking
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        let message = "OpenAI local account import is unavailable in the App Store build. Use an OpenAI API key."
+        cloudProviderValidationStates[.openAI] = .invalid(
+            message: message,
+            checkedAt: Date()
+        )
+        return ConnectionTestResult(
+            success: false,
+            message: message
+        )
+        #else
         guard authService.importOpenAICodexCLIIfPresent() else {
             let message = "No Codex account session was found in ~/.codex/auth.json."
             cloudProviderValidationStates[.openAI] = .invalid(
@@ -3139,6 +3393,7 @@ final class InferenceState {
         }
         refreshCachedCloudAPIKeys()
         return await validateCloudAccess(for: .openAI)
+        #endif
     }
 
     func importAnthropicAccount() async -> ConnectionTestResult {
@@ -3470,7 +3725,11 @@ final class InferenceState {
     }
 
     private func normalizedVisibleCloudProvider(_ provider: CloudModelProvider) -> CloudModelProvider {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return CloudModelProvider.juneAgentProviders.contains(provider) ? provider : .openAI
+        #else
         return provider
+        #endif
     }
 
     private func normalizedVisibleAIProvider(_ provider: AIProviderSelection) -> AIProviderSelection {
@@ -3480,6 +3739,11 @@ final class InferenceState {
     }
 
     private func normalizedPreferredCloudModel(_ model: CloudTextModelID) -> CloudTextModelID {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        let connectedModels = CloudTextModelID.juneAgentModels(for: model.provider)
+        guard !connectedModels.isEmpty else { return .openAIGPT55 }
+        return connectedModels.contains(model) ? model : model.provider.defaultChatModel
+        #else
         switch model.provider {
         case .openAI:
             switch model {
@@ -3509,6 +3773,7 @@ final class InferenceState {
         case .zai, .kimi, .minimax, .deepseek:
             return model
         }
+        #endif
     }
 
     private func compatibleCloudModel(
@@ -3547,6 +3812,9 @@ final class InferenceState {
     }
 
     private func supportedCloudModels(for provider: CloudModelProvider) -> [CloudTextModelID] {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        CloudTextModelID.juneAgentModels(for: provider)
+        #else
         switch provider {
         case .openAI:
             return [.openAIGPT54, .openAIGPT54Mini]
@@ -3557,18 +3825,30 @@ final class InferenceState {
         case .zai, .kimi, .minimax, .deepseek:
             return CloudTextModelID.models(for: provider)
         }
+        #endif
     }
 
     private var openAIUsesCodexAccountRuntime: Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        false
+        #else
         oauthCredential(for: .openAI)?.authMode == .openAICodex
+        #endif
     }
 
     private var anthropicUsesClaudeCodeAccountRuntime: Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        false
+        #else
         oauthCredential(for: .anthropic)?.authMode == .anthropicClaudeCode
+        #endif
     }
 }
 
 extension CloudModelProvider {
+    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+    nonisolated static let preferredOrder: [CloudModelProvider] = juneAgentProviders
+    #else
     nonisolated static let preferredOrder: [CloudModelProvider] = [
         .openAI,
         .anthropic,
@@ -3576,6 +3856,7 @@ extension CloudModelProvider {
         .zai,
         .kimi,
     ]
+    #endif
 
     nonisolated static func fallbackPriority(after primary: CloudModelProvider) -> [CloudModelProvider] {
         preferredOrder.filter { $0 != primary }

@@ -96,7 +96,8 @@ struct SettingsCategoryTests {
     func foundationPanelIsOnlyAdvancedNativeIPDiagnosticsSurface() throws {
         let panel = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
         #expect(panel.contains("Epistemos Foundation"))
-        #expect(panel.contains("Generation engines live in Goose/OpenGUI/OpenCode-style"))
+        #expect(panel.contains("MAS-safe June bridges"))
+        #expect(panel.contains("June Tools and Safety"))
         #expect(panel.contains("Skills, Tools, and MCP"))
         #expect(panel.contains("Halo, Shadow, and Fast Search"))
     }

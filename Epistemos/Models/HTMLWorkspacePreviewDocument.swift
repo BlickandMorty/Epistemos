@@ -153,6 +153,11 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
         appBridgeEnabled: Bool,
         safeAPIVersion: UInt32
     ) -> String {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        let pythonStatus = "disabled"
+        let pythonEnabledLiteral = "false"
+        let pythonAvailableLiteral = "false"
+        #else
         let pythonAvailable = pythonPolicyEnabled && HTMLWorkspacePythonRuntime.isAvailable
         let pythonStatus: String = if !pythonPolicyEnabled {
             "disabled"
@@ -161,6 +166,9 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
         } else {
             "missing-vendored-assets"
         }
+        let pythonEnabledLiteral = pythonPolicyEnabled ? "true" : "false"
+        let pythonAvailableLiteral = pythonAvailable ? "true" : "false"
+        #endif
         let pythonBaseURL = HTMLWorkspacePythonRuntime.baseURLString
         let pythonMissingResources = stringArrayLiteral(HTMLWorkspacePythonRuntime.missingRequiredResourceNames)
         let appBridgeJavaScript = appBridgeScript(
@@ -283,8 +291,8 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
       })();
 
       const pythonRuntime = (() => {
-        const enabled = \(pythonPolicyEnabled ? "true" : "false");
-        const available = \(pythonAvailable ? "true" : "false");
+        const enabled = \(pythonEnabledLiteral);
+        const available = \(pythonAvailableLiteral);
         const status = "\(pythonStatus)";
         const baseURL = "\(pythonBaseURL)";
         const missingResources = \(pythonMissingResources);

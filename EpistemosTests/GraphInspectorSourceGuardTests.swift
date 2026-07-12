@@ -27,6 +27,12 @@ nonisolated struct GraphInspectorSourceGuardTests {
         #expect(noteBody.contains(".scrollIndicators(.visible)"))
         #expect(noteBody.contains(".padding(.bottom, graphInspectorPreviewBottomPadding)"))
         #expect(noteBody.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)"))
+        #expect(!noteBody.contains(".onChange(of: editorText)"))
+        #expect(!noteBody.contains("flushEditorIfNeeded(pageId:"))
+        #expect(!noteBody.contains("debouncedEditorSave(pageId:"))
+        #expect(!inspector.contains("NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: editorText)"))
+        #expect(!inspector.contains("vaultSync.savePageBodyFileFirst(pageId: pageId, body: editorText)"))
+        #expect(!inspector.contains("vaultSync.savePageBodyFileFirst(pageId: pageId, body: text)"))
         #expect(!noteBody.contains(".frame(minHeight: inspectorState.inspectorMode == .editor ? 500 : 300)"))
     }
 

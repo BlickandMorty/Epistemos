@@ -20,6 +20,7 @@ export interface CaretRectEmitterOptions {
 }
 
 const CARET_RECT_KEY = new PluginKey('epdocCaretRect');
+const MAX_SELECTION_TEXT_CHARACTERS = 4000;
 
 export const CaretRectEmitter = Extension.create<CaretRectEmitterOptions>({
   name: 'epdocCaretRectEmitter',
@@ -64,7 +65,8 @@ export const CaretRectEmitter = Extension.create<CaretRectEmitterOptions>({
     function emit(view: EditorView): void {
       const { from, to, empty } = view.state.selection;
       const marks = activeMarks(view.state);
-      const selectionKey = `${from}:${to}:${empty}`;
+      const selectedText = selectedTextForContext(view.state);
+      const selectionKey = `${from}:${to}:${empty}:${selectedText}`;
       const key = `${selectionKey}:${activeMarksKey(marks)}`;
       if (key === lastEmittedKey) return;
       lastEmittedKey = key;
@@ -80,11 +82,24 @@ export const CaretRectEmitter = Extension.create<CaretRectEmitterOptions>({
         Math.abs(end.left - start.left) + 2,    // 2 px caret width fudge
         Math.max(end.bottom - start.top, 16),   // line-height floor
       );
-      const selection: SelectionPayload = { from, to, empty };
+      const selection: SelectionPayload = selectedText.length > 0
+        ? { from, to, empty, text: selectedText }
+        : { from, to, empty };
       onChange!(rect, selection, marks);
     }
   },
 });
+
+function selectedTextForContext(state: EditorState): string {
+  const { from, to, empty } = state.selection;
+  if (empty || from >= to) return '';
+  const boundedTo = Math.min(to, from + MAX_SELECTION_TEXT_CHARACTERS + 256);
+  const text = state.doc
+    .textBetween(from, boundedTo, '\n', '\n')
+    .trim();
+  if (text.length <= MAX_SELECTION_TEXT_CHARACTERS) return text;
+  return `${text.slice(0, MAX_SELECTION_TEXT_CHARACTERS)}...`;
+}
 
 function activeMarks(state: EditorState): ActiveMarksPayload {
   return {

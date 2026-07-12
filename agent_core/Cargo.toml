@@ -10,15 +10,11 @@ publish = false
 # Per `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` §3.1.
 default = ["mas-build"]
 mas-build = ["edgeparse-pdf", "parser-unpdf"]
-# Pro/Developer-ID build. PART OF THE PLAN, NOT ON THE CRITICAL PATH.
-# Activate with: `cargo build --no-default-features --features pro-build`.
-# Pro-only surfaces (cli_passthrough, native shell/Docker/Python/Node
-# subprocess, external user-installed MCP servers, iMessage osascript,
-# /run, /shell, /kill, /execute) are gated behind `cfg(feature =
-# "pro-build")` — invisible to MAS compilation but trivial to flip on.
+# Retired non-MAS compatibility marker. It is not an app target, product build,
+# CI route, or release path; the only supported product configuration is
+# `mas-build`.
 pro-build = []
-# Pro-only channel relay command-line tools. Kept separate from `pro-build`
-# so the app bridge build does not link standalone worker/server binaries.
+# Retired channel-relay marker; no product build enables it.
 channel-relay-tools = []
 # T14 / T15 research surfaces (Sherry 1.25-bit ternary, ANE direct).
 # Independent of pro-build so research can compose with MAS or Pro.

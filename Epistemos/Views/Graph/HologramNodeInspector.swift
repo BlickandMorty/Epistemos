@@ -2,6 +2,16 @@ import SwiftUI
 import SwiftData
 import NaturalLanguage
 
+private enum HologramInspectorPreviewPolicy {
+    static let maxBodyCharacters = 24_000
+    static let loadPriority: TaskPriority = .utility
+
+    static func boundedBody(_ body: String) -> String {
+        guard body.count > maxBodyCharacters else { return body }
+        return String(body.prefix(maxBodyCharacters))
+    }
+}
+
 // MARK: - HologramNodeInspector
 // Right-side floating panel: node details and AI summary.
 // True accordion layout — one section expanded at a time.
@@ -18,8 +28,8 @@ struct HologramNodeInspector: View {
     enum Section: CaseIterable { case profile, summary, relationships }
     @State private var expandedSection: Section = .profile
     @State private var editorText = ""
-    @State private var lastPersistedBody = ""
-    @State private var editorSaveTask: Task<Void, Never>?
+    @State private var editorPreviewFilePath: String?
+    @State private var editorPreviewTask: Task<Void, Never>?
     @State private var panelIsRevealed = true
     @State private var panelDismissTask: Task<Void, Never>?
 
@@ -48,9 +58,13 @@ struct HologramNodeInspector: View {
             syncSelection(from: newId)
             restartPanelReveal()
         }
+        .onChange(of: graphState.currentRoute) { _, route in
+            guard !route.isCanvas else { return }
+            cancelEditorPreview()
+        }
         .onDisappear {
-            panelDismissTask?.cancel()
-            panelDismissTask = nil
+            cancelPanelTasks()
+            cancelEditorPreview()
         }
     }
 
@@ -166,6 +180,18 @@ struct HologramNodeInspector: View {
             guard !Task.isCancelled else { return }
             graphState.selectNode(nil)
         }
+    }
+
+    private func cancelPanelTasks() {
+        panelDismissTask?.cancel()
+        panelDismissTask = nil
+    }
+
+    private func cancelEditorPreview() {
+        editorPreviewTask?.cancel()
+        editorPreviewTask = nil
+        editorText = ""
+        editorPreviewFilePath = nil
     }
 
     private struct CompactEdgeStats {
@@ -414,7 +440,7 @@ struct HologramNodeInspector: View {
 
     private func noteEditorBody(pageId: String) -> some View {
         return VStack(spacing: 0) {
-            if let lang = detectedCodeLanguage(pageId: pageId) {
+            if let lang = detectedCodeLanguage(filePath: editorPreviewFilePath) {
                 CodeInspectorPreview(content: editorText, language: lang, theme: theme)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             } else {
@@ -431,147 +457,82 @@ struct HologramNodeInspector: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
-            Task { @MainActor in
-                let body = currentBody(for: pageId)
-                editorText = body
-                lastPersistedBody = body
-            }
+            loadEditorPreview(pageId: pageId)
         }
-        .onChange(of: pageId) { oldId, newId in
-            Task { @MainActor in
-                // Flush old note BEFORE loading new one — prevents data loss
-                flushEditorIfNeeded(pageId: oldId)
-                let body = currentBody(for: newId)
-                editorText = body
-                lastPersistedBody = body
-            }
-        }
-        .onChange(of: editorText) {
-            guard editorText != lastPersistedBody else { return }
-            debouncedEditorSave(pageId: pageId, text: editorText)
-        }
-        .onDisappear {
-            flushEditorIfNeeded(pageId: pageId)
+        .onChange(of: pageId) { _, newId in
+            loadEditorPreview(pageId: newId)
         }
     }
 
-    private func currentBody(for pageId: String) -> String {
-        NoteWindowManager.shared.currentBody(for: pageId)
+    private func loadEditorPreview(pageId: String) {
+        editorPreviewTask?.cancel()
+        guard graphState.currentRoute.isCanvas else {
+            cancelEditorPreview()
+            return
+        }
+        editorPreviewTask = Task(priority: HologramInspectorPreviewPolicy.loadPriority) { @MainActor in
+            await Task.yield()
+            guard !Task.isCancelled,
+                  graphState.currentRoute.isCanvas else {
+                return
+            }
+            let loaded = await loadEditorPreviewSnapshot(pageId: pageId)
+            guard !Task.isCancelled,
+                  graphState.currentRoute.isCanvas else {
+                return
+            }
+            editorPreviewFilePath = loaded.filePath
+            editorText = loaded.body
+        }
     }
 
-    private func pageFilePath(for pageId: String) -> String? {
+    private struct EditorPreviewSnapshot: Sendable {
+        let filePath: String?
+        let body: String
+    }
+
+    private func loadEditorPreviewSnapshot(pageId: String) async -> EditorPreviewSnapshot {
         let predicate = #Predicate<SDPage> { $0.id == pageId }
         var desc = FetchDescriptor(predicate: predicate)
         desc.fetchLimit = 1
 
         do {
-            return try modelContext.fetch(desc).first?.filePath
+            guard let page = try modelContext.fetch(desc).first else {
+                return EditorPreviewSnapshot(filePath: nil, body: "")
+            }
+            let filePath = page.filePath
+            if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
+                return EditorPreviewSnapshot(
+                    filePath: filePath,
+                    body: HologramInspectorPreviewPolicy.boundedBody(liveBody)
+                )
+            }
+            let inlineBody = page.body
+            let body = await Task.detached(priority: HologramInspectorPreviewPolicy.loadPriority) {
+                await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: pageId,
+                    filePath: filePath,
+                    inlineBody: inlineBody,
+                    mapped: false,
+                    fast: true
+                )
+            }.value
+            return EditorPreviewSnapshot(
+                filePath: filePath,
+                body: HologramInspectorPreviewPolicy.boundedBody(body)
+            )
         } catch {
             Log.notes.error(
                 "HologramNodeInspector: failed to fetch page metadata for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
-            return nil
+            return EditorPreviewSnapshot(filePath: nil, body: "")
         }
     }
 
     /// Detect code language for a page by looking up its file path.
-    private func detectedCodeLanguage(pageId: String) -> String? {
-        guard let path = pageFilePath(for: pageId) else { return nil }
+    private func detectedCodeLanguage(filePath: String?) -> String? {
+        guard let path = filePath else { return nil }
         return CodeLanguage.detect(from: path)
-    }
-    
-    /// Checks if the page is a code file (not .txt or .md)
-    private func isCodeFile(pageId: String) -> Bool {
-        guard let path = pageFilePath(for: pageId) else { return false }
-        
-        let ext = (path as NSString).pathExtension.lowercased()
-        // Code files are those that CodeLanguage detects AND are not .txt or .md
-        if ext == "txt" || ext == "md" || ext == "markdown" {
-            return false
-        }
-        return CodeLanguage.detect(from: path) != nil
-    }
-
-    // MARK: - Editor Save Pipeline
-    // Mirrors ProseEditorView: file write → dirty flag → modelContext.save().
-
-    private func flushEditorIfNeeded(pageId: String) {
-        editorSaveTask?.cancel()
-        editorSaveTask = nil
-        guard lastPersistedBody != editorText else { return }
-        _ = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: editorText)
-        lastPersistedBody = editorText
-        Task { @MainActor in
-            _ = await AppBootstrap.shared?.vaultSync.savePageBodyFileFirst(pageId: pageId, body: editorText)
-        }
-        NoteFileStorage.notifyBodyChanged(pageId: pageId)
-    }
-
-    private func debouncedEditorSave(pageId: String, text: String) {
-        editorSaveTask?.cancel()
-        editorSaveTask = Task { @MainActor in
-            do {
-                try await Task.sleep(for: .seconds(1))
-            } catch is CancellationError {
-                return
-            } catch {
-                Log.notes.error(
-                    "HologramNodeInspector: editor debounce failed for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-                return
-            }
-            guard !Task.isCancelled else { return }
-            guard text != lastPersistedBody else { return }
-            guard await AppBootstrap.shared?.vaultSync.savePageBodyFileFirst(pageId: pageId, body: text) == true else {
-                Log.notes.error(
-                    "HologramNodeInspector: failed to persist body for \(String(pageId.prefix(8)), privacy: .public)"
-                )
-                return
-            }
-            lastPersistedBody = text
-            NoteFileStorage.notifyBodyChanged(pageId: pageId)
-        }
-    }
-
-    private func markPageDirty(pageId: String, body: String) {
-        let desc = FetchDescriptor<SDPage>(
-            predicate: #Predicate<SDPage> { $0.id == pageId }
-        )
-        let page: SDPage
-        do {
-            guard let fetchedPage = try modelContext.fetch(desc).first else {
-                Log.notes.warning(
-                    "HologramNodeInspector: no page found while marking dirty for \(String(pageId.prefix(8)), privacy: .public)"
-                )
-                return
-            }
-            page = fetchedPage
-        } catch {
-            Log.notes.error(
-                "HologramNodeInspector: failed to fetch page \(String(pageId.prefix(8)), privacy: .public) for dirty mark: \(error.localizedDescription, privacy: .public)"
-            )
-            return
-        }
-
-        page.applyInteractiveDerivedState(from: body)
-        page.needsVaultSync = true
-        do {
-            try modelContext.save()
-            if let modelContainer = AppBootstrap.shared?.modelContainer {
-                Task {
-                    await BlockMirrorSyncCoordinator.shared.scheduleSync(
-                        pageId: pageId,
-                        body: body,
-                        modelContainer: modelContainer
-                    )
-                }
-            }
-            AppBootstrap.shared?.graphState.needsRefresh = true
-        } catch {
-            Log.notes.error(
-                "HologramNodeInspector: failed to save dirty page \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-        }
     }
 
     @ViewBuilder

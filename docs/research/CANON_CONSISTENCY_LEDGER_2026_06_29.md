@@ -1,12 +1,21 @@
 # CANON CONSISTENCY LEDGER (the "check doc") — 2026-06-29
 
-> 🔴 **SUPERSEDED-IN-FRAME 2026-07-02 (OpenChamber pivot).** This ledger's consistency checks assume the pre-pivot world (Goose-as-surface reskin / Option 1 / Goose-only). The agent surface is now OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Use this doc's METHOD (consistency-check discipline) but re-anchor every "Goose surface / reskin / Option 1" assertion to current canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`. The live plan/prompt reconciliation superseding this ledger was done 2026-07-02 (see the PROMPT_PLAN_* override headers + `docs/_archive/pre-openchamber-2026-07-02/`).
+> 🔴 **ARCHIVED / METHOD ONLY (refreshed 2026-07-06).** This ledger's checks assume older
+> Goose/OpenChamber-era canon and must not be used as authority. Use the consistency-check method
+> only, and re-anchor every assertion to current docs:
+> `docs/plans/HANDOFF_CODEX_2026_07_06.md`,
+> `docs/prompts/MASTER_PLAN_INDEX_2026_07_03.md`, and the active plan directories. Current anchors:
+> two surfaces only (MAS/June + Experimental/1Code); OpenChamber/ProAgent names are legacy excision
+> targets under KEELSTONE; RECKONER has no standalone Data room and no new/docked chat; builders use
+> autonomous defaults and do not wait for owner in-app verification.
 
 > **THE single doc to open to confirm the canon is still consistent during implementation.** The Auditor agent
 > (`docs/prompts/PROMPT_AUDITOR_LOOP.md`, cron) re-runs every check below each cycle, updates the STATUS column,
 > reconciles confident drift (adds a SUPERSEDED banner / inline `[DELETED]` marker — NEVER deletes a doc, NEVER
-> touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
-> the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
+> touches code or another agent's uncommitted work), and records ambiguity with current-canon
+> defaults. Owner review is reserved for destructive, irreversible, or scope-changing choices.
+> Owner: scan the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught
+> (read its note).
 >
 > ✅ **OWNER OVERRIDE 2026-06-30 — PLAN-1 CANON UPDATE:** Goose now has **NO native Models picker and NO native
 > route router**. Invariant #3 below is historical/stale until the auditor rewrites this ledger; the active Plan 1

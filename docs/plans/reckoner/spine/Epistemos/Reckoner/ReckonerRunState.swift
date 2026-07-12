@@ -1,18 +1,11 @@
 // ═══ AUDIT AMENDMENT (2026-07-06, 5-auditor repo+npm juxtaposition — BINDING; overrides body where they conflict) ═══
-// Gating CORRECT (#if KINDRED_ENABLED; states are a strict subset of KINDRED RunState ✓). ONE FIX:
-// the emit() TODO targets "agent_core presence publish" — KINDRED's BINDING amendment moved the v1
-// presence hub to SWIFT (CompanionState.swift; /host ws + native producers). Emit to the Swift hub.
-// SEAM RENEGOTIATION REQUIRED (Card 2 update): KINDRED's CompanionPresence has no Data-tab Surface
-// variant, no datasetId in Location, no live `detail` field — "mascot pins to the Data tab
-// streaming 'cleaning column C'" needs those three additions on the KINDRED side (K-AMEND 11).
+// MAS-ONLY PIVOT (2026-07-07): Kindred presence is parked. Do not activate this path for MAS.
+// Active proof is zero Kindred/presence symbols in `Epistemos-AppStore`; any visible status must
+// derive from real June/agent_core state through MAS-safe UI.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // ID: EPI-RP-09-RECKONER · Codename: RECKONER
-// F3 presence: RECKONER emits run-state so the companion pins to the Data tab
-// ("cleaning column C"). 1CODE-ONLY — compiled out on MAS via the locked
-// KINDRED_ENABLED trait; June invokes identical tools with no presence.
-// (Dependencies / hand-off seam: the presence bus, run-state enum, clock rules,
-// and mascot binding are owned by EPI-RP-05-KINDRED; RECKONER publishes onto
-// that bus and NEVER invents a parallel channel.)
+// F3 parked presence reference: prior Reckoner-to-Kindred run-state is historical.
+// June invokes identical tools with no companion presence.
 
 import Foundation
 

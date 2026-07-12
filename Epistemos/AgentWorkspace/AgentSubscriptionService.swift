@@ -1,3 +1,4 @@
+#if EPISTEMOS_LEGACY_RECEIPT_PROXY
 import Foundation
 import Observation
 import OSLog
@@ -147,3 +148,4 @@ final class AgentSubscriptionService {
         }
     }
 }
+#endif // EPISTEMOS_LEGACY_RECEIPT_PROXY — parked; no MAS cloud subscription product is active

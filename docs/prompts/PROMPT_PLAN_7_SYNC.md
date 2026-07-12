@@ -1,6 +1,18 @@
 # PLAN 7 — Multi-device Sync + recurring Quality Gate build prompt (SAVED — paste later)
 
-> 🟢 **CANON BREADCRUMB — 2026-07-02 (no drift found; this doc is CLEAN).** Verified free of goose-as-surface / Option-1 / reskin-Goose / Goose-only wording. For consistency only: the agent surface is now **OpenChamber (goose + OpenCode engines)** per memory `project_ui_base_pivot_openchamber_2026_07_02`; the recurring Quality Gate should ALSO cover the upstream-OpenChamber-merge → re-apply-overlay → smoke loop (vendored-fork update discipline). Otherwise nothing here needs changing.
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. Sync and quality
+> gates now target MAS only. iCloud/vault sync, App Store archive checks,
+> crash/data-loss gates, and recurring hardening are active; Pro git-sync,
+> Developer-ID, Experimental, and third-lane cleanup work are parked except as
+> leak/symbol/deletion evidence for the MAS archive.
+
+> 🔴 **OWNER OVERRIDE — 2026-07-06 (READ FIRST).** OpenChamber/ProAgent are deletion targets, not
+> retained product surfaces. The 2026-07-06 two-surface wording is superseded by the 2026-07-07
+> MAS-only lock: the active shipping surface is **MAS/June**. Any older OpenChamber/ProAgent or vendored-fork-update language in this
+> prompt is superseded: KEELSTONE must remove the branded surface, scripts, resources, tests, and
+> `project.yml` references after neutralizing shared runtime dependencies. Do not preserve
+> OpenChamber/ProAgent as a third lane.
 
 > 🎨 **OWNER DESIGN DIRECTIVE — 2026-06-30 (CURRENT CANON, identical in EVERY plan):** the look = **HIGH-QUALITY FLAT · MINIMAL · THEME-AWARE · OPTIMIZED.** KEEP the Apple-native **FRAME** — rounded-corner window, vibrancy, traffic-lights, the calibrated springs (the curved-white native window the owner likes STAYS). **SURFACES (panels · buttons · lists · inputs) are FLAT + BORDERLESS:** NO thick outlines, NO hard box borders, NO 1px rules — differentiate by a subtle background tint + spacing + a very soft shadow only. NOT the old thick-outline pixel-art look, and NOT translucent-glass on every surface. **TOTAL THEME-AWARENESS:** every surface (native + editor-web + Goose-web) reads the Epistemos tokens for ALL palettes incl. the user CUSTOM palette; no hardcoded color; two-token-sources in lock-step. Full doctrine: `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
 
@@ -34,7 +46,7 @@ BUILD ORDER:
     (1) Make `.md`-on-disk the sync source of truth via the iCloud ubiquity container; `.epcache/**` (derived indexes) is LOCAL-ONLY and MUST NOT sync. Reuse the existing syncFromVault() reconciler.
     (2) ALL container IO through NSFileCoordinator + a registered NSFilePresenter; temp-write + hard-link swap for atomicity; same-thread coordinate+access.
     (3) Honest conflict UI — surface NSFileVersion conflicts to the user (pick/merge), NEVER silent last-writer-wins (fits the no-fake doctrine). A "view both versions" affordance.
-    (4) Pro git-sync lane (optional, Pro/Dev-ID) — a parallel git-backed sync for Pro; honest-gated; MAS build = iCloud only.
+    (4) Parked git-sync lane — prior Pro/Dev-ID git-backed sync is provenance only while MAS-only is active; MAS build = iCloud/user-selected vault sync only.
   (B) RECURRING QUALITY GATE:
     (5) Wire the thermonuclear adversarial review/static-analysis as a RECURRING gate at multiple deliberate build checkpoints (not one-shot) — a scripted whole-codebase pass with honest findings (correctness/dead-code/honesty-violations/perf/contradictions), reported, gating "done" claims. (Partly satisfied: Plan 1/2/3 already reference the thermo skill — this makes it a multi-point CI-style checkpoint, not ad-hoc.)
 
@@ -45,7 +57,7 @@ HARD GATES / FORBIDDEN:
   × ANY file IO on the ubiquity container outside NSFileCoordinator (corruption/data-loss risk).
   × Silent last-writer-wins on a conflict — conflicts are surfaced + user-resolved, always.
   × Shipping sync without a tested rollback + a "local-only" escape (high blast radius — flag-gated, reversible).
-  × Subprocess on the MAS path (the Pro git lane is Pro/Dev-ID only); keys in UserDefaults (Keychain); editing .xcodeproj (xcodegen); committing model files; touching the graph.
+  × Subprocess on the MAS path; keys in UserDefaults (Keychain); editing .xcodeproj (xcodegen); committing model files; touching the graph.
   × Build-green ≠ done. PROVEN-DONE: a note edited on device A appears on device B via real iCloud, `.epcache` never syncs, a forced conflict surfaces an honest pick/merge UI with no data loss, witnessed live. Zero regressions.
 
 PARALLELISM / NO-COLLISION:

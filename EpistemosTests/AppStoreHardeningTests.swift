@@ -942,9 +942,60 @@ struct AppStoreHardeningTests {
             }
         }
 
+        let allowedInlineBodyAssignments: [String: Set<String>] = [
+            "Epistemos/App/AppBootstrap.swift": [
+                "page.body = \"\"",
+            ],
+            "Epistemos/Views/Notes/DiffSheetView.swift": [
+                "page.body = originalInlineBody",
+            ],
+            "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift": [
+                "page.body = body",
+            ],
+        ]
+        for url in productionSources {
+            let relativePath = Self.relativeMirroredSourcePath(for: url)
+            let source = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+            let allowedAssignments = allowedInlineBodyAssignments[relativePath] ?? []
+            for line in source.split(separator: "\n", omittingEmptySubsequences: false) {
+                let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+                guard trimmedLine.contains("page.body =") else { continue }
+                if !allowedAssignments.contains(trimmedLine) {
+                    violations.append("\(relativePath): \(trimmedLine)")
+                }
+            }
+        }
+
         #expect(
             violations.isEmpty,
-            "KEELSTONE Phase 4.5 retires durable note-bodies as truth; production code must route body persistence through VaultSyncService.savePageBodyFileFirst / AtomicVaultWriter and body reads through vault-file-first loaders. Violations: \(violations)"
+            "KEELSTONE Phase 4.5 retires durable note-bodies as truth; production code must route body persistence through VaultSyncService.savePageBodyFileFirst / AtomicVaultWriter, body reads through vault-file-first loaders, and inline SDPage.body writes only through explicit legacy/code-snapshot exceptions. Violations: \(violations)"
+        )
+
+        let workspace = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let persistedContent = Self.sourceSection(
+            in: workspace,
+            startingAt: "private struct SourceEditorPersistedContent",
+            endingBefore: "enum NoteEditorViewFinder"
+        )
+        #expect(
+            persistedContent?.contains("func applyMarkdownNoteState(to page: SDPage)") == true
+                && persistedContent?.contains("page.applyInteractiveDerivedState(from: body)") == true
+                && persistedContent?.contains("func applyCodeFileSnapshot(to page: SDPage)") == true,
+            "Source-editor persistence must split markdown note metadata/derived-state updates from non-note code-file body snapshots."
+        )
+        #expect(
+            persistedContent?.contains("func apply(to page: SDPage)") == false,
+            "The source-editor helper must not hide markdown note-body truth writes behind a generic apply(to:) method."
+        )
+        let markdownSourceSave = Self.sourceSection(
+            in: workspace,
+            startingAt: "private func persistMarkdownSourceEditorContent",
+            endingBefore: "    @discardableResult\n    private func saveMarkdownDocumentSurfaceContent"
+        )
+        #expect(
+            markdownSourceSave?.contains("persistedContent.applyMarkdownNoteState(to: page)") == true
+                && markdownSourceSave?.contains("persistedContent.apply(to: page)") == false,
+            "Markdown Source saves must keep SDPage metadata/derived state in sync without repopulating SDPage.body as body truth."
         )
 
         let vaultSync = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
@@ -956,9 +1007,19 @@ struct AppStoreHardeningTests {
         #expect(
             fileFirstSave?.contains("NoteFileStorage.stageBodyForImmediateRead") == true
                 && fileFirstSave?.contains("page.applyInteractiveDerivedState(from: stagedBody)") == true
-                && fileFirstSave?.contains("BlockMirror.sync(pageId: pageId, body: stagedBody") == true
+                && fileFirstSave?.contains("scheduleBlockMirrorSync(pageId: pageId, body: stagedBody)") == true
                 && fileFirstSave?.contains("exportPage(pageId: pageId, to: vaultURL, bodyOverride: stagedBody)") == true,
             "The in-app body save path must stage only for immediate reads, refresh derived metadata, and write the exact whole buffer to the vault .md."
+        )
+        #expect(
+            fileFirstSave?.contains("let predecessor = fileFirstSaveTails[pageId]") == true
+                && fileFirstSave?.contains("_ = await predecessor.value") == true
+                && fileFirstSave?.contains("performPageBodyFileFirstSave(pageId: pageId, body: body)") == true,
+            "Every file-first writer for one note must serialize the complete transaction before the next lens/caller begins."
+        )
+        #expect(
+            fileFirstSave?.contains("BlockMirror.sync(pageId: pageId, body: stagedBody") == false,
+            "The file-first body save path must offload derivative BlockMirror work instead of blocking interactive saves."
         )
         #expect(
             fileFirstSave?.contains("NoteFileStorage.writeBody") == false
@@ -990,7 +1051,7 @@ struct AppStoreHardeningTests {
         ) ?? project
         let epistemosTarget = Self.yamlTopLevelSection(
             in: targets,
-            marker: "  Epistemos:"
+            marker: "  Epistemos-LegacyDev:"
         )
         let appStoreTarget = Self.yamlTopLevelSection(
             in: targets,
@@ -998,12 +1059,12 @@ struct AppStoreHardeningTests {
         )
         let appTargetMarkers = targets.components(separatedBy: .newlines)
             .filter { line in
-                line == "  Epistemos:" || line == "  Epistemos-AppStore:"
+                line == "  Epistemos-LegacyDev:" || line == "  Epistemos-AppStore:"
             }
 
         #expect(
-            appTargetMarkers == ["  Epistemos:", "  Epistemos-AppStore:"],
-            "KEELSTONE requires exactly two app targets: Epistemos and Epistemos-AppStore."
+            appTargetMarkers == ["  Epistemos-LegacyDev:", "  Epistemos-AppStore:"],
+            "KEELSTONE requires exactly two app targets: Epistemos-LegacyDev and Epistemos-AppStore."
         )
         #expect(
             baseSettings?.contains("EPISTEMOS_EXPERIMENTAL") == false
@@ -1015,14 +1076,22 @@ struct AppStoreHardeningTests {
             epistemosTarget?.contains("EPISTEMOS_EXPERIMENTAL") == true
                 && epistemosTarget?.contains("KINDRED_ENABLED") == true
                 && epistemosTarget?.contains("EPISTEMOS_APP_STORE") == false,
-            "The Epistemos target must define only the Experimental surface plus KINDRED_ENABLED."
+            "The Epistemos-LegacyDev target must define only the Experimental surface plus KINDRED_ENABLED."
         )
         #expect(
             appStoreTarget?.contains("EPISTEMOS_APP_STORE") == true
                 && appStoreTarget?.contains("MAS_SANDBOX") == true
+                && appStoreTarget?.contains("ENABLE_APP_SANDBOX: true") == true
                 && appStoreTarget?.contains("EPISTEMOS_EXPERIMENTAL") == false
                 && appStoreTarget?.contains("KINDRED_ENABLED") == false,
-            "The App Store target must define only the MAS surface and must not inherit KINDRED_ENABLED."
+            "The App Store target must define only the MAS surface, enable the Xcode App Sandbox setting, and must not inherit KINDRED_ENABLED."
+        )
+        #expect(
+            appStoreTarget?.contains("-L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust") == true
+                && appStoreTarget?.contains("MAS_SANDBOX=1 bash") == true
+                && appStoreTarget?.contains(#"MAS_SANDBOX=1 bash \"${SRCROOT}/build-epistemos-core.sh\""#) == true
+                && appStoreTarget?.contains("build-agent-core.sh") == true,
+            "The App Store target must link the App Store agent_core dylib from an isolated output path; the direct lane writes build-rust/libagent_core.dylib concurrently."
         )
     }
 
@@ -1042,6 +1111,103 @@ struct AppStoreHardeningTests {
         )
         let legacySurfaceFlag = "PRO" + "_BUILD"
         #expect(!surface.contains(legacySurfaceFlag), "Surface selection must not use a legacy surface flag.")
+    }
+
+    @Test("KEELSTONE removed surface residues stay out of production and build wiring")
+    func keelstoneRetiredSurfaceResiduesStayRemoved() throws {
+        let forbidden = [
+            "Open" + "Chamber",
+            "open" + "chamber",
+            "Pro" + "Agent",
+            "PRO" + "_BUILD",
+            "pro" + "-agent",
+        ]
+        var files = try mirroredSourceFileURLs(under: "Epistemos", includingExtensions: ["swift"])
+        files += try mirroredSourceFileURLs(under: "scripts", includingExtensions: ["sh"])
+
+        let root = try sourceMirrorURL(for: ".")
+        let rootScripts = (try? FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: nil
+        )) ?? []
+        files += rootScripts.filter { url in
+            url.lastPathComponent.hasPrefix("build-") && url.pathExtension == "sh"
+        }
+
+        let explicitConfigPaths = [
+            "project.yml",
+            ".github/workflows/ci.yml",
+        ]
+        for path in explicitConfigPaths {
+            if let url = try? sourceMirrorURL(for: path),
+               FileManager.default.fileExists(atPath: url.path) {
+                files.append(url)
+            }
+        }
+
+        let uniqueFiles = Dictionary(grouping: files, by: { $0.standardizedFileURL.path })
+            .compactMap { $0.value.first }
+            .sorted { $0.path < $1.path }
+        var violations: [String] = []
+        for url in uniqueFiles {
+            let text = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+            for term in forbidden where text.contains(term) {
+                violations.append("\(Self.relativeMirroredSourcePath(for: url)): \(term)")
+            }
+        }
+
+        #expect(
+            violations.isEmpty,
+            "KEELSTONE Phase 0 requires zero retired surface residue in production/build wiring: \(violations.joined(separator: ", "))"
+        )
+    }
+
+    @Test("KEELSTONE agent-surface child ledger uses a neutral filename")
+    func keelstoneAgentSurfaceChildLedgerUsesNeutralFilename() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/AgentSurface/AgentSurfaceChildLedger.swift")
+        let legacyLedgerName = "pro" + "-agent-children.json"
+
+        #expect(source.contains("\"agent-surface-children.json\""))
+        #expect(!source.contains(legacyLedgerName))
+        #if !EPISTEMOS_APP_STORE
+        let appSupport = URL(fileURLWithPath: "/tmp/EpistemosLedgerTest", isDirectory: true)
+        #expect(
+            AgentSurfaceChildLedger.ledgerURL(appSupport: appSupport)?.lastPathComponent == "agent-surface-children.json",
+            "The neutral agent-surface child ledger must not keep the retired branded filename."
+        )
+        #endif
+    }
+
+    @Test("KEELSTONE agent-surface child ledger sweeps legacy records without keeping the legacy filename")
+    func keelstoneAgentSurfaceChildLedgerSweepsLegacyRecords() async throws {
+        #if !EPISTEMOS_APP_STORE
+        let appSupport = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EpistemosLedgerLegacy-\(UUID().uuidString)", isDirectory: true)
+        let ledgerDirectory = appSupport.appendingPathComponent("Epistemos", isDirectory: true)
+        try FileManager.default.createDirectory(at: ledgerDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: appSupport) }
+
+        let legacyLedgerName = "pro" + "-agent-children.json"
+        let legacyURL = ledgerDirectory.appendingPathComponent(legacyLedgerName)
+        let staleRecord = AgentSurfaceChildRecord(
+            pid: Int32.max,
+            startTimeSec: 1,
+            startTimeUsec: 2,
+            name: "legacy-backend"
+        )
+        let data = try JSONEncoder().encode([staleRecord])
+        try data.write(to: legacyURL, options: .atomic)
+
+        await AgentSurfaceChildLedger.sweepStaleChildren(
+            graceNanoseconds: 1,
+            appSupport: appSupport
+        )
+
+        #expect(!FileManager.default.fileExists(atPath: legacyURL.path))
+        let neutralURL = try #require(AgentSurfaceChildLedger.ledgerURL(appSupport: appSupport))
+        #expect(neutralURL.lastPathComponent == "agent-surface-children.json")
+        #expect(FileManager.default.fileExists(atPath: neutralURL.path))
+        #endif
     }
 
     @Test("KEELSTONE artifact routing keeps dataset files out of the note index")
@@ -1358,6 +1524,7 @@ struct AppStoreHardeningTests {
         "com.apple.security.cs.allow-unsigned-executable-memory",
         "com.apple.security.cs.disable-library-validation",
         "com.apple.security.automation.apple-events",
+        "com.apple.security.network.server",
         "com.apple.security.temporary-exception.mach-lookup.global-name",
         "com.apple.security.files.all",
         // document-scope bookmarks are Pro-only per the deployment
@@ -1428,6 +1595,14 @@ struct AppStoreHardeningTests {
         #expect(plist["ITSAppUsesNonExemptEncryption"] != nil, message)
     }
 
+    @Test("MAS Info.plist declares the Mac App Store application category")
+    func masInfoPlistDeclaresAppStoreCategory() throws {
+        let plist = try loadInfoPlist(named: "Epistemos-AppStore-Info.plist")
+        let value = plist["LSApplicationCategoryType"] as? String
+        let message: Comment = "MAS Info.plist is missing LSApplicationCategoryType=public.app-category.productivity. Xcode archives warn without it, and Mac App Store validation requires an application category."
+        #expect(value == "public.app-category.productivity", message)
+    }
+
     @Test("MAS Info.plist keeps required usage-description strings non-empty")
     func masInfoPlistKeepsUsageDescriptionsNonEmpty() throws {
         let plist = try loadInfoPlist(named: "Epistemos-AppStore-Info.plist")
@@ -1470,7 +1645,8 @@ struct AppStoreHardeningTests {
     // baseline these tests guard:
     //   NSPrivacyTracking          = false
     //   NSPrivacyTrackingDomains   = []
-    //   NSPrivacyCollectedDataTypes = []
+    //   NSPrivacyCollectedDataTypes = Other User Content + User ID for the
+    //                                  optional consent-gated cloud lane
     //   NSPrivacyAccessedAPITypes  = 4 required-reason categories
     //
     // The Settings -> Privacy transparency pane added in slice S.6 shows
@@ -1505,12 +1681,28 @@ struct AppStoreHardeningTests {
         #expect(domains.isEmpty, domainsMessage)
     }
 
-    @Test("PrivacyInfo.xcprivacy declares no NSPrivacyCollectedDataTypes")
-    func privacyManifestCollectsNoData() throws {
+    @Test("PrivacyInfo.xcprivacy declares consent-gated June cloud data without tracking")
+    func privacyManifestDeclaresJuneCloudDataWithoutTracking() throws {
         let manifest = try loadPrivacyManifest()
-        let collected = manifest["NSPrivacyCollectedDataTypes"] as? [Any] ?? []
-        let message: Comment = "PrivacyInfo.xcprivacy NSPrivacyCollectedDataTypes must be empty. Adding a collected-data category is a substantive privacy posture change that needs an explicit user-facing disclosure (Settings -> Privacy pane), an App Store Connect questionnaire update, and a privacy policy URL update."
-        #expect(collected.isEmpty, message)
+        let collected = manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? []
+        let byType = Dictionary(uniqueKeysWithValues: collected.compactMap { entry in
+            (entry["NSPrivacyCollectedDataType"] as? String).map { ($0, entry) }
+        })
+        let expectedTypes: Set<String> = [
+            "NSPrivacyCollectedDataTypeOtherUserContent",
+            "NSPrivacyCollectedDataTypeUserID",
+        ]
+
+        #expect(Set(byType.keys) == expectedTypes)
+        for type in expectedTypes {
+            let entry = try #require(byType[type])
+            #expect((entry["NSPrivacyCollectedDataTypeLinked"] as? Bool) == true)
+            #expect((entry["NSPrivacyCollectedDataTypeTracking"] as? Bool) == false)
+            #expect(
+                (entry["NSPrivacyCollectedDataTypePurposes"] as? [String])
+                    == ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]
+            )
+        }
     }
 
     @Test("PrivacyInfo.xcprivacy declares the four expected NSPrivacyAccessedAPITypes with their reason codes")
@@ -1525,25 +1717,83 @@ struct AppStoreHardeningTests {
         }
 
         // The four required-reason API categories the audit doc section 3 records,
-        // each with the exact Apple reason code we ship today. Adding a
+        // each with the exact Apple reason codes we ship today. Adding a
         // fifth category requires updating PHASE_S_AUDIT.md section 3, this test,
         // and the user-facing Privacy pane together.
-        let expected: [(category: String, reason: String)] = [
-            ("NSPrivacyAccessedAPICategoryFileTimestamp", "C617.1"),
-            ("NSPrivacyAccessedAPICategorySystemBootTime", "35F9.1"),
-            ("NSPrivacyAccessedAPICategoryDiskSpace", "E174.1"),
-            ("NSPrivacyAccessedAPICategoryUserDefaults", "CA92.1"),
+        let expected: [(category: String, reasons: [String])] = [
+            ("NSPrivacyAccessedAPICategoryFileTimestamp", ["C617.1", "3B52.1"]),
+            ("NSPrivacyAccessedAPICategorySystemBootTime", ["35F9.1"]),
+            ("NSPrivacyAccessedAPICategoryDiskSpace", ["E174.1"]),
+            ("NSPrivacyAccessedAPICategoryUserDefaults", ["CA92.1"]),
         ]
 
         let countMessage: Comment = "PrivacyInfo.xcprivacy NSPrivacyAccessedAPITypes must have exactly \(expected.count) entries. Found \(accessedAPITypes.count). Add or remove a required-reason API together with PHASE_S_AUDIT.md section 3 and the Privacy pane."
         #expect(accessedAPITypes.count == expected.count, countMessage)
 
-        for (category, reason) in expected {
+        for (category, reasons) in expected {
             let categoryMessage: Comment = "PrivacyInfo.xcprivacy is missing required-reason API category '\(category)'. The audit baseline declares it; restore the entry or update PHASE_S_AUDIT.md section 3."
             #expect(observed[category] != nil, categoryMessage)
-            let reasonMessage: Comment = "PrivacyInfo.xcprivacy category '\(category)' must list reason '\(reason)' (single-element array). Found \(observed[category] ?? [])."
-            #expect(observed[category] == [reason], reasonMessage)
+            let reasonMessage: Comment = "PrivacyInfo.xcprivacy category '\(category)' must list reasons \(reasons). Found \(observed[category] ?? [])."
+            #expect(observed[category] == reasons, reasonMessage)
         }
+    }
+
+    @Test("PrivacyInfo.xcprivacy required-reason categories match source witnesses")
+    func privacyManifestRequiredReasonCategoriesMatchSourceWitnesses() throws {
+        let manifest = try loadPrivacyManifest()
+        let accessedAPITypes = manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]] ?? []
+        let observedCategories = Set(accessedAPITypes.compactMap { $0["NSPrivacyAccessedAPIType"] as? String })
+        let vaultIndexActor = try loadMirroredSourceTextFile("Epistemos/Sync/VaultIndexActor.swift")
+        let vaultChatMutator = try loadMirroredSourceTextFile("Epistemos/Vault/VaultChatMutator.swift")
+        let activityTracker = try loadMirroredSourceTextFile("Epistemos/State/ActivityTracker.swift")
+        let modelDownloadManager = try loadMirroredSourceTextFile("Epistemos/QuickChat/QuickChatModelDownloadManager.swift")
+        let appConfig = try loadMirroredSourceTextFile("Epistemos/State/EpistemosConfig.swift")
+
+        #expect(
+            observedCategories.contains("NSPrivacyAccessedAPICategoryFileTimestamp")
+                && vaultIndexActor.contains(".contentModificationDateKey")
+                && vaultChatMutator.contains("fstat("),
+            "File timestamp APIs are present in production source and must stay declared in PrivacyInfo.xcprivacy."
+        )
+        #expect(
+            observedCategories.contains("NSPrivacyAccessedAPICategorySystemBootTime")
+                && activityTracker.contains("ProcessInfo.processInfo.systemUptime"),
+            "System boot time APIs are present in production source and must stay declared in PrivacyInfo.xcprivacy."
+        )
+        #expect(
+            observedCategories.contains("NSPrivacyAccessedAPICategoryDiskSpace")
+                && modelDownloadManager.contains(".volumeAvailableCapacityForImportantUsageKey"),
+            "Disk space APIs are present in production source and must stay declared in PrivacyInfo.xcprivacy."
+        )
+        #expect(
+            observedCategories.contains("NSPrivacyAccessedAPICategoryUserDefaults")
+                && appConfig.contains("@AppStorage")
+                && appConfig.contains("UserDefaults"),
+            "UserDefaults APIs are present in production source and must stay declared in PrivacyInfo.xcprivacy."
+        )
+
+        let activeKeyboardMarkers = [
+            "UITextInputMode.activeInputModes",
+            "activeInputModes",
+            "CGEventSource.keyState",
+            "GetKeys(",
+        ]
+        var activeKeyboardHits: [String] = []
+        for url in try mirroredSourceFileURLs(under: "Epistemos", includingExtensions: ["swift"]) {
+            let path = Self.relativeMirroredSourcePath(for: url)
+            let source = try String(contentsOf: url, encoding: .utf8)
+            if activeKeyboardMarkers.contains(where: source.contains) {
+                activeKeyboardHits.append(path)
+            }
+        }
+        #expect(
+            activeKeyboardHits.isEmpty,
+            "Active-keyboard required-reason APIs require adding NSPrivacyAccessedAPICategoryActiveKeyboards to PrivacyInfo.xcprivacy. Hits: \(activeKeyboardHits)"
+        )
+        #expect(
+            !observedCategories.contains("NSPrivacyAccessedAPICategoryActiveKeyboards"),
+            "PrivacyInfo.xcprivacy should not declare active-keyboard APIs unless production source starts using them."
+        )
     }
 
     // MARK: - App Store release-gate script regressions (Drop 12/13)
@@ -1568,6 +1818,11 @@ struct AppStoreHardeningTests {
             source.contains("target=${1:-appstore}") || source.contains("target=\"${1:-appstore}\""),
             "App Review audit should make the audited target explicit, defaulting to appstore."
         )
+        #expect(source.contains("function condition_value(expr"))
+        #expect(source.contains(#"compact == "EPISTEMOS_APP_STORE||MAS_SANDBOX""#))
+        #expect(source.contains(#"compact == "EPISTEMOS_EXPERIMENTAL&&!(EPISTEMOS_APP_STORE||MAS_SANDBOX)""#))
+        #expect(source.contains("unknown_chain[depth]"))
+        #expect(source.contains("trimmed ~ /^#elseif[ \\t]+/"))
     }
 
     @Test("App Store artifact scan inspects final bundle strings symbols executables and resources")
@@ -1607,20 +1862,256 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("Harness subprocess evaluation lab is compile-parked in MAS source")
+    func harnessSubprocessEvaluationLabIsCompileParkedInMASSource() throws {
+        let parkedHarnessFiles = [
+            "Epistemos/Harness/CompletionChecker.swift",
+            "Epistemos/Harness/EvalSandbox.swift",
+            "Epistemos/Harness/HarnessIntegration.swift",
+            "Epistemos/Harness/HarnessRegistry.swift",
+            "Epistemos/Harness/HarnessLab.swift",
+        ]
+
+        for path in parkedHarnessFiles {
+            let source = try loadMirroredSourceTextFile(path)
+            let lastLine = source
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .split(separator: "\n")
+                .last
+                .map(String.init)
+            #expect(
+                source.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n"),
+                "\(path) must compile-park the developer harness out of both App Store flags before imports or subprocess code."
+            )
+            #expect(
+                lastLine == "#endif",
+                "\(path) must close the combined MAS exclusion guard at EOF."
+            )
+        }
+
+        let completionChecker = try loadMirroredSourceTextFile("Epistemos/Harness/CompletionChecker.swift")
+        let evalSandbox = try loadMirroredSourceTextFile("Epistemos/Harness/EvalSandbox.swift")
+        let harnessLab = try loadMirroredSourceTextFile("Epistemos/Harness/HarnessLab.swift")
+        #expect(
+            completionChecker.contains("process.executableURL = URL(fileURLWithPath: \"/usr/bin/env\")"),
+            "Harness CompletionChecker subprocess marker should remain inside the combined MAS exclusion block."
+        )
+        #expect(
+            evalSandbox.contains("process.executableURL = URL(fileURLWithPath: \"/usr/bin/sandbox-exec\")")
+                && evalSandbox.contains("process.executableURL = URL(fileURLWithPath: \"/bin/sh\")"),
+            "Harness EvalSandbox shell/sandbox-exec markers should remain inside the combined MAS exclusion block."
+        )
+        #expect(
+            harnessLab.contains("private nonisolated func runAgentSubprocess")
+                && harnessLab.contains("let output = await runAgentSubprocess(promptFile: promptFile)"),
+            "Harness proposer subprocess markers should remain inside the combined MAS exclusion block."
+        )
+    }
+
+    @Test("Harness bootstrap runtime discovery is inert in MAS source")
+    func harnessBootstrapRuntimeDiscoveryIsInertInMASSource() throws {
+        let builder = try loadMirroredSourceTextFile("Epistemos/Harness/BootstrapPacketBuilder.swift")
+        let directBuildBranch = Self.sourceSection(
+            in: builder,
+            startingAt: "#else\n        let workDir",
+            endingBefore: "        #endif"
+        )
+        let directHelperBranch = Self.sourceSection(
+            in: builder,
+            startingAt: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n    /// Maximum entries",
+            endingBefore: "\n    private nonisolated static func currentThermalLevel"
+        )
+
+        #expect(
+            builder.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        return BootstrapPacket(")
+                && builder.contains("fileTreeSummary: \"  (local runtime discovery parked in the App Store build)\"")
+                && builder.contains("availableTools: []")
+                && builder.contains("activeCapability: \"readOnly\"")
+                && builder.contains("languageRuntimes: []")
+                && builder.contains("packageManagers: []")
+                && builder.contains("repoState: nil"),
+            "BootstrapPacketBuilder.build must return a deterministic inert packet under either MAS flag."
+        )
+        #expect(
+            directBuildBranch?.contains("FileManager.default.currentDirectoryPath") == true
+                && directBuildBranch?.contains("detectLanguageRuntimes()") == true
+                && directBuildBranch?.contains("detectPackageManagers(at: workDir)") == true
+                && directBuildBranch?.contains("detectRepoState(at: workDir)") == true,
+            "BootstrapPacketBuilder's developer-machine probes must stay in the direct-lane build branch."
+        )
+        #expect(
+            directHelperBranch?.contains("private static func buildFileTreeSummary(root: URL)") == true
+                && directHelperBranch?.contains("private nonisolated static func detectLanguageRuntimes()") == true
+                && directHelperBranch?.contains("private nonisolated static func detectRepoState(at dir: URL)") == true
+                && directHelperBranch?.contains("\"/usr/bin/swift\"") == true
+                && directHelperBranch?.contains("\"/usr/bin/python3\"") == true
+                && directHelperBranch?.contains(".git/HEAD") == true,
+            "BootstrapPacketBuilder's file tree, runtime, and git-state detectors must be compiled only outside MAS."
+        )
+    }
+
+    @Test("Shell code artifact template is non-executable in MAS source")
+    func shellCodeArtifactTemplateIsNonExecutableInMASSource() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Models/CodeArtifactKind.swift")
+        #expect(
+            source.contains("case .shell:\n            #if EPISTEMOS_APP_STORE || MAS_SANDBOX")
+                && source.contains("Command execution is unavailable in the App Store build."),
+            "The MAS shell code artifact starter must be text-only and explain that execution is unavailable."
+        )
+        #expect(
+            source.contains("#else\n            return \"\"\"\n            #!/usr/bin/env bash")
+                && source.contains("set -euo pipefail"),
+            "The executable bash starter must remain confined to the direct lane."
+        )
+    }
+
+    @Test("Experimental agent surface is compile-parked in MAS source")
+    func experimentalAgentSurfaceIsCompileParkedInMASSource() throws {
+        let parkedExperimentalFiles = [
+            "Epistemos/ExperimentalAgent/ExperimentalGlassHostView.swift",
+            "Epistemos/ExperimentalAgent/ExperimentalHostBridge.swift",
+            "Epistemos/ExperimentalAgent/ExperimentalPerf.swift",
+            "Epistemos/ExperimentalAgent/ExperimentalStateBridge.swift",
+            "Epistemos/ExperimentalAgent/ExperimentalSurfaceView.swift",
+            "Epistemos/ExperimentalAgent/ExperimentalThemeBridge.swift",
+        ]
+
+        for path in parkedExperimentalFiles {
+            let source = try loadMirroredSourceTextFile(path)
+            let lastLine = source
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .split(separator: "\n")
+                .last
+                .map(String.init)
+            #expect(
+                source.hasPrefix("#if EPISTEMOS_EXPERIMENTAL && !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n"),
+                "\(path) must compile-park the Experimental surface out of both App Store flags before imports."
+            )
+            #expect(lastLine == "#endif", "\(path) must close the Experimental MAS exclusion guard at EOF.")
+        }
+
+        let supervisor = try loadMirroredSourceTextFile("Epistemos/ExperimentalAgent/ExperimentalRuntimeSupervisor.swift")
+        let hostBridge = try loadMirroredSourceTextFile("Epistemos/ExperimentalAgent/ExperimentalHostBridge.swift")
+        #expect(
+            supervisor.contains("#if EPISTEMOS_EXPERIMENTAL && (EPISTEMOS_APP_STORE || MAS_SANDBOX)")
+                && supervisor.contains("#error(\"EPISTEMOS_EXPERIMENTAL is a Developer-ID lane and must never coexist with App Store or MAS_SANDBOX builds\")")
+                && supervisor.contains("#if EPISTEMOS_EXPERIMENTAL && !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
+            "ExperimentalRuntimeSupervisor must fail impossible Experimental+MAS macro combinations and compile-park the implementation for MAS."
+        )
+        #expect(
+            supervisor.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("#endif"),
+            "ExperimentalRuntimeSupervisor.swift must close its Experimental MAS exclusion guard at EOF."
+        )
+        #expect(
+            supervisor.contains("private struct ExperimentalSpawnBox")
+                && supervisor.contains("let process = Process()")
+                && supervisor.contains("tar.executableURL = URL(fileURLWithPath: \"/usr/bin/tar\")")
+                && hostBridge.contains("URLSessionWebSocketTask"),
+            "Experimental process, tar unpacking, and host WebSocket markers should remain only inside the Experimental direct-lane guard."
+        )
+
+        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+        let experimentalTeardownSection = Self.sourceSection(
+            in: app,
+            startingAt: "#if EPISTEMOS_EXPERIMENTAL && !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
+            endingBefore: "\n        guard let bootstrap"
+        )
+        #expect(
+            experimentalTeardownSection?.contains("ExperimentalRuntimeSupervisor.shared.stop()") == true
+                && experimentalTeardownSection?.contains("#endif") == true,
+            "EpistemosApp teardown must not reference the Experimental runtime supervisor in either App Store build flag."
+        )
+    }
+
+    @Test("HTML Workspace Goose regeneration is compile-parked in App Store source")
+    func htmlWorkspaceGooseRegenerationIsCompileParkedInAppStoreSource() throws {
+        let regenerator = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceGooseRegenerator.swift")
+        let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+
+        #expect(
+            regenerator.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\nimport Darwin"),
+            "HTMLWorkspaceGooseRegenerator.swift must be compile-parked out of the App Store target before it imports Darwin/socket runtime code."
+        )
+        #expect(
+            regenerator.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("#endif"),
+            "HTMLWorkspaceGooseRegenerator.swift must close its MAS compile-park guard at EOF."
+        )
+        #expect(
+            editor.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n    @State var gooseRegenerator = HTMLWorkspaceGooseRegenerator()\n    #endif"),
+            "HTMLWorkspaceEditorView.swift must not instantiate the Goose regenerator in MAS builds."
+        )
+        #expect(
+            editor.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n            gooseRegenerator.stop()\n            #endif"),
+            "HTMLWorkspaceEditorView.swift must not reference Goose regenerator teardown in MAS builds."
+        )
+    }
+
+    @Test("HTML Workspace Python runtime is parked in App Store source")
+    func htmlWorkspacePythonRuntimeIsParkedInAppStoreSource() throws {
+        let runtime = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspacePythonRuntime.swift")
+        let policy = try loadMirroredSourceTextFile("Epistemos/Models/HTMLWorkspacePackage.swift")
+        let previewRuntime = try loadMirroredSourceTextFile("Epistemos/Models/HTMLWorkspacePreviewDocument.swift")
+        let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+        let actions = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorPackageActions.swift")
+
+        #expect(
+            runtime.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX")
+                && runtime.contains("static let entryScriptName = \"python-runtime-disabled.js\"")
+                && runtime.contains("static var isAvailable: Bool { false }")
+                && runtime.contains("Python runtime parked in the App Store build")
+                && runtime.contains("static let assetFingerprint = \"mas-parked\""),
+            "HTMLWorkspacePythonRuntime.swift must not probe or expose bundled Pyodide resources in MAS builds."
+        )
+        let directPythonResourceNamesAreNonMASOnly: Bool
+        if let nonMASBranchStart = runtime.range(of: "#else")?.lowerBound,
+           let stdlibNameStart = runtime.range(of: "python_stdlib.zip")?.lowerBound {
+            directPythonResourceNamesAreNonMASOnly = nonMASBranchStart < stdlibNameStart
+        } else {
+            directPythonResourceNamesAreNonMASOnly = false
+        }
+        #expect(
+            directPythonResourceNamesAreNonMASOnly,
+            "HTMLWorkspacePythonRuntime.swift must keep direct Pyodide resource names out of the MAS branch."
+        )
+        #expect(
+            policy.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        let scriptSources = \"'unsafe-inline' \\(localResources)\"")
+                && policy.contains("let workerSources = \"'none'\"")
+                && policy.contains("#else\n        let scriptSources = allowPythonRuntime")
+                && policy.contains("let workerSources = allowPythonRuntime"),
+            "HTMLWorkspaceSandboxPolicy.contentSecurityPolicy must not widen MAS CSP for Python when imported packages carry allowPythonRuntime=true."
+        )
+        #expect(
+            previewRuntime.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        let pythonStatus = \"disabled\"\n        let pythonEnabledLiteral = \"false\"\n        let pythonAvailableLiteral = \"false\"")
+                && previewRuntime.contains("const enabled = \\(pythonEnabledLiteral);")
+                && previewRuntime.contains("const available = \\(pythonAvailableLiteral);"),
+            "HTMLWorkspacePreviewRuntime must treat Python as disabled in MAS builds before emitting the preview bridge state."
+        )
+        #expect(
+            editor.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n                    Button(\n                        package.manifest.sandboxPolicy.allowPythonRuntime ? \"Disable Python Runtime\" : \"Enable Python Runtime\""),
+            "HTMLWorkspaceEditorView.swift must not expose Python runtime toggles in MAS builds."
+        )
+        #expect(
+            actions.contains("func testPythonRuntime() {\n        #if EPISTEMOS_APP_STORE || MAS_SANDBOX")
+                && actions.contains("func insertPythonDemo() {\n        #if EPISTEMOS_APP_STORE || MAS_SANDBOX")
+                && actions.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        pythonProbeNonce &+= 1"),
+            "HTMLWorkspaceEditorPackageActions.swift must park Python test/demo actions and omit Python probes in MAS builds."
+        )
+    }
+
     // "App Store build patch disables MLX CPU JIT shell helper" removed with cloud-only/Omega
     // removal 2026-07-03 — the MLX dependency stack was deleted, so scripts/patch_mlx_metal_warnings.sh
     // no longer exists and there is no MLX CPU JIT to disable.
 
-    @Test("App Store target does not link GGUF llama runtime")
-    func appStoreTargetDoesNotLinkGGUFLlamaRuntime() throws {
+    @Test("App Store target links only the pinned in-process GGUF runtime")
+    func appStoreTargetLinksOnlyPinnedInProcessGGUFRuntime() throws {
         let spec = try loadMirroredSourceTextFile("project.yml")
         let pbxproj = try loadMirroredSourceTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let package = try loadMirroredSourceTextFile("LocalPackages/EpistemosLlama/Package.swift")
+        let engine = try loadMirroredSourceTextFile("LocalPackages/EpistemosLlama/Sources/EpistemosLlama/LlamaLocalChatEngine.swift")
+        let fetchScript = try loadMirroredSourceTextFile("scripts/fetch-llama-xcframework.sh")
+        let xcodebuildWrapper = try loadMirroredSourceTextFile("scripts/xcodebuild_epistemos.sh")
+        let ci = try loadMirroredSourceTextFile(".github/workflows/ci.yml")
 
-        let proTarget = Self.sourceSection(
-            in: spec,
-            startingAt: "  Epistemos:",
-            endingBefore: "  Epistemos-AppStore:"
-        )
         let appStoreTarget = Self.sourceSection(
             in: spec,
             startingAt: "  Epistemos-AppStore:",
@@ -1632,43 +2123,66 @@ struct AppStoreHardeningTests {
             endingBefore: "/* End PBXNativeTarget section */"
         )
 
-        // GGUFRuntimeBridge + the llama.framework rm-step removed with cloud-only/Omega removal
-        // 2026-07-03. KEELSTONE also forbids the package-level EpistemosLlama
-        // dependency, since a linked Swift package silently copies llama.framework
-        // into the App Store app even when source-level GGUF guards are inactive.
-        #expect(proTarget?.contains("GGUFRuntimeBridge") == false)
         #expect(appStoreTarget != nil)
         #expect(appStorePBXTarget != nil)
-        #expect(spec.contains("EpistemosLlama") == false)
-        #expect(pbxproj.contains("EpistemosLlama") == false)
-        #expect(pbxproj.contains("LocalPackages/EpistemosLlama") == false)
-        #expect(pbxproj.contains("llama.framework") == false)
         #expect(appStoreTarget?.contains("GGUFRuntimeBridge") == false)
-        #expect(appStoreTarget?.contains("EpistemosLlama") == false)
+        #expect(appStoreTarget?.contains("- package: EpistemosLlama\n        product: EpistemosLlama") == true)
         #expect(appStorePBXTarget?.contains("GGUFRuntimeBridge") == false)
-        #expect(appStorePBXTarget?.contains("EpistemosLlama") == false)
+        #expect(appStorePBXTarget?.contains("EpistemosLlama") == true)
         #expect(appStoreTarget?.contains("rm -rf \"${frameworks_dir}/llama.framework\"") == false)
+        #expect(spec.contains("EpistemosLlama:\n    path: LocalPackages/EpistemosLlama"))
+        #expect(pbxproj.contains("LocalPackages/EpistemosLlama"))
+        #expect(package.contains(".library(name: \"EpistemosLlama\", targets: [\"EpistemosLlama\"])"))
+        #expect(package.contains(".binaryTarget(\n            name: \"llama\",\n            path: \"Binary/llama.xcframework\""))
+        #expect(engine.contains("AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256))"))
+        #expect(engine.contains("if length < 0"))
+        #expect(engine.contains("count: Int(-length)"))
+        #expect(fetchScript.contains("TAG=\"b9870\""))
+        #expect(fetchScript.contains("SHA256=\"792cb6560abc2e04262b105eb9ca3d5890814f358f998adea4e28497788e59f7\""))
+        #expect(fetchScript.contains("MACOS_BINARY_SHA256=\"debe3c4a5d52cf41ecd2b50f18b2b186787cb1b01bbf50e40bf717393b35c261\""))
+        #expect(fetchScript.contains("MACOS_MODULEMAP_SHA256=\"b5651903a342dc59fb4fe16ff9cc82ba4d08fdb142458aeacf516e7c31c15f15\""))
+        #expect(fetchScript.contains("MACOS_INFO_SHA256=\"518c9cbaa95bfa21f2acad01fe1d29bd8a6bdfd797021a2b39de3c5145b48ac0\""))
+        #expect(fetchScript.contains("verify_installed_xcframework"))
+        #expect(fetchScript.contains("[[ \"$(cat \"${MARKER}\")\" == \"${SHA256}\" ]]"))
+        #expect(fetchScript.contains("archive lacks the macOS slice"))
+        let wrapperFetch = try #require(xcodebuildWrapper.range(of: "scripts/fetch-llama-xcframework.sh"))
+        let wrapperBuild = try #require(xcodebuildWrapper.range(of: "xcodebuild \"${resolve_args[@]}\" -resolvePackageDependencies"))
+        #expect(wrapperFetch.lowerBound < wrapperBuild.lowerBound)
+        let ciFetch = try #require(ci.range(of: "Fetch and verify pinned llama XCFramework"))
+        let ciResolve = try #require(ci.range(of: "Resolve SPM dependencies"))
+        #expect(ciFetch.lowerBound < ciResolve.lowerBound)
+        #expect(ci.contains("LocalPackages/EpistemosLlama/Binary"))
+        #expect(ci.contains("llama-b9870"))
+        #expect(!appStorePBXTarget!.contains("llama-spike"))
     }
 
-    @Test("App Store source cannot canImport the GGUF runtime from shared DerivedData")
-    func appStoreSourceCannotCanImportGGUFRuntimeFromSharedDerivedData() throws {
+    @Test("App Store source binds the GGUF runtime explicitly without DerivedData probing")
+    func appStoreSourceBindsGGUFRuntimeExplicitlyWithoutDerivedDataProbing() throws {
         let swiftFiles = try mirroredSourceFileURLs(
             under: "Epistemos",
             includingExtensions: ["swift"]
         )
-        let importHits = try swiftFiles.compactMap { url -> String? in
+        var importHits: [String] = []
+        var canImportHits: [String] = []
+        for url in swiftFiles {
             let source = try String(contentsOf: url, encoding: .utf8)
-            guard source.contains("canImport(GGUFRuntimeBridge)")
-                    || source.contains("canImport(EpistemosLlama)")
-                    || source.contains("import EpistemosLlama")
-            else { return nil }
-            return url.path
+            if source.contains("import EpistemosLlama") {
+                importHits.append(url.path)
+            }
+            if source.contains("canImport(GGUFRuntimeBridge)")
+                || source.contains("canImport(EpistemosLlama)") {
+                canImportHits.append(url.path)
+            }
         }
+        let backend = try loadMirroredSourceTextFile("Epistemos/QuickChat/LocalGGUFQuickChatBackend.swift")
 
         #expect(
-            importHits.isEmpty,
-            "Swift source must not import or canImport a GGUF/llama runtime. A prior build can leave modules in shared DerivedData and make App Store builds import a retired local runtime. Hits: \(importHits.joined(separator: ", "))"
+            canImportHits.isEmpty,
+            "MAS GGUF linkage must not depend on canImport or stale DerivedData modules. Hits: \(canImportHits.joined(separator: ", "))"
         )
+        #expect(importHits.count == 1)
+        #expect(importHits.first?.hasSuffix("Epistemos/QuickChat/LocalGGUFQuickChatBackend.swift") == true)
+        #expect(backend.hasPrefix("#if EPISTEMOS_APP_STORE\nimport EpistemosLlama\n#endif\n\nimport Foundation"))
     }
 
     @Test("App Store scheme has tests and CI runs dedicated MAS gates")
@@ -2093,14 +2607,15 @@ struct AppStoreHardeningTests {
         var outsideExcludedBlock: Bool
     }
 
-    /// Walk a Swift source string line by line, track `#if
-    /// !EPISTEMOS_APP_STORE` open / `#else` / `#endif` boundaries (the
-    /// shape used by surgical S.2 gates), and report whether `marker`
-    /// substring was seen inside the excluded block, outside, or both.
+    /// Walk a Swift source string line by line, track the direct-lane
+    /// `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)` open / `#else` /
+    /// `#endif` boundaries (the shape used by surgical S.2 gates), and
+    /// report whether `marker` substring was seen inside the excluded
+    /// block, outside, or both.
     /// Comment-only lines (starting with `//`) are skipped.
     ///
     /// Limitation: this helper, like `masVisibleSource`, only tracks
-    /// `#if !EPISTEMOS_APP_STORE` opens. Other `#if` directives (e.g.
+    /// direct-lane MAS exclusion opens. Other `#if` directives (e.g.
     /// `#if DEBUG`) inside the gated region are not recognized. Today's
     /// VaultSyncService and VaultChatMutator surgical gates use the
     /// simple flat shape; if a future call site mixes nested `#if`s
@@ -2115,7 +2630,8 @@ struct AppStoreHardeningTests {
         var outsideExcludedBlock = false
         for line in source.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("#if !EPISTEMOS_APP_STORE") {
+            if trimmed.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
+                || trimmed.hasPrefix("#if !EPISTEMOS_APP_STORE") {
                 inExcludedBlock = true
                 continue
             }
@@ -2155,12 +2671,21 @@ struct AppStoreHardeningTests {
         let proSanity: Comment = "VaultSyncService.swift no longer contains Process.init -- the Pro/direct release relies on /usr/bin/tmutil for APFS safety snapshots. If this is intentional, update or remove this test."
         #expect(source.contains("Process.init("), proSanity)
 
+        #expect(
+            source.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"),
+            "VaultSyncService.swift must skip tmutil setup for both App Store compile flags."
+        )
+        #expect(
+            source.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
+            "VaultSyncService.swift must keep the tmutil subprocess implementation behind the combined direct-lane guard."
+        )
+
         let scan = scanForMarkerInGateBranches(source: source, marker: "Process.init(")
 
-        let outsideMessage: Comment = "VaultSyncService.swift contains a Process.init( call OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. The MAS sandbox cannot spawn /usr/bin/tmutil; this leaks subprocess launch into the MAS binary."
+        let outsideMessage: Comment = "VaultSyncService.swift contains a Process.init( call OUTSIDE a combined MAS exclusion block. The MAS sandbox cannot spawn /usr/bin/tmutil; this leaks subprocess launch into the MAS binary."
         #expect(!scan.outsideExcludedBlock, outsideMessage)
 
-        let insideMessage: Comment = "VaultSyncService.swift no longer has Process.init( inside any `#if !EPISTEMOS_APP_STORE` block, but the file does still contain Process.init(. The Pro branch may have been moved or deleted; restore the gating shape so MAS stays subprocess-free here."
+        let insideMessage: Comment = "VaultSyncService.swift no longer has Process.init( inside any combined MAS exclusion block, but the file does still contain Process.init(. The Pro branch may have been moved or deleted; restore the gating shape so MAS stays subprocess-free here."
         #expect(scan.insideExcludedBlock, insideMessage)
     }
 
@@ -2176,12 +2701,17 @@ struct AppStoreHardeningTests {
         let proSanity: Comment = "VaultChatMutator.swift no longer contains Process.init -- the Pro/direct release relies on /usr/bin/git for the staged-mutation audit trail. If this is intentional, update or remove this test."
         #expect(source.contains("Process.init("), proSanity)
 
+        #expect(
+            source.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
+            "VaultChatMutator.swift must keep the git subprocess implementation behind the combined direct-lane guard."
+        )
+
         // First marker: the literal Process.init( allocation. Catches a
         // direct subprocess-spawn primitive.
         let processScan = scanForMarkerInGateBranches(source: source, marker: "Process.init(")
-        let processOutsideMessage: Comment = "VaultChatMutator.swift contains a Process.init( call OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. The MAS sandbox cannot spawn /usr/bin/git; this leaks subprocess launch into the MAS binary. Approved staged mutations must still durable-write the file via VaultVerifiedFileWriter (already unconditional), but the git layer must stay Pro-only."
+        let processOutsideMessage: Comment = "VaultChatMutator.swift contains a Process.init( call OUTSIDE a combined MAS exclusion block. The MAS sandbox cannot spawn /usr/bin/git; this leaks subprocess launch into the MAS binary. Approved staged mutations must still durable-write the file via VaultVerifiedFileWriter (already unconditional), but the git layer must stay Pro-only."
         #expect(!processScan.outsideExcludedBlock, processOutsideMessage)
-        let processInsideMessage: Comment = "VaultChatMutator.swift no longer has Process.init( inside any `#if !EPISTEMOS_APP_STORE` block, but the file does still contain Process.init(. The Pro branch may have been moved or deleted; restore the gating shape so MAS stays subprocess-free here."
+        let processInsideMessage: Comment = "VaultChatMutator.swift no longer has Process.init( inside any combined MAS exclusion block, but the file does still contain Process.init(. The Pro branch may have been moved or deleted; restore the gating shape so MAS stays subprocess-free here."
         #expect(processScan.insideExcludedBlock, processInsideMessage)
 
         // Second marker: the git executable selection. Catches the case
@@ -2193,9 +2723,9 @@ struct AppStoreHardeningTests {
             source: source,
             marker: "process.executableURL = URL(fileURLWithPath: \"/usr/bin/git\")"
         )
-        let gitExecutableOutsideMessage: Comment = "VaultChatMutator.swift contains `/usr/bin/git` executable setup OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. Even if Process.init( is gated, leaking the git-specific executable prep is a sign that the surgical gate has drifted."
+        let gitExecutableOutsideMessage: Comment = "VaultChatMutator.swift contains `/usr/bin/git` executable setup OUTSIDE a combined MAS exclusion block. Even if Process.init( is gated, leaking the git-specific executable prep is a sign that the surgical gate has drifted."
         #expect(!gitExecutableScan.outsideExcludedBlock, gitExecutableOutsideMessage)
-        let gitExecutableInsideMessage: Comment = "VaultChatMutator.swift no longer has `/usr/bin/git` executable setup inside a `#if !EPISTEMOS_APP_STORE` block, but the file still contains Process.init(. The Pro git-launch shape may have been refactored away; restore it or update this test."
+        let gitExecutableInsideMessage: Comment = "VaultChatMutator.swift no longer has `/usr/bin/git` executable setup inside a combined MAS exclusion block, but the file still contains Process.init(. The Pro git-launch shape may have been refactored away; restore it or update this test."
         #expect(gitExecutableScan.insideExcludedBlock, gitExecutableInsideMessage)
     }
 
@@ -2237,6 +2767,25 @@ struct AppStoreHardeningTests {
 
     // MARK: - Bounded-agent termination invariants (Phase S.4)
     //
+    @Test("quit awaits active note surfaces and per-page file-first saves")
+    func quitAwaitsActiveNoteDurability() throws {
+        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+        let workspace = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let document = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkdownDocumentSurface.swift")
+        let vaultSync = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(app.contains("beginTerminationDataFlush()"))
+        #expect(app.contains("return .terminateLater"))
+        #expect(app.contains("NoteWorkspaceFinalFlushRegistry.shared.flushAllSurfaces()"))
+        #expect(app.contains("MarkdownDocumentSurfaceSaveRegistry.shared.flushAllSurfaces()"))
+        #expect(app.contains("drainFileFirstSaveTails()"))
+        #expect(app.contains("Task.sleep(for: .seconds(12))"))
+        #expect(workspace.contains("final class NoteWorkspaceFinalFlushRegistry"))
+        #expect(workspace.contains("let result = await flushCurrentEditor(reason: .appBackground)"))
+        #expect(document.contains("func flushAllSurfaces() async -> Bool"))
+        #expect(vaultSync.contains("func drainFileFirstSaveTails() async -> Bool"))
+    }
+
     // Phase S.4 acceptance criterion (PHASE_S_AUDIT.md §7, IMPLEMENTATION_PLAN_FROM_ADVICE.md §S.4):
     // the agent loop must terminate at the maxTurns ceiling and must NOT
     // re-enter the backend after the ceiling fires. The local loop's strict

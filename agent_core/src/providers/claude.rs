@@ -28,15 +28,20 @@ const ANTHROPIC_VERSION: &str = "2023-06-01";
 #[cfg(test)]
 const MCP_CONNECTOR_BETA_HEADER: &str = "mcp-client-2025-11-20";
 const BETA_HEADER: &str = "interleaved-thinking-2025-05-14,mcp-client-2025-11-20";
+#[cfg(not(feature = "mas-build"))]
 const ANTHROPIC_OAUTH_BETA_HEADER: &str =
     "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,claude-code-20250219,oauth-2025-04-20,mcp-client-2025-11-20";
+#[cfg(not(feature = "mas-build"))]
 const ANTHROPIC_OAUTH_AUTH_MODE_ENV: &str = "ANTHROPIC_AUTH_MODE";
+#[cfg(not(feature = "mas-build"))]
 const ANTHROPIC_OAUTH_ACCESS_TOKEN_ENV: &str = "ANTHROPIC_ACCESS_TOKEN";
+#[cfg(not(feature = "mas-build"))]
 const ANTHROPIC_OAUTH_AUTH_MODE: &str = "oauth";
 
 #[derive(Clone, PartialEq, Eq)]
 enum ClaudeAuth {
     ApiKey(String),
+    #[cfg(not(feature = "mas-build"))]
     OAuthAccessToken(String),
 }
 
@@ -48,6 +53,7 @@ impl std::fmt::Debug for ClaudeAuth {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ClaudeAuth::ApiKey(_) => f.write_str("ApiKey(***)"),
+            #[cfg(not(feature = "mas-build"))]
             ClaudeAuth::OAuthAccessToken(_) => f.write_str("OAuthAccessToken(***)"),
         }
     }
@@ -76,14 +82,16 @@ impl ClaudeProvider {
     }
 
     fn from_env(model: &'static str) -> Self {
-        Self::new(
-            resolve_claude_auth(
-                std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
-                std::env::var(ANTHROPIC_OAUTH_ACCESS_TOKEN_ENV).unwrap_or_default(),
-                std::env::var(ANTHROPIC_OAUTH_AUTH_MODE_ENV).unwrap_or_default(),
-            ),
-            model,
-        )
+        let api_key = std::env::var("ANTHROPIC_API_KEY").unwrap_or_default();
+        #[cfg(feature = "mas-build")]
+        let auth = ClaudeAuth::ApiKey(api_key);
+        #[cfg(not(feature = "mas-build"))]
+        let auth = resolve_claude_auth(
+            api_key,
+            std::env::var(ANTHROPIC_OAUTH_ACCESS_TOKEN_ENV).unwrap_or_default(),
+            std::env::var(ANTHROPIC_OAUTH_AUTH_MODE_ENV).unwrap_or_default(),
+        );
+        Self::new(auth, model)
     }
 
     pub fn opus() -> Self {
@@ -240,6 +248,7 @@ impl AgentProvider for ClaudeProvider {
                     "ANTHROPIC_API_KEY is not configured".to_string(),
                 ));
             }
+            #[cfg(not(feature = "mas-build"))]
             ClaudeAuth::OAuthAccessToken(access_token) if access_token.trim().is_empty() => {
                 return Err(AgentError::Provider(
                     "ANTHROPIC_ACCESS_TOKEN is not configured".to_string(),
@@ -544,6 +553,7 @@ impl AgentProvider for ClaudeProvider {
     }
 }
 
+#[cfg(not(feature = "mas-build"))]
 fn resolve_claude_auth(api_key: String, access_token: String, auth_mode: String) -> ClaudeAuth {
     if auth_mode
         .trim()
@@ -566,6 +576,7 @@ fn authenticated_request(client: &Client, auth: &ClaudeAuth) -> reqwest::Request
         ClaudeAuth::ApiKey(api_key) => builder
             .header("x-api-key", api_key)
             .header("anthropic-beta", BETA_HEADER),
+        #[cfg(not(feature = "mas-build"))]
         ClaudeAuth::OAuthAccessToken(access_token) => builder
             .header("authorization", format!("Bearer {access_token}"))
             .header("anthropic-beta", ANTHROPIC_OAUTH_BETA_HEADER)
@@ -734,9 +745,11 @@ mod tests {
     use super::{
         authenticated_request, content_block_to_json, initial_input_json, map_stop_reason,
         mcp_servers_to_anthropic_json, mcp_toolsets_to_anthropic_json, merge_usage,
-        resolve_claude_auth, tool_definition_to_claude_json, ClaudeAuth, UsageData,
-        ANTHROPIC_OAUTH_BETA_HEADER, BETA_HEADER, MCP_CONNECTOR_BETA_HEADER,
+        tool_definition_to_claude_json, ClaudeAuth, UsageData, BETA_HEADER,
+        MCP_CONNECTOR_BETA_HEADER,
     };
+    #[cfg(not(feature = "mas-build"))]
+    use super::{resolve_claude_auth, ANTHROPIC_OAUTH_BETA_HEADER};
     use crate::agent_loop::McpServerConfig;
     use crate::types::{ContentBlock, StopReason, TokenUsage, ToolSchema};
     use reqwest::Client;
@@ -888,6 +901,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn resolves_oauth_auth_when_access_token_is_present() {
         let auth = resolve_claude_auth(
             "sk-ant-api-key".to_string(),
@@ -902,6 +916,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn resolves_oauth_auth_case_insensitively() {
         let auth = resolve_claude_auth(
             "sk-ant-api-key".to_string(),
@@ -916,6 +931,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn oauth_requests_match_claude_code_session_headers() {
         let client = Client::builder().build().unwrap();
         let request = authenticated_request(
@@ -941,6 +957,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn oauth_requests_include_current_mcp_connector_beta() {
         let client = Client::builder().build().unwrap();
         let request = authenticated_request(

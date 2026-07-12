@@ -2,8 +2,12 @@
 
 **ID:** `EPI-RP-08-LODESTAR` · **Codename:** LODESTAR · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: if reused,
+> research ResearchHub for MAS/June only. Agent capabilities must route through
+> in-process `agent_core`; treat 1Code/KINDRED/Pro variants as parked.
+
 > Paste below `─── BEGIN ───` into a deep-research model. Output = build-ready dossier. Owner
-> authored 2026-07-06. **Build split: both builds (MAS + 1Code).** A prior source dossier exists
+> authored 2026-07-06; after the 2026-07-07 pivot, research MAS/June only. A prior source dossier exists
 > (`docs/research/RESEARCHHUB_SOURCE_DOSSIER_2026_07_03.md`) — this brief re-researches to a
 > build-ready depth; reconcile with it, don't ignore it.
 
@@ -21,8 +25,8 @@ Epistemos = macOS-native PKM. It already has a **dedicated arXiv feature** (`Epi
 ArxivClient.swift`, `ArxivIngestService.swift`, `ArxivPullGateStatus.swift`, `Views/Arxiv/
 ArxivSearchView.swift`) — **ResearchHub generalizes that pattern to many sources** without demoting
 arXiv (arXiv + Obscura stay dedicated). Integration is via **shared vault files**: a research item
-becomes a note; the Agent (June on MAS / 1Code on Experimental) can *use ResearchHub as a
-capability*; the Graph links research to your knowledge. Two builds, ships in **both**. The look is
+becomes a note; the Agent (June on MAS) can *use ResearchHub as a capability*;
+the Graph links research to your knowledge. Ships in the MAS build. The look is
 an **adaptive-card native timeline** (flat/minimal/theme-aware, per the nativeness doctrine).
 
 ## 2. Thesis
@@ -49,7 +53,7 @@ legitimate, ToS-clean channels, with a clean open-access retrieval chain.**
   the canonical shape to generalize. `ArxivIngestService` is the ingestion pattern.
 - **Prior dossier:** `docs/research/RESEARCHHUB_SOURCE_DOSSIER_2026_07_03.md` (+ raw workflow docs).
 - **Vault write:** `Epistemos/Sync/VaultSyncService.swift` (`createPage`) → notes; graph public API
-  for linking; the Agent surfaces (June / 1Code) for the capability seam.
+  for linking; MAS/June for the capability seam.
 - Nativeness/look: `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
 
 ## 5. Research dimensions

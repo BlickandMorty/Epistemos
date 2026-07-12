@@ -12,10 +12,12 @@
 // canon §0.4's wrapper-crate line is superseded (recorded upstream).
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // ID: EPI-RP-09-RECKONER · Codename: RECKONER
-// THE stable calc contract. IronCalc is pre-1.0 and churning (v0.7.1, Jan 2026;
-// "expect things to break until 1.0"), so Epistemos owns this facade and pins
-// the crate (=0.7.1). Everything else in the app — Swift, the wasm shim, tools —
-// speaks THIS interface; IronCalc API drift is absorbed here and nowhere else.
+// THE stable calc contract. IronCalc is pre-1.0 and churning, so Epistemos owns
+// this facade. The wasm package pin is settled separately (=0.7.0); the native
+// Rust crate pin is verified during the Cargo edit and hidden behind the
+// optional `reckoner` feature inside agent_core. Everything else in the app —
+// Swift, the wasm shim, tools — speaks THIS interface; IronCalc API drift is
+// absorbed here and nowhere else.
 
 use serde::{Deserialize, Serialize};
 
@@ -29,24 +31,31 @@ pub struct CalcDelta {
 }
 
 pub trait CalcEngine: Send + Sync {
-    fn set_user_input(&mut self, addr: CellAddr, input: &str);
-    fn evaluate(&mut self) -> CalcDelta;
+    fn set_user_input(&mut self, addr: CellAddr, input: &str) -> Result<(), CalcError>;
+    fn evaluate(&mut self) -> Result<CalcDelta, CalcError>;
     fn formatted_value(&self, addr: CellAddr) -> String;
     /// Snapshot/restore so Swift can hand the WebView a model without rebuilding
     /// cell-by-cell across the bridge (IronCalc to_bytes / .icalc path).
     fn to_bytes(&self) -> Vec<u8>;
-    fn from_bytes(bytes: &[u8]) -> Self where Self: Sized;
+    fn from_bytes(bytes: &[u8], language_id: &str) -> Result<Self, CalcError> where Self: Sized;
+    /// Dry-run callers need a mutable scratch engine; never pass `&dyn CalcEngine`
+    /// where mutation/snapshot restore is required.
+    fn scratch_from_bytes(&self) -> Result<Self, CalcError> where Self: Sized {
+        Self::from_bytes(&self.to_bytes(), "en")
+    }
 }
 
-pub struct IronCalcEngine {/* TODO: ironcalc::Model, pinned =0.7.1 */}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CalcError { pub message: String }
+
+pub struct IronCalcEngine {/* TODO: ironcalc::Model, native crate pin verified in Cargo edit */}
 impl CalcEngine for IronCalcEngine {
-    fn set_user_input(&mut self, _addr: CellAddr, _input: &str) { todo!() }
-    fn evaluate(&mut self) -> CalcDelta { todo!() }
+    fn set_user_input(&mut self, _addr: CellAddr, _input: &str) -> Result<(), CalcError> { todo!() }
+    fn evaluate(&mut self) -> Result<CalcDelta, CalcError> { todo!() }
     fn formatted_value(&self, _addr: CellAddr) -> String { todo!() }
     fn to_bytes(&self) -> Vec<u8> { todo!() }
-    fn from_bytes(_bytes: &[u8]) -> Self { todo!() }
+    fn from_bytes(_bytes: &[u8], _language_id: &str) -> Result<Self, CalcError> { todo!() }
 }
-// OPEN QUESTIONS OQ-1/OQ-2 resolve HERE: ctor arity from the shipped .d.ts /
-// crate docs, and whether wasm exports UserModel (diff history / undo /
-// apply_external_diffs) — if yes, streamed agent edits lean on it; if no,
-// dataset_ops.rs owns the diff layer.
+// Closed wasm facts are documented in ironcalc-client.ts. Native UserModel may
+// be used behind this facade where the Rust crate exposes it; JS never depends
+// on a wasm UserModel.

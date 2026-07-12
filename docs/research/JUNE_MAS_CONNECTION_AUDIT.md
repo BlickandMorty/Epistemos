@@ -3,6 +3,31 @@
 Date: 2026-07-06
 Scope: MAS June agent surface only: `Epistemos/JuneAgent/**`, the in-process MAS `agent_core` runner, active vault path handoff, and MAS/JUNE evidence. This audit deliberately excludes Pro, ExperimentalAgent/1Code, Tauri, Retro, and unrelated product surfaces.
 
+## 2026-07-10 June-Only Provider/Model Correction
+
+The earlier audit language that non-agent-tier cloud providers remain visible is
+superseded for MAS. The owner requires one App Store AI product surface: June.
+MAS Settings, June's catalog, fallback routing, credential bootstrap, and the
+scoped Rust environment now admit only OpenAI and Anthropic. Google,
+Z.AI/GLM, Kimi, MiniMax, and DeepSeek remain parked source for non-MAS builds
+and do not receive MAS Settings rows or active credential loading.
+The same scope now governs the Runtime Lanes diagnostics, Privacy endpoint
+copy, and Deployment Profile explanation, closing secondary Settings paths that
+still made parked providers look like part of the MAS product.
+The retained non-agent cloud client also fails closed on the same exact model
+allowlist before credential or network work, so a stale/deep call site cannot
+bypass the Settings/June catalog boundary.
+
+Model admission is also exact rather than provider-family-wide.
+`CloudTextModelID.juneAgentModels(for:)` is shared by Settings and June and
+contains only model IDs with matching fixed `agent_core` constructors. Generic
+`o3` and future/legacy Claude labels that previously collapsed to another model
+are excluded; stale values are repaired or fail before agent-core routing. MAS
+Claude authentication is source-scoped to API keys in both Swift and the Rust
+`mas-build` branch. This correction is parser/source-guard/format proven only; a
+fresh resource-bounded build, visible Settings pass, June API-key turn, and
+artifact scan remain required.
+
 ## Canon Read
 
 - `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`
@@ -213,7 +238,7 @@ Residual: App Store build/runtime proof still cannot close because the current A
 | 4. Gateway -> engine stream | `session.create`, `prompt.submit`, stream, interrupt, and model selection must reach the selected engine lane. | `JuneAgentGateway.swift:336` creates durable sessions; `:354` starts turns; `:431` resolves persisted/requested model; `:603` builds the cloud agent stream; `:646` keeps local lanes text-only; `:378` cancels running turns and approvals. | CONNECTED in source |
 | 5. Cloud agentic loop | Cloud runs the full `agent_core` loop, not direct chat. | `GooseMASAgentCoreRunner` calls `runAgentSession` in process at `GooseInProcessACPServer.swift:87`; the June gateway maps all agent events at `JuneAgentGateway.swift:467`. Runtime with Keychain disabled reached the cloud lane and failed honestly with `cloudNotConfigured`; a successful tool-using cloud run still requires configured cloud access. | CONNECTED in source, blocked for successful runtime proof |
 | 6. MAS tool catalog and vault substrate | Only MAS-legal tools are reachable; vault I/O uses the selected security-scoped vault; no shell/subprocess/stdio tools. | `GooseInProcessACPServer.swift:55` allowlists `vault.search/read/write/list`, `pdf.to_markdown`, `knowledge.recall`, web fetch/search, `http_fetch`, and `think`; `:69` sets `enableBash: false`. `JuneAgentGateway.swift:85` records `pdf.to_markdown` as an observable MAS composition tool. `JuneAgentGateway.swift:642` gives agent_core only `JuneAgentCoreVaultScope.vaultPathForAgentCore()`, which resolves to the already-watched `VaultSyncService.vaultURL` at `JuneAgentCoreVaultScope.swift:44` or the app-support `Epistemos/JuneAgent/agent-core-scratch` path at `:29`; the old ambient `EPISTEMOS_VAULT_PATH`/`VAULT_PATH` fallback is removed. `JuneToolEventBounds.swift:12` redacts selected-vault and scratch roots from tool payloads sent to JS, including raw path, `file://`, percent-encoded, and symlink-resolved forms supplied by `JuneAgentCoreVaultScope.swift:14` and `:53` in deterministic longest-first order. It scans with root-length lookahead, then applies a final UTF-8 byte cap with a truncation marker so roots split across the cap cannot leak partial prefixes. `JuneAgentGateway.swift:310` now requires exact bounded tool ids and bounded tool names before `tool.start`/`tool.complete`, reuses a bounded start-event name for completion callbacks that arrive unnamed, and `:367` bounds approval tool names/risk labels while keeping approval request ids exact and fail-closed through `recordPendingApproval`. | HALF-WIRED: source connected, end-to-end vault task not yet proven |
-| 7. Capability, sessions, paywall, hardening | Capability copy must be truthful; sessions durable/crash-safe; cloud credentials/proxy gate must stay Keychain/StoreKit; no forbidden tool appears. | Local rows are chat-only and compact-context; direct cloud tool rows require `supportsAgentTier`; cloud thinking flags now come from `CloudTextModelID.supportedOperatingModes` and native reasoning-control support. The default model path is now cloud-first: configured cloud provider model, else generic cloud with honest `cloudNotConfigured`, else explicit user-selected local. Local inline think tags are split into `thinking.delta` when actually emitted, but local rows do not claim tools or blanket native reasoning. `JuneSessionStore` persists sessions/messages/model/auto-titles plus Hermes-compatible `reasoning`, `reasoning_content`, `tool_calls`, `tool_call_id`, and `tool_name` replay fields; the gateway now feeds those replay fields only bounded tool metadata plus bounded/redacted bodies. Pending approval recovery remains fail-closed/live-only. Provider secrets live in Keychain via existing provider/proxy systems; the generic cloud row now says "Cloud Agent" and explains it requires a configured OpenAI or Anthropic account, while the receipt-gated Epistemos Cloud proxy remains scaffolding until admitted. First runtime packaging pass found flattened `node`/`bun`/`opencode`/`omega_mcp_stdio`; source cleanup plus post-build product cleanup now scan clean. | HALF-WIRED |
+| 7. Capability, sessions, paywall, hardening | Capability copy must be truthful; sessions durable/crash-safe; cloud credentials/proxy gate must stay Keychain/StoreKit; no forbidden tool appears. | Local rows are chat-only and compact-context; direct cloud tool rows require `supportsAgentTier`; cloud thinking flags now come from `CloudTextModelID.supportedOperatingModes` and native reasoning-control support. The default model path is now cloud-first: configured cloud provider model, else generic cloud with honest `cloudNotConfigured`, else explicit user-selected local. Local inline think tags are split into `thinking.delta` when actually emitted, but local rows do not claim tools or blanket native reasoning. `JuneSessionStore` persists sessions/messages/model/auto-titles plus Hermes-compatible `reasoning`, `reasoning_content`, `tool_calls`, `tool_call_id`, and `tool_name` replay fields; the gateway now feeds those replay fields only bounded tool metadata plus bounded/redacted bodies. Pending approval recovery remains fail-closed/live-only. Provider secrets live in Keychain. MAS exposes API-key setup and does not import or forward parked OpenAI, Claude Code, or Google desktop OAuth sessions; the generic cloud row names saved OpenAI or Anthropic API keys, while the receipt-gated Epistemos Cloud proxy remains scaffolding until admitted. First runtime packaging pass found flattened `node`/`bun`/`opencode`/`omega_mcp_stdio`; source cleanup plus post-build product cleanup now scan clean. | HALF-WIRED |
 | 8. Prompt Forge submit upgrade | Normal typed composer submits should show a reviewable prompt upgrade before engine submission, preserve user intent, ground from the active vault without invented citations, and fit the selected engine's context. | `prompt.forge_preview` is source-wired in Swift; June SPA displays the review and only Accept/Revert submit. Active-vault snippets are bounded and relative-path cited; no-vault/no-match returns an explicit no-citation instruction. Prompt Forge now returns and renders a local/cloud context strategy; local profiles compress input and vault grounding for lower context windows. | CONNECTED in source, runtime proof pending |
 | 9. System Prompt Forge + Pattern Library | Settings should let the user compose/preview a system behavior layer, apply reusable patterns, ground behavior from the vault, save only after review, and keep local-lane capability truth. | `JuneSystemPromptForge.swift` implements deterministic preview, original MAS-safe patterns, bounded Prompt Forge citation reuse, atomic Application Support persistence, and local/cloud runtime lane guards. `JuneAgentBridge.swift` exposes bounded settings/preview/save/reset invokes; preview runs in `Task.detached`. `/Users/jojo/dev/june-epistemos/src/components/settings/AgentSettingsSection.tsx` adds a Behavior tab with preview diff, pattern toggles, and Save/Reset. | CONNECTED in source and focused web test, runtime proof pending |
 | 10. Deterministic RuntimeRouter / RouteVerdict witness | The finalization mandate should make June's cloud-first/local-second choice auditable without hidden fallback or local tool fakery. | `Epistemos/Engine/RuntimeExecutor.swift:46` now models `.appleIntelligence`, `.gguf`, provider clouds, and `.stub`; `Epistemos/LocalAgent/RuntimeRouter.swift:15` defines a cloud-first `modelPreferenceTable` with Apple then GGUF local fallback; `:63` walks governed preferred-lane hints through invalid-policy, privacy, lane-toggle, local-policy, and capability gates; `:266` records reject witnesses; `:407` grants native tool mode only to OpenAI/Claude-shaped agentic cloud lanes, while `:420` and `:430` make Apple/GGUF local chat-only with `toolCallMode: .none`. `ConfidenceRouter.swift:6`, `InferenceState+RouteProfiles.swift:4`, and `RuntimeLanesSection.swift:13` delegate diagnostics/settings to the router and hide `.stub`. | CONNECTED in source and focused Rust source guards, runtime proof pending |
@@ -374,7 +399,7 @@ Non-negotiable grep/proof status:
 - June source-decomposition skill crystallization: PASS for `python3 /Users/jojo/.codex/skills/.system/skill-creator/scripts/quick_validate.py .claude/skills/june-source-decomposition`. `.claude/skills/JUNE_SKILLS_INDEX.md` now records the reusable method for splitting oversized MAS June production and source-guard files along ownership boundaries while preserving capability truth, source guards, and low-memory validation discipline.
 - Vendored June AnswerPacket chip checkpoint: PASS for `git diff --check -- src/lib/tauri.ts src/lib/agent-chat-runtime.ts src/components/agent/AgentWorkspace.tsx src/styles/app.css src/test/agent-workspace.test.tsx src/test/agent-chat-runtime.test.ts` and heap-capped focused `NODE_OPTIONS=--max-old-space-size=1024 ./node_modules/.bin/vitest run src/test/agent-chat-runtime.test.ts src/test/agent-workspace.test.tsx -t "AnswerPacket"` (3 passed / 206 skipped). The pure runtime tests prove persisted Hermes assistant messages and live completion events carry `answerPacketId`; the React test proves the assistant transcript renders a read-only `VRM evidence` chip with the bounded short id.
 - Vendored June web bundle: PASS on current revision. `NODE_OPTIONS=--max-old-space-size=1024 ./build-june-web.sh` staged 27 files into `.june-web-stage`; main chunk warning remains at 524 KB gz.
-- Runtime cloud-not-configured proof: PASS for honest failure on the earlier sandboxed MAS build, which returned `Error: Cloud access is not configured. Connect this provider or Epistemos Cloud in Settings, or pick an on-device model.` Source copy is now tighter: `Cloud access is not configured. Connect OpenAI or Anthropic in Settings, or pick an on-device model.` Current-revision runtime proof remains pending behind the external App Store build blocker.
+- Runtime cloud-not-configured proof: PASS for honest failure on the earlier sandboxed MAS build, which returned `Error: Cloud access is not configured. Connect this provider or Epistemos Cloud in Settings, or pick an on-device model.` Current source is MAS-specific: `Cloud access is not configured. Add an OpenAI or Anthropic API key in Settings, or pick Apple Intelligence.` Current-revision runtime proof remains pending.
 - Runtime local-picker regression: FIXED. The prior product rejected `Apple Intelligence (on-device)` with "can't run June's tools"; the cleaned product selected it, displayed the cloud-agent caveat, and answered "Hello! How can I help you today?"
 - App Store forbidden-resource script test: PASS in `/tmp/epistemos-mas-runtime-cleanup-test`; the cleanup removed the forbidden runtime artifacts and preserved `keep.txt`.
 - App Store forbidden-resource product scan: PASS after running patched `bundle-app-runtime-assets.sh` against `/tmp/epistemos-appstore-dd-june-cycle1-localgate/Build/Products/Debug/Epistemos.app`; root `Contents/Resources` scan returned `0 forbidden-root-resources`.
@@ -395,7 +420,39 @@ Non-negotiable grep/proof status:
 - Rust library tests: MOSTLY PROVEN, FULL RERUN PENDING AFTER LATEST RUST DELTA. Earlier in this cycle, full `cargo test --manifest-path agent_core/Cargo.toml --lib` first reached 5,569 passing / 2 failing / 1 ignored because `agent_core/src/uas/runtime_performance_policy_release_blocker_card.rs` had a duplicate `source_refs` entry. The duplicate metadata source ref was corrected to `Epistemos/LocalAgent/RuntimeRouter.swift`; focused rerun `cargo test --manifest-path agent_core/Cargo.toml runtime_performance_policy_release_blocker_card --lib` passed 3/3, and the full rerun passed with 5,571 passed / 0 failed / 1 ignored in 20.82s. After the later MAS URL-MCP gate change, focused `cargo test --manifest-path agent_core/Cargo.toml mcp::url_servers --lib` passed 8/8 (5,565 filtered out). A full lib rerun remains a later checkpoint to respect the requested OOM/test cadence.
 - Swift test scheme: BLOCKED. `Epistemos-AppStore` has no test action; broad `Epistemos` focused test failed before executing with missing `llama` module dependency.
 - Running sandboxed end-to-end vault task: NOT YET CAPTURED. This keeps DoD-2/DoD-5 amber-red.
-- Running cloud-vault task with Keychain disabled: BLOCKED HONESTLY on the earlier product. The task rendered the then-current `cloudNotConfigured` error and no `june-mas-runtime-proof.md` file was written to the synthetic vault. Current source copy now points specifically to configuring OpenAI or Anthropic in Settings.
+- Running cloud-vault task with Keychain disabled: BLOCKED HONESTLY on the earlier product. The task rendered the then-current `cloudNotConfigured` error and no `june-mas-runtime-proof.md` file was written to the synthetic vault. Current source copy now points specifically to adding an OpenAI or Anthropic API key in Settings.
+
+### Resource-bounded MAS credential truth checkpoint — 2026-07-10
+
+- Official Apple App Sandbox guidance requires explicit user-selected access or
+  a persisted security-scoped bookmark for files outside the app container:
+  <https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox>.
+- Current Claude Code documentation says macOS credentials are stored in the
+  encrypted macOS Keychain; `.claude/.credentials.json` is the Linux/Windows
+  path, not the macOS credential source:
+  <https://code.claude.com/docs/en/team>.
+- Current Claude API documentation names API keys and Workload Identity
+  Federation as the supported API authentication methods; importing a Claude
+  Code product session is not the documented third-party API route:
+  <https://platform.claude.com/docs/en/manage-claude/authentication>.
+- Google's installed-desktop OAuth documentation requires an authorization
+  callback mechanism. The current MAS target intentionally has no network
+  server entitlement and has no admitted custom callback implementation:
+  <https://developers.google.com/identity/protocols/oauth2/native-app>.
+- Source now makes the coherent MAS boundary API-key-only: OAuth credential
+  snapshots resolve empty, legacy OAuth Keychain reads return `nil`, non-`nil`
+  OAuth persistence is refused, `agent_core` receives no account OAuth token,
+  Claude Code home-directory import is compile-parked, Google desktop controls
+  are compile-parked, and Settings opens provider API-key management instead.
+- Follow-up artifact hardening compile-parks Anthropic/Google resolved-account
+  credential cases and all dependent `LLMService` bearer/CLI request branches
+  from MAS. Both archive scanners now reject `.claude/.credentials.json`,
+  Claude OAuth refresh endpoints, Claude CLI user-agent markers, and the
+  account-only Anthropic beta markers if they reappear in an App Store bundle.
+- Low-memory verification passed for MAS and direct Swift parser branches,
+  test-source parsing, shell syntax, and scoped `git diff --check`. No Xcode
+  build/test, app launch, model load, or provider call ran under the owner RAM
+  constraint. Runtime proof remains deferred.
 - Running selected-vault caution: a manual Settings vault-selection attempt unexpectedly began connecting a remembered/user folder (`Kimi_Agent_Deterministic AI Deep Dive`) instead of the synthetic proof vault; the app was interrupted immediately. Future runtime proof should use an isolated selected-vault harness or explicit owner-approved path, not blind UI selection.
 
 ## Current DoD Status

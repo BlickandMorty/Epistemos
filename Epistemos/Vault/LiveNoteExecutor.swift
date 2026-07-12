@@ -50,6 +50,10 @@ final class LiveNoteExecutor {
             log.info("LiveNoteExecutor: pending approval exists, skipping '\(task.targetId)'")
             return false
         }
+        guard let fileURL = resolvedVaultNoteURL(notePath: task.notePath, vaultRoot: vaultRoot) else {
+            log.error("LiveNoteExecutor: rejected escaped note path '\(task.notePath, privacy: .public)'")
+            return false
+        }
 
         // 1. Run the agent with constrained instruction
         let prompt = """
@@ -78,31 +82,39 @@ final class LiveNoteExecutor {
             return false
         }
 
-        // Phase R.3: managed-sidecar-first body read via the
-        // Sendable-primitive helper, with gateway fallback.
-        let originalBody = await SDPage.loadBodyAsyncFromPrimitives(
+        // Phase R.3: file-first editor body read via the Sendable-primitive
+        // helper, with managed sidecars only as fallback.
+        let originalEditorBody = await SDPage.loadBodyAsyncFromPrimitives(
             pageId: page.id,
             filePath: page.filePath,
             inlineBody: page.body,
             mapped: true
         )
         let originalFilePath = page.filePath
+        let originalFrontMatter = page.frontMatter
         let originalWordCount = page.wordCount
         let originalUpdatedAt = page.updatedAt
         let originalLastSyncedBodyHash = page.lastSyncedBodyHash
         let originalLastSyncedAt = page.lastSyncedAt
         let originalNeedsVaultSync = page.needsVaultSync
-        guard let fileURL = resolvedVaultNoteURL(notePath: task.notePath, vaultRoot: vaultRoot) else {
-            log.error("LiveNoteExecutor: rejected escaped note path '\(task.notePath, privacy: .public)'")
+
+        let originalMutationBody: String
+        do {
+            originalMutationBody = try mutationSourceBody(
+                for: fileURL,
+                fallbackBody: originalEditorBody
+            )
+        } catch {
+            log.error("LiveNoteExecutor: failed to read vault mutation source — \(error.localizedDescription, privacy: .public)")
             return false
         }
 
         let trimmed = agentResult.trimmingCharacters(in: .whitespacesAndNewlines)
-        let proposedBody: String
+        let proposedMutationBody: String
         do {
-            proposedBody = try updatedBody(
+            proposedMutationBody = try updatedBody(
                 for: task,
-                originalBody: originalBody,
+                originalBody: originalMutationBody,
                 agentResult: trimmed
             )
         } catch {
@@ -118,26 +130,31 @@ final class LiveNoteExecutor {
                 targetVault: .personal,
                 repositoryRootURL: vaultRoot,
                 fileURL: fileURL,
-                before: originalBody,
-                after: proposedBody,
+                before: originalMutationBody,
+                after: proposedMutationBody,
                 summary: "Update live note \(title)",
                 rationale: "Background live-note polling produced a candidate vault edit and queued it for human approval before any write.",
                 source: "live-note"
             ) { diff in
-                page.updateBodyDerivedState(from: diff.after)
-                BlockMirror.sync(pageId: page.id, body: diff.after, modelContext: context)
+                let approvedProjection = self.editorProjection(from: diff.after, fileURL: diff.fileURL)
+                page.updateBodyDerivedState(from: approvedProjection.body)
+                BlockMirror.sync(pageId: page.id, body: approvedProjection.body, modelContext: context)
+                if let frontMatter = approvedProjection.frontMatter {
+                    page.frontMatter = frontMatter
+                }
                 page.filePath = diff.fileURL.path
-                page.wordCount = diff.after.split(separator: " ").count
+                page.wordCount = approvedProjection.body.split(separator: " ").count
                 page.updatedAt = .now
-                page.lastSyncedBodyHash = SDPage.bodyHash(diff.after)
+                page.lastSyncedBodyHash = SDPage.bodyHash(approvedProjection.body)
                 page.lastSyncedAt = .now
                 page.needsVaultSync = false
                 do {
                     try context.save()
                 } catch {
-                    page.updateBodyDerivedState(from: originalBody)
-                    BlockMirror.sync(pageId: page.id, body: originalBody, modelContext: context)
+                    page.updateBodyDerivedState(from: originalEditorBody)
+                    BlockMirror.sync(pageId: page.id, body: originalEditorBody, modelContext: context)
                     page.filePath = originalFilePath
+                    page.frontMatter = originalFrontMatter
                     page.wordCount = originalWordCount
                     page.updatedAt = originalUpdatedAt
                     page.lastSyncedBodyHash = originalLastSyncedBodyHash
@@ -280,6 +297,24 @@ final class LiveNoteExecutor {
         }
 
         return candidateURL
+    }
+
+    private func mutationSourceBody(for fileURL: URL, fallbackBody: String) throws -> String {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            return fallbackBody
+        }
+        return try VaultVerifiedFileWriter.readUTF8(from: fileURL)
+    }
+
+    private func editorProjection(
+        from mutationSourceBody: String,
+        fileURL: URL
+    ) -> (frontMatter: [String: String]?, body: String) {
+        guard VaultIndexActor.shouldWriteMarkdownFrontMatter(to: fileURL) else {
+            return (nil, mutationSourceBody)
+        }
+        let parsed = VaultIndexActor.parseFrontMatter(mutationSourceBody)
+        return (parsed.0.isEmpty ? nil : parsed.0, parsed.1)
     }
 }
 

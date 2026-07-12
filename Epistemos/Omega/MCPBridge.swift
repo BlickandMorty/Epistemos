@@ -73,7 +73,7 @@ nonisolated enum OmegaToolRegistry {
         "notes": "NOTES agent (Epistemos knowledge base):",
         "terminal": "TERMINAL agent:",
         "automation": "AUTOMATION agent (macOS UI):",
-        "browser": "BROWSER MCP sub-agent (Pro browser-use):",
+        "browser": "BROWSER tools (MAS in-app web):",
     ]
 
     private static let agentOrder = ["safari", "browser", "file", "notes", "terminal", "automation"]

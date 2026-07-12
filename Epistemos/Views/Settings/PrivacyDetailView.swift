@@ -48,7 +48,8 @@ struct PrivacyDetailView: View {
                 bullets([
                     "Notes, vault contents, and any file you attach.",
                     "Embeddings, search indexes, knowledge graph, and vault recall data.",
-                    "Settings, preferences, and chat history."
+                    "Settings, preferences, and chat history.",
+                    "Optional verified GGUF language-model and Kokoro voice-model data installed in the app container."
                 ])
             }
         }
@@ -58,11 +59,20 @@ struct PrivacyDetailView: View {
         SettingsSurfaceCard {
             VStack(alignment: .leading, spacing: 8) {
                 cardTitle("What leaves this Mac")
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                bullets([
+                    "June cloud-model API requests, only when you select an OpenAI or Anthropic model connected to June.",
+                    "Provider-specific cloud consent is off by default and revocable in Settings; June blocks cloud prompt transmission until you enable it for that provider.",
+                    "The matching API key travels only to that provider endpoint; the key remains stored in macOS Keychain.",
+                    "Nothing is sent to any Epistemos-operated server. There is no telemetry server."
+                ])
+                #else
                 bullets([
                     "Cloud-model API requests, only when you pick a cloud model. Endpoints today: Anthropic Claude, OpenAI, Google Gemini, Perplexity Sonar.",
                     "API keys you enter for those providers travel only to the matching provider endpoint.",
                     "Nothing is sent to any Epistemos-operated server. There is no telemetry server."
                 ])
+                #endif
             }
         }
     }
@@ -70,11 +80,11 @@ struct PrivacyDetailView: View {
     private var neverCollectedCard: some View {
         SettingsSurfaceCard {
             VStack(alignment: .leading, spacing: 8) {
-                cardTitle("Never collected")
+                cardTitle("No tracking or analytics")
                 bullets([
                     "Tracking identifiers (the App Privacy manifest declares NSPrivacyTracking = false).",
                     "Advertising SDKs, attribution SDKs, and third-party analytics SDKs.",
-                    "No in-app telemetry or analytics is sent off the Mac. Apple's standard system-level reports (e.g. crash logs) are governed by your macOS Privacy & Analytics settings, not by this app."
+                    "No in-app telemetry or analytics is sent off the Mac. Consent-gated June cloud prompts are disclosed separately as provider App Functionality, not analytics or tracking. Apple's standard system-level reports (e.g. crash logs) are governed by your macOS Privacy & Analytics settings, not by this app."
                 ])
             }
         }
@@ -90,14 +100,15 @@ struct PrivacyDetailView: View {
 
                 manifestRow(label: "NSPrivacyTracking", value: "false")
                 manifestRow(label: "NSPrivacyTrackingDomains", value: "(empty)")
-                manifestRow(label: "NSPrivacyCollectedDataTypes", value: "(empty)")
+                manifestRow(label: "Collected: Other User Content", value: "Linked · App Functionality · not tracking (only when June cloud consent is enabled)")
+                manifestRow(label: "Collected: User ID", value: "Provider account/API-key identity · linked · App Functionality · not tracking")
 
                 Divider().opacity(0.3)
 
                 Text("Required-reason API declarations")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                manifestRow(label: "FileTimestamp", value: "C617.1: display timestamps to the user")
+                manifestRow(label: "FileTimestamp", value: "C617.1 / 3B52.1: access timestamps in app containers and user-selected vaults")
                 manifestRow(label: "SystemBootTime", value: "35F9.1: measure elapsed time for a user interaction")
                 manifestRow(label: "DiskSpace", value: "E174.1: show storage info to the user")
                 manifestRow(label: "UserDefaults", value: "CA92.1: read and write app-local defaults")
@@ -128,11 +139,19 @@ struct PrivacyDetailView: View {
         SettingsSurfaceCard {
             VStack(alignment: .leading, spacing: 8) {
                 cardTitle("Related controls")
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                bullets([
+                    "Provider credentials, when configured by a surface, are stored in the macOS Keychain.",
+                    "Vault path and sync state live in Settings > Vault.",
+                    "June native tools, provenance, and safety status live in Settings > Epistemos Foundation."
+                ])
+                #else
                 bullets([
                     "Provider credentials, when configured by a surface, are stored in the macOS Keychain.",
                     "Vault path and sync state live in Settings > Vault.",
                     "Native tools, MCP, provenance, and safety status live in Settings > Epistemos Foundation."
                 ])
+                #endif
             }
         }
     }

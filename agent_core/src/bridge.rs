@@ -6,11 +6,15 @@ use crate::agent_loop::{run_agent_loop, AgentConfig, AgentError, Effort, Permiss
 use crate::error::HttpStatusError;
 use crate::provider::AgentProvider;
 use crate::providers::claude::ClaudeProvider;
+#[cfg(not(feature = "mas-build"))]
 use crate::providers::gemini::GeminiProvider;
 use crate::providers::openai::OpenAIProvider;
+#[cfg(not(feature = "mas-build"))]
 use crate::providers::openai_compatible::OpenAICompatibleProvider;
+#[cfg(not(feature = "mas-build"))]
 use crate::providers::perplexity::PerplexityProvider;
 use crate::reasoning_metrics::ReasoningTrajectoryMetrics;
+#[cfg(not(feature = "mas-build"))]
 use crate::routing::{CloudProvider, ConfidenceRouter, RoutingDecision};
 use crate::session::GlobalSessions;
 use crate::shared_memory::{ShmPool, ShmReference};
@@ -462,6 +466,7 @@ fn preview(
     }
 }
 
+#[cfg(not(feature = "mas-build"))]
 fn cloud_provider_name(provider: CloudProvider) -> &'static str {
     match provider {
         CloudProvider::ClaudeHaiku => "claude_haiku",
@@ -475,132 +480,193 @@ fn cloud_provider_name(provider: CloudProvider) -> &'static str {
 }
 
 fn resolve_provider_selection_preview(
-    objective: &str,
+    _objective: &str,
     provider_name: &str,
 ) -> ProviderRoutePreviewFFI {
     let requested = provider_name.trim();
     match requested {
         "claude_sonnet" | "claude_opus" | "claude_haiku" | "openai" | "openai_gpt55"
-        | "openai_gpt54" | "openai_gpt54_mini" | "openai_gpt54_nano"
-        | "openai_gpt53_codex" | "openai_gpt53_codex_spark" | "openai_gpt52"
-        | "openai_gpt41" | "openai_gpt41_mini" | "openai_gpt4o" | "openai_gpt4o_mini"
-        | "openai_o1" | "openai_o3_mini" => preview(
+        | "openai_gpt54" | "openai_gpt54_mini" | "openai_gpt54_nano" | "openai_gpt52"
+        | "openai_gpt41" | "openai_gpt41_mini" | "openai_o3_mini" => preview(
             requested,
             "forced",
             requested,
             format!("Explicit provider override: {requested}"),
             true,
         ),
-        "" | "auto" => match ConfidenceRouter::default().route(objective) {
-            RoutingDecision::Cloud(provider, config) => {
-                let effective_provider = cloud_provider_name(provider);
-                let supported = matches!(
-                    provider,
-                    CloudProvider::ClaudeHaiku
-                        | CloudProvider::ClaudeSonnet
-                        | CloudProvider::ClaudeOpus
-                        | CloudProvider::GeminiFlash
-                        | CloudProvider::GeminiPro
-                        | CloudProvider::Perplexity
-                        | CloudProvider::OpenAI
-                );
+        #[cfg(not(feature = "mas-build"))]
+        "openai_gpt53_codex"
+        | "openai_gpt53_codex_spark"
+        | "openai_gpt4o"
+        | "openai_gpt4o_mini"
+        | "openai_o1" => preview(
+            requested,
+            "forced",
+            requested,
+            format!("Explicit provider override: {requested}"),
+            true,
+        ),
+        "" | "auto" => {
+            #[cfg(feature = "mas-build")]
+            {
                 preview(
                     requested,
-                    "auto_cloud",
-                    effective_provider,
-                    format!(
-                        "ConfidenceRouter selected {effective_provider} for a cloud task (effort={}, web_search={}, code_execution={}).",
-                        config.effort, config.enable_web_search, config.enable_code_execution
-                    ),
-                    supported,
-                )
-            }
-            RoutingDecision::LocalWithFallback { fallback, .. } => {
-                let effective_provider = cloud_provider_name(fallback);
-                let supported = matches!(
-                    fallback,
-                    CloudProvider::ClaudeHaiku
-                        | CloudProvider::ClaudeSonnet
-                        | CloudProvider::ClaudeOpus
-                        | CloudProvider::GeminiFlash
-                        | CloudProvider::GeminiPro
-                );
-                preview(
-                    requested,
-                    "auto_local_fallback",
-                    effective_provider,
-                    format!(
-                        "ConfidenceRouter selected a local-first task, but the Rust bridge currently exposes only cloud providers. Using fallback {effective_provider}."
-                    ),
-                    supported,
-                )
-            }
-            RoutingDecision::Local(local_task) => preview(
-                requested,
-                "auto_local_only",
-                "",
-                format!(
-                    "ConfidenceRouter selected a local-only task ({local_task:?}), but local providers are not wired into agent_core yet."
-                ),
-                false,
-            ),
-        },
-        other => {
-            // Dynamic provider/model slug (e.g. "anthropic/claude-sonnet-4" for OpenRouter)
-            let is_dynamic_slug = other.contains('/');
-            // Named providers wired in instantiate_provider but not listed in the
-            // Claude/OpenAI explicit arm above.
-            let is_known_named = matches!(
-                other,
-                "gemini_flash"
-                    | "gemini_pro"
-                    | "perplexity"
-                    | "openrouter"
-                    | "ollama"
-                    | "llama_cpp"
-                    | "zai"
-                    | "glm"
-                    | "kimi"
-                    | "kimi_latest"
-                    | "kimi_k2"
-                    | "kimi_thinking"
-                    | "kimi_coding"
-                    | "deepseek"
-                    | "deepseek_reasoner"
-                    | "minimax"
-                    | "xai"
-                    | "grok"
-                    | "grok_latest"
-                    | "grok-4.3"
-                    | "mistral"
-                    | "groq"
-                    | "codestral"
-                    | "together"
-                    | "together_latest"
-                    | "huggingface"
-                    | "hf"
-            );
-            if is_dynamic_slug || is_known_named {
-                preview(
-                    other,
-                    "forced",
-                    other,
-                    format!("Explicit provider override: {other}"),
-                    true,
-                )
-            } else {
-                preview(
-                    other,
-                    "forced_unknown",
+                    "mas_explicit_model_required",
                     "",
-                    format!("Unknown provider override: {other}"),
+                    "MAS June requires an explicit model from its OpenAI or Anthropic catalog.",
                     false,
                 )
+            }
+            #[cfg(not(feature = "mas-build"))]
+            {
+                match ConfidenceRouter::default().route(_objective) {
+                    RoutingDecision::Cloud(provider, config) => {
+                        let effective_provider = cloud_provider_name(provider);
+                        let supported = matches!(
+                            provider,
+                            CloudProvider::ClaudeHaiku
+                                | CloudProvider::ClaudeSonnet
+                                | CloudProvider::ClaudeOpus
+                                | CloudProvider::GeminiFlash
+                                | CloudProvider::GeminiPro
+                                | CloudProvider::Perplexity
+                                | CloudProvider::OpenAI
+                        );
+                        preview(
+                            requested,
+                            "auto_cloud",
+                            effective_provider,
+                            format!(
+                                "ConfidenceRouter selected {effective_provider} for a cloud task (effort={}, web_search={}, code_execution={}).",
+                                config.effort, config.enable_web_search, config.enable_code_execution
+                            ),
+                            supported,
+                        )
+                    }
+                    RoutingDecision::LocalWithFallback { fallback, .. } => {
+                        let effective_provider = cloud_provider_name(fallback);
+                        let supported = matches!(
+                            fallback,
+                            CloudProvider::ClaudeHaiku
+                                | CloudProvider::ClaudeSonnet
+                                | CloudProvider::ClaudeOpus
+                                | CloudProvider::GeminiFlash
+                                | CloudProvider::GeminiPro
+                        );
+                        preview(
+                            requested,
+                            "auto_local_fallback",
+                            effective_provider,
+                            format!(
+                                "ConfidenceRouter selected a local-first task, but the Rust bridge currently exposes only cloud providers. Using fallback {effective_provider}."
+                            ),
+                            supported,
+                        )
+                    }
+                    RoutingDecision::Local(local_task) => preview(
+                        requested,
+                        "auto_local_only",
+                        "",
+                        format!(
+                            "ConfidenceRouter selected a local-only task ({local_task:?}), but local providers are not wired into agent_core yet."
+                        ),
+                        false,
+                    ),
+                }
+            }
+        }
+        other => {
+            #[cfg(feature = "mas-build")]
+            {
+                preview(
+                    other,
+                    "mas_model_not_connected",
+                    "",
+                    format!("{other} is not connected to MAS June."),
+                    false,
+                )
+            }
+            #[cfg(not(feature = "mas-build"))]
+            {
+                // Dynamic provider/model slug (e.g. "anthropic/claude-sonnet-4" for OpenRouter)
+                let is_dynamic_slug = other.contains('/');
+                // Named providers wired in instantiate_provider but not listed in the
+                // Claude/OpenAI explicit arm above.
+                let is_known_named = matches!(
+                    other,
+                    "gemini_flash"
+                        | "gemini_pro"
+                        | "perplexity"
+                        | "openrouter"
+                        | "ollama"
+                        | "llama_cpp"
+                        | "zai"
+                        | "glm"
+                        | "kimi"
+                        | "kimi_latest"
+                        | "kimi_k2"
+                        | "kimi_thinking"
+                        | "kimi_coding"
+                        | "deepseek"
+                        | "deepseek_reasoner"
+                        | "minimax"
+                        | "xai"
+                        | "grok"
+                        | "grok_latest"
+                        | "grok-4.3"
+                        | "mistral"
+                        | "groq"
+                        | "codestral"
+                        | "together"
+                        | "together_latest"
+                        | "huggingface"
+                        | "hf"
+                );
+                if is_dynamic_slug || is_known_named {
+                    preview(
+                        other,
+                        "forced",
+                        other,
+                        format!("Explicit provider override: {other}"),
+                        true,
+                    )
+                } else {
+                    preview(
+                        other,
+                        "forced_unknown",
+                        "",
+                        format!("Unknown provider override: {other}"),
+                        false,
+                    )
+                }
             }
         }
     }
 }
 
+#[cfg(feature = "mas-build")]
+fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentErrorFFI> {
+    match name {
+        "claude_sonnet" => Ok(Arc::new(ClaudeProvider::sonnet())),
+        "claude_opus" => Ok(Arc::new(ClaudeProvider::opus())),
+        "claude_haiku" => Ok(Arc::new(ClaudeProvider::haiku())),
+        "openai" | "openai_gpt54" => Ok(Arc::new(OpenAIProvider::gpt54())),
+        "openai_gpt55" => Ok(Arc::new(OpenAIProvider::gpt55())),
+        "openai_gpt54_mini" => Ok(Arc::new(OpenAIProvider::gpt54_mini())),
+        "openai_gpt54_nano" => Ok(Arc::new(OpenAIProvider::gpt54_nano())),
+        "openai_gpt52" => Ok(Arc::new(OpenAIProvider::gpt52())),
+        "openai_gpt41" => Ok(Arc::new(OpenAIProvider::gpt41())),
+        "openai_gpt41_mini" => Ok(Arc::new(OpenAIProvider::gpt41_mini())),
+        "openai_o3_mini" => Ok(Arc::new(OpenAIProvider::o3_mini())),
+        _ => Err(AgentErrorFFI::AgentError {
+            message: format!(
+                "Unsupported MAS June provider/model: {name}. Available: claude_sonnet, claude_opus, claude_haiku, openai, openai_gpt55, openai_gpt54, openai_gpt54_mini, openai_gpt54_nano, openai_gpt52, openai_gpt41, openai_gpt41_mini, openai_o3_mini."
+            ),
+        }),
+    }
+}
+
+#[cfg(not(feature = "mas-build"))]
 fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentErrorFFI> {
     match name {
         // Anthropic Claude (native API)
@@ -3697,6 +3763,85 @@ pub fn provenance_ledger_snapshot_json() -> Result<String, AgentErrorFFI> {
     })
 }
 
+// MARK: - LUMENLENS Suggestion Provenance FFI (read-only Phase 1)
+//
+// Mirrors the legacy ClaimLedger FFI shape above, but for the LUMENLENS
+// tracked-change stream. Writes remain in the Rust `SuggestionLedger` API
+// and the eventual durable editor-domain GRDB table; this bridge only exports
+// summary/events/replay-bundle JSON for audit and UI inspection.
+
+fn suggestion_provenance_ledger(
+) -> &'static std::sync::RwLock<crate::provenance::suggestion_schema::SuggestionLedger> {
+    use std::sync::{OnceLock, RwLock};
+    static LEDGER: OnceLock<RwLock<crate::provenance::suggestion_schema::SuggestionLedger>> =
+        OnceLock::new();
+    LEDGER
+        .get_or_init(|| RwLock::new(crate::provenance::suggestion_schema::SuggestionLedger::new()))
+}
+
+#[uniffi::export]
+pub fn suggestion_provenance_ledger_summary_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let ledger =
+            suggestion_provenance_ledger()
+                .read()
+                .map_err(|err| AgentErrorFFI::AgentError {
+                    message: format!("Suggestion provenance ledger lock poisoned: {err}"),
+                })?;
+        Ok(format!(
+            r#"{{"suggestion_count":{},"event_count":{}}}"#,
+            ledger.suggestion_count(),
+            ledger.event_count(),
+        ))
+    })
+}
+
+#[uniffi::export]
+pub fn suggestion_provenance_ledger_recent_events_json(
+    limit: u32,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let ledger =
+            suggestion_provenance_ledger()
+                .read()
+                .map_err(|err| AgentErrorFFI::AgentError {
+                    message: format!("Suggestion provenance ledger lock poisoned: {err}"),
+                })?;
+        let bounded = limit.min(1000) as usize;
+        if bounded == 0 {
+            return Ok("[]".to_string());
+        }
+        let mut events = ledger.events_since(0);
+        events.reverse();
+        events.truncate(bounded);
+        serde_json::to_string(&events).map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("Suggestion provenance events serialization failed: {err}"),
+        })
+    })
+}
+
+#[uniffi::export]
+pub fn suggestion_provenance_ledger_snapshot_json(
+    generated_at_ms: i64,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let ledger =
+            suggestion_provenance_ledger()
+                .read()
+                .map_err(|err| AgentErrorFFI::AgentError {
+                    message: format!("Suggestion provenance ledger lock poisoned: {err}"),
+                })?;
+        let bundle = ledger
+            .snapshot(generated_at_ms)
+            .map_err(|err| AgentErrorFFI::AgentError {
+                message: format!("Suggestion provenance snapshot failed: {err}"),
+            })?;
+        serde_json::to_string(&bundle).map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("Suggestion provenance snapshot serialization failed: {err}"),
+        })
+    })
+}
+
 // MARK: - In-process LSP runtime FFI (V2.3 Stage B)
 //
 // Doctrine reference: `docs/V2_3_LSP_MIGRATION_PLAN_2026_05_05.md`.
@@ -5704,6 +5849,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn provider_native_thinking_explicit_openai_codex_override_is_supported() {
         let preview =
             resolve_provider_selection_preview("handle this with Codex", "openai_gpt53_codex");
@@ -5715,6 +5861,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn provider_native_thinking_explicit_deepseek_reasoner_override_is_supported() {
         let preview =
             resolve_provider_selection_preview("handle this with DeepSeek", "deepseek_reasoner");
@@ -5726,6 +5873,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn explicit_together_latest_override_is_supported() {
         let preview =
             resolve_provider_selection_preview("try the Together route", "together_latest");
@@ -5741,6 +5889,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn auto_mode_uses_cloud_fallback_for_simple_tasks() {
         let preview = resolve_provider_selection_preview("summarize this note", "auto");
 
@@ -5750,6 +5899,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn auto_mode_routes_research_to_perplexity_when_available() {
         let preview =
             resolve_provider_selection_preview("research the latest transformer papers", "auto");
@@ -5760,12 +5910,62 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "mas-build"))]
     fn auto_mode_surfaces_local_only_routes_honestly() {
         let preview = resolve_provider_selection_preview("rewrite this paragraph", "auto");
 
         assert_eq!(preview.resolution_kind, "auto_local_only");
         assert_eq!(preview.effective_provider, "");
         assert!(!preview.supported);
+    }
+
+    #[test]
+    #[cfg(feature = "mas-build")]
+    fn mas_provider_admission_matches_the_exact_june_catalog() {
+        for provider in [
+            "claude_sonnet",
+            "claude_opus",
+            "claude_haiku",
+            "openai",
+            "openai_gpt55",
+            "openai_gpt54",
+            "openai_gpt54_mini",
+            "openai_gpt54_nano",
+            "openai_gpt52",
+            "openai_gpt41",
+            "openai_gpt41_mini",
+            "openai_o3_mini",
+        ] {
+            let preview = resolve_provider_selection_preview("MAS June turn", provider);
+            assert!(
+                preview.supported,
+                "June provider should be admitted: {provider}"
+            );
+            assert!(instantiate_provider(provider).is_ok());
+        }
+
+        for parked in [
+            "auto",
+            "gemini_pro",
+            "perplexity",
+            "openrouter",
+            "ollama",
+            "llama_cpp",
+            "zai",
+            "kimi",
+            "deepseek_reasoner",
+            "minimax",
+            "openai_gpt4o",
+            "openai_o1",
+            "anthropic/claude-sonnet-4",
+        ] {
+            let preview = resolve_provider_selection_preview("MAS June turn", parked);
+            assert!(
+                !preview.supported,
+                "parked provider must fail closed: {parked}"
+            );
+            assert!(instantiate_provider(parked).is_err());
+        }
     }
 
     #[test]

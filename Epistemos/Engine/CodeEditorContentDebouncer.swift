@@ -4,14 +4,14 @@ import Foundation
 // MARK: - CodeEditorContentDebouncer (T+8 Phase-S item 2)
 //
 // Per `docs/CODE_EDITOR_POLISH_SCOPE.md` Phase-S item 2:
-//   "Binding<String> debouncing (2 hrs) — 300 ms quiet window"
+//   "Binding<String> debouncing (2 hrs) — quiet window"
 //
 // `CodeEditorView` fires its host's `onContentChange` on every
 // keystroke synchronously. For hosts whose downstream action is
 // expensive (semantic search, vault index update, MutationEnvelope
 // emission, NSDocument autosave), every keystroke re-runs that work
 // even though only the final result matters. This helper coalesces
-// rapid keystrokes into a single delivery after a 300 ms quiet
+// rapid keystrokes into a single delivery after a quiet
 // window.
 //
 // Mirrors the pattern of `EpdocEditorSavePipeline`
@@ -36,16 +36,15 @@ import Foundation
 @MainActor
 public final class CodeEditorContentDebouncer {
 
-    /// Default quiet window. Per polish-scope doc: "300 ms quiet
-    /// window" — long enough to coalesce rapid typing, short enough
-    /// that perceived save latency stays sub-second.
-    nonisolated public static let defaultQuietWindowMs: Int = 300
+    /// Default quiet window. Keep disk/index/save side effects out of active
+    /// typing bursts while preserving sub-second perceived save latency.
+    nonisolated public static let defaultQuietWindowMs: Int = 900
 
     private let subject = PassthroughSubject<String, Never>()
     private let process: @Sendable @MainActor (String) -> Void
     private var subscription: AnyCancellable?
 
-    /// Build a debouncer with a 300 ms quiet window by default.
+    /// Build a debouncer with a 900 ms quiet window by default.
     /// `process` runs on `@MainActor` after the user stops typing
     /// for `quietWindow` (.milliseconds default 300).
     public init(
@@ -64,7 +63,7 @@ public final class CodeEditorContentDebouncer {
             }
     }
 
-    /// Forward the latest text. Each call resets the 300 ms timer;
+    /// Forward the latest text. Each call resets the quiet-window timer;
     /// only the final `latest` after the quiet window fires the
     /// `process` closure.
     public func enqueue(_ latest: String) {

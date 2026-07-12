@@ -60,7 +60,7 @@ public final class LlamaLocalChatEngine: LocalChatEngine, @unchecked Sendable {
     }
 
     public func stream(prompt: String, maxNewTokens: Int) -> AsyncThrowingStream<LocalChatStreamEvent, Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
             continuation.onTermination = { [weak self] termination in
                 if case .cancelled = termination { self?.cancel() }
             }
@@ -222,7 +222,7 @@ public final class LlamaLocalChatEngine: LocalChatEngine, @unchecked Sendable {
 
         while true {
             if cancelRequested.withLock({ $0 }) {
-                flushPending(&accumulator, continuation: continuation)
+                guard flushPending(&accumulator, continuation: continuation) else { return }
                 finishRun(
                     continuation: continuation,
                     promptTokens: promptTokens.count,
@@ -235,7 +235,7 @@ public final class LlamaLocalChatEngine: LocalChatEngine, @unchecked Sendable {
 
             var token = llama_sampler_sample(sampler, context, -1)
             if llama_vocab_is_eog(vocab, token) {
-                flushPending(&accumulator, continuation: continuation)
+                guard flushPending(&accumulator, continuation: continuation) else { return }
                 finishRun(
                     continuation: continuation,
                     promptTokens: promptTokens.count,
@@ -247,13 +247,13 @@ public final class LlamaLocalChatEngine: LocalChatEngine, @unchecked Sendable {
             }
 
             if let piece = piece(for: token, vocab: vocab, accumulator: &accumulator), !piece.isEmpty {
-                continuation.yield(.token(piece))
+                guard yieldEvent(.token(piece), continuation: continuation) else { return }
             }
             generated += 1
             updateAccounting(promptTokens: promptTokens.count, generated: generated)
 
             if generated >= maxNewTokens {
-                flushPending(&accumulator, continuation: continuation)
+                guard flushPending(&accumulator, continuation: continuation) else { return }
                 finishRun(
                     continuation: continuation,
                     promptTokens: promptTokens.count,
@@ -264,7 +264,7 @@ public final class LlamaLocalChatEngine: LocalChatEngine, @unchecked Sendable {
                 return
             }
             if promptTokens.count + generated >= contextTokenCapacity - 1 {
-                flushPending(&accumulator, continuation: continuation)
+                guard flushPending(&accumulator, continuation: continuation) else { return }
                 finishRun(
                     continuation: continuation,
                     promptTokens: promptTokens.count,
@@ -324,21 +324,46 @@ public final class LlamaLocalChatEngine: LocalChatEngine, @unchecked Sendable {
         accumulator: inout UTF8PieceAccumulator
     ) -> String? {
         var buffer = [CChar](repeating: 0, count: 512)
-        let length = buffer.withUnsafeMutableBufferPointer { pointer in
+        var length = buffer.withUnsafeMutableBufferPointer { pointer in
             llama_token_to_piece(vocab, token, pointer.baseAddress, Int32(pointer.count), 0, false)
+        }
+        if length < 0 {
+            buffer = [CChar](repeating: 0, count: Int(-length))
+            length = buffer.withUnsafeMutableBufferPointer { pointer in
+                llama_token_to_piece(vocab, token, pointer.baseAddress, Int32(pointer.count), 0, false)
+            }
         }
         guard length > 0 else { return nil }
         let bytes = buffer[0..<Int(length)].map { UInt8(bitPattern: $0) }
         return accumulator.push(bytes)
     }
 
+    private func yieldEvent(
+        _ event: LocalChatStreamEvent,
+        continuation: AsyncThrowingStream<LocalChatStreamEvent, Error>.Continuation
+    ) -> Bool {
+        switch continuation.yield(event) {
+        case .enqueued:
+            return true
+        case .dropped:
+            continuation.finish(throwing: LocalChatEngineError.streamBackpressure)
+            return false
+        case .terminated:
+            return false
+        @unknown default:
+            continuation.finish(throwing: LocalChatEngineError.streamBackpressure)
+            return false
+        }
+    }
+
     private func flushPending(
         _ accumulator: inout UTF8PieceAccumulator,
         continuation: AsyncThrowingStream<LocalChatStreamEvent, Error>.Continuation
-    ) {
+    ) -> Bool {
         if let tail = accumulator.flush(), !tail.isEmpty {
-            continuation.yield(.token(tail))
+            return yieldEvent(.token(tail), continuation: continuation)
         }
+        return true
     }
 
     private func finishRun(
@@ -354,12 +379,12 @@ public final class LlamaLocalChatEngine: LocalChatEngine, @unchecked Sendable {
             let elapsed = Double(DispatchTime.now().uptimeNanoseconds - startedAt.uptimeNanoseconds) / 1_000_000_000
             if elapsed > 0 { tokensPerSecond = Double(generated) / elapsed }
         }
-        continuation.yield(.finished(LocalChatRunStats(
+        guard yieldEvent(.finished(LocalChatRunStats(
             promptTokens: promptTokens,
             generatedTokens: generated,
             finishReason: reason,
             tokensPerSecond: tokensPerSecond
-        )))
+        )), continuation: continuation) else { return }
         continuation.finish()
     }
 

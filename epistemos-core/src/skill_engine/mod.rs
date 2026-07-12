@@ -34,26 +34,7 @@ pub fn classify_prompt(prompt: &str) -> String {
     }
 
     // Tool cues: API/code/function usage
-    let tool_cues = [
-        "how to use",
-        "api",
-        "function",
-        "endpoint",
-        "code",
-        "command",
-        "script",
-        "import",
-        "install",
-        "configure",
-        "setup",
-        "debug",
-        "compile",
-        "error",
-        "build",
-        "deploy",
-        "docker",
-        "git ",
-    ];
+    let tool_cues = tool_cues();
     let tool_hits = tool_cues.iter().filter(|c| lower.contains(*c)).count();
     if tool_hits >= 2 {
         return "tool".to_string();
@@ -79,6 +60,53 @@ pub fn classify_prompt(prompt: &str) -> String {
     }
 
     "general".to_string()
+}
+
+#[cfg(not(feature = "mas-sandbox"))]
+fn tool_cues() -> &'static [&'static str] {
+    &[
+        "how to use",
+        "api",
+        "function",
+        "endpoint",
+        "code",
+        "command",
+        "script",
+        "import",
+        "install",
+        "configure",
+        "setup",
+        "debug",
+        "compile",
+        "error",
+        "build",
+        "deploy",
+        "docker",
+        "git ",
+    ]
+}
+
+#[cfg(feature = "mas-sandbox")]
+fn tool_cues() -> &'static [&'static str] {
+    &[
+        "how to use",
+        "api",
+        "function",
+        "endpoint",
+        "code",
+        "command",
+        "script",
+        "import",
+        "install",
+        "configure",
+        "setup",
+        "debug",
+        "compile",
+        "error",
+        "build",
+        "deploy",
+        "git ",
+    ]
 }
 
 /// UniFFI-callable: classify a prompt for adapter routing.
@@ -122,7 +150,10 @@ mod tests {
             classify_prompt("How to use the git command to deploy code"),
             "tool"
         );
+        #[cfg(not(feature = "mas-sandbox"))]
         assert_eq!(classify_prompt("Configure the Docker API endpoint"), "tool");
+        #[cfg(feature = "mas-sandbox")]
+        assert_eq!(classify_prompt("Configure the API endpoint code"), "tool");
     }
 
     #[test]

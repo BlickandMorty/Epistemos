@@ -1,9 +1,8 @@
 import Foundation
 
-// Surface A — wave quick chat (Plan 1-MAS §2). Shared model types for the
-// local-only engines: Apple Foundation Models (zero-download, gated) and the
-// embedded llama.cpp GGUF lane (opt-in download). No cloud, no account, no
-// agent furniture on this surface (§3.4 anti-mixing).
+// Shared model types for Apple Foundation Models and June's selected local
+// GGUF catalog. The legacy QuickChat UI remains parked in MAS; June owns the
+// active local-model surface.
 
 nonisolated enum QuickChatEngineID: Sendable, Equatable, Hashable {
     case appleFM
@@ -59,7 +58,7 @@ nonisolated enum QuickChatEngineUnavailable: Error, Sendable, Equatable {
         case .modelNotReady:
             return "The on-device model is still downloading. Please try again later."
         case .noLocalModelInstalled:
-            return "No local model is installed yet. Download one to chat privately on this Mac."
+            return "No selected June local model is installed yet. Open June's model settings to download one."
         case .localModelBusy:
             return "The local model is already answering another request. Stop that reply or wait before starting another local turn."
         case .insufficientMemory(let required, let available):

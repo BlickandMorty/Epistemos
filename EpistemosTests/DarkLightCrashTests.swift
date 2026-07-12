@@ -29,12 +29,29 @@ struct DarkLightCrashTests {
         let src = try loadMirroredSourceTextFile(
             "Epistemos/Views/Epdoc/EpdocEditorChromeView.swift"
         )
+        let snapshot = try Self.extractFunction(
+            signature: "private func evaluateCurrentMarkdownSnapshot() async -> String?",
+            from: src
+        )
+        let dismantle = try Self.extractFunction(
+            signature: "static func dismantleNSView(_ view: WKWebView, coordinator: Coordinator)",
+            from: src
+        )
 
         #expect(src.contains("view.navigationDelegate = context.coordinator"))
         #expect(src.contains("private var pendingTheme: EpistemosTheme?"))
         #expect(src.contains("guard !webView.isLoading else"))
         #expect(src.contains("flushPendingTheme(in: webView)"))
         #expect(src.contains("isDetached = true"))
+        #expect(snapshot.contains("guard !isDetached, let webView else { return nil }"))
+        #expect(snapshot.contains("guard !webView.isLoading else"))
+        #expect(snapshot.contains("return controller?.latestMarkdownSnapshot"))
+        let loadingGuard = try #require(snapshot.range(of: "guard !webView.isLoading else"))
+        let evaluation = try #require(snapshot.range(of: "webView.evaluateJavaScript(expression)"))
+        #expect(loadingGuard.lowerBound < evaluation.lowerBound)
+        #expect(Self.offset(of: "coordinator.shutdown()", in: dismantle) < Self.offset(of: "view.stopLoading()", in: dismantle))
+        #expect(Self.offset(of: "view.navigationDelegate = nil", in: dismantle) < Self.offset(of: "view.stopLoading()", in: dismantle))
+        #expect(Self.offset(of: "removeScriptMessageHandler", in: dismantle) < Self.offset(of: "view.stopLoading()", in: dismantle))
     }
 
     @Test("HTML Workspace coalesces preview reloads and data patches while WebView is loading")
@@ -61,6 +78,10 @@ struct DarkLightCrashTests {
             signature: "func detach(from webView: WKWebView)",
             from: src
         )
+        let processRecovery = try Self.extractFunction(
+            signature: "func webViewWebContentProcessDidTerminate(_ webView: WKWebView)",
+            from: src
+        )
 
         #expect(src.contains("private var isDetached = false"))
         #expect(src.contains("private var loadGeneration = 0"))
@@ -78,6 +99,12 @@ struct DarkLightCrashTests {
         #expect(src.contains("!self.isDetached else { return }"))
         #expect(src.contains("self.lastAppliedState = previousState"))
         #expect(src.contains("pendingSelectionRequest = selectionRequest"))
+        #expect(processRecovery.contains("let recoveryState = pendingState ?? lastAppliedState"))
+        #expect(processRecovery.contains("let recoverySelectionRequest = pendingSelectionRequest"))
+        #expect(processRecovery.contains("loadEditor(into: webView)"))
+        #expect(processRecovery.contains("pendingState = recoveryState"))
+        #expect(processRecovery.contains("pendingSelectionRequest = recoverySelectionRequest"))
+        #expect(!processRecovery.contains("editor blanked; reopen to recover"))
         #expect(src.contains("""
             guard !isDetached else {
                 decisionHandler(.cancel)

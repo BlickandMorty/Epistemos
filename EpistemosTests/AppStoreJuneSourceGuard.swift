@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppStoreJuneSourceGuard {
-    static func sourceSection(
+    nonisolated static func sourceSection(
         in source: String,
         startingAt startMarker: String,
         endingBefore endMarker: String

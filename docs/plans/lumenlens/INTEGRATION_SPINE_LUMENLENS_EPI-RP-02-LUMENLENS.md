@@ -3,12 +3,17 @@
 ID: EPI-RP-02-LUMENLENS · Codename: LUMENLENS · Received 2026-07-06 (owner research wave, verbatim)
 Amendments: §S5 (appended after repo review — binding; see `LUMENLENS_REVIEW_2026_07_06.md`).
 
+> OWNER OVERRIDE — 2026-07-07, `MAS-ONLY-SHIP-LOCK-2026-07-07`: read
+> `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md` first. This spine is active
+> for MAS editor correctness only. The older 1Code/KINDRED gating research remains
+> provenance and leak-check material, not an active build target.
+
 ### The shared architectural contract every future editor plan plugs into, hardened for scale
 
 ## S0. Purpose & scale invariants (binding)
-The Spine is the contract both builds and all future editor plans plug into. Two builds share one correctness core:
+The Spine is the contract the MAS editor plan plugs into. Active target:
 - **MAS** (Mac App Store, sandboxed, no subprocess): full multi-lens editor + June agent capabilities. **NO** KINDRED companion presence/streaming layer.
-- **1Code / Experimental** (Developer ID): everything, including the KINDRED companion.
+- **1Code / Experimental**: parked by the 2026-07-07 MAS-only pivot; keep only as historical leak-check provenance.
 
 Scale invariants (all binding, all cited in S4):
 - **SI-1** Vault = 100k+ notes/files; individual docs multi-MB markdown.
@@ -18,16 +23,15 @@ Scale invariants (all binding, all cited in S4):
 - **SI-5** State/event bus must not become a bottleneck.
 - **SI-6** GRDB indexing strategy is explicit.
 
-## S1. Gating seam — BINDING VERDICT: compile-time feature flag as primary seam + SwiftPM trait to gate dependency targets + CI matrix, with a thin runtime capability struct for UI only.
+## S1. Parked companion gating seam — provenance + MAS leak check
 
 Swift has no C-style preprocessor macros; it uses `#if` conditional compilation driven by the `SWIFT_ACTIVE_COMPILATION_CONDITIONS` build setting, and the compiler *physically removes* non-matching branches from the binary — so no dead companion code path is reachable on MAS (Swift by Sundell, "Using compiler directives in Swift", swiftbysundell.com/articles/using-compiler-directives-in-swift/; Reintech, "How to use Swift's #if compiler", reintech.io/blog/mastering-swifts-if-compiler-directives: "the compiler literally removes code branches that don't match your conditions—they won't exist in your compiled binary"). SwiftPM 6.1+ *package traits* go further: a trait "makes `#if TraitName` valid in source, and it can gate dependency targets out of the build… By the time your binary runs, the trait has already shaped what SwiftPM prepared for compilation" (Tomasz Kubiak, "Build-Time Feature Flags with SwiftPM Package Traits + CI Matrix", medium.com/@tomasz.kubiak.dev/build-time-feature-flags-with-swiftpm-package-traits-ci-matrix-9b42d190df77).
 
-Design:
-1. Define compilation condition `KINDRED_ENABLED`, set on the 1Code target only.
-2. All KINDRED companion code (presence, token streaming, any subprocess bridge) lives in a SwiftPM target behind a package trait so it is **not compiled or linked** into MAS.
-3. Guard rail: `#if !KINDRED_ENABLED && <companion symbol> #error("Companion must be compiled out of MAS")`. This mirrors Sundell's `#if !DEBUG && ENABLE_INTERNAL_TOOLS #error(...)` pattern.
-4. **CI matrix (3 rows), which is the proof, not the intent:** (A) defaults — MAS dev path; (B) `--disable-default-traits` — the **leak detector**, proving the shared core compiles with the companion gated OFF; (C) defaults + KINDRED — anti-rot guard so 1Code-only code never bit-rots.
-5. Runtime `Capabilities { companionAvailable: Bool }` exists only so UI can hide affordances; it is **derived from** the compile flag, never the source of truth.
+Active MAS-only design:
+1. Do not define `KINDRED_ENABLED` for active MAS work.
+2. All parked companion code remains absent from `Epistemos-AppStore`.
+3. CI/leak proof builds `Epistemos-AppStore` and asserts zero companion/presence symbols.
+4. Runtime MAS UI derives capability truth from June/agent_core state, not from hidden companion flags.
 
 Rationale for choosing compile-time over runtime gating: Kubiak documents a real shipped App Store incident where an internal debug overlay leaked into a Release build because a gate was rewritten `#if DEBUG || INTERNAL` and "CI stayed green because it ran `-configuration Release` with no custom flags. The developer's local scheme was not CI's scheme." Loose/runtime gating is a genuine review-and-leak risk; compile-time + a CI matrix is the auditable path that satisfies the owner's "no leak of 1Code-only features onto MAS" requirement.
 
@@ -35,8 +39,8 @@ Rationale for choosing compile-time over runtime gating: Kubiak documents a real
 | Seam | Owner (language/module) | Scale note |
 |---|---|---|
 | **F1 Vault bus** | native Swift (GRDB) | file watch, security-scoped bookmarks, write-lease |
-| **F2 Agent capability registry** | agent_core (Rust) | June always; KINDRED capability gated |
-| **F3 Companion presence** | 1Code (gated) | compiled out on MAS via trait |
+| **F2 Agent capability registry** | agent_core (Rust) | June is the active MAS driver |
+| **F3 Status/provenance** | native/agent_core state | Kindred companion presence is parked; MAS asserts zero presence symbols |
 | **F4 Knowledge graph** | agent_core (Rust) + GRDB | 100k-note batched writes, short txns |
 | **F5 Provenance/citation** | agent_core `provenance/ledger.rs` + `replay.rs` | retention/compaction (S4) |
 | **F6 State/event bus** | native Swift | debounced, backpressure |
@@ -107,14 +111,9 @@ Hardened protocol (idempotent, survives both bugs):
 
 Full rationale: `LUMENLENS_REVIEW_2026_07_06.md`. Summary of the binding deltas:
 
-1. **S1 gating (L1):** `KINDRED_ENABLED` is subordinate to KEELSTONE's surface schema — defined
-   ONLY on the `Epistemos` (Experimental) target alongside `EPISTEMOS_EXPERIMENTAL`; never on
-   AppStore; never in shared base. The `#if !KINDRED_ENABLED && <symbol>` guard is invalid Swift —
-   use file-wrapping `#if KINDRED_ENABLED … #endif` + the combo guard
-   `#if KINDRED_ENABLED && EPISTEMOS_APP_STORE #error(…)` (repo-proven pattern:
-   `ExperimentalRuntimeSupervisor.swift:1`). SwiftPM traits = optional future hardening, NOT the
-   binding mechanism (companion code lives in the app target today). CI row B = build
-   `Epistemos-AppStore` and assert zero companion symbols in the binary.
+1. **S1 gating (L1), amended by 2026-07-07 MAS-only pivot:** `KINDRED_ENABLED` and
+   `EPISTEMOS_EXPERIMENTAL` are parked. Active proof = build `Epistemos-AppStore` and assert zero
+   companion/presence symbols in the binary.
 2. **S2/S4 search:** hybrid search ALREADY EXISTS (GRDB FTS + Rust tantivy/usearch shadow + RRF
    fusion behind `EPISTEMOS_RRF_FUSION_V1`). The editor consumes it; no search build work.
 3. **S4 asset pipeline:** ALREADY BUILT as `epistemos-doc://` + `decompressBrotli` in

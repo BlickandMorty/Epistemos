@@ -1,6 +1,6 @@
 # Prompt/Plan Upgrade Audit (2026-06-29)
 
-> 🔴 **SUPERSEDED-IN-FRAME 2026-07-02 (OpenChamber pivot).** This audit reconciled the plans to the PRE-pivot world (Goose reskin / Option 1 / Goose-only). That world is gone: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. The live plan/prompt reconciliation replacing this audit was done 2026-07-02 (PROMPT_PLAN_* override headers + `docs/_archive/pre-openchamber-2026-07-02/`). Use the audit's method, not its pre-pivot conclusions. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+> 🔴 **SUPERSEDED-IN-FRAME 2026-07-02 (OpenChamber pivot).** This audit reconciled the plans to the PRE-pivot world (Goose reskin / Option 1 / Goose-only). That world is gone: Current surfaces = Experimental/1Code + MAS/June; OpenChamber/ProAgent are deletion targets; goose = one engine. The live plan/prompt reconciliation replacing this audit was done 2026-07-02 (PROMPT_PLAN_* override headers + `docs/_archive/pre-openchamber-2026-07-02/`). Use the audit's method, not its pre-pivot conclusions. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
 
 Purpose: prevent future build agents from following stale pre-upgrade wording after the 2026-06-29 native-unification
 and Goose Option-1 decisions.

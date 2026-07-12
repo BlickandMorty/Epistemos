@@ -109,11 +109,14 @@ struct JuneAgentNavBar: View {
                     speech.stop()
                 } else if !ttsAvailable {
                     showingKokoroInstallPrompt = true
-                } else if let text = JuneAgentSurfaceHolder.shared.bridge?.gateway.latestAssistantReply() {
+                } else {
                     // voiceIdentifier defaults to the user's ModelVoicePickerSection
                     // pick (Kokoro on MAS) — never hardcoded here. Audio is
                     // synthesized native-side by the shared engine.
-                    _ = EpistemosAgentReadAloud.speak(text, synthesizer: speech)
+                    _ = EpistemosAgentReadAloud.readVisibleSurface(
+                        preferred: .juneLatestAssistantReply,
+                        synthesizer: speech
+                    )
                 }
             } label: {
                 Image(systemName: readAloudSystemImage)

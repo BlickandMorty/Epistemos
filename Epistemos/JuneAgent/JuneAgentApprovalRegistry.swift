@@ -1,7 +1,7 @@
 #if EPISTEMOS_APP_STORE
 import Foundation
 
-final class JuneAgentApprovalRegistry {
+nonisolated final class JuneAgentApprovalRegistry: @unchecked Sendable {
     static let maxApprovalChoiceCharacters = 64
     private static let maxPendingApprovals = 16
 
