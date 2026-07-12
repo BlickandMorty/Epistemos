@@ -191,3 +191,12 @@ call sites, then remove one isolated seam at a time with source-level checks.
   copies are about 14.51 GiB over the permitted ceiling. Do not begin an
   external backup until the owner chooses compression/deduplication, a larger
   destination, or an explicitly approved source reduction.
+
+## Final inactive model-artifact cleanup
+
+- A final tracked-file scan found two 71.87 MiB Qwen/MLX prompt-cache files
+  beneath `artifacts/falsifiers/kv_direct_gate/`. They are historical
+  research-run output, not a dependency of the retained App Store June route.
+- Both files were removed under the owner's authorization to delete local AI
+  files. Historical documentation may retain their evidence references; no
+  active MAS product source points to either cache file.
