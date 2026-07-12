@@ -23,8 +23,8 @@ require_closed() {
   local pattern
   for pattern in \
     'ChatGPT.app' \
-    'Xcode.app' \
-    'Simulator.app'; do
+    'Xcode.app/Contents/MacOS/Xcode' \
+    'Simulator.app/Contents/MacOS/Simulator'; do
     if pgrep -f "$pattern" >/dev/null; then
       print -u2 "Close ChatGPT/Codex, Xcode, and Simulator before running this backup."
       exit 1
