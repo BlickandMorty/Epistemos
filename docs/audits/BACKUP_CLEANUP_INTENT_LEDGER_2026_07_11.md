@@ -228,3 +228,14 @@ call sites, then remove one isolated seam at a time with source-level checks.
 - These paths are excluded from the restore set and removed under the prior
   MAS-only and local-AI cleanup authorization. The MAS App Store container,
   current Epistemos support data, and all recovery snapshots remain retained.
+
+### Owner-directed script handoff
+
+- Owner clarification: “i asked for a script to do it isnt that better so i
+  can close the app”. The attempted live archive was cancelled and its partial
+  output deleted.
+- `scripts/create-epistemos-codex-restore-backup.zsh` now creates the single
+  unencrypted restore archive after ChatGPT/Codex, Xcode, and Simulator are
+  closed. It refuses a live run, snapshots SQLite databases, checks capacity,
+  writes a manifest and SHA-256 receipt, validates archive readability, and
+  extracts the full project into a temporary staging area to verify Git state.
