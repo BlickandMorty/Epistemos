@@ -71,7 +71,9 @@ source_home="$mountpoint/Payload/Users/jojo"
 
 relative_paths=(
   .codex
+  .cargo
   .cache/codex-runtimes
+  'dev/june-epistemos'
   'Downloads/Epistemos'
   'Downloads/epistemos_mas_master_canon_2026_07_08'
   'Downloads/epistemos_mas_master_canon_2026_07_08.zip'

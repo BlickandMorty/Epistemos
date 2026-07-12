@@ -5620,3 +5620,167 @@ Execution-state keys are exclusively:
   cloud turn with the explicit consent-required message before sending data.
   Keychain secrets were not read and no provider request ran; cloud output
   therefore remains untested rather than presumed broken or working.
+
+## Resume Checkpoint 2026-07-12 — Durable Handoff Grounding And Release-Gate Drift
+
+### Verbatim owner wording
+
+> Resume the exact in-flight Epistemos feature from its durable GitHub handoff.
+> Do not begin implementation until you have grounded yourself in current source
+> and verified the remote state.
+
+> Continue from the recorded next action. Preserve MAS-only June boundaries,
+> use surgical edits, and do not claim runtime behavior without current exact
+> evidence.
+
+### Interpreted intent
+
+- Resume the published KEELSTONE evidence chain without relying on hidden task
+  memory or importing private Columbia/VA/funding context.
+- Verify GitHub identity before changing source, then continue only the exact
+  next evidence action recorded by the handoff.
+- Treat any current-tip contract failure as a surgical KEELSTONE correction;
+  do not reopen general source hardening or advance the execution key.
+
+### Hard constraints and non-goals
+
+- Current execution key remains
+  `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`.
+- Active product remains `Epistemos-AppStore`, `EPISTEMOS_APP_STORE`,
+  `MAS_SANDBOX`, MAS/June, in-process `agent_core`, bundled/native assets,
+  security-scoped vault access, and Keychain secrets.
+- Do not revive Goose as a product, Pro, Experimental, 1Code, OpenChamber,
+  sidecars, subprocesses, local servers, Node, terminal/code execution, stdio
+  MCP, or browser-use.
+- Do not claim build, archive, linkage, JuneWeb, vault, editor, June, or Kokoro
+  runtime behavior from source guards.
+- Do not mutate an owner vault, inspect secrets, call a provider, load a model,
+  or play audio while archive prerequisites are red or absent.
+
+### Proven state, contradiction, and acceptance checks
+
+- `git log -1 --format=%H -- docs/handoffs/CURRENT_INFLIGHT_FEATURE_HANDOFF.md`,
+  local `HEAD`, `origin/feat/goose-surface`, and `git ls-remote` all resolve to
+  `f73b3244c09a76a14961050964969bcb5ac9fa70`.
+- The resumed worktree was clean and the resource preflight was safe: 77% free
+  memory, 0.25 MiB of 1 GiB swap used, 808 GiB free disk, and no competing
+  Xcode/model/app process.
+- The committed source contains the recorded vault, editor, graph, June,
+  Kokoro, and GGUF seams, but the committed 177-line release gate performs only
+  40 source checks. It lacks the JuneWeb drift and built-app GGUF
+  embedding/linkage checks required by the committed App Store source-guard
+  tests and recorded handoff evidence.
+- The checked-in `.june-web-stage` required by `build-june-web.sh`, CI, and the
+  App Store bundle step is absent, and the external June donor checkout is not
+  present on this laptop.
+- A focused App Store test could not reach the assertion: the first run failed
+  for a missing development provisioning profile; the unsigned retry failed in
+  the required Rust build phase because `cargo` is not installed.
+- KEELSTONE remains incomplete. A fresh signed archive and every owner-visible
+  runtime acceptance check remain unproven.
+
+### Next action
+
+- Correct only the focused release-gate drift already specified by the active
+  tests: fail closed on missing/stale staged or built JuneWeb, and require the
+  built MAS app to embed and link June's in-process `llama.framework`.
+- Verify shell syntax, the explicit source-guard contract, and fail-closed
+  behavior on this checkout. Do not archive until Rust, signing, and the exact
+  JuneWeb stage/donor prerequisites are restored.
+
+## Owner Continuity Steer 2026-07-12 — Canon-First Reset Recovery
+
+### Verbatim owner wording
+
+> whenver u are done with whatever u are doing i need to make sure that i am
+> able to set everythign back up. teh main canon is that one folder - is the
+> canon folder i attached that is the soruce of truth for my work.
+
+> the most important thing is that i make sure that i can cotninue working in
+> order.
+
+The attached executive-planner correction further states:
+
+> The external master-canon folder controls the plan. Repository handoffs and
+> the preparation packet may help us understand evidence, but they must never
+> become replacement prompts.
+
+### Interpreted intent
+
+- Make the reset/new-Mac path reconstruct the exact active Epistemos work and
+  its prerequisites without depending on hidden chat memory.
+- Keep the July 8 master canon's numbered
+  `03_MINIMAL_PROMPT_PACK.md` as the sole execution-prompt authority.
+- Resume only its exact Prompt 2, KEELSTONE. Handoffs, evidence ledgers, and
+  corrected low-RAM preparation may report state but may not rename, replace,
+  wrap, reorder, or broaden the canonical prompt.
+- Preserve both GitHub and offline recovery paths so a later session can verify
+  identity and continue even if one path is unavailable.
+
+### Hard constraints and non-goals
+
+- Current execution key remains
+  `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`; do not start Prompt 3 or
+  any later canonical key.
+- Do not create a custom Prompt A/B/C/D chain or elevate older numbered plans,
+  `MAS_EXECUTION_STATUS`, the preparation packet, or this ledger above the
+  master canon.
+- Preserve MAS-only June boundaries and the existing uncommitted release-gate
+  correction.
+- Keep private Columbia/VA/funding, credentials, secrets, and personal data out
+  of the public repository and the public handoff.
+- Do not claim that missing June generated assets, Rust, Apple signing, or
+  exact runtime evidence have been restored until current checks prove them.
+
+### Current recovery truth and contradictions
+
+- The expected external canon folder is absent from Downloads, but a verified
+  full copy exists at
+  `/Volumes/treasure/Epistemos-External-Plan-Assets-2026-07-12/epistemos_mas_master_canon_2026_07_08`.
+- The repository contains the curated, post-autonomy-fix canon copy and the
+  corrected preparation packet. The flash drive contains the full canon,
+  including preserved original source archives.
+- Both in-flight flash-drive Git bundles verify as complete histories at
+  `f73b3244c09a76a14961050964969bcb5ac9fa70`, but they do not contain the
+  current uncommitted release-gate and ledger corrections.
+- The Codex-state archive exists and has a recorded SHA-256, but the planned
+  full APFS restore image was never created. Existing backup scripts also
+  assume the external canon folders already exist in Downloads.
+- `.june-web-stage`, the owner-modified June donor checkout, Rust, and the App
+  Store signing profile remain absent on this Mac.
+
+### Acceptance checks and next action
+
+- Restore the full canon and corrected preparation folders to their expected
+  Downloads paths from the verified flash-drive copies, then recompute their
+  recorded tree identities.
+- Add one canon-first recovery entry point that restores/verifies the canon,
+  verifies Git identity, reports all build prerequisites, and prints only the
+  exact canonical Prompt 2 location and evidence resumption boundary.
+- Update the durable handoff without turning it into a replacement prompt.
+- Verify, commit, and push the current in-scope corrections; then create and
+  checksum a new offline Git bundle at the new commit so GitHub and flash-drive
+  recovery agree.
+
+### Continuity recovery outcome
+
+- The full external master canon and corrected preparation packet are restored
+  at their original Downloads paths and recursively match the verified
+  flash-drive copies, excluding only external-drive `._*` metadata.
+- Canon authority is now explicit in the public recovery manifest and durable
+  handoff: the external numbered `03_MINIMAL_PROMPT_PACK.md` controls prompt
+  identity/order; handoffs, status files, the repository mirror, and
+  preparation remain subordinate state/evidence.
+- `scripts/resume-keelstone-after-reset.zsh` is the single canon-first recovery
+  entry point. It restores/verifies external assets, verifies GitHub identity,
+  reports prerequisites without auto-installing them, applies the exact owner
+  resource thresholds, and points to canonical Prompt 2 without copying or
+  rewriting it.
+- June continuity is honest but incomplete. The durable `epistemos-vendor`
+  branch exists, while local commit `7105c43c8622cc546075f7ff1e20680e2009f8bb`
+  and the 92-file dirty overlay were not pushed. The prior Codex-state backup
+  retains recorded patch evidence, and the three reviewed July 10 stage hashes
+  are now explicit recovery oracles. No substitute donor or stage was invented.
+- The reset entry point currently verifies canon/Git/resource identity but
+  reports Rust, Bun, signing, the exact June donor, and `.june-web-stage` as
+  blockers. These must be green before the Prompt 2 test/archive/runtime chain.

@@ -122,9 +122,22 @@ source_paths=(
   '/Users/jojo/Library/Preferences/com.apple.dt.Xcode.plist'
   '/Users/jojo/Library/Developer/CoreSimulator'
   /Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08
-  /Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08.zip
   /Users/jojo/Downloads/epistemos_mas_low_ram_preparation_2026_07_11
 )
+
+optional_source_paths=(
+  /Users/jojo/dev/june-epistemos
+  /Users/jojo/.cargo
+)
+
+missing_optional_paths=()
+for source_path in "${optional_source_paths[@]}"; do
+  if [[ -e "$source_path" ]]; then
+    source_paths+=("$source_path")
+  else
+    missing_optional_paths+=("$source_path")
+  fi
+done
 
 for source_path in "${source_paths[@]}"; do
   require_path "$source_path"
@@ -176,6 +189,9 @@ done
 print -r -- "TOTAL_KIB\t$total_kib" >> "$inventory"
 print -r -- "EXTERNAL_FREE_KIB_BEFORE_BACKUP\t$free_kib" >> "$inventory"
 print -r -- "PAYLOAD_LIMIT_KIB_WITH_20_PERCENT_HEADROOM\t$payload_limit_kib" >> "$inventory"
+for source_path in "${missing_optional_paths[@]}"; do
+  print -r -- "MISSING_OPTIONAL\t$source_path" >> "$inventory"
+done
 
 cat > "$metadata_root/RESTORE_README.md" <<'EOF'
 # Epistemos + Codex full restore image
@@ -184,6 +200,10 @@ This unencrypted APFS sparse image contains the active MAS-only Epistemos
 workspace, scripts, complete Codex state, active MAS app data, recovery
 snapshots, Xcode user settings, and canon packets. It excludes retired
 Experimental/OpenChamber/model caches and build products.
+
+`Metadata/SOURCE_INVENTORY.tsv` is the authority for what was copied. A June
+donor checkout and Rust toolchain are included only when present; missing
+optional paths are recorded explicitly and must not be inferred as restored.
 
 Run `Restore-Epistemos-Codex-On-New-Mac.command` from the external drive on a
 new Mac. It verifies the image checksum, stages the image, and replaces the

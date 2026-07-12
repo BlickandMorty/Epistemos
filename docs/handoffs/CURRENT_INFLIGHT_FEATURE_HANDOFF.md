@@ -7,6 +7,12 @@ between Codex sessions or machines. A prompt alone does not transfer hidden
 model context. The previous task must write its exact implementation state into
 this file, commit the relevant work, push it, and report the remote commit SHA.
 
+Authority boundary: this handoff reports state and evidence only. The owner's
+full external July 8 master-canon folder controls execution order, and its
+numbered `03_MINIMAL_PROMPT_PACK.md` is the sole prompt authority. This handoff,
+the repository mirror, status documents, and the preparation packet must never
+be used as replacement prompts.
+
 ## Owner Intent Checkpoint
 
 Owner wording:
@@ -53,6 +59,20 @@ Latest owner steer:
 >
 > Finish by giving me the exact New-Laptop Resume Prompt from the handoff, the verified remote SHA, committed files, uncommitted files, completed verification, and remaining debt."
 
+Newest continuity steer:
+
+> "teh main canon is that one folder - is the canon folder i attached that is
+> the soruce of truth for my work."
+
+> "the most important thing is that i make sure that i can cotninue working in
+> order."
+
+The attached executive-planner correction is controlling:
+
+> "The external master-canon folder controls the plan. Repository handoffs and
+> the preparation packet may help us understand evidence, but they must never
+> become replacement prompts."
+
 Interpreted intent:
 
 - Preserve the exact unfinished feature state outside one Codex task.
@@ -61,6 +81,8 @@ Interpreted intent:
 - Give the new laptop a deterministic read order and exact resume command.
 - Preserve the current MAS master canon and low-RAM preparation packet that
   previously lived outside the repository.
+- Resume the canon's exact Prompt 2 only. Do not create or use a custom Prompt
+  A/B/C/D chain and do not let a handoff or status document reorder the canon.
 - Keep private Columbia, VA, financial, credential, and personal data out of
   GitHub.
 
@@ -106,10 +128,10 @@ Read first:
 
 1. `AGENTS.md`
 2. `docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md`
-3. `docs/canon/epistemos_mas_master_canon_2026_07_08/00_READ_FIRST.md`
-4. `docs/canon/epistemos_mas_master_canon_2026_07_08/01_OWNER_LOCK_AND_CANONICAL_THESIS.md`
-5. `docs/canon/epistemos_mas_master_canon_2026_07_08/02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md`
-6. `docs/canon/epistemos_mas_master_canon_2026_07_08/03_MINIMAL_PROMPT_PACK.md`
+3. `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/00_READ_FIRST.md`
+4. `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/01_OWNER_LOCK_AND_CANONICAL_THESIS.md`
+5. `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md`
+6. `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/03_MINIMAL_PROMPT_PACK.md`
 7. `docs/plans/epistemos_mas_low_ram_preparation_2026_07_11/PREPARATION_PACKET_CORRECTION_LOG.md`
 8. `docs/plans/epistemos_mas_low_ram_preparation_2026_07_11/00_READ_FIRST_PREPARATION_ONLY.md`
 9. `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`
@@ -120,6 +142,11 @@ Read first:
 14. `docs/plans/keelstone/VERIFICATION_LEDGER_2026_07_07.md`
 15. `docs/handoffs/EXTERNAL_PLAN_ASSETS_RECOVERY_2026_07_12.md`
 16. This file, including the previous-task checkpoint below.
+
+Before using the repository read order, verify the full external canon at
+`/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/` and read its
+numbered `03_MINIMAL_PROMPT_PACK.md`. The imported repository copy is a recovery
+mirror, not higher authority.
 
 ## Current Program Truth Before Previous-Task Update
 
@@ -332,6 +359,102 @@ Commit, branch, and remote verification:
   value alongside this handoff after push/fetch verification; local `HEAD`, the
   fetched tracking ref, and `git ls-remote` must all match it.
 
+## Canon-First Reset Continuity Checkpoint — 2026-07-12
+
+This checkpoint is newer than the publication checkpoint above. It updates
+recovery truth and the exact resumption boundary; it does not replace or
+rewrite canonical Prompt 2.
+
+Canonical authority and current position:
+
+- Sole prompt authority:
+  `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/03_MINIMAL_PROMPT_PACK.md`.
+- Active numbered prompt: `Prompt 2 - KEELSTONE Storage and MAS Release Gate`.
+- Active execution key:
+  `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`.
+- Do not begin Prompt 3 or recommend another execution key.
+- Evidence continuation document:
+  `docs/plans/keelstone/KEELSTONE_EXACT_RUNTIME_EVIDENCE_2026_07_10.md`.
+
+Recovery state now proven:
+
+- The full external canon was restored to its original Downloads path from the
+  verified flash-drive copy. Recursive comparison passed; it contains 36
+  content files and all 18 original source ZIPs.
+- The corrected low-RAM preparation folder was restored to its original
+  Downloads path. Recursive comparison passed for all nine files.
+- The flash drive has two verified complete Git bundles at publication SHA
+  `f73b3244c09a76a14961050964969bcb5ac9fa70`, a verified Codex-state backup,
+  and the full external plan-assets copy. A new Git bundle must be created
+  after this checkpoint's commit is pushed so offline and GitHub tips agree.
+- `scripts/resume-keelstone-after-reset.zsh` is the one safe canon-first entry
+  point. It restores the two external folders when the flash drive is present,
+  verifies canon identity, checks local/origin/live-GitHub/handoff identity,
+  reports build prerequisites, applies the owner's resource thresholds, and
+  points to canonical Prompt 2 without embedding a replacement prompt.
+
+In-flight source correction preserved by this checkpoint:
+
+- `scripts/keelstone-release-gate.sh` now fails closed on missing or stale
+  staged/built JuneWeb and checks that the built MAS app embeds and links
+  June's in-process `llama.framework`.
+- `EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift` pins those
+  built-artifact checks.
+- Shell syntax, Swift parsing, diff checks, and the focused static gate contract
+  pass. With the stage absent, the gate is correctly red on exactly the missing
+  staged index and shim. This is source/static evidence only.
+
+Files owned by this continuity checkpoint:
+
+- `EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift`
+- `docs/handoffs/CURRENT_INFLIGHT_FEATURE_HANDOFF.md`
+- `docs/handoffs/EXTERNAL_PLAN_ASSETS_RECOVERY_2026_07_12.md`
+- `docs/plans/keelstone/INTENT_LEDGER.md`
+- `docs/plans/keelstone/VERIFICATION_LEDGER_2026_07_07.md`
+- `scripts/create-epistemos-codex-restore-backup.zsh`
+- `scripts/keelstone-release-gate.sh`
+- `scripts/restore-epistemos-codex-on-new-mac.command`
+- `scripts/resume-keelstone-after-reset.zsh`
+
+Current environment blockers and verification debt:
+
+- Rust (`cargo`/`rustc`) is absent. The focused Xcode test cannot reach its
+  assertion until the Rust build phase can run.
+- Bun is absent.
+- The App Store signing identity/profile is absent. The signed focused test
+  stopped at provisioning; the unsigned retry stopped at Rust.
+- `.june-web-stage` is absent.
+- The owner-modified June donor checkout is absent. Its durable public base is
+  `https://github.com/BlickandMorty/os-june.git`, branch
+  `epistemos-vendor`, but the recorded local commit
+  `7105c43c8622cc546075f7ff1e20680e2009f8bb` and its 92-file dirty overlay
+  were never pushed and must not be invented. The private Codex-state backup
+  retains the exact recorded patch evidence.
+- The last reviewed July 10 stage is recoverable only when reconstruction
+  matches all three hash oracles: main asset
+  `9d38c92dea2a70bf15e88741c47ea9833da3fee8ecfc053fd593f4befc8a1144`,
+  index `30790bb4f65afaf93dd9db5bd4fc9ec396708d4f22f7cb881a24c0cbeec2c00e`,
+  and shim `7440986d70a044689fea50f8a181441dfc05c5b8736421691db8b2980979e77a`.
+  A source tree or stage that does not match must be reviewed as new evidence.
+- No fresh current-tip test, Release archive, app launch, model load, provider
+  request, Keychain secret read, owner-vault mutation, audio operation, or
+  runtime matrix was completed in this continuity pass.
+
+Exact next action after reset:
+
+1. Run `scripts/resume-keelstone-after-reset.zsh` from the verified branch.
+2. If it reports a fatal identity mismatch, stop without resetting or
+   overwriting anything.
+3. Restore Rust, Bun, Apple signing, and an exact reviewed JuneWeb stage/donor.
+4. Re-run the script. The owner's mandatory threshold is swap below 4 GB, at
+   least 25% free memory, zero pages throttled, and no competing
+   Xcode/compiler/model/Epistemos process.
+5. Only when identity, prerequisites, and safety are green: run the narrow
+   serial compile/regression batch, produce exactly one
+   `Epistemos-AppStore` Release archive, run every artifact gate, then run the
+   finite correlated runtime matrix. Update the existing exact-runtime evidence
+   document and stop after the final KEELSTONE verdict.
+
 ## Prompt To Paste Into The Previous Codex Task
 
 ```text
@@ -394,29 +517,40 @@ Finish by reporting:
 ```text
 Resume the exact in-flight Epistemos feature from its durable GitHub handoff.
 Do not begin implementation until you have grounded yourself in current source
-and verified the remote state.
+and verified the external canon and remote state. This is a bootstrap prompt,
+not a replacement execution prompt.
 
 1. Clone or open https://github.com/BlickandMorty/Epistemos.
 2. Fetch origin and switch to the branch recorded in
    docs/handoffs/CURRENT_INFLIGHT_FEATURE_HANDOFF.md. Pull with --ff-only.
-3. Read AGENTS.md, docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md, the
-   imported MAS master canon, the low-RAM preparation correction log, the
-   current feature prompt/plan and intent/evidence ledgers, and
-   docs/handoffs/CURRENT_INFLIGHT_FEATURE_HANDOFF.md in its entirety.
-4. Run the following and verify its result equals local `HEAD`,
+3. Connect the flash drive if available and run
+   scripts/resume-keelstone-after-reset.zsh. It must restore/verify
+   /Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08 and the corrected
+   preparation folder. If it reports a fatal identity mismatch, stop without
+   resetting or overwriting anything.
+4. Read the external canon's 00_READ_FIRST.md, 01, 02, and numbered
+   03_MINIMAL_PROMPT_PACK.md first. The external numbered prompt pack is the
+   sole prompt authority. Then read AGENTS.md,
+   docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md, the low-RAM correction
+   log, current KEELSTONE prompt/plan and intent/evidence ledgers, and this
+   handoff in its entirety. Handoffs and preparation are evidence only; do not
+   create a custom Prompt A/B/C/D chain or replace canonical Prompt 2.
+5. Run the following and verify its result equals local `HEAD`,
    `origin/feat/goose-surface`, and the publication SHA supplied with this
    handoff. If any differ, stop and explain the mismatch without resetting or
    overwriting anything:
 
    `git log -1 --format=%H -- docs/handoffs/CURRENT_INFLIGHT_FEATURE_HANDOFF.md`
-5. Inspect git status, the recorded feature files, nearby contracts/call sites,
+6. Inspect git status, the recorded feature files, nearby contracts/call sites,
    tests, retained logs/artifacts, and the diff from the handoff baseline.
-6. Restate the exact owner intent, canonical execution key, hard constraints,
+7. Restate the exact owner intent, canonical execution key, hard constraints,
    done bar, proven state, verification debt, and exact next action before
    editing.
-7. Continue from the recorded next action. Preserve MAS-only June boundaries,
-   use surgical edits, and do not claim runtime behavior without current exact
-   evidence.
+8. Continue only canonical Prompt 2,
+   EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08, from the recorded resource
+   preflight boundary. Restore every reported prerequisite first. Preserve
+   MAS-only June boundaries, use surgical edits, and do not claim runtime
+   behavior without current exact evidence. Do not begin Prompt 3.
 
 Private Columbia/VA/funding work is not stored in this repository and must not
 be inferred from this handoff.

@@ -490,6 +490,11 @@ struct AppStoreKeelstoneLaneTests {
         #expect(gate.contains("Built App Store JuneWeb shim fails visibly if MAS host mode is absent"))
         #expect(gate.contains("Built App Store JuneWeb shim has no canned prompt.submit success path"))
         #expect(gate.contains("Built App Store JuneWeb shim does not advertise a generic in-process Hermes command"))
+        #expect(gate.contains("require_appstore_local_gguf_runtime"))
+        #expect(gate.contains("Contents/Frameworks/llama.framework/Versions/A/llama"))
+        #expect(gate.contains("otool -L"))
+        #expect(gate.contains("Built App Store artifact embeds June's in-process llama runtime"))
+        #expect(gate.contains("Built App Store executable links June's in-process llama runtime"))
     }
 
     @Test("App Store lane keeps June startup off synchronous keychain reads")

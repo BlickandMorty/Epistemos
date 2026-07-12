@@ -1555,3 +1555,82 @@ swap; log `/tmp/keelstone-source-gate-20260710-epdoc-appearance-token.log`.
 - Current source-only KEELSTONE checks are green. The next meaningful proof is
   one serial current-source MAS archive followed by only the four owner-visible
   runtime legs; additional optional source hardening is out of scope.
+
+## 2026-07-12 Durable-Handoff Resume And Current-Tip Preflight
+
+- Remote identity: PASS. The handoff commit, local `HEAD`, fetched
+  `origin/feat/goose-surface`, and live `git ls-remote` value are all
+  `f73b3244c09a76a14961050964969bcb5ac9fa70`.
+- Worktree at resume: clean. The Xcode package-resolution inspection modified
+  only `Package.resolved`; that tool-created delta was restored exactly and the
+  worktree was clean again before feature edits.
+- Resource preflight: PASS. `memory_pressure` reported 77% free; `vm.swapusage`
+  reported 0.25 MiB used of 1 GiB; the volume had 808 GiB free; no competing
+  Xcode/compiler/model/Epistemos process was present.
+- `bash -n scripts/keelstone-release-gate.sh`: PASS.
+- `bash scripts/keelstone-release-gate.sh`: PASS with 40 source checks, but
+  this is not equivalent to the recorded 827-check gate and is insufficient
+  archive evidence.
+- Focused executable source-guard probe: EXPECTED RED. The committed gate is
+  missing `require_tree_contains()`, staged/built JuneWeb prompt-drift checks,
+  `require_appstore_local_gguf_runtime`, the canonical llama framework path,
+  and the built-executable linkage witness.
+- Focused App Store test attempt: NOT EXECUTED. The signed invocation stopped
+  before tests because no matching `com.epistemos.appstore` development profile
+  exists. A `CODE_SIGNING_ALLOWED=NO` retry stopped in `build-rust.sh` because
+  `cargo`/`rustc` are absent. These are environment failures, not test passes
+  or product failures.
+- JuneWeb source prerequisite: RED. `.june-web-stage` has zero tracked files,
+  the stage directory is absent, and `$HOME/dev/june-epistemos` is absent.
+  `build-june-web.sh` and CI require one of those exact sources.
+- Fresh build/archive/artifact/runtime evidence: NOT RUN. Signing, Rust, and
+  JuneWeb prerequisites are unresolved; no app, model, provider, Keychain,
+  owner vault, Core ML, or audio operation ran.
+- Verification debt: rerun the focused App Store source-guard test after the
+  Rust toolchain is installed; restore the exact owner-modified June donor or
+  reviewed staged output; obtain valid signing; then perform one serial Release
+  archive, all artifact gates, and the finite owner-visible runtime matrix.
+
+## 2026-07-12 Canon-First Reset Continuity Evidence
+
+- Full external master canon restore: PASS. Recursive comparison with
+  `/Volumes/treasure/Epistemos-External-Plan-Assets-2026-07-12` passed after
+  excluding only `._*`; 36 content files and 18 original source ZIPs exist at
+  the canonical Downloads path.
+- Corrected preparation restore: PASS. Recursive comparison passed for all nine
+  files at the canonical Downloads path.
+- Offline assets: PASS at the pre-continuity publication tip. Both existing Git
+  bundles verify as complete histories at `f73b3244c09a76a14961050964969bcb5ac9fa70`;
+  the external plan-assets copy and Codex-state backup pass their recorded
+  checksums. A new bundle is required after this continuity commit.
+- June donor recovery: BLOCKED, not fabricated. GitHub retains the durable
+  `BlickandMorty/os-june` `epistemos-vendor` base, but not local commit
+  `7105c43c8622cc546075f7ff1e20680e2009f8bb` or the 92-file dirty overlay.
+  Git fetch, all current remote heads, the GitHub commit endpoint, and the
+  commit archive endpoint do not expose that object. The prior Codex-state
+  backup preserves exact patch records; reconstructed output must match the
+  recorded main/index/shim SHA-256 values before being called the reviewed
+  July 10 stage.
+- Reset/resume script syntax: PASS. Current dry run verifies canon, preparation,
+  branch, fetched/live origin, Prompt 2 key, free memory, swap, pages throttled,
+  and no competing process. Before this commit it intentionally reports the
+  dirty worktree as fatal and reports five environment prerequisites as
+  blocked: Rust, Bun, exact June stage, exact June donor, and Apple signing.
+- Full restore backup scripts now include the June donor and Rust toolchain when
+  present, record missing optional paths instead of implying restoration, and
+  no longer require a nonexistent standalone canon ZIP when the full canon
+  folder already contains its original archives.
+- No Xcode test/build/archive, app launch, model/provider/Keychain/vault/audio
+  operation, or runtime evidence ran during continuity hardening.
+- Surgical correction: `scripts/keelstone-release-gate.sh` now enforces the
+  committed staged/built JuneWeb contract and, when a MAS app is supplied,
+  requires both `llama.framework/Versions/A/llama` and a matching `otool -L`
+  load command. The active App Store source-guard test now owns the GGUF
+  embedding/linkage strings as well as JuneWeb drift checks.
+- Post-correction lightweight evidence: `bash -n`, `xcrun swiftc -parse` for
+  the active App Store test file, `git diff --check`, and every explicit
+  source-contract marker all PASS.
+- Post-correction source gate: correctly RED with exactly two findings: the
+  missing `.june-web-stage/dist/index.html` and missing
+  `.june-web-stage/tauri-internals-shim.js`. This is the truthful current
+  release blocker; the prior 40-check green can no longer bypass it.

@@ -3,11 +3,13 @@
 Updated: 2026-07-12
 
 This manifest records the three Epistemos planning assets that were outside the
-repository when the durable cross-laptop handoff was prepared. The readable,
-current planning documents are now tracked in Git. The older binary archive is
-fingerprinted but intentionally excluded because this repository is public and
-the archive contains nested source bundles that were not cleared for public
-publication.
+repository when the durable cross-laptop handoff was prepared. The owner's full
+external July 8 master-canon folder remains the execution-prompt authority. A
+readable recovery mirror is tracked in Git, but that mirror, this handoff, and
+the preparation packet must not become replacement prompts. The older binary
+archive is fingerprinted but intentionally excluded because this repository is
+public and the archive contains nested source bundles that were not cleared for
+public publication.
 
 ## Owner Steer
 
@@ -121,13 +123,26 @@ the external drive. Every original content file is included in the digest.
 The GitHub handoff does not depend on this drive, but the drive preserves the
 full provenance set that is intentionally omitted from public Git.
 
+On 2026-07-12 the full canon and corrected preparation folders were restored to
+their original Downloads paths from this offline copy. Recursive comparison,
+excluding only `._*` metadata, passed: the canon has 36 content files including
+18 original source ZIPs, and the preparation packet has nine content files.
+
 ## Recovery Rules
 
-1. Use the repository copies as the cross-laptop planning authority.
-2. Read the low-RAM packet's `PREPARATION_PACKET_CORRECTION_LOG.md` before the
+1. Use the full external
+   `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/` folder as the
+   execution-prompt authority. The numbered `03_MINIMAL_PROMPT_PACK.md` alone
+   determines prompt order and identity.
+2. Use the repository copy only as a public recovery mirror when the external
+   folder is unavailable. Restore and verify the full external folder from the
+   flash drive before continuing whenever possible.
+3. Read the low-RAM packet's `PREPARATION_PACKET_CORRECTION_LOG.md` before the
    other low-RAM implementation packets.
-3. Treat the low-RAM packet as preparation only. It does not complete
+4. Treat the low-RAM packet as preparation only. It does not complete
    KEELSTONE or advance the canonical execution key.
-4. Do not restore the before-autonomy-fix ZIP over the imported current canon.
-5. If the historical ZIP is transferred separately, verify its SHA-256 before
+5. Treat repository handoffs and evidence ledgers as state/evidence only. They
+   may not rename, wrap, reorder, or replace a numbered canonical prompt.
+6. Do not restore the before-autonomy-fix ZIP over the current canon.
+7. If the historical ZIP is transferred separately, verify its SHA-256 before
    use.
