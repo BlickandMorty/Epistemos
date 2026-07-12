@@ -250,3 +250,22 @@ call sites, then remove one isolated seam at a time with source-level checks.
   files only after the app-close guard passes; it attempts snapshots of the
   actual `~/.codex` state databases as additional recovery material and keeps
   their status report in the finished backup instead of blocking the archive.
+- Archive-run diagnosis: the second run copied 54 GiB, then correctly reported
+  failure because two transient Git filesystem-monitor sockets and unsupported
+  macOS extended metadata made the PAX archive invalid. The incomplete archive
+  is not a backup and is removed before retry. The next script revision excludes
+  only those socket paths, omits nonportable extended metadata, and removes the
+  entire output folder unless checksum plus staging Git restore both pass.
+
+### Full new-Mac restore requirement
+
+- Owner wording: “when i have a new mac i run a script and it compelely
+  repalces the program data and everythgin as if the app is fully restored”.
+- A paired restore script will verify the archive checksum, require active apps
+  to be closed, stage-extract the archive, and replace each backed-up Codex,
+  Epistemos, Xcode-user-data, and workspace path only after explicit typed
+  confirmation. It preserves the old current state in a timestamped rollback
+  folder before replacement.
+- Non-portable macOS Keychain items, signing identities, and account-login
+  tokens are not silently claimed as restored; the new Mac may require normal
+  Apple/OpenAI sign-in and certificate provisioning afterward.

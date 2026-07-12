@@ -8,15 +8,20 @@ backup_dir="$backup_root/Epistemos-Codex-Restore-$backup_date"
 archive_name="Epistemos-Codex-Restore-$backup_date.tar"
 archive_partial="$backup_dir/$archive_name.partial"
 archive_final="$backup_dir/$archive_name"
+restore_script="$backup_root/Restore-Epistemos-Codex-On-New-Mac.command"
 stage_dir=$(mktemp -d "${TMPDIR:-/private/tmp}/Epistemos-Codex-Restore-Stage-XXXXXX")
 test_dir=""
 tar_pid=""
+backup_started=0
+backup_complete=0
 
 cleanup() {
   if [[ -n "$tar_pid" ]] && kill -0 "$tar_pid" 2>/dev/null; then
     kill "$tar_pid" 2>/dev/null || true
   fi
-  [[ -e "$archive_partial" ]] && rm -f -- "$archive_partial"
+  if (( backup_started && ! backup_complete )); then
+    [[ -d "$backup_dir" ]] && rm -rf -- "$backup_dir"
+  fi
   [[ -n "$test_dir" && -d "$test_dir" ]] && rm -rf -- "$test_dir"
   [[ -d "$stage_dir" ]] && rm -rf -- "$stage_dir"
 }
@@ -51,6 +56,10 @@ require_closed
 }
 [[ ! -e "$backup_dir" ]] || {
   print -u2 "Backup destination already exists: $backup_dir"
+  exit 1
+}
+[[ -x "$restore_script" ]] || {
+  print -u2 "Restore script missing: $restore_script"
   exit 1
 }
 
@@ -164,14 +173,17 @@ if (( total_kib > payload_limit_kib )); then
 fi
 
 mkdir -p "$backup_dir"
+backup_started=1
 cp "$readme" "$backup_dir/RESTORE_README.md"
 cp "$inventory" "$backup_dir/SOURCE_INVENTORY.tsv"
 cp "$snapshot_report" "$backup_dir/SQLITE_SNAPSHOTS.tsv"
 cp "$0" "$backup_dir/Run-Epistemos-Codex-Restore-Backup.zsh"
+cp "$restore_script" "$backup_dir/Restore-Epistemos-Codex-On-New-Mac.command"
 chmod 700 "$backup_dir/Run-Epistemos-Codex-Restore-Backup.zsh"
+chmod 700 "$backup_dir/Restore-Epistemos-Codex-On-New-Mac.command"
 
 print "Creating $archive_final"
-bsdtar --create --file="$archive_partial" --format=pax --acls --xattrs --mac-metadata --directory=/ --files-from="$sources_list" &
+bsdtar --create --file="$archive_partial" --format=pax --exclude '*/fsmonitor--daemon.ipc' --directory=/ --files-from="$sources_list" &
 tar_pid=$!
 while kill -0 "$tar_pid" 2>/dev/null; do
   if [[ -e "$archive_partial" ]]; then
@@ -182,7 +194,7 @@ done
 wait "$tar_pid"
 tar_pid=""
 mv "$archive_partial" "$archive_final"
-shasum -a 256 "$archive_final" > "$backup_dir/SHA256SUMS.txt"
+(cd "$backup_dir" && shasum -a 256 "$archive_name" > SHA256SUMS.txt)
 bsdtar -tf "$archive_final" >/dev/null
 
 test_dir=$(mktemp -d "${TMPDIR:-/private/tmp}/Epistemos-Codex-Restore-Test-XXXXXX")
@@ -193,4 +205,5 @@ git -C "$test_dir/Users/jojo/Downloads/Epistemos" status -sb > "$backup_dir/STAG
 print -r -- "archive_readable=yes" > "$backup_dir/VERIFICATION.txt"
 print -r -- "staging_project_restore=yes" >> "$backup_dir/VERIFICATION.txt"
 print -r -- "git_status_checked=yes" >> "$backup_dir/VERIFICATION.txt"
+backup_complete=1
 print "Backup verified: $backup_dir"
