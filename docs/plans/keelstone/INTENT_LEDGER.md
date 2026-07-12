@@ -5902,3 +5902,68 @@ The attached executive-planner correction further states:
   refresh every affected pointer and checksum.
 - Repeat the recovery drills and filesystem check, then software-eject the
   drive and report the exact retained and removed paths.
+
+## Owner Continuity Steer 2026-07-12 — Forced-Shutdown Recovery And Resume
+
+### Verbatim owner wording
+
+> i had to force shut donw my alptop please contonue with it all as if it
+> neveer shut donw and reruall the thigns that failed please and contonue
+
+The owner then re-supplied the full continuity objective, the exact
+`EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08` resume authorization, the
+mandatory resource thresholds, the ten-step serial evidence chain, and the
+original attachment path.
+
+### Interpreted intent
+
+- Treat the forced shutdown as an integrity boundary, not as permission to
+  skip interrupted verification or silently continue from volatile `/tmp`
+  artifacts.
+- Re-establish the exact clean committed recovery state, rebuild any temporary
+  final packs lost across reboot, rerun every interrupted/failed drive check,
+  finish the authorized cleanup, and leave a safe continuation set.
+- After recovery is durable and the drive is safely ejectable, resume only the
+  external canon's exact Prompt 2 from the recorded resource/prerequisite
+  boundary.
+
+### Hard constraints and non-goals
+
+- The external July 8 master canon and numbered
+  `03_MINIMAL_PROMPT_PACK.md` remain the sole prompt authority. The re-supplied
+  custom Prompt A/B/C/D history is evidence of a withdrawn wrapper approach,
+  not execution authority.
+- Do not begin Prompt 3, reinterpret the KEELSTONE done bar, or substitute the
+  divergent historical `0c7123ba...` evidence checkout for this branch.
+- Before any drive deletion/write after the forced shutdown, require a current
+  read-only ExFAT check. Before any test/build, require the exact resource and
+  prerequisite checks.
+- Preserve unowned worktree changes unless current evidence proves they are
+  reboot/tool-generated drift from the last clean checkpoint.
+- Do not launch the app, load a model, call a provider, access secrets, mutate
+  the owner vault, or run audio until the narrow compile/archive and artifact
+  gates authorize the corresponding evidence leg.
+
+### Current post-reboot evidence
+
+- Repository branch/HEAD survived at `feat/goose-surface` /
+  `27f90f8aea0d7cb653566b781ff0bfb80eb723b1`.
+- The worktree was clean at that commit before shutdown. After reboot, only
+  `Package.resolved` changed, removing the same three indirect SwiftPM pins
+  previously documented as tool-created package-resolution drift. Restore the
+  exact committed pins surgically before the final recovery commit.
+- The volatile replacement Git/thread packs were absent from `/tmp`, as
+  expected after reboot; rebuild them from current durable sources.
+- Treasure volume UUID `FC33F188-7A19-33E7-BCF7-65496C19C7DC` passed a fresh
+  `fsck_exfat -n -x` with exit code zero and stable reads after remount.
+- Resource preflight is safe: zero swap, 87% free memory, zero throttled pages,
+  777 GiB internal free space, and no competing Xcode/compiler/model/Epistemos
+  process.
+
+### Exact next action
+
+- Restore the known committed SwiftPM lock entries, verify and commit this
+  forced-shutdown checkpoint, rebuild the one final bundle/thread pack, finish
+  the drive cleanup and repeated verification/eject, then run the canon-first
+  resume script. Proceed to compile/archive only if every prerequisite remains
+  green; otherwise record the exact blocker and stop without source expansion.

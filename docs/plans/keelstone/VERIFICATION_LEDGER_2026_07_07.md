@@ -1689,3 +1689,29 @@ swap; log `/tmp/keelstone-source-gate-20260710-epdoc-appearance-token.log`.
   final bundle/archive/canon/script checks; run a final filesystem check and
   software eject. GitHub auth plus all KEELSTONE build/runtime prerequisites
   remain separate open blockers.
+
+## 2026-07-12 Forced-Shutdown Recovery Verification
+
+- Fresh-boot repository identity: PASS at `feat/goose-surface` /
+  `27f90f8aea0d7cb653566b781ff0bfb80eb723b1`, three commits ahead of fetched
+  `origin/feat/goose-surface`.
+- Forced-shutdown drive check: PASS. `diskutil verifyVolume` unmounted the
+  expected treasure UUID, ran `fsck_exfat -n -x /dev/rdisk4s1`, reported the
+  volume appears OK, returned exit code zero, and restored the mount.
+- Previously stuck small-file reads: PASS after reboot for the root publication
+  helper and read-first pointer.
+- Volatile staging: correctly absent. Both the final Git bundle and current
+  thread checkpoint must be rebuilt; older verified drive packs remain intact
+  until the replacements pass.
+- SwiftPM drift: one post-reboot `Package.resolved` delta removed
+  `swift-argument-parser`, `swift-docc-plugin`, and `swift-docc-symbolkit`.
+  Current and committed files were read in full, the prior ledger's identical
+  tool-drift precedent was confirmed, and the exact committed entries were
+  restored surgically. No product source changed.
+- Resource preflight: PASS for the owner thresholds: zero swap, 87% free
+  memory, zero throttled pages, 777 GiB internal free space, and no competing
+  Xcode/compiler/model/Epistemos process.
+- Execution remains gated: rerun Rust, Bun, exact reviewed JuneWeb stage,
+  exact June donor-overlay, and Apple-signing checks after the final recovery
+  drive is durable. Do not infer that a resource PASS satisfies those
+  prerequisites or authorizes archive/runtime work.

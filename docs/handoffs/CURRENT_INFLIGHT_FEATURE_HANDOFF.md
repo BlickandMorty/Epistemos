@@ -651,3 +651,23 @@ Current continuation boundary remains unchanged:
 - GitHub publication, Rust, Bun, reviewed JuneWeb bytes, the exact June donor
   overlay, Apple signing, fresh archive/artifact gates, and the finite runtime
   matrix remain open. Do not begin Prompt 3.
+
+Forced-shutdown recovery update:
+
+- The owner force-powered off the laptop while macOS's ExFAT service had stuck
+  read requests. On the fresh boot, treasure volume UUID
+  `FC33F188-7A19-33E7-BCF7-65496C19C7DC` passed
+  `fsck_exfat -n -x` with exit code zero and the previously stuck recovery
+  helper files read normally.
+- Volatile final-pack staging under `/tmp` did not survive, as expected. The
+  final Git bundle and incremental thread checkpoint must be regenerated from
+  this newer committed handoff before superseded drive packs are deleted.
+- The only post-reboot worktree delta removed three indirect SwiftPM pins from
+  `Package.resolved`. The prior verification ledger already identifies this
+  exact file as package-resolution tool drift restored after inspection. The
+  committed pin set was restored surgically; no product source changed.
+- Current resource threshold is safe: zero swap, 87% free memory, zero
+  throttled pages, 777 GiB internal free space, and no competing build,
+  compiler, model, or Epistemos process. Build execution remains blocked until
+  the separately required Rust, Bun, JuneWeb/donor, and Apple-signing checks
+  are current and green.
