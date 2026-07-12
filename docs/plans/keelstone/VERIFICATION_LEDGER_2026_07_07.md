@@ -1648,3 +1648,44 @@ swap; log `/tmp/keelstone-source-gate-20260710-epdoc-appearance-token.log`.
   directory is named with the final local checkpoint's short SHA and contains
   a `READ_FIRST.md` that records the literal SHA and authenticated publication
   procedure.
+
+## 2026-07-12 Treasure Drive Deep Audit And Cleanup Preflight
+
+- Volume identity/inventory: PASS. USB ExFAT volume UUID
+  `FC33F188-7A19-33E7-BCF7-65496C19C7DC`, 123.0 GB total, 75.8 GB used, 47.2
+  GB free before cleanup. SMART is unsupported, so no SMART-health claim is
+  made.
+- Filesystem check: PASS at the FSKit ExFAT layer. macOS recorded the check as
+  successful before software eject. A later remount developed stuck reads in
+  the user-space ExFAT service; destructive cleanup was correctly paused and
+  requires a fresh physical reconnect before any deletion/write.
+- Full restore image: PASS. The independent verifier exited zero after
+  checksum, image/container, APFS, read-only content, critical Codex state,
+  Git HEAD/worktree, Xcode scheme, and SQLite checks.
+- Independent Codex archive: PASS. SHA-256, `gzip -t`, and complete tar listing
+  all exited zero.
+- Git bundles: PASS for the two `f73b3244c` copies, `06ef0e3a1a`, and
+  `e3903b1af4`; each is a complete-history bundle with its expected branch tip.
+- Isolated latest-bundle recovery drill: PASS. Clone at
+  `e3903b1af484bd09cb4162a735c065c03cfa01db`, strict Git fsck, clean worktree,
+  handoff identity, and recorded intent-ledger patch preflight all passed.
+  Canon-first resume then stopped on exactly the expected GitHub identity
+  mismatch; it did not overwrite or reset anything.
+- Canon/preparation: PASS. Both flash copies recursively equal their Downloads
+  counterparts excluding only `._*`; the preserved historical ZIP has no
+  compressed-data errors.
+- Incremental thread pack and root recovery-script manifest: PASS before the
+  root restore shortcut repair. The shortcut was then corrected to delegate to
+  the canonical reset-kit restore script; its root checksum entry must be
+  refreshed in the final write pass.
+- Script syntax: PASS for every reset-kit and root `.command`/`.zsh` script.
+- Cleanup authority: owner-approved for superseded recovery packs, the explicit
+  Columbia transfer ZIP/checksum and temporary staging material, and installers
+  whose apps are already installed. Unrelated/ambiguous research and personal
+  source files are out of scope and remain preserved.
+- Remaining evidence debt: physical reconnect and stable reads; create and
+  verify one final Git bundle and current-thread checkpoint; refresh root
+  pointers/checksums/report; delete only classified superseded paths; repeat
+  final bundle/archive/canon/script checks; run a final filesystem check and
+  software eject. GitHub auth plus all KEELSTONE build/runtime prerequisites
+  remain separate open blockers.

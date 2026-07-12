@@ -5790,3 +5790,115 @@ The attached executive-planner correction further states:
   checksum-verified complete-history flash-drive bundle preserves the local
   commit(s), and its README gives the non-force authenticated publication path.
   GitHub protection remains verification debt rather than a claimed success.
+
+## Owner Continuity Steer 2026-07-12 — Final Treasure Drive Deep Audit
+
+### Verbatim owner wording
+
+> if u need to use my flas hdrive for any thign else please use it so that when
+> i cme back i can unplug it and stop usng it please.
+
+> please make sure the treasure drive is deepyl checked for anythign remaining
+> that is not currently working please.
+
+### Interpreted intent
+
+- Treat `/Volumes/treasure` as the last active recovery medium before the owner
+  unplugs it.
+- Deeply validate the physical/filesystem surface and every Epistemos/Codex
+  recovery artifact, rather than trusting earlier spot checks.
+- Repair safe packaging, checksum, script, pointer, and recovery-instruction
+  defects now; leave an exact final drive report and a single obvious entry
+  point for later restoration.
+
+### Hard constraints and non-goals
+
+- The external July 8 master canon and its numbered
+  `03_MINIMAL_PROMPT_PACK.md` remain the sole prompt authority. This drive audit
+  does not begin Prompt 3 or change the active KEELSTONE execution key.
+- Do not delete stale or duplicate recovery assets without explicit owner
+  approval. Classify them and make the newest checkpoint unmistakable instead.
+- Do not inspect or infer unrelated private Columbia/VA/funding content. Audit
+  only filesystem metadata and the Epistemos/Codex recovery scope the owner put
+  in bounds.
+- Do not expose credentials, force-push GitHub, mutate an owner vault, launch
+  Epistemos, load a model, call a provider, or claim runtime evidence.
+- Do not call a full backup complete while Codex is open if the backup script
+  requires a closed application for consistent database capture.
+
+### Acceptance checks
+
+- `diskutil verifyVolume` or the strongest available read-only filesystem check
+  reports the mounted treasure volume healthy.
+- Root inventory, filesystem type, ownership/permissions, free capacity, and
+  unexpectedly large or partial files are reviewed.
+- Every checksum manifest passes; every Git bundle verifies as a complete
+  history and lists its expected branch/SHA; every script parses and resolves
+  the files it expects.
+- The latest bundle can be cloned into a temporary location, checked with
+  `git fsck --full`, switched to the recorded branch, and matched to the handoff
+  checkpoint without touching the working checkout.
+- External canon/preparation copies recursively match their restored Downloads
+  counterparts; the current Codex incremental checkpoint and attachment pass.
+- Stale/duplicate packs, missing full-image state, GitHub-auth dependency, June
+  donor/stage loss, Rust/Bun/signing prerequisites, and any new failure are
+  clearly classified rather than hidden.
+- A final audit report, root read-first pointer, checksums, publication helper,
+  and latest complete Git bundle all agree on one final local checkpoint.
+
+### Next action
+
+- Run the drive/filesystem inventory and read-only volume verification first,
+  then verify every recovery pack and run isolated restore drills. Repair only
+  evidence-backed recovery defects, commit the audit checkpoint, create a new
+  checksum-verified complete-history bundle, and finish with repeated final
+  zero-fail checks before declaring the drive safe to unplug.
+
+## Owner Continuity Steer 2026-07-12 — Authorized Treasure Cleanup
+
+### Verbatim owner wording
+
+> ok can u delete leftover things that i do not need so i dont get confused
+> when im getting rid of thigs just whatever was used and created for these
+> purposes includng the columbia stuff since i have that on my other laptop.
+
+> also u can contiue with what u neded me for so anyhting unresovled or
+> remainng because i was gone
+
+### Interpreted intent
+
+- Reduce the treasure drive to one obvious, current Epistemos continuation set
+  and remove older duplicate packs created by these recovery tasks.
+- Remove the explicitly authorized Columbia transfer artifacts from the drive;
+  the owner reports that material is already retained on another laptop.
+- Continue the unfinished checksum, final-report, bundle, and safe-eject work
+  after cleanup instead of stopping at the earlier audit findings.
+
+### Hard constraints and non-goals
+
+- Deletion authority is scoped to artifacts created or used for the recovery,
+  continuity, and Columbia-transfer work. Do not treat it as permission to
+  remove unrelated personal or research material merely because it is on the
+  same drive.
+- Preserve the verified full restore image, independent Codex-state archive,
+  complete external canon/preparation assets, one final Git bundle, one final
+  current-thread checkpoint, and the scripts/read-first material needed to use
+  them.
+- Do not delete the Codex-state archive merely because it is old: it retains
+  the only recorded recovery evidence for the unpushed June donor overlay.
+- Preserve MAS-only June and canonical Prompt 2 authority. Cleanup must not
+  begin Prompt 3, fabricate the June donor/stage, or claim GitHub publication.
+- Re-inventory immediately before deletion and delete only individually
+  classified paths. Do not use a broad wildcard, recursive root cleanup, or an
+  inferred private-content search inside unrelated files.
+
+### Acceptance checks and exact next action
+
+- Reconnect and mount `/Volumes/treasure`; verify its identity before any
+  deletion.
+- Classify every root item as preserve, delete-authorized, or unrelated/leave.
+- Remove only the explicitly classified duplicate recovery and Columbia
+  transfer artifacts, then recreate the final bundle/thread checkpoint and
+  refresh every affected pointer and checksum.
+- Repeat the recovery drills and filesystem check, then software-eject the
+  drive and report the exact retained and removed paths.

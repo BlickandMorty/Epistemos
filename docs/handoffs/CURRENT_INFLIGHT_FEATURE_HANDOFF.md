@@ -585,7 +585,69 @@ be inferred from this handoff.
 - [x] No unrelated files were staged or reverted.
 - [x] No credential, personal, Columbia, VA, or financial data was committed.
 - [x] Narrow checks and verification debt are recorded.
-- [x] Local commit is pushed and remote SHA is verified by the publishing task;
-      the literal SHA accompanies this self-referential handoff.
+- [ ] Local continuity commits are pushed and the remote SHA is verified.
+      GitHub remains at `f73b3244c09a76a14961050964969bcb5ac9fa70`;
+      the checksum-verified flash bundle is the newer offline authority until
+      authenticated fast-forward publication succeeds.
 - [x] New-laptop prompt names the actual remote branch and gives a deterministic
       publication-SHA verification command.
+
+## Final Treasure-Drive Audit And Cleanup Checkpoint — 2026-07-12
+
+Owner-authorized scope:
+
+- Keep one unambiguous Epistemos continuation set and remove superseded
+  recovery duplicates created by this continuity work.
+- Remove the explicit Columbia transfer bundle and its temporary staging
+  material because the owner reports that work is retained on another laptop.
+- Preserve unrelated research/personal files and ambiguous root-level source
+  documents rather than interpreting broad cleanup as permission to delete
+  them.
+
+Recovery evidence established before cleanup:
+
+- The 123 GB `treasure` ExFAT volume had 47.2 GB free before cleanup. Its FSKit
+  ExFAT check completed successfully; SMART is not supported by the device.
+- The 56 GB full APFS sparse-image verifier passed its SHA-256, image/container,
+  APFS volume, read-only mount, critical Codex paths, exact Git snapshot,
+  worktree, Xcode scheme count, and SQLite snapshot checks.
+- The independent 9.7 GB Codex-state archive passed its SHA-256, gzip, and tar
+  structure checks.
+- All four pre-cleanup Git bundles passed their manifests and `git bundle
+  verify`, recorded complete history, and listed the expected
+  `feat/goose-surface` tip. The newest `e3903b1af...` bundle additionally
+  cloned, passed `git fsck --full --strict`, matched the handoff commit, and
+  accepted its recorded uncommitted intent-ledger patch with `git apply
+  --check`.
+- The external master canon and corrected preparation packet recursively
+  matched their restored Downloads copies; the historical canon ZIP tested
+  clean. The incremental Codex thread checkpoint and all recovery-script
+  syntax checks passed.
+- The reset/resume drill failed closed on exactly one fatal condition: local
+  and handoff `e3903b1af...` versus live/origin
+  `f73b3244c09...`. It separately reported Rust, Bun, the reviewed June stage,
+  the unpushed June donor overlay, and Apple signing as prerequisites.
+
+Final retained recovery shape:
+
+- Preserve the verified full restore kit, independent Codex-state archive,
+  complete external canon/preparation assets, one final complete-history Git
+  bundle, one final current-thread checkpoint, root read-first/checksum/restore/
+  publication helpers, and the GitHub Desktop installer while authentication
+  remains unavailable.
+- Superseded Git bundles and thread checkpoints are removable only after their
+  final replacements pass checksum, strict clone/fsck, handoff identity, and
+  restore-entry checks.
+- Private Columbia/VA/funding work remains outside the public repository. The
+  authorized flash-drive transfer copy may be deleted, but no such material is
+  imported or inferred here.
+
+Current continuation boundary remains unchanged:
+
+- Prompt authority: external July 8 master canon
+  `03_MINIMAL_PROMPT_PACK.md`.
+- Active prompt/key: Prompt 2 only,
+  `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`.
+- GitHub publication, Rust, Bun, reviewed JuneWeb bytes, the exact June donor
+  overlay, Apple signing, fresh archive/artifact gates, and the finite runtime
+  matrix remain open. Do not begin Prompt 3.
