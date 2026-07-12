@@ -200,3 +200,31 @@ call sites, then remove one isolated seam at a time with source-level checks.
 - Both files were removed under the owner's authorization to delete local AI
   files. Historical documentation may retain their evidence references; no
   active MAS product source points to either cache file.
+
+## Single restore-backup override — 2026-07-12
+
+- Owner wording: “ok just do 1 copy please” and “i dont need encryption”.
+- Interpreted intent: create one unencrypted, selective external restore
+  archive that can rebuild the active MAS/Codex working environment on a new
+  Mac, including the project source, scripts, Git state, Codex sessions and
+  configuration, active Epistemos state, Xcode user settings, and the attached
+  canon packets.
+- Hard constraints: preserve the MAS/June-only topology; retain no retired
+  Experimental/OpenChamber payload; do not back up deleted build products;
+  include a manifest and SHA-256 checksum; do not claim live database
+  consistency without a safe snapshot or the owner's process-close action.
+- Capacity: `/Volumes/treasure` is mounted with 114.03 GiB free. One measured
+  restore set fits within the required 20% headroom; two copies do not.
+- Next action: create the single archive and its verification manifest on the
+  mounted external volume, after the selected source inventory is finalized.
+
+### Retired local-state exclusion before archive
+
+- Measured retired payloads not needed to resume the MAS app: the
+  `app.epistemos.llama-spike` container (3.12 GiB), the `epistemos-dd-agentB`,
+  `epistemos-dd-holofix`, and `epistemos-dd-mas` developer caches (about
+  5.08 GiB combined), and the small Experimental/direct-Goose application
+  support directories.
+- These paths are excluded from the restore set and removed under the prior
+  MAS-only and local-AI cleanup authorization. The MAS App Store container,
+  current Epistemos support data, and all recovery snapshots remain retained.
