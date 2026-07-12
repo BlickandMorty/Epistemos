@@ -5784,3 +5784,9 @@ The attached executive-planner correction further states:
 - The reset entry point currently verifies canon/Git/resource identity but
   reports Rust, Bun, signing, the exact June donor, and `.june-web-stage` as
   blockers. These must be green before the Prompt 2 test/archive/runtime chain.
+- The scoped continuity implementation is committed locally. GitHub push is
+  still blocked because this Mac has no HTTPS credential, GitHub CLI, SSH key,
+  or signed-in GitHub browser session. The live remote was not changed. A new
+  checksum-verified complete-history flash-drive bundle preserves the local
+  commit(s), and its README gives the non-force authenticated publication path.
+  GitHub protection remains verification debt rather than a claimed success.

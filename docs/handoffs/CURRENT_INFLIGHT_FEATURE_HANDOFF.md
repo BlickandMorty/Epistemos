@@ -455,6 +455,28 @@ Exact next action after reset:
    finite correlated runtime matrix. Update the existing exact-runtime evidence
    document and stop after the final KEELSTONE verdict.
 
+Publication and offline outcome:
+
+- The continuity implementation is committed locally as
+  `06ef0e3a1acd7c62670e29ce85ab0a51c1ba8e33`.
+- GitHub publication is not yet complete. The HTTPS push failed because this
+  reset Mac has no GitHub credential, GitHub CLI, or SSH key; the in-app browser
+  is also signed out. No credential was inspected, created, or transmitted.
+- Live `origin/feat/goose-surface` remains
+  `f73b3244c09a76a14961050964969bcb5ac9fa70`. Local history is ahead and must
+  not be described as remote-protected until an authenticated push and fetch
+  prove equality.
+- The flash drive contains a checksum-verified, complete-history bundle named
+  from the current local checkpoint:
+  `/Volumes/treasure/Epistemos-InFlight-Resume-2026-07-12-<short-sha>/`.
+  Its `READ_FIRST.md` records the literal bundled SHA and authenticated push
+  procedure. This is the authoritative fallback if the laptop is reset before
+  GitHub authentication is restored.
+- On an authenticated machine, clone or fetch that latest bundle, push
+  `feat/goose-surface` to `https://github.com/BlickandMorty/Epistemos`, fetch it
+  again, and run the reset/resume entry point. Do not force-push or overwrite a
+  divergent remote; stop and inspect any mismatch.
+
 ## Prompt To Paste Into The Previous Codex Task
 
 ```text

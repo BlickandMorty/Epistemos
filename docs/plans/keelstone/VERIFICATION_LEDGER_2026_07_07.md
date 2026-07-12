@@ -1634,3 +1634,17 @@ swap; log `/tmp/keelstone-source-gate-20260710-epdoc-appearance-token.log`.
   missing `.june-web-stage/dist/index.html` and missing
   `.june-web-stage/tauri-internals-shim.js`. This is the truthful current
   release blocker; the prior 40-check green can no longer bypass it.
+- Scoped continuity commit: PASS locally at
+  `06ef0e3a1acd7c62670e29ce85ab0a51c1ba8e33`; nine intended files were staged
+  explicitly, cached diff checks passed, and added-line secret-pattern scans
+  found no token/private-key credential pattern.
+- GitHub push: BLOCKED by missing authentication. HTTPS reported no usable
+  username, `gh` is absent, SSH has no accepted key, the Keychain has no GitHub
+  internet-password item, and the in-app GitHub page is signed out. No remote
+  ref changed; `origin/feat/goose-surface` remains `f73b3244c09a76a14961050964969bcb5ac9fa70`.
+- Offline replacement: PASS. A new 717 MB Git bundle on
+  `/Volumes/treasure` verifies as a complete history, lists the local
+  `feat/goose-surface` ref, and passes its SHA-256 checksum. The final bundle
+  directory is named with the final local checkpoint's short SHA and contains
+  a `READ_FIRST.md` that records the literal SHA and authenticated publication
+  procedure.
