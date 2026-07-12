@@ -239,3 +239,8 @@ call sites, then remove one isolated seam at a time with source-level checks.
   closed. It refuses a live run, snapshots SQLite databases, checks capacity,
   writes a manifest and SHA-256 receipt, validates archive readability, and
   extracts the full project into a temporary staging area to verify Git state.
+- First interactive launch receipt: no archive directory or partial archive was
+  created and external free space remained 113 GiB, proving the safety guard
+  stopped the run before data copy while ChatGPT/Codex was active. A visible
+  wrapper is added so Finder launches keep their Terminal window open with the
+  exact stop/completion result.
