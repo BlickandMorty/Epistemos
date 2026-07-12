@@ -10,8 +10,12 @@ archive_partial="$backup_dir/$archive_name.partial"
 archive_final="$backup_dir/$archive_name"
 stage_dir=$(mktemp -d "${TMPDIR:-/private/tmp}/Epistemos-Codex-Restore-Stage-XXXXXX")
 test_dir=""
+tar_pid=""
 
 cleanup() {
+  if [[ -n "$tar_pid" ]] && kill -0 "$tar_pid" 2>/dev/null; then
+    kill "$tar_pid" 2>/dev/null || true
+  fi
   [[ -e "$archive_partial" ]] && rm -f -- "$archive_partial"
   [[ -n "$test_dir" && -d "$test_dir" ]] && rm -rf -- "$test_dir"
   [[ -d "$stage_dir" ]] && rm -rf -- "$stage_dir"
@@ -170,7 +174,16 @@ cp "$0" "$backup_dir/Run-Epistemos-Codex-Restore-Backup.zsh"
 chmod 700 "$backup_dir/Run-Epistemos-Codex-Restore-Backup.zsh"
 
 print "Creating $archive_final"
-bsdtar --create --file="$archive_partial" --format=pax --acls --xattrs --mac-metadata --directory=/ --files-from="$sources_list"
+bsdtar --create --file="$archive_partial" --format=pax --acls --xattrs --mac-metadata --directory=/ --files-from="$sources_list" &
+tar_pid=$!
+while kill -0 "$tar_pid" 2>/dev/null; do
+  if [[ -e "$archive_partial" ]]; then
+    print "Archive written so far: $(du -h "$archive_partial" | awk '{print $1}')"
+  fi
+  sleep 30
+done
+wait "$tar_pid"
+tar_pid=""
 mv "$archive_partial" "$archive_final"
 shasum -a 256 "$archive_final" > "$backup_dir/SHA256SUMS.txt"
 bsdtar -tf "$archive_final" >/dev/null
