@@ -100,7 +100,6 @@ sources_list="$stage_dir/SOURCES.list"
 inventory="$stage_dir/SOURCE_INVENTORY.tsv"
 readme="$stage_dir/RESTORE_README.md"
 
-snapshot_failures=0
 while IFS= read -r -d '' database_path; do
   relative_path=${database_path#/}
   snapshot_path="$stage_dir/sqlite-snapshots/$relative_path"
@@ -109,14 +108,8 @@ while IFS= read -r -d '' database_path; do
     print -r -- "OK\t$(du -sk "$snapshot_path" | awk '{print $1}')\t/$relative_path" >> "$snapshot_report"
   else
     print -r -- "FAILED\t-\t/$relative_path" >> "$snapshot_report"
-    snapshot_failures=1
   fi
-done < <(find /Users/jojo/.codex '/Users/jojo/Library/Application Support/Codex' '/Users/jojo/Library/Application Support/com.openai.codex' -type f \( -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' \) -print0)
-
-if (( snapshot_failures )); then
-  print -u2 "A SQLite snapshot failed. The archive was not created. Review: $snapshot_report"
-  exit 1
-fi
+done < <(find /Users/jojo/.codex -type f \( -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' \) -print0)
 
 print -r -- "${stage_dir#/}" > "$sources_list"
 for source_path in "${source_paths[@]}"; do
@@ -132,6 +125,10 @@ ChatGPT/Codex app data, active MAS data, recovery snapshots, Xcode user settings
 and the attached canon packets.
 
 It excludes deleted build products and retired Experimental/OpenChamber/model caches.
+
+The raw Codex databases and WAL/SHM companions are included after the app-close
+guard passes. The included `SQLITE_SNAPSHOTS.tsv` reports which additional
+SQLite-consistent `~/.codex` snapshots were successfully made.
 
 Verify the archive before restore:
 

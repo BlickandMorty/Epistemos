@@ -244,3 +244,9 @@ call sites, then remove one isolated seam at a time with source-level checks.
   stopped the run before data copy while ChatGPT/Codex was active. A visible
   wrapper is added so Finder launches keep their Terminal window open with the
   exact stop/completion result.
+- Restart-run diagnosis: the first script incorrectly made browser-cache
+  SQLite databases a hard prerequisite and removed its own temporary failure
+  report. The corrected script archives raw Codex databases and their WAL/SHM
+  files only after the app-close guard passes; it attempts snapshots of the
+  actual `~/.codex` state databases as additional recovery material and keeps
+  their status report in the finished backup instead of blocking the archive.
