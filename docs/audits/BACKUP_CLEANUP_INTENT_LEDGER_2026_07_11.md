@@ -256,6 +256,11 @@ call sites, then remove one isolated seam at a time with source-level checks.
   is not a backup and is removed before retry. The next script revision excludes
   only those socket paths, omits nonportable extended metadata, and removes the
   entire output folder unless checksum plus staging Git restore both pass.
+- Native-image implementation note: the bundled macOS `rsync` mishandles the
+  existing AppleDouble metadata sidecar files during a dry run. The image copy
+  therefore uses Apple `ditto` on the APFS destination instead. Before copying,
+  it removes only the two untracked Git filesystem-monitor socket files, which
+  are runtime IPC endpoints and not restore material.
 
 ### Full new-Mac restore requirement
 

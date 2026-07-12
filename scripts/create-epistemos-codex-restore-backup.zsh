@@ -5,24 +5,24 @@ set -euo pipefail
 backup_root=${BACKUP_ROOT:-/Volumes/treasure}
 backup_date=$(date +%Y-%m-%d)
 backup_dir="$backup_root/Epistemos-Codex-Restore-$backup_date"
-archive_name="Epistemos-Codex-Restore-$backup_date.tar"
-archive_partial="$backup_dir/$archive_name.partial"
-archive_final="$backup_dir/$archive_name"
+image_name="Epistemos-Codex-Restore-$backup_date.sparseimage"
+image_path="$backup_dir/$image_name"
 restore_script="$backup_root/Restore-Epistemos-Codex-On-New-Mac.command"
 stage_dir=$(mktemp -d "${TMPDIR:-/private/tmp}/Epistemos-Codex-Restore-Stage-XXXXXX")
-test_dir=""
-tar_pid=""
+mountpoint="$stage_dir/image-mount"
+verify_mountpoint="$stage_dir/verify-mount"
+image_attached=0
 backup_started=0
 backup_complete=0
 
 cleanup() {
-  if [[ -n "$tar_pid" ]] && kill -0 "$tar_pid" 2>/dev/null; then
-    kill "$tar_pid" 2>/dev/null || true
+  if (( image_attached )); then
+    hdiutil detach "$mountpoint" -force >/dev/null 2>&1 || true
+    hdiutil detach "$verify_mountpoint" -force >/dev/null 2>&1 || true
   fi
   if (( backup_started && ! backup_complete )); then
     [[ -d "$backup_dir" ]] && rm -rf -- "$backup_dir"
   fi
-  [[ -n "$test_dir" && -d "$test_dir" ]] && rm -rf -- "$test_dir"
   [[ -d "$stage_dir" ]] && rm -rf -- "$stage_dir"
 }
 
@@ -47,6 +47,33 @@ require_path() {
     print -u2 "Required restore source is missing: $source_path"
     exit 1
   }
+}
+
+remove_transient_sockets() {
+  local socket_path
+  for socket_path in \
+    /Users/jojo/Downloads/Epistemos/.git/fsmonitor--daemon.ipc \
+    /Users/jojo/.codex/vendor_imports/skills/.git/fsmonitor--daemon.ipc; do
+    [[ -e "$socket_path" || -S "$socket_path" ]] && rm -f -- "$socket_path"
+  done
+}
+
+copy_with_progress() {
+  local source_path=$1
+  local destination_path=$2
+  local copy_pid
+
+  mkdir -p "$(dirname "$destination_path")"
+  print "Copying $source_path"
+  ditto --rsrc --extattr --acl "$source_path" "$destination_path" &
+  copy_pid=$!
+  while kill -0 "$copy_pid" 2>/dev/null; do
+    if [[ -e "$image_path" ]]; then
+      print "Image written so far: $(du -h "$image_path" | awk '{print $1}')"
+    fi
+    sleep 30
+  done
+  wait "$copy_pid"
 }
 
 require_closed
@@ -102,16 +129,37 @@ source_paths=(
 for source_path in "${source_paths[@]}"; do
   require_path "$source_path"
 done
+remove_transient_sockets
 
-mkdir -p "$stage_dir/sqlite-snapshots"
-snapshot_report="$stage_dir/SQLITE_SNAPSHOTS.tsv"
-sources_list="$stage_dir/SOURCES.list"
-inventory="$stage_dir/SOURCE_INVENTORY.tsv"
-readme="$stage_dir/RESTORE_README.md"
+total_kib=0
+for source_path in "${source_paths[@]}"; do
+  total_kib=$((total_kib + $(du -sk "$source_path" | awk '{print $1}')))
+done
+free_kib=$(df -k "$backup_root" | awk 'NR == 2 {print $4}')
+payload_limit_kib=$((free_kib * 80 / 100))
+if (( total_kib > payload_limit_kib )); then
+  print -u2 "Selected restore set exceeds the 20%-headroom limit."
+  exit 1
+fi
 
+mkdir -p "$backup_dir" "$mountpoint"
+backup_started=1
+hdiutil create -size 70g -type SPARSE -fs APFS -volname "Epistemos Codex Restore $backup_date" -nospotlight "$image_path" >/dev/null
+hdiutil attach -nobrowse -mountpoint "$mountpoint" "$image_path" >/dev/null
+image_attached=1
+
+payload_root="$mountpoint/Payload"
+metadata_root="$mountpoint/Metadata"
+mkdir -p "$payload_root" "$metadata_root/sqlite-snapshots"
+
+for source_path in "${source_paths[@]}"; do
+  copy_with_progress "$source_path" "$payload_root/${source_path#/}"
+done
+
+snapshot_report="$metadata_root/SQLITE_SNAPSHOTS.tsv"
 while IFS= read -r -d '' database_path; do
   relative_path=${database_path#/}
-  snapshot_path="$stage_dir/sqlite-snapshots/$relative_path"
+  snapshot_path="$metadata_root/sqlite-snapshots/$relative_path"
   mkdir -p "$(dirname "$snapshot_path")"
   if sqlite3 "$database_path" ".timeout 60000" ".backup '$snapshot_path'" && sqlite3 "$snapshot_path" 'PRAGMA integrity_check;' | grep -qx 'ok'; then
     print -r -- "OK\t$(du -sk "$snapshot_path" | awk '{print $1}')\t/$relative_path" >> "$snapshot_report"
@@ -120,89 +168,46 @@ while IFS= read -r -d '' database_path; do
   fi
 done < <(find /Users/jojo/.codex -type f \( -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' \) -print0)
 
-print -r -- "${stage_dir#/}" > "$sources_list"
+inventory="$metadata_root/SOURCE_INVENTORY.tsv"
+print -r -- $'size_kib\tsource' > "$inventory"
 for source_path in "${source_paths[@]}"; do
-  print -r -- "${source_path#/}" >> "$sources_list"
+  print -r -- "$(du -sk "$source_path" | awk '{print $1}')\t$source_path" >> "$inventory"
 done
-
-cat > "$readme" <<'EOF'
-# Epistemos + Codex restore archive
-
-This archive restores the active MAS-only Epistemos workspace and Codex setup:
-the full repository and scripts, Git state, Codex sessions/settings/skills/plugins,
-ChatGPT/Codex app data, active MAS data, recovery snapshots, Xcode user settings,
-and the attached canon packets.
-
-It excludes deleted build products and retired Experimental/OpenChamber/model caches.
-
-The raw Codex databases and WAL/SHM companions are included after the app-close
-guard passes. The included `SQLITE_SNAPSHOTS.tsv` reports which additional
-SQLite-consistent `~/.codex` snapshots were successfully made.
-
-Verify the archive before restore:
-
-```sh
-shasum -a 256 -c SHA256SUMS.txt
-```
-
-On the new Mac, install ChatGPT/Codex and Xcode first, quit them, then extract into
-an empty staging directory with `bsdtar -xpf <archive>.tar -C <staging-dir>`.
-Inspect the staged `Users/jojo/...` tree before copying any data into live locations.
-EOF
-
-total_kib=0
-{
-  print -r -- $'size_kib\tsource'
-  while IFS= read -r relative_path; do
-    source_path="/$relative_path"
-    size_kib=$(du -sk "$source_path" | awk '{print $1}')
-    total_kib=$((total_kib + size_kib))
-    print -r -- "$size_kib\t/$relative_path"
-  done < "$sources_list"
-} > "$inventory"
-
-free_kib=$(df -k "$backup_root" | awk 'NR == 2 {print $4}')
-payload_limit_kib=$((free_kib * 80 / 100))
 print -r -- "TOTAL_KIB\t$total_kib" >> "$inventory"
-print -r -- "EXTERNAL_FREE_KIB_BEFORE_ARCHIVE\t$free_kib" >> "$inventory"
+print -r -- "EXTERNAL_FREE_KIB_BEFORE_BACKUP\t$free_kib" >> "$inventory"
 print -r -- "PAYLOAD_LIMIT_KIB_WITH_20_PERCENT_HEADROOM\t$payload_limit_kib" >> "$inventory"
 
-if (( total_kib > payload_limit_kib )); then
-  print -u2 "Selected restore set exceeds the 20%-headroom limit. See $inventory"
-  exit 1
-fi
+cat > "$metadata_root/RESTORE_README.md" <<'EOF'
+# Epistemos + Codex full restore image
 
-mkdir -p "$backup_dir"
-backup_started=1
-cp "$readme" "$backup_dir/RESTORE_README.md"
-cp "$inventory" "$backup_dir/SOURCE_INVENTORY.tsv"
-cp "$snapshot_report" "$backup_dir/SQLITE_SNAPSHOTS.tsv"
-cp "$0" "$backup_dir/Run-Epistemos-Codex-Restore-Backup.zsh"
-cp "$restore_script" "$backup_dir/Restore-Epistemos-Codex-On-New-Mac.command"
-chmod 700 "$backup_dir/Run-Epistemos-Codex-Restore-Backup.zsh"
-chmod 700 "$backup_dir/Restore-Epistemos-Codex-On-New-Mac.command"
+This unencrypted APFS sparse image contains the active MAS-only Epistemos
+workspace, scripts, complete Codex state, active MAS app data, recovery
+snapshots, Xcode user settings, and canon packets. It excludes retired
+Experimental/OpenChamber/model caches and build products.
 
-print "Creating $archive_final"
-bsdtar --create --file="$archive_partial" --format=pax --exclude '*/fsmonitor--daemon.ipc' --directory=/ --files-from="$sources_list" &
-tar_pid=$!
-while kill -0 "$tar_pid" 2>/dev/null; do
-  if [[ -e "$archive_partial" ]]; then
-    print "Archive written so far: $(du -h "$archive_partial" | awk '{print $1}')"
-  fi
-  sleep 30
-done
-wait "$tar_pid"
-tar_pid=""
-mv "$archive_partial" "$archive_final"
-(cd "$backup_dir" && shasum -a 256 "$archive_name" > SHA256SUMS.txt)
-bsdtar -tf "$archive_final" >/dev/null
+Run `Restore-Epistemos-Codex-On-New-Mac.command` from the external drive on a
+new Mac. It verifies the image checksum, stages the image, and replaces the
+backed-up user paths only after explicit confirmation, preserving a local
+rollback folder first.
+EOF
+cp "$restore_script" "$metadata_root/Restore-Epistemos-Codex-On-New-Mac.command"
+chmod 700 "$metadata_root/Restore-Epistemos-Codex-On-New-Mac.command"
+git -C "$payload_root/Users/jojo/Downloads/Epistemos" status -sb > "$metadata_root/STAGING_GIT_STATUS.txt"
 
-test_dir=$(mktemp -d "${TMPDIR:-/private/tmp}/Epistemos-Codex-Restore-Test-XXXXXX")
-bsdtar -xpf "$archive_final" --directory="$test_dir" Users/jojo/Downloads/Epistemos
-git -C "$test_dir/Users/jojo/Downloads/Epistemos" status -sb > "$backup_dir/STAGING_GIT_STATUS.txt"
-[[ -f "$test_dir/Users/jojo/Downloads/Epistemos/.git/HEAD" ]]
+sync
+hdiutil detach "$mountpoint" >/dev/null
+image_attached=0
+hdiutil compact "$image_path" >/dev/null
 
-print -r -- "archive_readable=yes" > "$backup_dir/VERIFICATION.txt"
+mkdir -p "$verify_mountpoint"
+hdiutil attach -readonly -nobrowse -mountpoint "$verify_mountpoint" "$image_path" >/dev/null
+image_attached=1
+git -C "$verify_mountpoint/Payload/Users/jojo/Downloads/Epistemos" status -sb > "$backup_dir/STAGING_GIT_STATUS.txt"
+hdiutil detach "$verify_mountpoint" >/dev/null
+image_attached=0
+
+(cd "$backup_dir" && shasum -a 256 "$image_name" > SHA256SUMS.txt)
+print -r -- "image_mount_verified=yes" > "$backup_dir/VERIFICATION.txt"
 print -r -- "staging_project_restore=yes" >> "$backup_dir/VERIFICATION.txt"
 print -r -- "git_status_checked=yes" >> "$backup_dir/VERIFICATION.txt"
 backup_complete=1

@@ -14,12 +14,12 @@ else
   backup_dir=${backup_dirs[1]%/}
 fi
 
-archive_paths=("$backup_dir"/*.tar(N))
-(( ${#archive_paths[@]} == 1 )) || {
-  print -u2 "Expected exactly one .tar archive in $backup_dir"
+image_paths=("$backup_dir"/*.sparseimage(N))
+(( ${#image_paths[@]} == 1 )) || {
+  print -u2 "Expected exactly one sparse image in $backup_dir"
   exit 1
 }
-archive_path=$archive_paths[1]
+image_path=$image_paths[1]
 
 require_closed() {
   local pattern
@@ -49,18 +49,23 @@ read -r "confirmation?Type RESTORE to continue: "
 }
 
 stage_dir=$(mktemp -d "${TMPDIR:-/private/tmp}/Epistemos-Codex-Restore-Stage-XXXXXX")
+mountpoint="$stage_dir/image-mount"
 rollback_dir="$HOME/Epistemos-Codex-Restore-Rollback-$(date +%Y%m%d-%H%M%S)"
+image_attached=0
 cleanup() {
+  if (( image_attached )); then
+    hdiutil detach "$mountpoint" -force >/dev/null 2>&1 || true
+  fi
   [[ -d "$stage_dir" ]] && rm -rf -- "$stage_dir"
 }
 trap cleanup EXIT
 
-print "Extracting to a temporary staging folder."
-bsdtar -xpf "$archive_path" --directory="$stage_dir"
-
-source_home="$stage_dir/Users/jojo"
+mkdir -p "$mountpoint"
+hdiutil attach -readonly -nobrowse -mountpoint "$mountpoint" "$image_path" >/dev/null
+image_attached=1
+source_home="$mountpoint/Payload/Users/jojo"
 [[ -d "$source_home" ]] || {
-  print -u2 "Archive does not contain the expected user data."
+  print -u2 "Image does not contain the expected user data."
   exit 1
 }
 
@@ -110,12 +115,12 @@ for relative_path in "${relative_paths[@]}"; do
   ditto "$staged_path" "$target_path"
 done
 
-if [[ -d "$stage_dir/Applications/ChatGPT.app" ]]; then
+if [[ -d "$mountpoint/Payload/Applications/ChatGPT.app" ]]; then
   mkdir -p "$rollback_dir/Applications"
   if [[ -d /Applications/ChatGPT.app ]]; then
     sudo mv /Applications/ChatGPT.app "$rollback_dir/Applications/ChatGPT.app"
   fi
-  sudo ditto "$stage_dir/Applications/ChatGPT.app" /Applications/ChatGPT.app
+  sudo ditto "$mountpoint/Payload/Applications/ChatGPT.app" /Applications/ChatGPT.app
 fi
 
 git -C "$HOME/Downloads/Epistemos" status -sb
