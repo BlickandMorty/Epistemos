@@ -168,3 +168,26 @@ call sites, then remove one isolated seam at a time with source-level checks.
   not running. ChatGPT/Codex was active and is deliberately excluded from this
   deletion pass, including its `com.openai.chat` support data and active Codex
   runtime cache. The inactive deletion set reclaims 76.38 GiB.
+
+## Completion evidence and backup-capacity checkpoint
+
+- The MAS source-of-truth and generated Xcode metadata now expose only
+  `Epistemos-AppStore`, its widget, and the App Store KEELSTONE tests. June and
+  `GooseMASAgentCoreRunner` remain the active in-process agent route.
+- The release gate was replaced with an MAS-only gate. Shell syntax checks,
+  `cargo fmt --check`, `git diff --check`, the normal gate, and its seeded
+  HIGH/CRITICAL failure witness all pass. No Xcode build was run, per owner
+  instruction; generated Rust bindings were not retained.
+- The browser-use vendor was also removed as a retired non-MAS automation
+  dependency. The workspace is now 5.12 GiB; local storage free space is
+  366 GiB.
+- The full selected raw backup set—including Codex companion data, the active
+  Epistemos data/recovery roots, Xcode user data, and the three attached canon
+  packets—is 53.09 GiB after the browser-use removal. Two uncompressed copies
+  need about 106.18 GiB.
+- The external volume was initially 114.07 GiB free, whose 20%-headroom
+  payload ceiling is 91.67 GiB. It later disconnected and is currently absent
+  from `/Volumes`. Even if remounted at the prior capacity, two raw complete
+  copies are about 14.51 GiB over the permitted ceiling. Do not begin an
+  external backup until the owner chooses compression/deduplication, a larger
+  destination, or an explicitly approved source reduction.
