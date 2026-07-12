@@ -1,0 +1,343 @@
+{
+  "generated_by": "Codex MAS master canon fusion",
+  "input_archive_count": 18,
+  "archives": [
+    {
+      "archive_filename": "epistemos-agent-instruction-profile-2026-07-07.zip",
+      "byte_size": 543709,
+      "sha256": "e42702e9445bc7f810237d6c0fed8b33bd0e3fdad27799c4a2bc728055741ec2",
+      "archive_classification": "AGENT_INSTRUCTION_PROFILE_DONOR",
+      "zip_ok": true,
+      "file_count": 123,
+      "directory_count": 76,
+      "top_level_folders": [
+        "epistemos-agent-instruction-profile-2026-07-07"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-07",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/epistemos-agent-instruction-profile-2026-07-07",
+      "fusion_priority": "DONOR_OR_HISTORICAL_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "epistemos-mas-c-control-pack-2026-07-08.zip",
+      "byte_size": 71052,
+      "sha256": "6d322eaf493f8a999a4440481479aa0a16530bf1fb1c880ffaf3044c640eb976",
+      "archive_classification": "CURRENT_MAS_C_CONTROL_PACKET",
+      "zip_ok": true,
+      "file_count": 48,
+      "directory_count": 15,
+      "top_level_folders": [
+        "docs"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-07",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/epistemos-mas-c-control-pack-2026-07-08",
+      "fusion_priority": "CURRENT_LOCAL_CONTROL_DONOR"
+    },
+    {
+      "archive_filename": "epistemos-mas-pivot-cloud-research-packet-2026-07-07.zip",
+      "byte_size": 593314,
+      "sha256": "fb18785b267bf7417cf503ff1cdd47c57d2885bff86b44d01dcad60c53d43b81",
+      "archive_classification": "PRIMARY_RAW_MAS_RESEARCH_PACKET",
+      "zip_ok": true,
+      "file_count": 42,
+      "directory_count": 0,
+      "top_level_folders": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "docs"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-07",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/epistemos-mas-pivot-cloud-research-packet-2026-07-07",
+      "fusion_priority": "RAW_RESEARCH_PROVENANCE"
+    },
+    {
+      "archive_filename": "epistemos-mas-pivot-research-2026-07-08.zip",
+      "byte_size": 641403,
+      "sha256": "7b5b34183867f7144a6a132b129de9971859c5b0acc459ce4a1f2924b4cd4002",
+      "archive_classification": "PRIMARY_RAW_MAS_RESEARCH_PACKET",
+      "zip_ok": true,
+      "file_count": 44,
+      "directory_count": 9,
+      "top_level_folders": [
+        "epistemos-mas-pivot-cloud-research-packet-2026-07-07 2"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-07",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/epistemos-mas-pivot-research-2026-07-08",
+      "fusion_priority": "RAW_RESEARCH_PROVENANCE"
+    },
+    {
+      "archive_filename": "files (5).zip",
+      "byte_size": 33947,
+      "sha256": "f7478939a66403eb30887b4a5e5a0d156121826d4bad5ae05f4451ec0f9de793",
+      "archive_classification": "OLD_RELEASE_SOURCE_DONOR",
+      "zip_ok": true,
+      "file_count": 11,
+      "directory_count": 0,
+      "top_level_folders": [
+        "AgentViewModel.swift",
+        "CLAUDE.md",
+        "EPISTEMOS_GAP_ANALYSIS.md",
+        "OmegaPanel.swift",
+        "StreamingDelegate.swift",
+        "bridge.rs",
+        "error.rs",
+        "lib.rs",
+        "prompts.rs",
+        "session.rs",
+        "vault.rs"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-03-29",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/files_5",
+      "fusion_priority": "DONOR_OR_HISTORICAL_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "mac c v2.zip",
+      "byte_size": 47431,
+      "sha256": "130dd8de8ea1c7bb0e9dc8c84e833948decb705bdaff82a032559413d79af0fa",
+      "archive_classification": "MAS_C_ITERATION_DONOR",
+      "zip_ok": true,
+      "file_count": 39,
+      "directory_count": 15,
+      "top_level_folders": [
+        "docs"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-07",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/mac_c_v2",
+      "fusion_priority": "OLDER_DELIBERATION_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "mac c v4.zip",
+      "byte_size": 54761,
+      "sha256": "fb22b6224c19e9754f76badd0160c3bbd489e77102fdf8ff8ab95c0168547d3f",
+      "archive_classification": "MAS_C_ITERATION_DONOR",
+      "zip_ok": true,
+      "file_count": 42,
+      "directory_count": 15,
+      "top_level_folders": [
+        "docs"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-07",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/mac_c_v4",
+      "fusion_priority": "OLDER_DELIBERATION_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "mac c.zip",
+      "byte_size": 42628,
+      "sha256": "5c42be1b811ef7a28a5735cb8ae0186c624a8b20cf1e79161d4f4fb9ac22df25",
+      "archive_classification": "MAS_C_ITERATION_DONOR",
+      "zip_ok": true,
+      "file_count": 37,
+      "directory_count": 15,
+      "top_level_folders": [
+        "docs"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-07",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/mac_c",
+      "fusion_priority": "OLDER_DELIBERATION_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "mac v3.zip",
+      "byte_size": 52062,
+      "sha256": "58d953c7b974c0a7900bb25facd920488856f071d8a5526d73b147db5e1f231c",
+      "archive_classification": "MAS_C_ITERATION_DONOR",
+      "zip_ok": true,
+      "file_count": 41,
+      "directory_count": 15,
+      "top_level_folders": [
+        "docs"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-07",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/mac_v3",
+      "fusion_priority": "OLDER_DELIBERATION_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "research1.zip",
+      "byte_size": 8668287,
+      "sha256": "bd393fcd2eaf57908d822a0c7b117ccbe742e45ba77364123753519756d93a04",
+      "archive_classification": "ACTIVE_SYNTHESIS_INPUT",
+      "zip_ok": true,
+      "file_count": 56,
+      "directory_count": 0,
+      "top_level_folders": [
+        "epistemos_mas_master_canon_2026_07_08"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-08",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/research1",
+      "fusion_priority": "PRIMARY_LATEST_EXECUTIVE_RESEARCH"
+    },
+    {
+      "archive_filename": "research2.zip",
+      "byte_size": 8508576,
+      "sha256": "6f11c049d485b30cd637476e168570cb1125c22b6420476a914b1837526f3ecd",
+      "archive_classification": "ACTIVE_SYNTHESIS_INPUT",
+      "zip_ok": true,
+      "file_count": 29,
+      "directory_count": 0,
+      "top_level_folders": [
+        "epistemos_mas_master_canon_2026_07_08"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-08",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/research2",
+      "fusion_priority": "PRIMARY_LATEST_EXECUTIVE_RESEARCH"
+    },
+    {
+      "archive_filename": "research3.zip",
+      "byte_size": 8859516,
+      "sha256": "7e0a312c39ca3e16dc7a73d51f5f180c9f2e026dd7f0bd92041767257050e709",
+      "archive_classification": "ACTIVE_SYNTHESIS_INPUT",
+      "zip_ok": true,
+      "file_count": 82,
+      "directory_count": 4,
+      "top_level_folders": [
+        "epistemos_mas_master_canon_2026_07_08"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-08",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/research3",
+      "fusion_priority": "PRIMARY_LATEST_EXECUTIVE_RESEARCH"
+    },
+    {
+      "archive_filename": "research4.zip",
+      "byte_size": 10415267,
+      "sha256": "e7b8ac16f7ccb5853e224403bad1ee0e5666ff6283969ee900b20ac281166158",
+      "archive_classification": "ACTIVE_SYNTHESIS_INPUT",
+      "zip_ok": true,
+      "file_count": 76,
+      "directory_count": 4,
+      "top_level_folders": [
+        "epistemos_mas_master_canon_2026_07_08"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-08",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/research4",
+      "fusion_priority": "PRIMARY_LATEST_EXECUTIVE_RESEARCH"
+    },
+    {
+      "archive_filename": "stack1.zip",
+      "byte_size": 1601439,
+      "sha256": "5c0ef2bfaaef551719300802e06a58bdf9dd3bd07aaca0eae410fad9c996b1e9",
+      "archive_classification": "DEEP_RESEARCH_BUILD_PACK",
+      "zip_ok": true,
+      "file_count": 17,
+      "directory_count": 0,
+      "top_level_folders": [
+        "epistemos_mas_research_build_pack_2026_07_08"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-08",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/stack1",
+      "fusion_priority": "OLDER_DELIBERATION_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "stack2.zip",
+      "byte_size": 1305179,
+      "sha256": "5e55032fab94b73a12a87779ebfeaa62af8e3c4563da9dc22a36fdc7174f61cf",
+      "archive_classification": "DEEP_RESEARCH_BUILD_PACK",
+      "zip_ok": true,
+      "file_count": 12,
+      "directory_count": 0,
+      "top_level_folders": [
+        "epistemos_mas_operator_bundle_2026_07_08"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-08",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/stack2",
+      "fusion_priority": "OLDER_DELIBERATION_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "stack3.zip",
+      "byte_size": 1247255,
+      "sha256": "344704ef6e162b446ec1288f432b56a44a7fb10e1df71c7fa35b378d459f3bc0",
+      "archive_classification": "DEEP_RESEARCH_BUILD_PACK",
+      "zip_ok": true,
+      "file_count": 13,
+      "directory_count": 0,
+      "top_level_folders": [
+        "epistemos_mas_operator_pack_2026_07_08"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-08",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/stack3",
+      "fusion_priority": "OLDER_DELIBERATION_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "stack4.zip",
+      "byte_size": 1426919,
+      "sha256": "2618e461e901c8b2820b8cd51fc715ff03bc848d1cd84a579a75518e6617364d",
+      "archive_classification": "DEEP_RESEARCH_BUILD_PACK",
+      "zip_ok": true,
+      "file_count": 16,
+      "directory_count": 0,
+      "top_level_folders": [
+        "epistemos_mas_minimal_pack_2026_07_08"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-08",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/stack4",
+      "fusion_priority": "OLDER_DELIBERATION_SOURCE_ARCHIVE"
+    },
+    {
+      "archive_filename": "stack5.zip",
+      "byte_size": 14958,
+      "sha256": "e9edd2ac46a4bda574544457eaef9f587a36ac1f73ab8e0928be3e3a0d38a342",
+      "archive_classification": "DEEP_RESEARCH_BUILD_PACK",
+      "zip_ok": true,
+      "file_count": 5,
+      "directory_count": 0,
+      "top_level_folders": [
+        "epistemos_master_fusion_prompt_pack_2026_07_08"
+      ],
+      "empty_files": [],
+      "corrupt_files": [],
+      "likely_generation_date": "2026-07-08",
+      "suspicious_duplicates": [],
+      "extracted_to": "/Users/jojo/Downloads/epistemos_mas_master_canon_fusion_work_2026_07_08/work/extracted/stack5",
+      "fusion_priority": "OLDER_DELIBERATION_SOURCE_ARCHIVE"
+    }
+  ],
+  "owner_steer_2026_07_08": "Owner clarified research1.zip through research4.zip are the most updated research outputs; older ZIPs were already deliberated and should be preserved/rechecked only as needed."
+}
