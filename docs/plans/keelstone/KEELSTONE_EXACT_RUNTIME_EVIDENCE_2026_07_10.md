@@ -3,11 +3,16 @@
 Current canonical execution key:
 `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`.
 
-Final verdict: **INCOMPLETE**.
+Current final verdict: **INCOMPLETE**.
 
-The evidence chain stopped at its mandatory resource preflight. No focused
-Xcode test, Release build, archive, artifact gate, application launch, model
-load, provider request, audio operation, or runtime mutation was started.
+The original 2026-07-10 pass stopped at its mandatory resource preflight. The
+owner authorized exact continuation after a forced restart on 2026-07-12. That
+continuation restored the developer prerequisites and June source/stage,
+completed the narrow Debug compile/regression leg, and then stopped before the
+Release archive because this Mac has no Apple signing identity or provisioning
+profile. No Release archive, archive artifact gate, owner-visible runtime
+matrix, model load, provider request, Keychain-secret read, owner-vault
+operation, or audio operation was performed.
 
 ## Owner Intent Checkpoint
 
@@ -248,7 +253,7 @@ Surgical correction:
 - None. Making a product-source change would not correct system swap occupancy
   and would violate the evidence-only/source-freeze boundary.
 
-## Resumption Boundary
+## Historical Resumption Boundary — 2026-07-10
 
 This evidence chain may be restarted only from the resource preflight after
 system swap has returned to a safe level. Do not reuse this pass as compilation
@@ -266,14 +271,114 @@ On a safe system, the next sequence remains:
 7. Update this evidence document with the exact commands, paths, results, and
    one allowed verdict.
 
+## Post-Reset Continuation Evidence — 2026-07-12
+
+Owner authorization resumed only canonical Prompt 2 under
+`EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`. The external July 8 master
+canon and its numbered `03_MINIMAL_PROMPT_PACK.md` remain prompt authority.
+
+### Current identity and resource gate
+
+- Branch: `feat/goose-surface`.
+- Pre-continuation HEAD: `a69f5bfc417db95d7c552a6e913d6294da4700c6`.
+- `origin/feat/goose-surface` and live GitHub:
+  `f73b3244c09a76a14961050964969bcb5ac9fa70`.
+- GitHub CLI remains unauthenticated; publication is not claimed.
+- Final exact-test preflight: 699.44 MiB swap used of 2 GiB, 73% free memory,
+  zero throttled pages, and no competing build/compiler/model/app process.
+  This passed the owner's below-4-GiB, at-least-25%, zero-throttling, serial
+  threshold.
+
+### June recovery and stage identity
+
+- Recovered donor: `/Users/jojo/dev/june-epistemos`, branch
+  `codex/recover-june-exact-2026-07-12`, public base
+  `2f84f3e4fa19fded5135aa044ff5accf9fbd3809`, with the 93-file reconstructed
+  private overlay retained as uncommitted donor state.
+- The reconstruction replays the durable Codex patch record. It is current
+  reconstruction evidence, not a claim that the old generated dependency tree
+  was reproduced byte-for-byte.
+- Current checked-in candidate stage contains 28 files. Hashes:
+  - `dist/index.html`: `822fd4be182eca74eedbf73cae1a6c4a7ff169960069c3bc778082fffb9a6bad`
+  - `dist/assets/main-CBFgaVJI.js`:
+    `518eef05376dd0a6ad3537cede4647d155c8bc7cfd9088d1a2ef77387d96a7fd`
+  - `tauri-internals-shim.js`:
+    `7440986d70a044689fea50f8a181441dfc05c5b8736421691db8b2980979e77a`
+- The shim matches the reviewed historical oracle exactly. The current
+  index/main hashes do not match the older reviewed oracles, so this stage is
+  explicitly new evidence and not substituted historical proof.
+
+### Narrow compile and regression result
+
+The first restored build exposed only current Swift/Xcode compatibility
+failures. Surgical compile corrections were made in the affected provider
+switch returns, conditional SwiftUI builders, actor-isolation annotations,
+termination callback, and nonisolated receipt/signal types, with matching
+source-guard updates. A later test run exposed one real early-Document-edit
+flush regression, one missing release-gate bundle-scan wrapper, and stale
+source assertions; those exact failed legs were corrected without reopening
+general product work.
+
+The owner then added a durable one-current-build rule. Before every subsequent
+test build, every prior DerivedData `Epistemos.app` and Epistemos archive was
+inventoried and deleted. Xcode GUI/indexer duplicates were removed. The final
+exact-state command was:
+
+```bash
+xcodebuild -project Epistemos.xcodeproj \
+  -scheme Epistemos-AppStore \
+  -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' \
+  CODE_SIGNING_ALLOWED=NO test
+```
+
+Result: **PASS — 71 tests in 2 suites, zero failures**. Retained current log:
+`/tmp/epistemos-keelstone-final-exact-71-tests.log`.
+
+The only surviving app product is:
+
+`/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Debug/Epistemos.app`
+
+- Size: 772,032 KiB.
+- Executable SHA-256:
+  `55991dc381bf8b5b0cfb360c3c0c052f73472ba79523a2e21c7c59494804318f`.
+- Bundled June shim SHA-256:
+  `7440986d70a044689fea50f8a181441dfc05c5b8736421691db8b2980979e77a`.
+
+This is an unsigned Debug test product containing XCTest support. It proves
+compilation and the focused regression target only; it is not a distributable
+Release archive or owner-visible runtime artifact. Xcode's test host did start
+the executable to run the isolated tests, including temporary test-vault
+fixtures. No owner vault was selected or mutated.
+
+### Source gate and archive stop
+
+`bash scripts/keelstone-release-gate.sh` passed 49 source/staged-June checks;
+shell parsing passed for both release-gate scripts. Retained log:
+`/tmp/epistemos-keelstone-source-gate-20260712-final.log`.
+
+The Release archive leg did not begin because:
+
+- `security find-identity -v -p codesigning` reports zero valid identities;
+- `~/Library/MobileDevice/Provisioning Profiles` is absent;
+- the project requests team `3BNL2669SL` and automatic Apple signing.
+
+Therefore no fresh Release archive exists, no archive artifact gate ran, and
+launching the app for the finite owner-visible runtime matrix remains
+forbidden. The exact next action requires the owner to connect the Apple
+Developer/Xcode account and signing assets. After that, rerun the resource
+preflight, delete the surviving Debug app and any stale archives, produce one
+and only one signed Release archive, run every artifact gate against that
+archive, and launch only if they all pass. Do not begin Prompt 3.
+
 ## Final KEELSTONE Verdict
 
 **INCOMPLETE**
 
-Reason: the owner-mandated safety preflight found near-exhausted swap, so no
-current compile, fresh archive, artifact gate, or exact runtime evidence could
-be produced. Current source may be consistent with the intended fixes, but it
-cannot satisfy the remaining evidence bar without the unrun artifact and
-runtime chain.
+Reason: the post-reset resource gate and narrow Debug compile/regression leg
+now pass, but Apple signing remains absent. No current signed Release archive,
+archive artifact-gate pass, or finite owner-visible runtime matrix exists.
+KEELSTONE therefore remains incomplete at the Release-archive signing
+boundary.
 
 No recommendation to begin another canonical execution key is made.

@@ -43,18 +43,18 @@ nonisolated enum GooseMASAgentCoreProviderSlug {
         let lower = raw.lowercased()
         #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         switch lower {
-        case "openai:gpt-5.5": "openai_gpt55"
-        case "openai:gpt-5.4": "openai_gpt54"
-        case "openai:gpt-5.4-mini": "openai_gpt54_mini"
-        case "openai:gpt-5.4-nano": "openai_gpt54_nano"
-        case "openai:gpt-5.2": "openai_gpt52"
-        case "openai:gpt-4.1": "openai_gpt41"
-        case "openai:gpt-4.1-mini": "openai_gpt41_mini"
-        case "openai:o3-mini": "openai_o3_mini"
-        case "anthropic:claude-sonnet-4-6": "claude_sonnet"
-        case "anthropic:claude-opus-4-7": "claude_opus"
-        case "anthropic:claude-haiku-4-5": "claude_haiku"
-        default: nil
+        case "openai:gpt-5.5": return "openai_gpt55"
+        case "openai:gpt-5.4": return "openai_gpt54"
+        case "openai:gpt-5.4-mini": return "openai_gpt54_mini"
+        case "openai:gpt-5.4-nano": return "openai_gpt54_nano"
+        case "openai:gpt-5.2": return "openai_gpt52"
+        case "openai:gpt-4.1": return "openai_gpt41"
+        case "openai:gpt-4.1-mini": return "openai_gpt41_mini"
+        case "openai:o3-mini": return "openai_o3_mini"
+        case "anthropic:claude-sonnet-4-6": return "claude_sonnet"
+        case "anthropic:claude-opus-4-7": return "claude_opus"
+        case "anthropic:claude-haiku-4-5": return "claude_haiku"
+        default: return nil
         }
         #else
         if lower.contains("/") {

@@ -973,6 +973,7 @@ struct TextCapturePipelineTests {
         #expect(source.contains("@State private var previewSignals = PreviewSignals(text: \"\")"))
         #expect(source.contains("schedulePreviewSignals(for: newValue)"))
         #expect(source.contains("let nextSignals = await Task.detached(priority: .utility)"))
+        #expect(source.contains("private nonisolated struct PreviewSignals: Sendable"))
         #expect(source.contains("guard !Task.isCancelled, captureText == text else { return }"))
         #expect(!source.contains("private var previewSignals: PreviewSignals"))
     }

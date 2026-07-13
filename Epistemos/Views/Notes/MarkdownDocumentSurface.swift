@@ -557,6 +557,9 @@ final class MarkdownDocumentSurfaceCoordinator {
             return false
         }
         if freshMarkdown != latestMarkdown {
+            if controller.toolbarModel.isDirty {
+                onEditStarted()
+            }
             markdownRevision &+= 1
         }
         latestMarkdown = freshMarkdown

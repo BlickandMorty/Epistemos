@@ -191,13 +191,13 @@ struct MarkdownDocumentLensSwitchTests {
             }
         )
 
-        coordinator.controller.onMarkdownChanged?(firstMarkdown, nil)
+        coordinator.controller.onMarkdownChanged(firstMarkdown, nil)
         let firstFlush = Task { @MainActor in
             await coordinator.flushPendingMarkdown()
         }
         await gate.waitUntilStarted()
 
-        coordinator.controller.onMarkdownChanged?(secondMarkdown, nil)
+        coordinator.controller.onMarkdownChanged(secondMarkdown, nil)
         let joinedFlush = Task { @MainActor in
             await coordinator.flushPendingMarkdown()
         }

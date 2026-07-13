@@ -434,7 +434,7 @@ nonisolated struct CodeEditorPolishTests {
         #expect(!source.contains("private func scheduleOutlineRefresh(for content: String"))
         #expect(source.contains("let onTextSnapshot: ((String) -> Void)?"),
                 "Hosts need an immediate live text snapshot separate from debounced persistence.")
-        #expect(source.contains("let onEditStarted: (() -> Void)?"))
+        #expect(source.contains("let onEditStarted: (@MainActor () -> Void)?"))
         #expect(source.contains("onContentDirty: onEditStarted"))
         #expect(adapter.contains("var onContentDirty: (@MainActor () -> Void)?"))
         #expect(adapter.contains("context.coordinator.onContentDirty = onContentDirty"))

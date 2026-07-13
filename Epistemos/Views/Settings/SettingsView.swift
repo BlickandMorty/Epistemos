@@ -735,21 +735,23 @@ private struct CloudModelsSettingsView: View {
                 SettingsDescriptionText(text: providerSetupDescription)
 
                 ForEach(settingsProviders, id: \.self) { provider in
-                    #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-                    CloudProviderSettingsRow(
-                        provider: provider,
-                        apiKeyDraft: apiKeyBinding(for: provider)
-                    )
-                    #else
-                    CloudProviderSettingsRow(
-                        provider: provider,
-                        apiKeyDraft: apiKeyBinding(for: provider),
-                        openAIDeviceAuthorization: $openAIDeviceAuthorization,
-                        googleOAuthProjectID: $googleOAuthProjectID,
-                        googleOAuthClientFilename: $googleOAuthClientFilename,
-                        googleOAuthStatusMessage: $googleOAuthStatusMessage
-                    )
-                    #endif
+                    Group {
+                        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                        CloudProviderSettingsRow(
+                            provider: provider,
+                            apiKeyDraft: apiKeyBinding(for: provider)
+                        )
+                        #else
+                        CloudProviderSettingsRow(
+                            provider: provider,
+                            apiKeyDraft: apiKeyBinding(for: provider),
+                            openAIDeviceAuthorization: $openAIDeviceAuthorization,
+                            googleOAuthProjectID: $googleOAuthProjectID,
+                            googleOAuthClientFilename: $googleOAuthClientFilename,
+                            googleOAuthStatusMessage: $googleOAuthStatusMessage
+                        )
+                        #endif
+                    }
                     .padding(.vertical, 6)
                 }
             }

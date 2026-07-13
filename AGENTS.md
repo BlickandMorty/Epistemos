@@ -41,6 +41,11 @@ Chromium path belongs to the active MAS plan.
    expansion: "zero-copy" also means UMA, in-process, single-binary,
    deterministic, no hot-path subprocess, no tensor copies, direct/bare-metal
    path, and "as complex as a brain, as simple as an app, as responsive as a jet."
+9. **One current app build.** Before any Epistemos build, test build, or
+   archive, stop any prior Epistemos test host and delete stale Epistemos app
+   products and archives from the build location. Produce and retain only one
+   current app artifact for the active evidence leg. Record its exact path and
+   identity; never use an older DerivedData or archive product as evidence.
 
 ## Deep Reasoning And Verification Discipline
 

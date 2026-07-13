@@ -1433,7 +1433,7 @@ struct CodeEditorView: View {
     let initialContent: String
     let language: String
     let filePath: String?  // Optional: for code-to-graph linking
-    let onEditStarted: (() -> Void)?
+    let onEditStarted: (@MainActor () -> Void)?
     let onTextSnapshot: ((String) -> Void)?
     let onContentChange: ((String) -> Void)?
     let isEditable: Bool
@@ -1532,7 +1532,7 @@ struct CodeEditorView: View {
         content: String,
         language: String,
         filePath: String? = nil,
-        onEditStarted: (() -> Void)? = nil,
+        onEditStarted: (@MainActor () -> Void)? = nil,
         onTextSnapshot: ((String) -> Void)? = nil,
         onContentChange: ((String) -> Void)? = nil,
         isEditable: Bool = true,

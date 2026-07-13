@@ -13,7 +13,7 @@ import OSLog
 @MainActor
 @Observable
 final class QuickChatModelDownloadManager: NSObject {
-    private struct VerificationReceipt: Codable {
+    private nonisolated struct VerificationReceipt: Codable {
         let catalogID: String
         let repository: String
         let revision: String

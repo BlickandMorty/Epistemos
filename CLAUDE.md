@@ -119,6 +119,11 @@ active product line.
   expected proof, and checkpoint trigger. Batch cadence never permits skipping
   evidence, claiming completion without tests, or delaying immediate narrow
   checks for risky/shared behavior. Never run competing `xcodebuild` jobs.
+- ONE CURRENT APP BUILD. Before every Epistemos build, test build, or archive,
+  stop any prior Epistemos test host and delete stale Epistemos app products
+  and archives from the selected build location. Produce and retain exactly
+  one current app artifact for that evidence leg, record its exact path and
+  identity, and never cite an older DerivedData or archive product as evidence.
 - CONTINUING HARDENING LOOP. When a feature plan, implementation phase, or
   refactor appears complete, completion starts the next hardening pass. Invoke
   `deep-hardening-loop` and combine it with `thermo-nuclear-code-quality-review`,

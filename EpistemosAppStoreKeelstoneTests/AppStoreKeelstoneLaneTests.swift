@@ -328,7 +328,8 @@ struct AppStoreKeelstoneLaneTests {
                 && !gateway.contains("private let promptForge")
         )
         #expect(
-            promptSubmitCase.contains("startTurn(sessionID: sessionID, prompt: text, requestedModelID: requestedModel)")
+            promptSubmitCase.contains("startTurn(sessionID: sessionID, prompt: text)")
+                && promptSubmitCase.contains("setSessionModel(requestedModel, for: sessionID)")
                 && !promptSubmitCase.contains("promptForge")
                 && !promptSubmitCase.contains("forge_preview")
         )
@@ -534,11 +535,12 @@ struct AppStoreKeelstoneLaneTests {
         #expect(defaultModel.contains("CloudTextModelID(rawValue: id) != nil"))
         #expect(defaultModel.contains("cloudModel.provider.supportsAgentTier"))
         #expect(defaultModel.contains("hasCachedCloudAccess(for: cloudModel.provider)"))
-        #expect(defaultModel.contains("preferredCloudModel(for: cloudModel.provider).rawValue"))
+        #expect(defaultModel.contains("return cloudModel.rawValue"))
         #expect(defaultModel.contains("never synchronously reads Keychain"))
         #expect(!defaultModel.contains("preferredConfiguredCloudModelID()"))
-        #expect(gateway.contains("let rawModelID = persisted ?? currentDefaultModelID()"))
-        #expect(gateway.contains("let modelID = repairedTurnModelID(rawModelID, sessionID: sessionID)"))
+        #expect(gateway.contains("let modelID = persisted ?? currentDefaultModelID()"))
+        #expect(gateway.contains("credential, consent, download, or RAM gate later changes"))
+        #expect(gateway.contains("instead of silently"))
         #expect(gateway.contains("June rejected non-runnable default model"))
         #expect(gateway.contains("June rejected non-runnable session model"))
         #expect(gateway.contains("JuneAgentModelCatalog.directCloudModelIDs(configuredOnly: true)"))
@@ -1350,8 +1352,8 @@ struct AppStoreKeelstoneLaneTests {
         #expect(proseBridge.contains("private var dataDetectionRevision: UInt64 = 0"))
         #expect(proseBridge.contains("guard bindingSyncTask == nil else { return }"))
         #expect(proseBridge.contains("guard dataDetectionTask == nil else { return }"))
-        #expect(proseBridge.contains("guard scheduledRevision == bindingSyncRevision else { continue }"))
-        #expect(proseBridge.contains("guard scheduledRevision == dataDetectionRevision else { continue }"))
+        #expect(proseBridge.contains("guard scheduledRevision == self.bindingSyncRevision else { continue }"))
+        #expect(proseBridge.contains("guard scheduledRevision == self.dataDetectionRevision else { continue }"))
         #expect(proseBridge.contains("debouncedBindingSync()"))
         #expect(proseBridge.contains("scheduleDataDetection()"))
         #expect(!proseBridge.contains("debouncedBindingSync(newText)"))
@@ -1430,7 +1432,7 @@ struct AppStoreKeelstoneLaneTests {
         #expect(workspace.contains("guard noteSessionLifecycleGeneration == teardownGeneration else { return }"))
         #expect(workspace.contains("_ = noteSession.open()\n                _ = noteSession.acquireCleanLeaseHandoffIfAvailable()"))
         #expect(!workspace.contains("if presentation.usesGraphEmbeddedChrome {\n                    _ = noteSession.acquireCleanLeaseHandoffIfAvailable()"))
-        #expect(workspace.contains("guard beginNoteSessionWrite(reason: .idleDebounce) else { return }"))
+        #expect(workspace.contains("guard beginNoteSessionWrite(reason: .idleDebounce) else { return false }"))
         #expect(workspace.contains("private func beginNoteSessionWrite(reason: NoteSessionSaveReason) -> Bool"))
         #expect(sessionMachine.contains("func registerSession(_ session: NoteSessionStateMachine)"))
         #expect(sessionMachine.contains("func acquireCleanLeaseHandoffIfAvailable() -> Bool"))
@@ -2181,7 +2183,7 @@ struct AppStoreKeelstoneLaneTests {
         #expect(synthesizer.contains("VoicePreferences.shippedReadAloudEffect(requestedEffect)"))
         #expect(synthesizer.contains("Kokoro TTS using clean MAS effect requested="))
         #expect(synthesizer.contains("KokoroVoiceGateStatus.starterVoiceIdentifier"))
-        #expect(synthesizer.contains("gateResolved="))
+        #expect(synthesizer.contains("legacyGateEnabled="))
         #expect(synthesizer.contains("modelRoot="))
         #expect(synthesizer.contains("manifestValid="))
         #expect(synthesizer.contains("KokoroPipelineLinked="))
@@ -2565,7 +2567,7 @@ struct AppStoreKeelstoneLaneTests {
         let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
         let automaticRestore = try #require(sourceSection(
             in: source,
-            startingAt: "let resolvedBookmark: ResolvedVaultBookmark",
+            startingAt: "func restoreVaultFromBookmark() async",
             endingBefore: "        // Pass scopeAlreadyAcquired=true"
         ))
 

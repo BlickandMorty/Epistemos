@@ -805,7 +805,7 @@ struct QuickCaptureView: View {
 // time while typing — instead of waiting for the post-submit
 // confirmation card.
 
-private struct PreviewSignals: Sendable {
+private nonisolated struct PreviewSignals: Sendable {
     let hashtagCount: Int
     let mentionCount: Int
     let taskCount: Int

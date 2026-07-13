@@ -129,6 +129,20 @@ require_appstore_local_gguf_runtime() {
   fi
 }
 
+require_appstore_no_parked_account_runtime_markers() {
+  local app="$1"
+  local scanner="${ROOT_DIR}/scripts/scan_appstore_bundle.sh"
+
+  if [[ ! -f "${scanner}" ]]; then
+    fail "App Store bundle scanner missing ${scanner}"
+  elif EPISTEMOS_APPSTORE_SCAN_REPORT_DIR="${ROOT_DIR}/build/appstore-audit" \
+    bash "${scanner}" "${app}"; then
+    pass "Built App Store artifact omits parked account/backend runtime markers"
+  else
+    fail "Built App Store artifact failed the comprehensive bundle scan"
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --appstore-app)
@@ -264,6 +278,7 @@ if [[ -n "${APPSTORE_APP}" ]]; then
       require_existing_file "${BUILT_JUNEWEB_DIST}/index.html" "Built App Store artifact includes JuneWeb/dist/index.html"
       require_existing_file "${BUILT_JUNEWEB_SHIM}" "Built App Store artifact includes JuneWeb/tauri-internals-shim.js"
     fi
+    require_appstore_no_parked_account_runtime_markers "${APPSTORE_APP}"
     require_appstore_local_gguf_runtime "${APPSTORE_APP}"
   fi
 fi

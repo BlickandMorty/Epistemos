@@ -202,18 +202,22 @@ struct SetupAssistantView: View {
     private var modelStep: some View {
         VStack(spacing: 16) {
             SetupPixelGlyph(kind: .vault, tint: .purple)
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            Text("June Foundation")
-            #else
-            Text("Foundation Features")
-            #endif
+            Group {
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                Text("June Foundation")
+                #else
+                Text("Foundation Features")
+                #endif
+            }
                 .font(AppDisplayTypography.font(size: 20))
                 .foregroundStyle(theme.fontAccent)
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            Text("MAS June uses your vault, fast search, provenance, and approval-gated tools. Its model lanes are connected OpenAI or Anthropic models, Apple Intelligence when available, and your selected local GGUF models.")
-            #else
-            Text("Epistemos keeps the native foundation focused on vault sync, fast search, provenance, skills, tools, and MCP connections. Model chat runs through the connected provider surfaces.")
-            #endif
+            Group {
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                Text("MAS June uses your vault, fast search, provenance, and approval-gated tools. Its model lanes are connected OpenAI or Anthropic models, Apple Intelligence when available, and your selected local GGUF models.")
+                #else
+                Text("Epistemos keeps the native foundation focused on vault sync, fast search, provenance, skills, tools, and MCP connections. Model chat runs through the connected provider surfaces.")
+                #endif
+            }
                 .font(bodyFont)
                 .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)

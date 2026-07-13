@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>June</title>
+    <script>
+      // Pre-paint theme bootstrap. Keep in sync with src/lib/theme.ts; the
+      // storage key is duplicated here so the attribute is set before the
+      // module bundle runs, avoiding a light-mode flash on dark systems.
+      (function () {
+        try {
+          var stored = localStorage.getItem("os-june:theme");
+          var resolved =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.setAttribute("data-theme", resolved);
+          // Pre-paint brand accent. Keep the id->hex map in sync with
+          // src/lib/brand.ts so a non-default accent doesn't flash rose first.
+          var brand = localStorage.getItem("os-june:brand");
+          var brands = {
+            rose: "#936862",
+            clay: "#9d5728",
+            amber: "#8b6e4d",
+            sage: "#607d65",
+            blue: "#597893",
+            plum: "#886885",
+          };
+          document.documentElement.style.setProperty(
+            "--brand",
+            brands[brand] || brands.rose,
+          );
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="./assets/main-CBFgaVJI.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/native-context-menu-Bhqthp4Z.js">
+    <link rel="modulepreload" crossorigin href="./assets/agent-events-DGteEbCR.js">
+    <link rel="modulepreload" crossorigin href="./assets/audio-meter-CYA3QroI.js">
+    <link rel="modulepreload" crossorigin href="./assets/agent-hud-settings-CWkLRrcR.js">
+    <link rel="modulepreload" crossorigin href="./assets/events-D8pxq9OZ.js">
+    <link rel="modulepreload" crossorigin href="./assets/recorder-levels-CKqdw3lv.js">
+    <link rel="stylesheet" crossorigin href="./assets/main-q4aQ3hVB.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

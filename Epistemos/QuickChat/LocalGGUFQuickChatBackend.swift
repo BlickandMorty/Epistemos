@@ -146,7 +146,7 @@ nonisolated final class LocalGGUFQuickChatBackend: @unchecked Sendable {
             }
             continuation.onTermination = { termination in
                 if case .cancelled = termination {
-                    engine.cancel()
+                    self.engine.cancel()
                 }
                 task.cancel()
             }

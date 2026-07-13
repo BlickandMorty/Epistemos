@@ -5967,3 +5967,43 @@ original attachment path.
   the drive cleanup and repeated verification/eject, then run the canon-first
   resume script. Proceed to compile/archive only if every prerequisite remains
   green; otherwise record the exact blocker and stop without source expansion.
+
+## Owner Build-Artifact Steer 2026-07-12 — One Current Build Only
+
+### Verbatim owner wording
+
+> movig forward there must be oe build whever testung u must delte the stale
+> builds before building an ew app make sure this is in the memory of codex and
+> claude and in this session and beyond please.
+
+### Interpreted intent
+
+- Every Epistemos build, test-build, and archive evidence leg starts by
+  removing stale Epistemos app/archive products from the selected build
+  location.
+- Only one current app artifact may remain for the active evidence leg, so a
+  human or agent cannot accidentally test, inspect, or cite an older app.
+- This is durable project guidance for Codex, Claude, later sessions, and
+  delegated agents, not a one-session cleanup preference.
+
+### Hard constraints and non-goals
+
+- Stop a prior Epistemos test host before deleting its product.
+- Delete only generated Epistemos app/archive products and explicitly selected
+  build output; do not delete source, package checkouts, owner documents,
+  signed evidence receipts, or unrelated applications.
+- Record the exact surviving app/archive path and identity after each build.
+- Never use an older DerivedData or archive product as current evidence.
+- This rule does not relax the serial-resource gate, signing gate, artifact
+  gates, MAS-only June boundary, or Prompt 2 execution-key boundary.
+
+### Acceptance checks and next action
+
+- The rule is present in both root agent instruction surfaces, `AGENTS.md` and
+  `CLAUDE.md`.
+- Before the next Xcode build/test/archive command, inventory and remove stale
+  Epistemos app/archive products, confirm no Epistemos process remains, and
+  capture the clean build-output baseline.
+- Update the KEELSTONE evidence document with the exact cleanup and the single
+  artifact produced; do not start another build while an older app/archive
+  remains in the selected output location.

@@ -671,3 +671,51 @@ Forced-shutdown recovery update:
   compiler, model, or Epistemos process. Build execution remains blocked until
   the separately required Rust, Bun, JuneWeb/donor, and Apple-signing checks
   are current and green.
+
+## Post-Reset Prompt 2 Continuation Checkpoint — 2026-07-12
+
+This checkpoint supersedes only the stale prerequisite/status statements above;
+it does not replace the external master canon or begin a new execution key.
+
+- Canon authority remains the external July 8 master canon and numbered
+  `03_MINIMAL_PROMPT_PACK.md`; active key remains
+  `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08` (Prompt 2 only).
+- Rust, Bun, the Metal Toolchain, the June donor reconstruction, and a current
+  28-file `.june-web-stage` are now present. The recovered shim matches the
+  historical SHA-256 oracle exactly; the current main/index outputs are new
+  evidence and do not match the old generated-artifact oracles.
+- The restored App Store target compiles. The final exact-state unsigned Debug
+  run passed all 71 KEELSTONE tests in 2 suites with zero failures. The source
+  gate passed 49 checks. This proves compilation and focused regressions only.
+- Exactly one current app product remains at
+  `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Debug/Epistemos.app`.
+  It is an unsigned XCTest-bearing Debug product, not Release evidence.
+- Durable owner rule: before every future Epistemos build, test build, or
+  archive, stop prior test hosts and delete all stale Epistemos app/archive
+  products. Retain and identify only the one artifact produced by the active
+  evidence leg. This rule is also in root `AGENTS.md`, `CLAUDE.md`, and the
+  KEELSTONE intent ledger.
+- Xcode GUI-created scheme drift and SwiftPM pin drift were inspected and
+  restored to the committed files after the final test. Xcode is closed.
+- Release/archive progression is blocked by zero Apple code-signing identities
+  and no provisioning-profile directory. GitHub publication also remains
+  blocked because `gh` is unauthenticated; live/origin stays at
+  `f73b3244c09a76a14961050964969bcb5ac9fa70` while local pre-checkpoint HEAD is
+  `a69f5bfc417db95d7c552a6e913d6294da4700c6`.
+- No signed Release archive, archive artifact-gate pass, owner-visible runtime
+  matrix, model load, provider request, Keychain-secret read, owner-vault
+  operation, or audio operation is claimed.
+
+Exact next action:
+
+1. When the owner is present, connect the Apple Developer/Xcode signing account
+   and GitHub authentication without exposing credentials.
+2. Re-fetch GitHub and verify the expected fast-forward relationship; never
+   reset or force-push over the remote mismatch.
+3. Re-run the owner's resource preflight.
+4. Delete the surviving Debug app and every stale Epistemos archive.
+5. Produce exactly one signed `Epistemos-AppStore` Release archive and run all
+   artifact gates against that exact archive.
+6. Launch only if every artifact gate passes, then run the finite runtime matrix
+   serially and update the existing evidence document.
+7. Stop after the final KEELSTONE verdict. Do not begin Prompt 3.

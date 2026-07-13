@@ -19,7 +19,7 @@ enum BrowserCapabilityStatus {
     static let capabilities: [Capability] = {
         let webViewPrivacyNote = "MAS-safe WKWebViews use nonPersistent() data stores"
 
-        [
+        return [
             Capability(name: "Web fetch / extract", isLive: true, note: "Real HTTP fetch + HTML→text, SSRF-guarded"),
             Capability(name: "Web crawl (BFS)", isLive: true, note: "Same-host BFS frontier, page/depth caps"),
             Capability(name: "Web search", isLive: true, note: "Tavily / Brave / Perplexity (env-key gated)"),
