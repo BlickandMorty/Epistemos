@@ -332,8 +332,16 @@ xcodebuild -project Epistemos.xcodeproj \
   CODE_SIGNING_ALLOWED=NO test
 ```
 
-Result: **PASS — 71 tests in 2 suites, zero failures**. Retained current log:
-`/tmp/epistemos-keelstone-final-exact-71-tests.log`.
+Result: **PASS — 71 tests in 2 suites, zero failures**. The temporary console
+log did not survive the later restart. The exact final Xcode result bundle was
+recovered from DerivedData, copied out of disposable build storage, archived,
+and checksum-verified at:
+
+`/Users/jojo/Downloads/Epistemos-Aftercare-Local-2026-07-12/keelstone-evidence-32d5d264e/Test-Epistemos-AppStore-2026.07.12_19-38-56--0500.xcresult.zip`
+
+Its independently extracted `xcresulttool` summary reports `Passed`, 71 total,
+71 passed, zero failed, zero skipped, and zero expected failures on arm64
+macOS 26.3.1.
 
 The only surviving app product is:
 
@@ -354,8 +362,12 @@ fixtures. No owner vault was selected or mutated.
 ### Source gate and archive stop
 
 `bash scripts/keelstone-release-gate.sh` passed 49 source/staged-June checks;
-shell parsing passed for both release-gate scripts. Retained log:
-`/tmp/epistemos-keelstone-source-gate-20260712-final.log`.
+shell parsing passed for both release-gate scripts. The temporary log did not
+survive the later restart, so the source-only gate was rerun without any Xcode
+build, archive, app launch, model/provider/secret/vault/audio operation. Its
+durable checksum-verified log is:
+
+`/Users/jojo/Downloads/Epistemos-Aftercare-Local-2026-07-12/keelstone-evidence-32d5d264e/KEELSTONE_SOURCE_GATE_2026-07-12.log`
 
 The Release archive leg did not begin because:
 

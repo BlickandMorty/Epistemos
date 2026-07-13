@@ -6056,3 +6056,23 @@ original attachment path.
   Epistemos and June bundles, install one unambiguous replacement pack on the
   Treasure drive, remove only its superseded recovery pack after verification,
   refresh the drive pointers/report, sync, and software-eject the drive.
+
+### Post-restart evidence and environment update
+
+- The replacement Epistemos/June recovery pack and current conversation
+  checkpoint passed checksums, complete-history bundle verification,
+  independent clone/strict-fsck restore checks, and on-drive readback. The
+  superseded `a69f5bfc41` packs were then removed. Treasure passed a second
+  post-write ExFAT verification and software eject.
+- The final Xcode `.xcresult` survived in DerivedData and was copied into
+  durable checksummed aftercare storage. Its exact summary reports 71 tests
+  passed, zero failed, zero skipped. The lost temporary source-gate log was
+  regenerated without a build; the durable replacement reports 49 passes.
+- The external master canon and all 18 original ZIPs passed identity/integrity
+  checks. The corrected preparation packet matches its repository import for
+  all nine files.
+- GitHub authentication for the correct owner account became available after
+  restart. Publish only the final clean continuity commit as a normal
+  fast-forward, fetch again, and require local/tracking/live/handoff equality.
+- Apple signing remains absent. After GitHub publication, it is the only
+  owner-account gate before the one-current-artifact signed Release leg.

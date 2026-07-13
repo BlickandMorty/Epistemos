@@ -15,9 +15,9 @@ prompt_pack="$canon_dir/03_MINIMAL_PROMPT_PACK.md"
 evidence_doc="$repo_root/docs/plans/keelstone/KEELSTONE_EXACT_RUNTIME_EVIDENCE_2026_07_10.md"
 handoff="$repo_root/docs/handoffs/CURRENT_INFLIGHT_FEATURE_HANDOFF.md"
 expected_key=EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08
-expected_june_head=7105c43c8622cc546075f7ff1e20680e2009f8bb
-expected_june_main_sha=9d38c92dea2a70bf15e88741c47ea9833da3fee8ecfc053fd593f4befc8a1144
-expected_june_index_sha=30790bb4f65afaf93dd9db5bd4fc9ec396708d4f22f7cb881a24c0cbeec2c00e
+expected_june_head=adffe8fdc6ed8da868b705ed37ace96ff182d314
+expected_june_main_sha=518eef05376dd0a6ad3537cede4647d155c8bc7cfd9088d1a2ef77387d96a7fd
+expected_june_index_sha=822fd4be182eca74eedbf73cae1a6c4a7ff169960069c3bc778082fffb9a6bad
 expected_june_shim_sha=7440986d70a044689fea50f8a181441dfc05c5b8736421691db8b2980979e77a
 fatal_count=0
 prerequisite_count=0
@@ -139,9 +139,9 @@ if [[ -n "$stage_main" && -f "$stage/dist/index.html" && -f "$stage/tauri-intern
   index_sha=$(shasum -a 256 "$stage/dist/index.html" | awk '{print $1}')
   shim_sha=$(shasum -a 256 "$stage/tauri-internals-shim.js" | awk '{print $1}')
   if [[ "$main_sha" == "$expected_june_main_sha" && "$index_sha" == "$expected_june_index_sha" && "$shim_sha" == "$expected_june_shim_sha" ]]; then
-    pass "JuneWeb stage matches the last reviewed July 10 artifact hashes"
+    pass "JuneWeb stage matches the current reviewed post-reset artifact hashes"
   else
-    blocked "JuneWeb stage exists but differs from the reviewed July 10 hashes; review before use"
+    blocked "JuneWeb stage differs from the current reviewed post-reset hashes; review before use"
   fi
 else
   blocked "Exact reviewed JuneWeb stage is absent"
@@ -151,12 +151,17 @@ june_donor="$HOME/dev/june-epistemos"
 if [[ -d "$june_donor/.git" ]]; then
   june_head=$(git -C "$june_donor" rev-parse HEAD 2>/dev/null || true)
   if [[ "$june_head" == "$expected_june_head" ]]; then
-    blocked "June donor has the recorded base commit, but its 92-file reviewed dirty overlay still needs hash-oracle reconstruction"
+    june_dirty_count=$(git -C "$june_donor" status --porcelain=v1 -uall | wc -l | tr -d ' ')
+    if [[ "$june_dirty_count" == 0 ]]; then
+      pass "Recovered June donor is clean at the current durable checkpoint"
+    else
+      blocked "Recovered June donor has $june_dirty_count worktree entries; inspect without resetting or overwriting"
+    fi
   else
-    blocked "June donor HEAD differs from recorded local base $expected_june_head"
+    blocked "June donor HEAD differs from current durable checkpoint $expected_june_head"
   fi
 else
-  blocked "Owner-modified June donor is absent; its unpushed base/overlay must be reconstructed and validated against the recorded stage hashes"
+  blocked "Recovered June donor is absent; restore its complete-history bundle before continuing"
 fi
 
 if security find-identity -v -p codesigning 2>/dev/null | grep -Eq 'Apple Development|Apple Distribution|3rd Party Mac Developer'; then
