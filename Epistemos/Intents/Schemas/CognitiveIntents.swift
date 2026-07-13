@@ -136,6 +136,7 @@ struct AttachThoughtToContextIntent: AppIntent {
 
 struct RecallActiveThesisIntent: AppIntent {
     static let title: LocalizedStringResource = "Recall Active Thesis"
+    static let isDiscoverable: Bool = false
     static let description = IntentDescription(
         "Read the current conversation's active thesis aloud (or display it). Surfaces what Epistemos thinks you're currently arguing for."
     )
@@ -163,6 +164,9 @@ struct RecallActiveThesisIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard ProductCapabilityPolicy.isAvailable(.agentAutomation) else {
+            throw ProductCapabilityUnavailableError(capability: .agentAutomation)
+        }
         let id = conversationId.isEmpty ? "current" : conversationId
         guard let state = ConversationStateClassifier.shared.currentState(for: id) else {
             return .result(dialog: IntentDialog("No active thesis recorded for that conversation yet."))
@@ -179,6 +183,7 @@ struct RecallActiveThesisIntent: AppIntent {
 
 struct OpenRawThoughtSandboxIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Raw Thought Sandbox"
+    static let isDiscoverable: Bool = false
     static let description = IntentDescription(
         "Toggle Ambient Retrieval ON for the current conversation. The agent gains read-access to your quarantined raw thoughts; turn back off to return to deterministic mode."
     )
@@ -207,6 +212,9 @@ struct OpenRawThoughtSandboxIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard ProductCapabilityPolicy.isAvailable(.agentAutomation) else {
+            throw ProductCapabilityUnavailableError(capability: .agentAutomation)
+        }
         let id = conversationId.isEmpty ? "current" : conversationId
         AmbientRetrievalToggle.shared.setEnabled(enable, for: id)
         let dialog: IntentDialog = enable
@@ -221,6 +229,7 @@ struct OpenRawThoughtSandboxIntent: AppIntent {
 
 struct DelegateToAgentIntent: AppIntent {
     static let title: LocalizedStringResource = "Delegate to Agent"
+    static let isDiscoverable: Bool = false
     static let description = IntentDescription(
         "Open the agent inspector with a prompt pre-filled. The agent will pick up your structured context (active thesis, recent notes, current vault) automatically."
     )
@@ -249,6 +258,9 @@ struct DelegateToAgentIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
+        guard ProductCapabilityPolicy.isAvailable(.agentAutomation) else {
+            throw ProductCapabilityUnavailableError(capability: .agentAutomation)
+        }
         let cleaned = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return .result() }
         cogIntentLog.info(

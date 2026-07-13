@@ -1,6 +1,6 @@
 # External Plan Assets Recovery
 
-Updated: 2026-07-12
+Updated: 2026-07-13
 
 This manifest records the three Epistemos planning assets that were outside the
 repository when the durable cross-laptop handoff was prepared. The owner's full
@@ -64,6 +64,38 @@ post-normalization deterministic tree SHA-256 is:
 Original full-tree SHA-256, including nested source archives:
 
 `eda846278bd653464660ef5e31a51ed05ee059df1c79b6ab6d1a90396b4803d2`
+
+### July 13 dated active-canon extension
+
+The owner added the active Epdoc planner/Meeting/Sync/Kokoro direction and then
+classified Browser and ResearchHub as future paid, hidden/inert in free V1.
+That steer is recorded in
+`11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md` and integrated
+through the active control, build-order, prompt, workspace, capability, legal,
+and local-agent docs.
+
+Current active numbered-doc digest (12 files, `00` through `11`):
+
+`15cfce8620606ceb0572383c812311bdb2c972ef3cf2d158e42f9d1b9b3d2a44`
+
+Reproduce from either canon root with:
+
+```bash
+find . -maxdepth 1 -type f -name '[0-9][0-9]_*.md' -print0 \
+  | LC_ALL=C sort -z \
+  | xargs -0 shasum -a 256 \
+  | shasum -a 256
+```
+
+The external authority and repository recovery mirror are byte-identical for
+all current active numbered docs and `manifest.json`. The external authority
+still contains the same 18 original source ZIPs; the public recovery mirror
+still intentionally omits those binaries.
+
+The July 12 curated/full-tree hashes above remain historical identity for the
+pre-addendum canon. They must not be used to overwrite or reject the dated
+July 13 active docs. Use the numbered-doc digest above plus the unchanged ZIP
+inventory when verifying the current execution-prompt authority.
 
 ### Low-RAM preparation packet
 

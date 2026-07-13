@@ -90,6 +90,10 @@ final class AppCoordinator {
     // MARK: - Daily Brief
 
     private func wireDailyBrief() {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            dailyBriefState.onDailyBriefGenerate = nil
+            return
+        }
         dailyBriefState.onDailyBriefGenerate = { [weak self] prompt in
             guard let self else { return nil }
             do {

@@ -236,7 +236,9 @@ struct RootView: View {
     /// MAS Agent-room pill (Plan 1-MAS §7).
     private var showJuneAgentToolbarControls: Bool {
         #if EPISTEMOS_APP_STORE
-        return ui.homeTab == .home && ui.homeContent == .agent
+        return ProductCapabilityPolicy.isAvailable(.june)
+            && ui.homeTab == .home
+            && ui.homeContent == .agent
         #else
         return false
         #endif

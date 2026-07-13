@@ -6,6 +6,7 @@ import SwiftData
 
 struct DailyBriefingIntent: AppIntent {
     static var title: LocalizedStringResource { "Daily Brief" }
+    static let isDiscoverable: Bool = false
     static var description: IntentDescription {
         IntentDescription("Generates a daily brief from your recent notes and chats.")
     }
@@ -13,6 +14,9 @@ struct DailyBriefingIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            throw ProductCapabilityUnavailableError(capability: .generativeActions)
+        }
         guard let bootstrap = AppBootstrap.shared else { throw IntentError.appNotReady }
 
         // Build a brief prompt from vault context

@@ -202,6 +202,9 @@ final class LLMService: LLMClientProtocol {
     }
 
     func generate(prompt: String, systemPrompt: String? = nil, maxTokens: Int = 4096) async throws -> String {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            throw ProductCapabilityUnavailableError(capability: .generativeActions)
+        }
         let snapshot = configSnapshot()
         return try await Self.generate(
             snapshot: snapshot,
@@ -212,6 +215,13 @@ final class LLMService: LLMClientProtocol {
     }
 
     func stream(prompt: String, systemPrompt: String? = nil, maxTokens: Int = 0) -> AsyncThrowingStream<String, Error> {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            return StreamingBufferPolicy.throwingStream { continuation in
+                continuation.finish(
+                    throwing: ProductCapabilityUnavailableError(capability: .generativeActions)
+                )
+            }
+        }
         let snapshot = configSnapshot()
         switch snapshot.provider {
         case .appleIntelligence:
@@ -248,6 +258,12 @@ final class LLMService: LLMClientProtocol {
     }
 
     func testConnection() async -> ConnectionTestResult {
+        guard ProductCapabilityPolicy.isAvailable(.models) else {
+            return ConnectionTestResult(
+                success: false,
+                message: "Models are reserved for a future paid edition."
+            )
+        }
         if case .cloud = inference.preferredChatModelSelection,
            let cloudLLMClient {
             return await cloudLLMClient.testConnection()
@@ -292,6 +308,9 @@ final class LLMService: LLMClientProtocol {
         maxTokens: Int = 4096,
         timeout: TimeInterval? = nil
     ) async throws -> String {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            throw ProductCapabilityUnavailableError(capability: .generativeActions)
+        }
         _ = timeout
         switch snapshot.provider {
         case .appleIntelligence:
@@ -550,6 +569,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode
     ) async throws -> String {
+        guard ProductCapabilityPolicy.isAvailable(.models) else {
+            throw ProductCapabilityUnavailableError(capability: .models)
+        }
         try requireActiveProductModel(model)
         let runID = "cloud-llm-\(UUID().uuidString)"
         let toolCallID = "cloud-llm-generate:1"
@@ -698,6 +720,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode
     ) -> AsyncThrowingStream<String, Error> {
+        guard ProductCapabilityPolicy.isAvailable(.models) else {
+            return StreamingBufferPolicy.throwingStream { continuation in
+                continuation.finish(throwing: ProductCapabilityUnavailableError(capability: .models))
+            }
+        }
         let runID = "cloud-llm-\(UUID().uuidString)"
         let toolCallID = "cloud-llm-stream:1"
         let actor = AgentProvenanceActor.agent(

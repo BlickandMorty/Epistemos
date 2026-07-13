@@ -479,7 +479,8 @@ struct ArxivSearchView: View {
     /// ARX-PERF-1 (audit 2026-07-04): the arXiv pull gate reads + copies the full process environment;
     /// env vars are fixed at launch so the result is process-invariant. Cache it once instead of
     /// re-copying the environment on every body re-eval (per keystroke).
-    private static let arxivGateActive = ArxivPullGateStatus.status().isActive
+    private static let arxivGateActive = ProductCapabilityPolicy.isAvailable(.researchHub)
+        && ArxivPullGateStatus.status().isActive
 
     private func startFeaturedFeedLoad() {
         guard searchTask == nil else { return }
@@ -510,6 +511,7 @@ struct ArxivSearchView: View {
     }
 
     private func search() async {
+        guard ProductCapabilityPolicy.isAvailable(.researchHub) else { return }
         guard ArxivPullGateStatus.status().isActive else { return }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

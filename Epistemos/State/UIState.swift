@@ -90,7 +90,7 @@ enum LandingGreetingResolver {
         let instructions: [LandingGreetingPhrase] = [
             LandingGreetingPhrase(text: "use the buttons below to open your workspace", durationSeconds: 2.6),
             LandingGreetingPhrase(text: "attach a note for deeper context", durationSeconds: 3.0),
-            LandingGreetingPhrase(text: "ask across notes, graph, and saved context", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "connect notes, graph, and saved context", durationSeconds: 3.2),
         ]
 
         let tips: [LandingGreetingPhrase] = [
@@ -99,10 +99,10 @@ enum LandingGreetingResolver {
             LandingGreetingPhrase(text: "^\u{2318}T — Time Machine lets you revisit any past session", durationSeconds: 3.2),
             LandingGreetingPhrase(text: "^\u{2318}S saves your workspace layout for later", durationSeconds: 3.0),
             LandingGreetingPhrase(text: "wikilinks connect ideas — type [[note name]] anywhere", durationSeconds: 3.0),
-            LandingGreetingPhrase(text: "AI runs entirely on-device — your data never leaves this Mac", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "Kokoro read-aloud stays local on this Mac", durationSeconds: 3.2),
             LandingGreetingPhrase(text: "your vault syncs to plain markdown — portable, forever yours", durationSeconds: 3.2),
-            LandingGreetingPhrase(text: "right-click in the editor for AI rewriting tools", durationSeconds: 2.8),
-            LandingGreetingPhrase(text: "daily briefs summarize recent notes and conversations", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "task lists and daily notes keep plans close to the work", durationSeconds: 2.8),
+            LandingGreetingPhrase(text: "meeting transcripts can become durable notes and tasks", durationSeconds: 3.2),
         ]
 
         return opening + instructions + tips

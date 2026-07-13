@@ -1,10 +1,25 @@
-# 07 - Capability Ring: ResearchHub, Capture, Sync, Plan 3
+# 07 - Capability Ring: Free Workspace + Future Paid Research/Browser
 
-Capability-ring features plug into the MAS fabric after KEELSTONE, MAS June, LUMENLENS, and RECKONER seams are stable enough. They are not independent product lanes.
+Capability-ring features plug into the MAS fabric after the relevant KEELSTONE,
+LUMENLENS/Epdoc, and RECKONER seams are stable enough. They are not independent
+product lanes and free-V1 features do not wait for June.
 
-## ResearchHub / LODESTAR source policy
+July 13 owner split:
 
-Retained rule: official APIs, RSS/Atom, legal open-access infrastructure, or user-supplied credentials only.
+- Free V1: Meeting, Sync, Quick Capture, calendar/tasks, PDF/import,
+  Kokoro/local speech, graph/search, workspace, and export.
+- Future paid and hidden/inert in free V1: ResearchHub and Browser, alongside
+  June/agentic/generative features.
+- Paid status does not weaken the MAS-safe source, WebKit, privacy, legality,
+  provenance, or no-sidecar rules below.
+
+Read `11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md` first.
+
+## Future paid ResearchHub / LODESTAR source policy
+
+ResearchHub is preserved for the future paid MAS product but must be hidden and
+inert in free V1. Its retained rule remains: official APIs, RSS/Atom, legal
+open-access infrastructure, or user-supplied credentials only.
 
 Forbidden:
 
@@ -61,17 +76,44 @@ Sync is subordinate to KEELSTONE.
 - iCloud/Dropbox/Syncthing edits are external events to reconcile.
 - Conflicts are visible; no silent last-writer-wins for dirty user work.
 
-## Plan 3 capabilities
+## Epdoc planner, Meeting, and calendar
 
-Active MAS-safe capabilities:
+- Human-readable vault Markdown remains task, project, periodic-plan, goal, and
+  Meeting-note truth.
+- Inbox, Today, This Evening, Upcoming, Anytime, Someday, Logbook, calendar
+  agenda, and task counts are rebuildable projections.
+- Meeting links calendar context, agenda, decisions, sources, follow-up tasks,
+  and referenced recording/transcript artifacts through the shared vault,
+  provenance, graph, and event bus.
+- Calendar/reminder access is optional, user-initiated, least-privilege,
+  sandbox-entitled, and denial-safe. EventKit remains external calendar truth.
+- Recording has explicit consent and persistent visible state. Kokoro read-
+  aloud is local and does not require microphone access or activate June.
+- No task/planner, Meeting, transcript, calendar, reminder, or sync database may
+  become a second authority.
+
+## Free-V1 MAS-safe capabilities
+
+Active free MAS-safe capabilities:
 
 - PDF/PDFKit and existing parse paths.
 - Vision/OCR if using Apple APIs and consent/privacy disclosure.
 - Speech/STT with consent and clear recording state.
-- WKWebView browser/lite browser only.
-- arXiv/ResearchHub adapters under official source policy.
+- Kokoro local read-aloud without a general model/agent surface.
+- Epdoc task/planner/Meeting/calendar integrations defined in the dated
+  addendum.
 - vault tools through security-scoped access and approval gates.
-- skills as user-approved, sandbox-safe procedural records, not code execution.
+
+Future paid MAS-safe capabilities, hidden and inert in free V1:
+
+- bundled WKWebView browser/lite browser only;
+- ResearchHub/arXiv adapters under the official source policy above; and
+- June-owned skills as user-approved, sandbox-safe procedural records, never
+  code execution.
+
+The central product-capability policy must block their routes, shortcuts, deep
+links, restoration, provider/network startup, automatic jobs, and background
+work in free V1. Do not add StoreKit/payment in this implementation slice.
 
 Parked/forbidden on MAS:
 
@@ -83,11 +125,12 @@ Parked/forbidden on MAS:
 - subprocess helper lanes.
 - fake provenance or fake capability labels.
 
-## Obscura / browser decision
+## Future paid Obscura / browser decision
 
 If old docs say "Obscura" inconsistently, split it:
 
-- **Lightweight native/WKWebView browser surface**: potentially MAS-safe.
+- **Lightweight native/WKWebView browser surface**: potentially MAS-safe for
+  the future paid edition, hidden/inert in free V1.
 - **Automation engine / browser-use / Chromium / CDP lane**: parked for MAS.
 
 Do not delete a useful WebKit browser because a browser-use automation lane is forbidden. Do not revive browser-use because a WebKit browser is allowed.
@@ -96,7 +139,10 @@ Do not delete a useful WebKit browser because a browser-use automation lane is f
 
 | Feature | F1 Vault | F2 Agent tools | F3 Status | F4 Graph | F5 Provenance | F6 Events |
 |---|---|---|---|---|---|---|
-| ResearchHub | saved notes/media | search/read/save/monitor | reading source | paper/repo/item edges | source/license/retrievedVia | feedUpdated/itemSaved |
+| ResearchHub (future paid) | saved notes/media | search/read/save/monitor | reading source | paper/repo/item edges | source/license/retrievedVia | feedUpdated/itemSaved |
 | Quick Capture | capture files/notes | capture.route/undo | filed/blocked | capture->note links | route/action trace | captureSaved/routed |
 | Sync | vault events | infra | syncing/conflict | mutation updates | conflict witnesses | sync/conflict events |
-| PDF/Vision/Speech/Browser | sidecars/notes | capability-specific | active/blocked | source links | citations/claims | capability events |
+| Epdoc tasks/calendar | markdown truth | future paid tools only | focused/blocked | task/project/event-reference edges | completion/reschedule/time-block | task/calendar events |
+| Meeting | note + referenced artifacts | future paid tools only | recording/ready/blocked | meeting/source/follow-up edges | consent/recording/link/export | meeting events |
+| PDF/Vision/Speech/Kokoro | sidecars/notes | future paid tools only | active/blocked | source links | citations/consent/claims | capability events |
+| Browser (future paid) | saved links/notes | browse/read/save | reading/blocked | source links | URL/retrieval/citation | navigation/save events |

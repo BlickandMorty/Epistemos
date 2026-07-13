@@ -25,6 +25,11 @@ is_app_store_build() {
         [[ "${SWIFT_ACTIVE_COMPILATION_CONDITIONS:-}" == *"EPISTEMOS_APP_STORE"* ]]
 }
 
+is_free_v1_build() {
+    [[ "${EPISTEMOS_PRODUCT_EDITION:-}" == "FREE_V1" ]] ||
+        [[ "${SWIFT_ACTIVE_COMPILATION_CONDITIONS:-}" == *"EPISTEMOS_FREE_V1"* ]]
+}
+
 bundle_editor_resources() {
     if [ ! -d "$EDITOR_SOURCE_DIR" ]; then
         return
@@ -111,6 +116,10 @@ remove_flattened_pyodide_resources() {
 }
 
 bundle_model_manifest() {
+    if is_free_v1_build; then
+        rm -f "$MODEL_MANIFEST_DEST"
+        return
+    fi
     if [ -f "$MODEL_MANIFEST_SOURCE" ]; then
         rsync -a "$MODEL_MANIFEST_SOURCE" "$MODEL_MANIFEST_DEST"
     else
@@ -119,6 +128,10 @@ bundle_model_manifest() {
 }
 
 bundle_default_skills() {
+    if is_free_v1_build; then
+        rm -rf "$DEFAULT_SKILLS_DIR"
+        return
+    fi
     if [ ! -d "$DEFAULT_SKILLS_SOURCE_DIR" ]; then
         rm -rf "$DEFAULT_SKILLS_DIR"
         return
@@ -147,6 +160,10 @@ is_complete_june_web_tree() {
 }
 
 bundle_june_web() {
+    if is_free_v1_build; then
+        rm -rf "$JUNE_WEB_BUNDLE_DIR"
+        return 0
+    fi
     if ! is_app_store_build; then
         rm -rf "$JUNE_WEB_BUNDLE_DIR"
         return 0
@@ -186,6 +203,12 @@ remove_app_store_forbidden_runtime_artifacts() {
     rm -f "$RESOURCES_DIR/experimental-web.tar.gz"
     rm -f "$RESOURCES_DIR"/.bun-*-bun-darwin-*
     rm -f "$RESOURCES_DIR"/.opencode-*-opencode-darwin-*
+
+    if is_free_v1_build; then
+        rm -rf "$JUNE_WEB_BUNDLE_DIR"
+        rm -rf "$DEFAULT_SKILLS_DIR"
+        rm -f "$MODEL_MANIFEST_DEST"
+    fi
 }
 
 bundle_editor_resources

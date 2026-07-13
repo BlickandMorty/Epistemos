@@ -47,8 +47,9 @@ public struct SubstrateHealthPanel: View {
                 }
 
                 foundationSection("Tools and Surface Bridge") {
-                    // Plan 1-MAS June surface diagnostics (MAS-only).
-                    JuneAgentHealthRow()
+                    if ProductCapabilityPolicy.isAvailable(.june) {
+                        JuneAgentHealthRow()
+                    }
                     LiteParseImportHealthRow()
                     LiteParseSettingsImportRow()
                 }
@@ -66,13 +67,13 @@ public struct SubstrateHealthPanel: View {
         }
     }
 
-    private static let capabilityPlaneTitle = "June Tools and Safety"
-    private static let capabilityPlaneDetail = "Fixed, app-owned capabilities admitted through June's in-process policy boundary."
+    private static let capabilityPlaneTitle = "Native Tools and Safety"
+    private static let capabilityPlaneDetail = "App-owned import, search, provenance, and safety capabilities for the free release."
 
     private var header: some View {
         let foundationCopy = """
             App-side IP that stays native: search, citation grounding, vault memory, \
-            June tools, provenance, verification, and MAS-safe June bridges.
+            import tools, provenance, verification, and MAS-safe native bridges.
             """
         return VStack(alignment: .leading, spacing: 4) {
             Text("Epistemos Foundation")

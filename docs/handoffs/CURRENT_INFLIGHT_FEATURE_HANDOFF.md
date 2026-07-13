@@ -1,6 +1,6 @@
 # Current In-Flight Feature Handoff
 
-Updated: 2026-07-12
+Updated: 2026-07-13
 
 This file is the durable GitHub anchor for moving an unfinished Epistemos task
 between Codex sessions or machines. A prompt alone does not transfer hidden
@@ -12,6 +12,14 @@ full external July 8 master-canon folder controls execution order, and its
 numbered `03_MINIMAL_PROMPT_PACK.md` is the sole prompt authority. This handoff,
 the repository mirror, status documents, and the preparation packet must never
 be used as replacement prompts.
+
+Dated owner override: canon addendum
+`11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md` controls the
+free/paid product boundary where older July 8 MAS/June visibility language
+conflicts. The active app edition is free V1: June, generative/model/agent
+features, Browser, and ResearchHub are paid-only and hidden/inert. Kokoro and
+the deterministic local capability ring remain free. This does not change the
+current KEELSTONE execution key or external-canon authority.
 
 ## Owner Intent Checkpoint
 
@@ -88,7 +96,8 @@ Interpreted intent:
 
 Hard constraints:
 
-- Active product target is MAS-only June.
+- Active product target is the MAS-only `Epistemos-AppStore` free V1 edition.
+  June remains the only future paid agent, but it is not active in free V1.
 - The current execution key is
   `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08` until its evidence bar is
   honestly closed.
@@ -132,23 +141,116 @@ Read first:
 4. `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/01_OWNER_LOCK_AND_CANONICAL_THESIS.md`
 5. `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md`
 6. `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/03_MINIMAL_PROMPT_PACK.md`
-7. `docs/plans/epistemos_mas_low_ram_preparation_2026_07_11/PREPARATION_PACKET_CORRECTION_LOG.md`
-8. `docs/plans/epistemos_mas_low_ram_preparation_2026_07_11/00_READ_FIRST_PREPARATION_ONLY.md`
-9. `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`
-10. `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md`
-11. `docs/plans/keelstone/HANDOFF_MAS_BASE_APP_COMPLETION_2026_07_10.md`
-12. `docs/plans/keelstone/HANDOFF_OWNER_STEERS_CLOSEOUT_2026_07_10.md`
-13. `docs/plans/keelstone/INTENT_LEDGER.md`
-14. `docs/plans/keelstone/VERIFICATION_LEDGER_2026_07_07.md`
-15. `docs/handoffs/EXTERNAL_PLAN_ASSETS_RECOVERY_2026_07_12.md`
-16. This file, including the previous-task checkpoint below.
+7. `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md`
+8. `docs/plans/epistemos_mas_low_ram_preparation_2026_07_11/PREPARATION_PACKET_CORRECTION_LOG.md`
+9. `docs/plans/epistemos_mas_low_ram_preparation_2026_07_11/00_READ_FIRST_PREPARATION_ONLY.md`
+10. `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`
+11. `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md`
+12. `docs/plans/keelstone/HANDOFF_MAS_BASE_APP_COMPLETION_2026_07_10.md`
+13. `docs/plans/keelstone/HANDOFF_OWNER_STEERS_CLOSEOUT_2026_07_10.md`
+14. `docs/plans/keelstone/KEELSTONE_EXACT_RUNTIME_EVIDENCE_2026_07_10.md`
+15. `docs/plans/keelstone/INTENT_LEDGER.md`
+16. `docs/plans/keelstone/VERIFICATION_LEDGER_2026_07_07.md`
+17. `docs/handoffs/EXTERNAL_PLAN_ASSETS_RECOVERY_2026_07_12.md`
+18. This file, including the current continuation checkpoint below.
 
 Before using the repository read order, verify the full external canon at
 `/Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08/` and read its
 numbered `03_MINIMAL_PROMPT_PACK.md`. The imported repository copy is a recovery
 mirror, not higher authority.
 
-## Current Program Truth Before Previous-Task Update
+## Current Authoritative Continuation Checkpoint — 2026-07-13
+
+Status: `IN_FLIGHT_RUNTIME_BLOCKED_BY_LOCKED_MAC`
+
+Exact feature:
+
+`KEELSTONE free-V1 capability boundary, single current Release archive, exact
+artifact proof, and pending owner-visible non-AI runtime matrix`
+
+Canonical execution key:
+
+`EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`
+
+Latest owner steer:
+
+> the v1 free versjon will have no ai at all.
+
+> browser, research hub both are needing to be on paid version as well an
+> hidden from v1 releawe
+
+> movig forward there must be oe build whever testung u must delte the stale
+> builds before building an ew app
+
+Current intended behavior and done bar:
+
+- Free V1 keeps KEELSTONE, LUMENLENS/Epdoc planner work, RECKONER, Meeting,
+  Sync, Quick Capture, calendar/tasks, PDF/import, Kokoro, graph/search, and
+  workspace/export.
+- June, Epdoc Assist, models/providers, generative/agent actions, Browser, and
+  ResearchHub are future paid MAS capabilities and must be absent/inert across
+  navigation, settings, shortcuts, restoration, startup, and background work.
+- Payment, StoreKit, enrollment, and Apple distribution signing are deferred.
+  Do not ask for them or block free-V1 source/local evidence on them.
+- KEELSTONE remains incomplete until the exact single archive has both green
+  artifact gates and an owner-visible finite free-V1 runtime matrix with
+  correlated logs. App Store submission readiness is a separate future gate.
+
+Proven current state:
+
+- Local `HEAD`, fetched `origin/feat/goose-surface`, live GitHub, and the prior
+  handoff publication commit were grounded at
+  `5e0a335d3cc2de87d89ec91698a3077036d693a7` before edits.
+- The centralized `ProductCapabilityPolicy`, free build condition/settings,
+  paid-route guards, and free resource omission path are implemented.
+- Focused result `/tmp/Epistemos-FreeV1-Policy.xcresult` passes 8/8 tests with
+  zero failures or skips.
+- The edition-aware source gate passes.
+- Exactly one current archive exists:
+  `/Users/jojo/Downloads/Epistemos/build/archives/Epistemos-FreeV1-current.xcarchive`.
+  Its exact app is universal, bundle `com.epistemos.appstore`, version 1.0.0
+  build 1, and locally ad-hoc signed for evidence with App Sandbox entitlement.
+- Strict deep signature verification passes. The exact built-app KEELSTONE gate
+  and comprehensive bundle scanner pass. `JuneWeb`, `model_manifest.json`, and
+  `DefaultSkills` are absent.
+- After local signing, executable SHA-256 is
+  `3e4273c9cdfe7ed3f3deca7883f9d05020fd92fc3d95ec986ba18cd6f6513f5b`.
+
+Unproven and verification debt:
+
+- The UI/runtime matrix did not begin because macOS was locked and the UI tool
+  correctly refused to bypass the lock. No Epistemos process or runtime log was
+  created; no vault, model, provider, secret, network, microphone, or audio
+  operation began.
+- When the Mac is unlocked, still prove: paid surfaces absent/inert; disposable
+  vault save/relaunch/save; Epdoc rich-Markdown lens fidelity; deterministic
+  Meeting/Capture/planner/Sync/calendar/PDF/export entry points; graph/search
+  routing; and English Kokoro with no agent/model/provider startup.
+- The local ad-hoc signature is not Apple distribution signing. Payment and
+  submission readiness remain deferred and unproven.
+- The free artifact still links dormant shared paid implementation libraries,
+  including `libagent_core`, `libomega_mcp`, and `llama.framework`. Removing
+  them is future size/build-topology debt; never delete linked code from the
+  finished bundle as a cleanup shortcut.
+
+Exact next action:
+
+1. Keep the sole current archive immutable and do not start another build.
+2. When the owner has unlocked the Mac, re-run the resource preflight; stop on
+   swap >= 4 GiB, free memory < 25%, nonzero throttled pages, or a competing
+   build/model/Epistemos process.
+3. Launch the exact archive app and run only the finite free-V1 runtime matrix
+   serially with correlated logs and a disposable vault.
+4. Update the existing exact-runtime evidence document and this handoff; stop
+   after the KEELSTONE verdict. Do not begin paid June, Browser, ResearchHub,
+   payment work, or another canonical execution key.
+
+All older statements below that say June is currently active, that a model or
+provider runtime leg is required for free V1, or that Apple signing is required
+before local archive evidence are historical and superseded by this dated
+checkpoint.
+
+## Historical Program Truth Before Previous-Task Update
 
 The last durable program handoff says KEELSTONE source work is substantially
 converged, but exact current-source MAS runtime evidence remains open. The
@@ -505,10 +607,13 @@ retained evidence, failures, verification debt, owner/external gates, and the
 exact next commands. Distinguish source-patched, build-proven, and manually
 witnessed behavior. Do not mark untested behavior complete.
 
-The active product is MAS-only June. The current canonical execution sequence
-uses the full July 8 IDs. Do not revive Goose, Pro, Experimental, 1Code,
-OpenChamber, subprocess, local-server, Node, terminal, stdio-MCP, or browser-use
-lanes. The historical branch name feat/goose-surface is not product authority.
+The active product is the MAS-only free V1 edition. June is retained only as
+the future paid agent; June, generative/model/agent surfaces, Browser, and
+ResearchHub must remain hidden and inert in free V1. The current canonical
+execution sequence uses the full July 8 IDs. Do not revive Goose, Pro,
+Experimental, 1Code, OpenChamber, subprocess, local-server, Node, terminal,
+stdio-MCP, or browser-use lanes. The historical branch name
+feat/goose-surface is not product authority.
 
 Before committing, inspect the diff and search for contradictions, stale
 directives, credentials, personal data, Columbia/VA/financial data, absolute
@@ -550,9 +655,11 @@ not a replacement execution prompt.
    /Users/jojo/Downloads/epistemos_mas_master_canon_2026_07_08 and the corrected
    preparation folder. If it reports a fatal identity mismatch, stop without
    resetting or overwriting anything.
-4. Read the external canon's 00_READ_FIRST.md, 01, 02, and numbered
-   03_MINIMAL_PROMPT_PACK.md first. The external numbered prompt pack is the
-   sole prompt authority. Then read AGENTS.md,
+4. Read the external canon's 00_READ_FIRST.md, 01, 02, numbered
+   03_MINIMAL_PROMPT_PACK.md, and dated free-V1 addendum
+   11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md first. The
+   external numbered prompt pack controls execution order; the dated addendum
+   controls the newer free/paid product boundary. Then read AGENTS.md,
    docs/prompts/MAS_ONLY_STRATEGIC_PIVOT_2026_07_07.md, the low-RAM correction
    log, current KEELSTONE prompt/plan and intent/evidence ledgers, and this
    handoff in its entirety. Handoffs and preparation are evidence only; do not
@@ -570,9 +677,15 @@ not a replacement execution prompt.
    editing.
 8. Continue only canonical Prompt 2,
    EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08, from the recorded resource
-   preflight boundary. Restore every reported prerequisite first. Preserve
-   MAS-only June boundaries, use surgical edits, and do not claim runtime
-   behavior without current exact evidence. Do not begin Prompt 3.
+   preflight boundary. Restore only the reported free-V1 prerequisites first;
+   Bun, June donor/assets, payment, StoreKit, and Apple distribution signing
+   are future-paid/distribution status and do not block free-V1 source or local
+   ad-hoc evidence. Preserve MAS-only architecture, keep June/Browser/
+   ResearchHub paid-only and hidden/inert, use surgical edits, and do not claim
+   runtime behavior without current exact evidence. If the sole current archive
+   is retained and unchanged, do not rebuild it. When the Mac is unlocked,
+   repeat the resource preflight and complete only the finite non-AI runtime
+   matrix with correlated logs. Do not begin Prompt 3 or another execution key.
 
 Private Columbia/VA/funding work is not stored in this repository and must not
 be inferred from this handoff.

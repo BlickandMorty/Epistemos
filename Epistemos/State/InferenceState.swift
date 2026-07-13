@@ -2173,7 +2173,9 @@ final class InferenceState {
         // only probes it from explicit user work or a Settings refresh.
         self.appleIntelligenceAvailable = false
         self.appleIntelligenceUnavailableReason = nil
-        if skipCloudCredentialBootstrapOnLaunch {
+        if !ProductCapabilityPolicy.isAvailable(.models) {
+            initializeUnavailableModelState()
+        } else if skipCloudCredentialBootstrapOnLaunch {
             initializeDeferredCloudCredentialState()
         } else if deferCloudCredentialBootstrapOnLaunch {
             initializeDeferredCloudCredentialState()
@@ -2280,6 +2282,11 @@ final class InferenceState {
     }
 
     func refreshAppleIntelligenceAvailability() {
+        guard ProductCapabilityPolicy.isAvailable(.models) else {
+            appleIntelligenceAvailable = false
+            appleIntelligenceUnavailableReason = "Models are reserved for a future paid edition."
+            return
+        }
         let (available, reason) = AppleIntelligenceService.shared.checkAvailability()
         appleIntelligenceAvailable = available
         appleIntelligenceUnavailableReason = reason
@@ -2321,6 +2328,17 @@ final class InferenceState {
         missingCloudOAuthProviders = Set(CloudModelProvider.activeProductProviders)
         cachedCloudAPIKeys.removeAll()
         cachedCloudOAuthCredentials.removeAll()
+        cloudProviderValidationStates = Dictionary(
+            uniqueKeysWithValues: CloudModelProvider.activeProductProviders.map { ($0, .missing) }
+        )
+    }
+
+    private func initializeUnavailableModelState() {
+        isBootstrappingCloudCredentials = false
+        cachedCloudAPIKeys.removeAll()
+        cachedCloudOAuthCredentials.removeAll()
+        missingCloudAPIKeyProviders = Set(CloudModelProvider.activeProductProviders)
+        missingCloudOAuthProviders = Set(CloudModelProvider.activeProductProviders)
         cloudProviderValidationStates = Dictionary(
             uniqueKeysWithValues: CloudModelProvider.activeProductProviders.map { ($0, .missing) }
         )
@@ -3011,11 +3029,12 @@ final class InferenceState {
     }
 
     var activeCloudProvider: CloudModelProvider? {
-        activeAIProvider.cloudProvider
+        guard ProductCapabilityPolicy.isAvailable(.models) else { return nil }
+        return activeAIProvider.cloudProvider
     }
 
     var cloudModelsEnabled: Bool {
-        activeAIProvider != .localOnly
+        ProductCapabilityPolicy.isAvailable(.models) && activeAIProvider != .localOnly
     }
 
     var activeCloudModels: [CloudTextModelID] {
@@ -3035,7 +3054,8 @@ final class InferenceState {
     }
 
     var configuredCloudProviders: [CloudModelProvider] {
-        CloudModelProvider.preferredOrder.filter { provider in
+        guard ProductCapabilityPolicy.isAvailable(.models) else { return [] }
+        return CloudModelProvider.preferredOrder.filter { provider in
             hasConfiguredCloudAccess(for: provider)
         }
     }
@@ -3065,6 +3085,7 @@ final class InferenceState {
     /// through to a transient keychain read; callers get a correct answer
     /// and observable state stays stable.
     func apiKey(for provider: CloudModelProvider) -> String? {
+        guard ProductCapabilityPolicy.isAvailable(.models) else { return nil }
         #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         guard CloudModelProvider.activeProductProviders.contains(provider) else { return nil }
         #endif
@@ -3091,8 +3112,9 @@ final class InferenceState {
     /// Read-only lookup. Same SwiftUI-safety contract as `apiKey(for:)`.
     /// Cache writes happen only on explicit refresh / set / clear paths.
     func oauthCredential(for provider: CloudModelProvider) -> CloudProviderOAuthCredential? {
+        guard ProductCapabilityPolicy.isAvailable(.models) else { return nil }
         #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        nil
+        return nil
         #else
         if let cached = cachedCloudOAuthCredentials[provider] {
             return cached

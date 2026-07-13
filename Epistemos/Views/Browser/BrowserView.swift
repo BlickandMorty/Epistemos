@@ -319,7 +319,8 @@ struct BrowserView: View {
     var body: some View {
         @Bindable var tab = tab
 
-        ZStack(alignment: .top) {
+        if ProductCapabilityPolicy.isAvailable(.browser) {
+            ZStack(alignment: .top) {
             // Web view fills the whole window; the toolbar floats over it and hides on
             // scroll so the page can take the entire window (owner 2026-07-03).
             BrowserWebView(tab: tab, theme: theme)
@@ -501,7 +502,7 @@ struct BrowserView: View {
                 tab.navigate(to: url)
             }
         }
-        .background {
+            .background {
             // ⌘L: focus the address bar + force-show the toolbar. Standard browser shortcut,
             // and a keyboard escape so the URL bar can always be reached — a page could
             // otherwise spoof the (harmless) scroll bridge to keep the toolbar hidden.
@@ -512,6 +513,13 @@ struct BrowserView: View {
             .keyboardShortcut("l", modifiers: .command)
             .opacity(0)
             .accessibilityHidden(true)
+            }
+        } else {
+            ContentUnavailableView(
+                "Browser is not included in free V1",
+                systemImage: "lock",
+                description: Text("The in-app Browser is reserved for a future paid edition.")
+            )
         }
     }
 

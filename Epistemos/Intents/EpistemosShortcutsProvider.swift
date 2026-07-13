@@ -1,7 +1,7 @@
 import AppIntents
 
 // MARK: - Epistemos Shortcuts Provider
-// Discoverable Siri phrases (macOS limit) focused on notes, graph, and plain AI help.
+// Free V1 discoverable Siri phrases focused on notes, search, and capture.
 
 struct EpistemosShortcutsProvider: AppShortcutsProvider {
     nonisolated(unsafe) static var appShortcuts: [AppShortcut] {
@@ -24,24 +24,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             systemImageName: "magnifyingglass"
         )
         AppShortcut(
-            intent: AskAboutNotesIntent(),
-            phrases: [
-                "Ask \(.applicationName) about my notes",
-                "What do my \(.applicationName) notes say",
-            ],
-            shortTitle: "Ask Notes",
-            systemImageName: "text.bubble"
-        )
-        AppShortcut(
-            intent: SummarizeNoteIntent(),
-            phrases: [
-                "Summarize my \(.applicationName) note",
-                "Summarize in \(.applicationName)",
-            ],
-            shortTitle: "Summarize",
-            systemImageName: "doc.text.magnifyingglass"
-        )
-        AppShortcut(
             intent: QuickCaptureIntent(),
             phrases: [
                 "Capture in \(.applicationName)",
@@ -50,18 +32,8 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Quick Capture",
             systemImageName: "square.and.pencil"
         )
-        AppShortcut(
-            intent: DailyBriefingIntent(),
-            phrases: [
-                "Daily brief in \(.applicationName)",
-                "Give me my daily brief in \(.applicationName)",
-            ],
-            shortTitle: "Daily Brief",
-            systemImageName: "newspaper"
-        )
-        // W11.1 — cognitive intents (master plan / Doc 2 §"missing
-        // moats" — biggest unexplored Apple-native moat). Surfaces the
-        // new W10 cognitive layer through Spotlight, Shortcuts, Siri.
+        // Brain dump is deterministic capture in Free V1; model-backed
+        // analysis and agent shortcuts remain absent from this catalogue.
         AppShortcut(
             intent: CaptureBrainDumpIntent(),
             phrases: [
@@ -78,33 +50,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
         // CaptureBrainDumpIntent above subsumes the most common path
         // ("dump a thought into the right place"); attach-to-context is
         // a power-user op accessed via the Shortcuts editor explicitly.
-        AppShortcut(
-            intent: RecallActiveThesisIntent(),
-            phrases: [
-                "Recall active thesis in \(.applicationName)",
-                "What's my thesis in \(.applicationName)",
-            ],
-            shortTitle: "Active Thesis",
-            systemImageName: "lightbulb.max"
-        )
-        AppShortcut(
-            intent: OpenRawThoughtSandboxIntent(),
-            phrases: [
-                "Open raw thought sandbox in \(.applicationName)",
-                "Toggle ambient retrieval in \(.applicationName)",
-            ],
-            shortTitle: "Raw Sandbox",
-            systemImageName: "tray.full"
-        )
-        AppShortcut(
-            intent: DelegateToAgentIntent(),
-            phrases: [
-                "Delegate to agent in \(.applicationName)",
-                "Ask the agent in \(.applicationName)",
-            ],
-            shortTitle: "Delegate",
-            systemImageName: "paperplane"
-        )
     }
 }
 

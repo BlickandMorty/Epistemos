@@ -9,7 +9,28 @@ Epistemos Mac App Store pivot. It is not a raw dump and not a lazy repack. The
 root files are the active operating corpus. The original ZIPs are preserved
 unchanged under `source_archives/originals/` for provenance and audit.
 
-## Latest Owner Steer
+## Latest Owner Steer - 2026-07-13 Free V1
+
+Read `11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md` before
+choosing feature order or visibility. The owner now requires:
+
+- free V1 has no June, agentic/generative behavior, chat models, AI-only
+  automation, Browser, or ResearchHub;
+- Kokoro remains as the explicit local voice/read-aloud exception;
+- Epdoc expands into the central Markdown note, task, planner, calendar-context,
+  and Meeting workspace;
+- RECKONER is followed by the free capability ring: Meeting, Sync, Quick
+  Capture, calendar/tasks, PDF/import, Kokoro, graph/search, and export;
+- Browser and ResearchHub remain preserved as future paid MAS capabilities but
+  are hidden and inert in free V1; and
+- Apple payment, enrollment, signing, StoreKit, and paid activation work is
+  deferred while safe free-V1 source work continues.
+
+This dated steer overrides conflicting July 8 sequencing/visibility language
+only. It does not authorize a replacement agent, a non-MAS lane, or weaker
+storage/privacy/release evidence.
+
+## July 8 Archive Fusion Steer
 
 The owner clarified that `research1.zip`, `research2.zip`, `research3.zip`,
 and `research4.zip` are the most updated executive research outputs. This
@@ -66,7 +87,8 @@ Active lane:
 - `Epistemos-AppStore`
 - `EPISTEMOS_APP_STORE`
 - `MAS_SANDBOX`
-- MAS/June as the only active agent surface
+- no active agent surface in free V1; MAS/June retained as the sole future paid
+  agent when explicitly reactivated
 - in-process `agent_core`
 - native Swift/AppKit/SwiftUI where the surface should feel native
 - bundled WKWebView assets where web is the honest best component host
@@ -78,12 +100,15 @@ Active lane:
 Active build spine:
 
 1. KEELSTONE storage, release, pruning, and archive truth.
-2. MAS June agent seam and Epdoc MiniChat/Assist as June-owned.
-3. LUMENLENS editor/provenance and RECKONER datasets inside one workspace
-   fabric.
-4. Capability ring: ResearchHub, Quick Capture, Sync, PDF/Vision/Speech,
-   WebKit browser-lite, and source/provider legality.
-5. Release evidence: entitlements, privacy manifests, required-reason APIs,
+2. Free-V1 product-capability boundary: June, Browser, ResearchHub, and
+   generative/agent features hidden and inert; Kokoro retained.
+3. LUMENLENS Epdoc editor/planner/provenance and RECKONER datasets inside one
+   workspace fabric.
+4. Free capability ring: Meeting, Sync, Quick Capture, calendar/tasks,
+   PDF/import, Kokoro/local speech, graph/search, and export.
+5. Future paid capability preservation: MAS June/Epdoc Assist, Browser, and
+   ResearchHub remain MAS-safe but do not execute in free V1.
+6. Release evidence: entitlements, privacy manifests, required-reason APIs,
    archive scans, source legality, storage soak tests, and App Review notes.
 
 ## What Is Parked
@@ -119,9 +144,10 @@ tools.
 2. `01_OWNER_LOCK_AND_CANONICAL_THESIS.md`
 3. `02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md`
 4. `03_MINIMAL_PROMPT_PACK.md`
-5. The relevant domain doc: `04`, `05`, `06`, `07`, or `08`
-6. `10_LOCAL_AGENT_REDIRECT_AND_STATUS_TEMPLATES.md` before handoff/status work
-7. `09_PARKED_PROVENANCE_AND_SUPERSESSION_LEDGER.md` only when checking
+5. `11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md`
+6. The relevant domain doc: `04`, `05`, `06`, `07`, or `08`
+7. `10_LOCAL_AGENT_REDIRECT_AND_STATUS_TEMPLATES.md` before handoff/status work
+8. `09_PARKED_PROVENANCE_AND_SUPERSESSION_LEDGER.md` only when checking
    provenance or resolving contradictions
 
 Recommended first build prompt:
@@ -137,7 +163,11 @@ implement MiniChat as Goose, 1Code, Kindred, Node, Tauri, local server,
 subprocess, or a second transcript/tool runtime. Never ship ResearchHub
 scraping, Sci-Hub, LibGen, Google Scholar scraping, unauthorized full-text
 downloads, hidden paid-content access, or credential harvesting. Never claim
-MAS release readiness without archive-level evidence.
+MAS release readiness without archive-level evidence. Never expose Browser or
+ResearchHub in free V1 through a stale route, shortcut, deep link, restored
+state, provider startup, or background job. Never add a second task/planner,
+Meeting, transcript, or sync authority, and never clone the reference apps'
+trade dress or proprietary formats.
 
 ## Source Archives Only
 

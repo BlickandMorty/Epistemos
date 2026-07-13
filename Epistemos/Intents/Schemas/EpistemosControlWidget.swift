@@ -83,7 +83,6 @@ struct EpistemosControlWidgetBundle {
     @WidgetBundleBuilder
     var body: some Widget {
         EpistemosCaptureControl()
-        EpistemosSandboxControl()
     }
 }
 #endif

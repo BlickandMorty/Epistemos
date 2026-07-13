@@ -99,6 +99,7 @@ targets:
         ENABLE_APP_SANDBOX: true
         SWIFT_EMIT_LOC_STRINGS: true
         ENABLE_PREVIEWS: true
+        EPISTEMOS_PRODUCT_EDITION: FREE_V1
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
         LD_RUNPATH_SEARCH_PATHS:
           - "@executable_path"
@@ -110,15 +111,29 @@ targets:
         Debug:
           CODE_SIGN_IDENTITY: "-"
           DEVELOPMENT_TEAM: 3BNL2669SL
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1 EPISTEMOS_LINK_SUBSTRATE_RT"
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
           DEVELOPMENT_TEAM: 3BNL2669SL
           ENABLE_HARDENED_RUNTIME: true
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1 EPISTEMOS_LINK_SUBSTRATE_RT"
     preBuildScripts:
       - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-epistemos-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-june-web.sh\""
+        script: |
+          set -euo pipefail
+          bash "${SRCROOT}/build-rust.sh"
+          bash "${SRCROOT}/build-syntax-core.sh"
+          MAS_SANDBOX=1 bash "${SRCROOT}/build-omega-mcp.sh"
+          MAS_SANDBOX=1 bash "${SRCROOT}/build-epistemos-core.sh"
+          MAS_SANDBOX=1 bash "${SRCROOT}/build-agent-core.sh"
+          bash "${SRCROOT}/build-epistemos-shadow.sh"
+          bash "${SRCROOT}/build-epistemos-code-index.sh"
+          bash "${SRCROOT}/build-substrate-rt.sh"
+          bash "${SRCROOT}/build-tiptap-bundle.sh"
+          bash "${SRCROOT}/build-coreeditor-bundle.sh"
+          if [ "${EPISTEMOS_PRODUCT_EDITION:-}" != "FREE_V1" ]; then
+            bash "${SRCROOT}/build-june-web.sh"
+          fi
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
@@ -189,6 +204,7 @@ targets:
       # risk because each target is a separate bundle).
       - path: Epistemos/Intents/Schemas/EpistemosControlWidget.swift
       - path: Epistemos/Intents/Schemas/CognitiveIntents.swift
+      - path: Epistemos/App/ProductCapabilityPolicy.swift
       - path: Epistemos/Engine/EpistemosSpeechSynthesizer.swift
       - path: Epistemos/Engine/QuarantineArchive.swift
       - path: Epistemos/Engine/EpistemosSidecar.swift

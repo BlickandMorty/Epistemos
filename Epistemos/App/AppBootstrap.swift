@@ -1884,38 +1884,44 @@ final class AppBootstrap {
 
         // Log only active product model boundaries. This does not load model
         // bytes or inspect Keychain credentials.
-        let configuredCloudProvidersSummary: String
-        if inference.isDeferredCloudCredentialBootstrapInFlight {
-            configuredCloudProvidersSummary = "deferred"
+        if !ProductCapabilityPolicy.isAvailable(.models) {
+            Log.app.info(
+                "Free V1 model boundary: June=DISABLED, local-gguf-runtime=DISABLED, cloud-models=OFF"
+            )
         } else {
-            configuredCloudProvidersSummary = inference.configuredCloudProviders
-                .map(\.rawValue)
-                .joined(separator: ",")
-        }
+            let configuredCloudProvidersSummary: String
+            if inference.isDeferredCloudCredentialBootstrapInFlight {
+                configuredCloudProvidersSummary = "deferred"
+            } else {
+                configuredCloudProvidersSummary = inference.configuredCloudProviders
+                    .map(\.rawValue)
+                    .joined(separator: ",")
+            }
 
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        #if EPISTEMOS_APP_STORE
-        let localGGUFRuntimeSummary = "IN-PROCESS"
-        #else
-        let localGGUFRuntimeSummary = "UNAVAILABLE"
-        #endif
-        Log.app.info(
-            """
-            MAS June model stack: \
-            local-gguf-runtime=\(localGGUFRuntimeSummary, privacy: .public), \
-            cloud-models=\(inference.cloudModelsEnabled ? "ON" : "OFF", privacy: .public), \
-            configured-cloud-providers=\(configuredCloudProvidersSummary, privacy: .public)
-            """
-        )
-        #else
-        Log.app.info(
-            """
-            Direct model stack: \
-            cloud-models=\(inference.cloudModelsEnabled ? "ON" : "OFF", privacy: .public), \
-            configured-cloud-providers=\(configuredCloudProvidersSummary, privacy: .public)
-            """
-        )
-        #endif
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            #if EPISTEMOS_APP_STORE
+            let localGGUFRuntimeSummary = "IN-PROCESS"
+            #else
+            let localGGUFRuntimeSummary = "UNAVAILABLE"
+            #endif
+            Log.app.info(
+                """
+                MAS June model stack: \
+                local-gguf-runtime=\(localGGUFRuntimeSummary, privacy: .public), \
+                cloud-models=\(inference.cloudModelsEnabled ? "ON" : "OFF", privacy: .public), \
+                configured-cloud-providers=\(configuredCloudProvidersSummary, privacy: .public)
+                """
+            )
+            #else
+            Log.app.info(
+                """
+                Direct model stack: \
+                cloud-models=\(inference.cloudModelsEnabled ? "ON" : "OFF", privacy: .public), \
+                configured-cloud-providers=\(configuredCloudProvidersSummary, privacy: .public)
+                """
+            )
+            #endif
+        }
 
         Log.app.info("AppBootstrap: initialized — foundation services ready")
     }
@@ -2177,24 +2183,27 @@ final class AppBootstrap {
         guard !didStartPrimaryLaunchInitialization else { return }
         didStartPrimaryLaunchInitialization = true
 
-        Self.scheduleStartupAutoDiscoveryLoggingIfNeeded()
-        let shouldPopulateAgentCoreEnvironment = Self.shouldPopulateAgentCoreEnvironmentAtLaunch(
-            deferredCloudCredentialBootstrapInFlight: inferenceState.isDeferredCloudCredentialBootstrapInFlight
-        )
+        if ProductCapabilityPolicy.isAvailable(.models) {
+            Self.scheduleStartupAutoDiscoveryLoggingIfNeeded()
+            let shouldPopulateAgentCoreEnvironment = Self.shouldPopulateAgentCoreEnvironmentAtLaunch(
+                deferredCloudCredentialBootstrapInFlight: inferenceState.isDeferredCloudCredentialBootstrapInFlight
+            )
 
-        // Clear any stale managed provider env slots from older launches
-        // without reading Keychain on the main thread.
-        Task.detached(priority: .utility) {
-            guard shouldPopulateAgentCoreEnvironment else { return }
-            Self.populateAgentCoreEnvironment()
+            Task.detached(priority: .utility) {
+                guard shouldPopulateAgentCoreEnvironment else { return }
+                Self.populateAgentCoreEnvironment()
+            }
         }
 
         activityTracker.loadFlushedEvents()
         workspaceService.autoRestore()
         activityTracker.startTracking()
-        workspaceSummaryService.startAutoSummaryLoop()
+        if ProductCapabilityPolicy.isAvailable(.generativeActions) {
+            workspaceSummaryService.startAutoSummaryLoop()
+        }
         workspaceService.startAutoSave()
-        if workspaceService.welcomeBack != nil {
+        if workspaceService.welcomeBack != nil,
+           ProductCapabilityPolicy.isAvailable(.generativeActions) {
             Task { @MainActor [weak self] in
                 await self?.refreshWelcomeBackSummary()
             }
@@ -2203,7 +2212,8 @@ final class AppBootstrap {
         didCompletePrimaryLaunchInitialization = true
 
         // One-time meaning anchor backfill for existing chats
-        if !UserDefaults.standard.bool(forKey: "epistemos.anchorBackfillComplete") {
+        if ProductCapabilityPolicy.isAvailable(.agentAutomation),
+           !UserDefaults.standard.bool(forKey: "epistemos.anchorBackfillComplete") {
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(30))
                 await self?.meaningAnchorService?.backfillExistingChats()
@@ -2300,7 +2310,9 @@ final class AppBootstrap {
             // "tap on the app and it freezes" symptom. Doing it here lets the
             // UI come up first and then populates the registry configuration
             // once the deferred runtime services bring themselves online.
-            self.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
+            if ProductCapabilityPolicy.isAvailable(.models) {
+                self.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
+            }
 
         }
     }
@@ -2311,6 +2323,10 @@ final class AppBootstrap {
 
     func refreshLiveNoteScheduler() {
         guard !Self.isRunningTests else { return }
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            liveNoteScheduler.stop()
+            return
+        }
         // Live notes are opt-in (UserDefaults key "epistemos.liveNotes.enabled").
         // Most vaults contain zero live-note task blocks, so scanning 800+ pages
         // on a timer was burning idle CPU for no observed benefit. Users who

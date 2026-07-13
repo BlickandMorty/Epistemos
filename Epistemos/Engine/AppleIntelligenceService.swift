@@ -64,6 +64,9 @@ final class AppleIntelligenceService {
     }
 
     func generate(prompt: String, systemPrompt: String? = nil) async throws -> String {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            throw ProductCapabilityUnavailableError(capability: .generativeActions)
+        }
         let resolvedSystemPrompt: String?
         if let systemPromptResolver {
             resolvedSystemPrompt = await systemPromptResolver(systemPrompt)

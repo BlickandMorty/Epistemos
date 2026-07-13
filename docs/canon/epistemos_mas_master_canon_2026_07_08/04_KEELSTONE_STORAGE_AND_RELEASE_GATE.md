@@ -25,7 +25,11 @@ Every durable user object needs a stable ID that survives rename/move/import/exp
 
 - Notes: stable note ID in frontmatter or structured metadata path, plus path/inode correlation for moves.
 - Datasets: stable dataset ID in `.dataset.md`, referenced by note embeds/tabs.
-- ResearchHub saved items: source ID + canonical URL/DOI/arXiv/PMID where applicable, plus vault ID.
+- Tasks/projects/goals/Meeting notes: stable readable IDs that survive
+  rename/move and preserve source navigation without a private task database.
+- Calendar/reminder links: stable external EventKit reference plus a vault
+  object ID; EventKit remains external truth.
+- Future paid ResearchHub saved items: source ID + canonical URL/DOI/arXiv/PMID where applicable, plus vault ID.
 - Captures: capture ID + timestamp + route journal row.
 - Agent/provenance events: event ID + turn ID + object ID + path snapshot + hash.
 
@@ -33,7 +37,9 @@ If IDs conflict with file truth, surface a repair prompt. Do not silently fork.
 
 ## Migration plan
 
-1. Verify live repo body truth: find every production save path for notes, datasets, captures, ResearchHub items.
+1. Verify live repo body truth: find every production save path for notes,
+   tasks/plans/Meeting notes, datasets, captures, and future paid ResearchHub
+   items.
 2. Land or verify `AtomicVaultWriter` for text and binary artifacts.
 3. Collapse note bodies to vault `.md` only; `SDPage.body` and `NoteFileStorage` become metadata/history/staging only.
 4. Add or verify append-only journal/provenance store.

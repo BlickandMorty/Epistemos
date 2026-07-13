@@ -1,12 +1,23 @@
 # 05 - MAS June Agent and MiniChat
 
+## July 13 status - future paid, not free V1
+
+This architecture is preserved as the sole allowed future paid agent lane, but
+it is not an active free-V1 build phase. June, Epdoc Assist/MiniChat, chat/local
+models, agent tools, generative actions, and AI-only jobs must be hidden and
+inert through the centralized product-capability policy. Do not execute this
+plan, expose its UI, initialize providers, or add payment/StoreKit until a
+later explicit owner activation. Kokoro local read-aloud is the free-V1 voice
+exception and does not activate this plan.
+
 ## Non-negotiable answer
 
 **Epdoc MiniChat / Epdoc Assist should be MAS-June owned. It should not be Goose, 1Code, Kindred, Node/Tauri, a local server, a subprocess, or a separate runtime.**
 
-## MAS June architecture
+## Future paid MAS June architecture
 
-The active agent surface is June in the MAS app. The preferred architecture is:
+When later explicitly reactivated, the only agent surface is June in the MAS
+app. The preferred architecture is:
 
 - Vendored/bundled June frontend as static app resources.
 - Swift `WKWebView` host with native chrome and native permission/approval surfaces.
@@ -51,7 +62,7 @@ Every tool or edit suggestion must produce:
 - final applied artifact/hash
 - rollback/undo path
 
-## StoreKit / proxy / cloud notes
+## StoreKit / proxy / cloud notes (deferred)
 
 If cloud tools are paid, use StoreKit and official App Store Server API flow. App Review notes must describe what cloud features do, what data leaves device, whether user files are sent, and how users can stay local/offline. Provider keys stay server-side; any short-lived app token lives in Keychain.
 
@@ -59,7 +70,7 @@ If cloud tools are paid, use StoreKit and official App Store Server API flow. Ap
 
 Apple Foundation Models is the cleanest local path where available. Third-party local models are not categorically impossible, but they require: bundle-size evidence, memory/cancel/teardown proof, no executable downloads, no hidden server, no default mutation without owner approval, and honest capability labels. Local models must not advertise tool authority unless grammar/tool path is genuinely proven.
 
-## Required release evidence
+## Required future paid release evidence
 
 - One real cloud turn.
 - One real local turn or honest unavailable state.

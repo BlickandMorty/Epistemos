@@ -6076,3 +6076,311 @@ original attachment path.
   fast-forward, fetch again, and require local/tracking/live/handoff equality.
 - Apple signing remains absent. After GitHub publication, it is the only
   owner-account gate before the one-current-artifact signed Release leg.
+
+## Owner Product Steer 2026-07-13 — Free V1 Has No AI
+
+### Verbatim owner wording
+
+> can i just skip a;; th payment stuff rn why does it keep askngfor that i
+> worke d on it without. i need ti contiue buidling the app. i also wat the
+> june to be hiden so the v1 release will have june all agetane ai stuff will
+> be the paid part the v1 free versjon will have no ai at all.
+
+> i wat to contuue teh build tho. sso is umnenlens keelstone adn the other
+> thin fro th mas canon folder what. is left that does not rest on ai featur4ew
+
+### Interpreted intent
+
+- Defer Apple Developer payment, enrollment, signing, StoreKit, subscription,
+  and paid-account work. Do not keep asking the owner about those branches.
+- Continue building the non-AI MAS product now. The free V1 exposes no AI
+  feature: June, MiniChat/Epdoc Assist, local or cloud models, agent tools,
+  generative summaries, live-note generation, AI transcription, neural voice,
+  and editor AI actions remain hidden and unavailable.
+- Preserve June and agentic-AI source as future paid-edition work; do not delete
+  or revive it as part of the free V1 surface.
+- Continue the non-AI product spine: KEELSTONE vault/storage/reconcile/release
+  safety; LUMENLENS editor, lens-fidelity, notebook, and writeback behavior;
+  RECKONER dataset artifacts, tables, calculation, charts, tabs, and embeds;
+  plus non-AI Quick Capture, sync, PDF, research metadata/import, WebKit
+  browser-lite, graph, search, workspace, and export behavior.
+
+### Hard constraints
+
+- Current execution key remains
+  `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`; this steer changes the
+  free-product boundary but does not invent a replacement execution key.
+- MAS-only architecture remains controlling. Pro, Developer-ID, Experimental,
+  1Code, OpenChamber, Goose, Kindred, sidecar, subprocess, local-server, Node,
+  terminal/code-exec, stdio MCP, and browser-use lanes remain parked.
+- The free V1 must fail closed at one centralized product-capability policy.
+  Hiding one button while leaving another route, shortcut, automatic job, or
+  settings deep link active is insufficient.
+- Preserve AI implementation for a future paid edition, but do not add payment,
+  StoreKit, receipt, account, entitlement, or signing behavior in this slice.
+- Preserve the one-current-build rule. Before any Xcode test/build/archive,
+  stop prior Epistemos hosts, delete stale Epistemos app/archive products, and
+  retain exactly the current evidence artifact.
+- Do not claim runtime behavior from source guards or historical tests.
+
+### Non-goals
+
+- No Apple enrollment, fee, certificate, profile, Team ID, bundle-ID transfer,
+  StoreKit, subscription, paywall, or paid-feature activation work.
+- No deletion of June, model, voice, agent, or provenance source needed by the
+  future paid edition.
+- No signed Release/archive claim and no transition to a later canonical
+  execution key merely because the free-V1 visibility boundary is source-green.
+
+### Acceptance checks
+
+- A single free-V1 policy reports AI unavailable and is the source of truth for
+  all affected UI and automatic-runtime gates.
+- Landing and navigation do not expose or enter June or AI transcription.
+- Settings do not expose June models, AI voice, generative summaries, or live
+  notes, including notification/deep-link selection.
+- Epdoc does not mount Ask June/AI assist controls in free V1.
+- App Shortcuts do not advertise or execute AI-only actions in free V1.
+- Primary launch does not populate agent-provider environment, start
+  generative workspace-summary/live-note work, run meaning-anchor backfill, or
+  otherwise schedule an automatic AI operation for free V1.
+- Plain text Quick Capture, vault/editor/graph/workspace, sync, PDF/import,
+  browser-lite, LUMENLENS, and RECKONER non-AI paths remain available.
+- Focused tests and semantic source scans pass; exact runtime/manual and signed
+  artifact evidence remain explicitly separate debt.
+
+### Contradictions and resolution
+
+- The July 8 canon makes MAS/June the only active agent and originally orders
+  June before LUMENLENS/RECKONER. The later owner steer is a deliberate product
+  change: the free V1 has no active agent at all, while June is retained as the
+  sole future paid agent. This does not authorize another agent lane.
+- The old KEELSTONE exit matrix requires visible June/model/Kokoro evidence.
+  Those legs no longer gate the free V1 product surface; they become future
+  paid-edition verification debt. Storage, editor fidelity, graph/editor
+  responsiveness, privacy, and non-AI artifact truth remain active KEELSTONE
+  obligations.
+- Apple signing still blocks a final distributable Release verdict, but it does
+  not block reversible source work, source checks, or a cleaned unsigned Debug
+  regression build for the non-AI product.
+
+### Exact next action
+
+- Add a failing focused free-V1 boundary regression, then introduce the
+  smallest centralized product-capability policy and route the main landing,
+  settings, Epdoc assist, shortcuts, Quick Capture, and automatic launch jobs
+  through it. Run source checks first; before any Xcode test build, remove the
+  stale Debug app and all Epistemos archives under the selected build outputs.
+
+## Owner Product Steer 2026-07-13 — Epdoc Planner, Meeting, Sync, and Kokoro
+
+### Verbatim owner wording
+
+> well lets continue also i want to fold thse into the feature sets. i wnat ot
+> upgrade epdoc as muhc as i can. also meetng and other things are stiol not
+> rlly connetred that much. i ofc want to keep the voicer model tho tha is what
+> ll kee the kokoro model beause uts imoportant but i also wat toamke epdoc alot
+> more useful taking all featres from things 3 ad the ohter creenshots adding
+> that to the mas canon and remmeber idk if reckoner was the last thng i still
+> had teh sync thing i ha oher thngs beyid reckoner.
+
+### Interpreted intent
+
+- Upgrade Epdoc from a note editor into the central non-agentic planning
+  workspace: Markdown notes plus tasks, projects/areas, Today, Upcoming,
+  scheduling, reminders, recurring work, daily/periodic planning, time blocks,
+  goals, folders, meeting notes, and calendar context.
+- Connect Meeting to Epdoc, tasks, calendar references, vault artifacts,
+  provenance, search/graph, and export instead of leaving it as an isolated
+  landing surface.
+- Keep Kokoro local voice/read-aloud in free V1. Free V1 still excludes June,
+  agentic behavior, cloud/local chat models, generative editing/summaries, and
+  AI-only automatic jobs.
+- RECKONER is not the end of the product sequence. The capability ring remains
+  active after LUMENLENS/RECKONER and includes Sync, Meeting, Quick Capture,
+  calendar/tasks, ResearchHub, PDF, browser-lite, voice, search/graph, and
+  export.
+- Fold the product motifs visible in the owner-supplied Things 3 and NotePlan
+  screenshots into the MAS canon as Epistemos-native capabilities, not as a
+  visual or proprietary-format clone.
+
+### Hard constraints
+
+- This checkpoint supersedes only the prior checkpoint's instruction to hide
+  neural voice. Kokoro is an explicit free-V1 exception and must remain local,
+  consent-aware where microphone input is used, and separate from generative
+  AI/agent routing.
+- Vault Markdown and approved artifacts remain durable truth. Today, Upcoming,
+  calendar panes, task indexes, logbooks, and search views are derived
+  projections, not a second authoritative database.
+- Calendar and reminder access must be optional, user-initiated, least-
+  privilege, sandbox-entitled, denial-safe, and represented by stable external
+  references rather than silently importing a second calendar truth.
+- Meeting recording/transcription requires visible consent and durable source
+  artifacts. No hidden recording, sidecar, subprocess, Python voice engine,
+  local server, or separate transcript database.
+- Preserve MAS-only boundaries, the current KEELSTONE execution key, the
+  one-current-build rule, and the deferral of Apple payment, StoreKit, signing,
+  subscription, and paid-feature activation work.
+- Do not copy Things 3 or NotePlan trade dress, copyrighted screenshots,
+  proprietary sync, or proprietary file formats. Rebuild the useful concepts
+  through Epistemos' existing native workspace, Epdoc, KEELSTONE, LUMENLENS,
+  RECKONER, and capability-ring architecture.
+
+### Non-goals
+
+- No June, Epdoc Assist/MiniChat, generative task creation, AI scheduling,
+  agent tool execution, model picker, cloud provider, or paid-feature runtime
+  in the free-V1 implementation lane.
+- No new task database, planner room, meeting database, sync authority, or
+  duplicate provenance/event bus.
+- No Apple enrollment/payment/signing work in this slice.
+
+### Acceptance checks
+
+- The external MAS master-canon folder and repository recovery mirror contain
+  the same dated free-V1 Epdoc/planner/capability-ring addendum and active-doc
+  updates.
+- Canon order clearly continues beyond RECKONER into Meeting, Sync, Quick
+  Capture, calendar/tasks, ResearchHub, PDF/browser-lite, Kokoro voice,
+  search/graph, and export.
+- Epdoc task/planner data remains readable Markdown with deterministic parsing,
+  stable IDs, visible conflict behavior, and rebuildable projections.
+- Meeting notes can reference an EventKit event, attendees, tasks, transcript/
+  audio artifacts, sources, and follow-ups without requiring June or a second
+  store.
+- Kokoro remains visible and usable without exposing June or other AI-only
+  surfaces.
+- Focused source/tests prove the first selected slice; runtime and distributable
+  claims remain separate until exact current evidence exists.
+
+### Contradictions and resolution
+
+- The immediately preceding checkpoint listed neural voice among hidden AI
+  features. The owner's later explicit wording controls: Kokoro remains in free
+  V1. This does not reactivate June, chat models, generative editing, agent
+  tools, or automatic AI work.
+- The July 8 build order placed MAS June before LUMENLENS/RECKONER and treated
+  the capability ring as June-dependent. For free V1, June is deferred and the
+  deterministic portions of LUMENLENS, RECKONER, Meeting, Sync, Capture,
+  calendar/tasks, voice, research/import, browser-lite, graph/search, and
+  export proceed without an active agent. June remains the sole future paid
+  agent if the owner later reactivates that lane.
+
+### Exact next action
+
+- Add a dated active addendum to both MAS canon copies, update the active-doc
+  manifest and affected build-order/domain docs, verify byte parity and
+  contradiction searches, then inspect the live Epdoc/task/calendar/Meeting/
+  Sync/Kokoro seams and choose the smallest test-first deterministic product
+  slice. Do not begin another canonical execution key.
+
+## Owner Product Steer 2026-07-13 — Browser and ResearchHub Are Paid-Only
+
+### Verbatim owner wording
+
+> add it all to the mas canon so that it i not forgotten and i eant to strt
+> building. trh browser, research hub both are needing to be on paid version as
+> well an hidden from v1 releawe s plaae ad that to that part.
+
+### Interpreted intent
+
+- Persist the complete Epdoc/planner/Meeting/Sync/Kokoro direction in the MAS
+  canon and proceed into implementation after canon parity and grounding.
+- Browser and ResearchHub join June and generative/agent features in the future
+  paid capability set. They must be hidden and inert in free V1.
+- Free V1 continues with KEELSTONE, LUMENLENS/Epdoc planner, RECKONER,
+  Meeting, Sync, Quick Capture, calendar/tasks, PDF/import, Kokoro local voice,
+  graph/search, workspace, and export.
+
+### Hard constraints and non-goals
+
+- One centralized free-V1 capability policy must gate Browser and ResearchHub
+  routes, landing/navigation, settings, shortcuts, deep links, automatic jobs,
+  and provider/network startup; hiding a tile alone is insufficient.
+- Preserve Browser and ResearchHub source for the future paid MAS edition. Do
+  not delete them, implement payment/StoreKit, or reactivate June.
+- Keep ResearchHub official-source/OA/BYO legality rules and WebKit-only browser
+  architecture in the paid canon; paid status never permits scraping,
+  Chromium/browser-use, sidecars, credential harvesting, or illegal content.
+- Continue the current KEELSTONE execution key and one-current-build rule.
+
+### Acceptance checks and exact next action
+
+- Both MAS canon copies explicitly classify Browser and ResearchHub as future
+  paid and free-V1 hidden/inert, while retaining their safe architecture.
+- Canon contradiction searches contain no active-free Browser/ResearchHub
+  directive without a dated paid-only qualification.
+- After canon verification, inspect the centralized product-capability seam and
+  add a failing free-V1 boundary regression that covers June, Browser, and
+  ResearchHub while preserving Kokoro, Meeting, Sync, and the Epdoc planner.
+
+## Implementation and Evidence Checkpoint 2026-07-13 — Free V1 Boundary and Single Archive
+
+### Verbatim owner wording
+
+> the v1 free versjon will have no ai at all.
+
+> browser, research hub both are needing to be on paid version as well an
+> hidden from v1 releawe
+
+> movig forward there must be oe build whever testung u must delte the stale
+> builds before building an ew app
+
+### Interpreted intent
+
+- Build the free V1 now without waiting for payment, StoreKit, Apple enrollment,
+  or paid-feature activation.
+- Keep June, agent/generative/model features, Browser, and ResearchHub for the
+  future paid MAS edition, but make them hidden and inert in free V1.
+- Keep Kokoro and the deterministic free capability ring available.
+- Produce and retain exactly one current app/archive for the active evidence
+  leg, then continue the non-AI runtime matrix only when artifact gates pass.
+
+### Implemented and proven state
+
+- `ProductCapabilityPolicy` is the centralized free/paid seam. Free V1 fails
+  closed across paid landing/navigation, settings, App Intents/shortcuts,
+  restoration, startup, cloud-provider state, June, Browser, ResearchHub/arXiv,
+  and generative editor/notes actions.
+- `project.yml` declares `EPISTEMOS_PRODUCT_EDITION=FREE_V1` and
+  `EPISTEMOS_FREE_V1`. Free packaging omits `JuneWeb`,
+  `model_manifest.json`, and `DefaultSkills`.
+- The focused policy result at `/tmp/Epistemos-FreeV1-Policy.xcresult` passes
+  8/8 tests with zero failures or skips.
+- The edition-aware KEELSTONE source gate passes.
+- Exactly one Release archive exists at
+  `/Users/jojo/Downloads/Epistemos/build/archives/Epistemos-FreeV1-current.xcarchive`.
+  Its exact app is universal, bundle `com.epistemos.appstore`, version 1.0.0
+  build 1, and passes strict deep local ad-hoc signing with the App Sandbox
+  entitlement.
+- The exact built-app KEELSTONE gate and comprehensive bundle scanner pass.
+  The free archive omits paid web/model/skill resources and prohibited parked
+  runtime/resource markers.
+
+### Constraints, non-goals, and verification debt
+
+- The local ad-hoc signature is evidence only. It is not Apple distribution
+  signing and does not prove App Store submission readiness.
+- The free target still links shared dormant native libraries, including
+  `libagent_core`, `libomega_mcp`, and `llama.framework`. Removing them is
+  build-topology/size debt; deleting them from a linked artifact is unsafe.
+- No model, provider, secret, owner vault, network, microphone, or audio action
+  ran in this checkpoint.
+- The owner-visible matrix did not begin because the Mac was locked and the UI
+  evidence tool correctly refused to bypass the lock. No Epistemos process or
+  correlated runtime log was created.
+- Do not change the owner's five-minute lock setting, ask about payment, or
+  reactivate paid features merely to complete local evidence.
+
+### Exact next action
+
+- When the Mac is unlocked, repeat the owner resource preflight. If it passes,
+  keep the sole archive immutable, launch its exact app, and run the finite
+  free-V1 matrix serially with correlated logs and a disposable vault.
+- Verify paid surfaces are absent/inert; then verify vault persistence, Epdoc
+  fidelity, deterministic Meeting/Capture/planner/Sync/calendar/PDF/export
+  entry points, graph/search routing, and English Kokoro without any agent,
+  model, or provider startup.
+- Update the existing exact-runtime evidence document and stop after the final
+  KEELSTONE verdict. Do not begin another canonical execution key.

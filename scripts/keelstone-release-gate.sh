@@ -6,6 +6,7 @@ PROJECT_YML="${ROOT_DIR}/project.yml"
 DEFAULT_SCHEME="${ROOT_DIR}/Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme"
 APPSTORE_APP=""
 SEED_HIGH_FINDING="${KEELSTONE_SEED_HIGH_FINDING:-0}"
+FREE_V1=0
 failures=0
 
 usage() {
@@ -14,7 +15,8 @@ Usage: scripts/keelstone-release-gate.sh [--appstore-app /path/Epistemos.app]
 
 MAS-only KEELSTONE gate:
   - one application target: Epistemos-AppStore
-  - June plus the in-process agent_core bridge are the sole agent route
+  - Free V1 keeps June, models, Browser, and ResearchHub hidden and inert
+  - future paid agent work remains MAS June plus the in-process agent_core bridge
   - retired Experimental/OpenChamber/external-Goose/MCP/Work paths are absent
   - supplied application bundles carry the App Sandbox entitlement
 USAGE
@@ -80,6 +82,17 @@ require_existing_file() {
     pass "${label}"
   else
     fail "${label} missing ${path}"
+  fi
+}
+
+require_app_absent() {
+  local app="$1"
+  local relative_path="$2"
+  local label="$3"
+  if [[ ! -e "${app}/${relative_path}" ]]; then
+    pass "${label}"
+  else
+    fail "${label} must be absent: ${app}/${relative_path}"
   fi
 }
 
@@ -181,14 +194,26 @@ else
   fi
   require_contains "${PROJECT_YML}" "EPISTEMOS_APP_STORE MAS_SANDBOX" "App Store target enables MAS compilation conditions"
   require_contains "${PROJECT_YML}" "ENABLE_APP_SANDBOX: true" "App Store target enables sandboxing"
+  require_contains "${PROJECT_YML}" "EPISTEMOS_PRODUCT_EDITION: FREE_V1" "App Store target selects the free V1 edition"
+  require_contains "${PROJECT_YML}" "EPISTEMOS_FREE_V1" "App Store target compiles the free V1 boundary"
   require_contains "${PROJECT_YML}" "build-agent-core.sh" "App Store target builds the in-process agent core"
-  require_contains "${PROJECT_YML}" "build-june-web.sh" "App Store target stages June web assets"
+  require_contains "${PROJECT_YML}" 'if [ "${EPISTEMOS_PRODUCT_EDITION:-}" != "FREE_V1" ]; then' "Free V1 build skips paid June web staging"
   require_not_contains "${PROJECT_YML}" "Epistemos-LegacyDev" "Project topology"
   require_not_contains "${PROJECT_YML}" "Epistemos-Experimental" "Project topology"
   require_not_contains "${PROJECT_YML}" "EPISTEMOS_EXPERIMENTAL" "Project topology"
   require_not_contains "${PROJECT_YML}" "build-opencode-runtime.sh" "App Store prebuild phase"
   require_not_contains "${PROJECT_YML}" "build-experimental-web.sh" "App Store prebuild phase"
 fi
+
+if [[ -f "${PROJECT_YML}" ]] && grep -Fq "EPISTEMOS_PRODUCT_EDITION: FREE_V1" "${PROJECT_YML}"; then
+  FREE_V1=1
+fi
+
+require_file "Epistemos/App/ProductCapabilityPolicy.swift" "Central free/paid product capability policy"
+require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" "is_free_v1_build" "Runtime asset bundler recognizes free V1"
+require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" 'rm -rf "$JUNE_WEB_BUNDLE_DIR"' "Runtime asset bundler removes JuneWeb from free V1"
+require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" 'rm -f "$MODEL_MANIFEST_DEST"' "Runtime asset bundler removes model manifests from free V1"
+require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" 'rm -rf "$DEFAULT_SKILLS_DIR"' "Runtime asset bundler removes agent skills from free V1"
 
 require_file "Epistemos/JuneAgent/JuneAgentGateway.swift" "June gateway source"
 require_file "Epistemos/Goose/GooseMASAgentCoreRunner.swift" "In-process MAS Goose runner"
@@ -234,7 +259,9 @@ STAGED_JUNEWEB="${ROOT_DIR}/.june-web-stage"
 STAGED_JUNEWEB_DIST="${STAGED_JUNEWEB}/dist"
 STAGED_JUNEWEB_SHIM="${STAGED_JUNEWEB}/tauri-internals-shim.js"
 
-if [[ -f "${STAGED_JUNEWEB_DIST}/index.html" && -f "${STAGED_JUNEWEB_SHIM}" ]]; then
+if [[ "${FREE_V1}" == "1" ]]; then
+  pass "Free V1 does not require or rebuild staged JuneWeb"
+elif [[ -f "${STAGED_JUNEWEB_DIST}/index.html" && -f "${STAGED_JUNEWEB_SHIM}" ]]; then
   pass "Source checkout includes staged JuneWeb index"
   pass "Source checkout includes staged JuneWeb shim"
   require_tree_contains "${STAGED_JUNEWEB_DIST}" 'June models' "Staged JuneWeb visibly identifies the MAS model catalog as June models"
@@ -261,25 +288,33 @@ if [[ -n "${APPSTORE_APP}" ]]; then
       fail "Built App Store app is missing the App Sandbox entitlement"
     fi
 
-    BUILT_JUNEWEB_DIST="${APPSTORE_APP}/Contents/Resources/JuneWeb/dist"
-    BUILT_JUNEWEB_SHIM="${APPSTORE_APP}/Contents/Resources/JuneWeb/tauri-internals-shim.js"
-    if [[ -f "${BUILT_JUNEWEB_DIST}/index.html" && -f "${BUILT_JUNEWEB_SHIM}" ]]; then
-      pass "Built App Store artifact includes JuneWeb/dist/index.html"
-      pass "Built App Store artifact includes JuneWeb/tauri-internals-shim.js"
-      require_tree_contains "${BUILT_JUNEWEB_DIST}" 'June models' "Built App Store JuneWeb visibly identifies the MAS model catalog as June models"
-      require_tree_not_contains "${BUILT_JUNEWEB_DIST}" 'system_prompt_forge|prompt\.forge_preview|Sharpening prompt locally|agent-composer-forge' "Built App Store JuneWeb omits prompt-upgrade UI and send-review hooks"
-      require_tree_not_contains "${BUILT_JUNEWEB_DIST}" 'Hermes is not running|Hermes RPC failed|Raw Hermes trace' "Built App Store JuneWeb omits Hermes-branded send/session failure copy"
-      require_contains "${BUILT_JUNEWEB_SHIM}" "MAS uses June" "Built App Store JuneWeb shim identifies the MAS in-process June gateway"
-      require_not_contains "${BUILT_JUNEWEB_SHIM}" '"configured":true' "Built App Store JuneWeb fallback does not pretend a provider is configured"
-      require_not_contains "${BUILT_JUNEWEB_SHIM}" "Echo from the Epistemos in-process gateway bridge" "Built App Store JuneWeb shim has no canned prompt.submit success path"
-      require_contains "${BUILT_JUNEWEB_SHIM}" "5030" "Built App Store JuneWeb shim fails visibly if MAS host mode is absent"
-      require_not_contains "${BUILT_JUNEWEB_SHIM}" "hermes.invoke" "Built App Store JuneWeb shim does not advertise a generic in-process Hermes command"
+    if [[ "${FREE_V1}" == "1" ]]; then
+      require_app_absent "${APPSTORE_APP}" "Contents/Resources/JuneWeb" "Built free V1 artifact omits JuneWeb"
+      require_app_absent "${APPSTORE_APP}" "Contents/Resources/model_manifest.json" "Built free V1 artifact omits the model manifest"
+      require_app_absent "${APPSTORE_APP}" "Contents/Resources/DefaultSkills" "Built free V1 artifact omits agent skills"
     else
-      require_existing_file "${BUILT_JUNEWEB_DIST}/index.html" "Built App Store artifact includes JuneWeb/dist/index.html"
-      require_existing_file "${BUILT_JUNEWEB_SHIM}" "Built App Store artifact includes JuneWeb/tauri-internals-shim.js"
+      BUILT_JUNEWEB_DIST="${APPSTORE_APP}/Contents/Resources/JuneWeb/dist"
+      BUILT_JUNEWEB_SHIM="${APPSTORE_APP}/Contents/Resources/JuneWeb/tauri-internals-shim.js"
+      if [[ -f "${BUILT_JUNEWEB_DIST}/index.html" && -f "${BUILT_JUNEWEB_SHIM}" ]]; then
+        pass "Built App Store artifact includes JuneWeb/dist/index.html"
+        pass "Built App Store artifact includes JuneWeb/tauri-internals-shim.js"
+        require_tree_contains "${BUILT_JUNEWEB_DIST}" 'June models' "Built App Store JuneWeb visibly identifies the MAS model catalog as June models"
+        require_tree_not_contains "${BUILT_JUNEWEB_DIST}" 'system_prompt_forge|prompt\.forge_preview|Sharpening prompt locally|agent-composer-forge' "Built App Store JuneWeb omits prompt-upgrade UI and send-review hooks"
+        require_tree_not_contains "${BUILT_JUNEWEB_DIST}" 'Hermes is not running|Hermes RPC failed|Raw Hermes trace' "Built App Store JuneWeb omits Hermes-branded send/session failure copy"
+        require_contains "${BUILT_JUNEWEB_SHIM}" "MAS uses June" "Built App Store JuneWeb shim identifies the MAS in-process June gateway"
+        require_not_contains "${BUILT_JUNEWEB_SHIM}" '"configured":true' "Built App Store JuneWeb fallback does not pretend a provider is configured"
+        require_not_contains "${BUILT_JUNEWEB_SHIM}" "Echo from the Epistemos in-process gateway bridge" "Built App Store JuneWeb shim has no canned prompt.submit success path"
+        require_contains "${BUILT_JUNEWEB_SHIM}" "5030" "Built App Store JuneWeb shim fails visibly if MAS host mode is absent"
+        require_not_contains "${BUILT_JUNEWEB_SHIM}" "hermes.invoke" "Built App Store JuneWeb shim does not advertise a generic in-process Hermes command"
+      else
+        require_existing_file "${BUILT_JUNEWEB_DIST}/index.html" "Built App Store artifact includes JuneWeb/dist/index.html"
+        require_existing_file "${BUILT_JUNEWEB_SHIM}" "Built App Store artifact includes JuneWeb/tauri-internals-shim.js"
+      fi
     fi
     require_appstore_no_parked_account_runtime_markers "${APPSTORE_APP}"
-    require_appstore_local_gguf_runtime "${APPSTORE_APP}"
+    if [[ "${FREE_V1}" != "1" ]]; then
+      require_appstore_local_gguf_runtime "${APPSTORE_APP}"
+    fi
   fi
 fi
 
@@ -288,4 +323,4 @@ if [[ "${failures}" -gt 0 ]]; then
   exit 1
 fi
 
-printf 'KEELSTONE MAS-only gate passed.\n'
+printf 'KEELSTONE MAS-only gate passed for the active product edition.\n'

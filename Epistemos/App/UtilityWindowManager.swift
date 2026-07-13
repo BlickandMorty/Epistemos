@@ -103,6 +103,15 @@ enum UtilityPanel: String, CaseIterable {
         [.notes, .settings]
     }
 
+    var isAvailableInCurrentEdition: Bool {
+        switch self {
+        case .browser:
+            ProductCapabilityPolicy.isAvailable(.browser)
+        case .notes, .meetingNote, .settings:
+            true
+        }
+    }
+
     var title: String {
         switch self {
         case .notes: "Notes"
@@ -223,6 +232,7 @@ final class UtilityWindowManager {
     // MARK: - Public API
 
     func show(_ panel: UtilityPanel) {
+        guard panel.isAvailableInCurrentEdition else { return }
         let window = getOrCreateWindow(panel)
         if let uiState = AppBootstrap.shared?.uiState {
             WindowThemeStyler.apply(to: window, uiState: uiState)
@@ -248,6 +258,7 @@ final class UtilityWindowManager {
     }
 
     func toggle(_ panel: UtilityPanel) {
+        guard panel.isAvailableInCurrentEdition else { return }
         let window = getOrCreateWindow(panel)
         if window.isVisible {
             window.orderOut(nil)

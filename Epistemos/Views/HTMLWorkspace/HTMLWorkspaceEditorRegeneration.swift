@@ -32,7 +32,7 @@ extension HTMLWorkspaceEditorView {
     }
 
     private static let appStoreRegenerateParkedStatus =
-        "HTML Workspace regenerate is parked in the App Store build. Use MAS June / Epdoc Assist."
+        "HTML Workspace regenerate is reserved for a future paid edition."
 
     private func parkRegenerateForAppStoreBuild() {
         regenerateTask?.cancel()

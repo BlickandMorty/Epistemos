@@ -5,6 +5,7 @@ import SwiftData
 
 struct AskAboutNotesIntent: AppIntent {
     static var title: LocalizedStringResource { "Ask About Notes" }
+    static let isDiscoverable: Bool = false
     static var description: IntentDescription {
         IntentDescription("Asks the AI a question grounded in your Epistemos notes.")
     }
@@ -15,6 +16,9 @@ struct AskAboutNotesIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            throw ProductCapabilityUnavailableError(capability: .generativeActions)
+        }
         guard let bootstrap = AppBootstrap.shared else { throw IntentError.appNotReady }
 
         // Use ambient manifest for vault-wide awareness, with keyword-matched pages for depth

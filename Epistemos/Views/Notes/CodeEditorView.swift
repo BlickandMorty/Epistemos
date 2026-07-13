@@ -1007,7 +1007,7 @@ final class CodeCompanionService {
     }
     
     func startSession(code: String, language: String) {
-        guard isEnabled else { return }
+        guard isEnabled, ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
         currentCode = code
         currentLanguage = language
         
@@ -3621,7 +3621,9 @@ struct CodeSemanticSidebar: View {
     @State private var aiExplanation: String = ""
     @State private var isExplaining = false
     @State private var showSemanticSearch = false
-    @State private var selectedTab: SidebarTab = .insights
+    @State private var selectedTab: SidebarTab = ProductCapabilityPolicy.isAvailable(.generativeActions)
+        ? .insights
+        : .related
     @State private var insightRefreshTask: Task<Void, Never>?
 
     @ScaledMetric(relativeTo: .body) private var sidebarWidth: CGFloat = 300
@@ -3663,7 +3665,11 @@ struct CodeSemanticSidebar: View {
             // Content based on tab
             switch selectedTab {
             case .insights:
-                insightsSection
+                if ProductCapabilityPolicy.isAvailable(.generativeActions) {
+                    insightsSection
+                } else {
+                    relatedNotesSection
+                }
             case .related:
                 relatedNotesSection
             }
@@ -3694,6 +3700,7 @@ struct CodeSemanticSidebar: View {
 
     private func scheduleInsights(for code: String, immediate: Bool = false) {
         insightRefreshTask?.cancel()
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
         insightRefreshTask = Task {
             if !immediate {
                 try? await Task.sleep(
@@ -3712,12 +3719,14 @@ struct CodeSemanticSidebar: View {
     
     private var tabSelector: some View {
         HStack(spacing: 0) {
-            TabButton(
-                title: "Insights",
-                icon: "sparkles",
-                isSelected: selectedTab == .insights
-            ) {
-                selectedTab = .insights
+            if ProductCapabilityPolicy.isAvailable(.generativeActions) {
+                TabButton(
+                    title: "Insights",
+                    icon: "sparkles",
+                    isSelected: selectedTab == .insights
+                ) {
+                    selectedTab = .insights
+                }
             }
             
             TabButton(
@@ -3883,17 +3892,19 @@ struct CodeSemanticSidebar: View {
     
     private var actionsSection: some View {
         VStack(spacing: 8) {
-            Button {
-                explainWithAI()
-            } label: {
-                HStack {
-                    Image(systemName: "sparkles")
-                    Text(isExplaining ? "Explaining..." : "Explain with AI")
+            if ProductCapabilityPolicy.isAvailable(.generativeActions) {
+                Button {
+                    explainWithAI()
+                } label: {
+                    HStack {
+                        Image(systemName: "sparkles")
+                        Text(isExplaining ? "Explaining..." : "Explain with AI")
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(.borderedProminent)
+                .disabled(isExplaining)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(isExplaining)
             
             Button {
                 showSemanticSearch = true

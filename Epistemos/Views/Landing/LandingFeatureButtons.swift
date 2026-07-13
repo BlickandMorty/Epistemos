@@ -104,6 +104,24 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    static var visibleCases: [LandingFeatureButton] {
+        allCases.filter(\.isAvailableInCurrentEdition)
+    }
+
+    var productCapability: ProductCapability {
+        switch self {
+        case .pdfImport: .pdfImport
+        case .arxiv: .researchHub
+        case .browser: .browser
+        case .meetingNote: .meeting
+        case .agent: .june
+        }
+    }
+
+    var isAvailableInCurrentEdition: Bool {
+        ProductCapabilityPolicy.isAvailable(productCapability)
+    }
+
     var title: String {
         switch self {
         case .pdfImport: "pdf import"
@@ -156,11 +174,12 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         nil
     }
 
-    var isProOnly: Bool {
-        false
+    var isPaidOnly: Bool {
+        productCapability.edition == .futurePaid
     }
 
     var isAvailableInThisBuild: Bool {
+        guard isAvailableInCurrentEdition else { return false }
         switch self {
         case .pdfImport:
             return LiteParseImportGateStatus.status().isActive
@@ -171,10 +190,6 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .browser:
             return true
         case .agent:
-            // Available on BOTH targets: MAS mounts the vendored June agent
-            // room (Plan 1-MAS, LandingView case .agent → JuneAgentSurfaceView);
-            // Pro mounts its own agent workspace. The old MAS `false` predated
-            // the June surface and left it unreachable at runtime.
             return true
         }
     }
@@ -253,8 +268,8 @@ struct LandingFeatureButtonTile: View {
             )
             .opacity(feature.isAvailableInThisBuild ? 1 : 0.58)
 
-            if feature.isProOnly && !feature.isAvailableInThisBuild {
-                Text("PRO")
+            if feature.isPaidOnly && !feature.isAvailableInThisBuild {
+                Text("PAID")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundStyle(accent)
                     .padding(.horizontal, 5)

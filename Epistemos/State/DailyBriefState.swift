@@ -28,6 +28,12 @@ final class DailyBriefState {
     private var dismissCleanupTask: Task<Void, Never>?
 
     func requestDailyBrief(prompt: String) {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            showDailyBrief = false
+            isDailyBriefLoading = false
+            dailyBriefContent = ""
+            return
+        }
         dismissCleanupTask?.cancel()
         dismissCleanupTask = nil
         showDailyBrief = true

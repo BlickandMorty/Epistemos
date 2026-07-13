@@ -9,10 +9,24 @@ enum LandingCoordinateSpace {
 }
 
 enum LandingViewStateSync {
+    static func sanitizedHomeContent(_ homeContent: UIState.HomeContent) -> UIState.HomeContent {
+        switch homeContent {
+        case .agent:
+            ProductCapabilityPolicy.isAvailable(.june) ? .agent : .greeting
+        case .arxiv:
+            ProductCapabilityPolicy.isAvailable(.researchHub) ? .arxiv : .greeting
+        case .browser:
+            ProductCapabilityPolicy.isAvailable(.browser) ? .browser : .greeting
+        case .greeting, .graph, .meeting:
+            homeContent
+        }
+    }
+
     @MainActor
     static func reassertHomeSurface(_ ui: UIState) {
         ui.setActivePanel(.home)
         ui.homeTab = .home
+        ui.homeContent = sanitizedHomeContent(ui.homeContent)
     }
 }
 
@@ -305,6 +319,12 @@ struct LandingView: View {
         .onChange(of: workspaceService.welcomeBack?.displayText ?? "") { _, _ in
             scheduleWelcomeBackSync()
         }
+        .onChange(of: ui.homeContent) { _, newValue in
+            let sanitized = LandingViewStateSync.sanitizedHomeContent(newValue)
+            if sanitized != newValue {
+                ui.homeContent = sanitized
+            }
+        }
         .onDisappear {
             EpistemosVisibleReadAloudRegistry.shared.unregister(.landingHome)
             welcomeBackDismissTask?.cancel()
@@ -443,7 +463,7 @@ struct LandingView: View {
         switch ui.homeContent {
         case .greeting:
             parts.append("Greetings, researcher.")
-            parts.append("Home shortcuts: PDF import, arXiv, browser, meeting, agent, quick capture, workspaces, save workspace, time machine, notes, new note, new code, HTML workspace, and graph.")
+            parts.append("Home shortcuts: PDF import, meeting, quick capture, workspaces, save workspace, time machine, notes, new note, new code, HTML workspace, and graph.")
         case .graph:
             parts.append("Knowledge graph home view. Explore note relationships, graph search, and node inspection.")
         case .meeting:
@@ -755,7 +775,7 @@ struct LandingView: View {
             columns: [GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)],
             spacing: 8
         ) {
-            ForEach(LandingFeatureButton.allCases) { feature in
+            ForEach(LandingFeatureButton.visibleCases) { feature in
                 LandingFeatureButtonTile(feature: feature, theme: theme) {
                     performLandingFeatureButton(feature)
                 }

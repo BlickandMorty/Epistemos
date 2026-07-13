@@ -6,13 +6,15 @@ Current canonical execution key:
 Current final verdict: **INCOMPLETE**.
 
 The original 2026-07-10 pass stopped at its mandatory resource preflight. The
-owner authorized exact continuation after a forced restart on 2026-07-12. That
-continuation restored the developer prerequisites and June source/stage,
-completed the narrow Debug compile/regression leg, and then stopped before the
-Release archive because this Mac has no Apple signing identity or provisioning
-profile. No Release archive, archive artifact gate, owner-visible runtime
-matrix, model load, provider request, Keychain-secret read, owner-vault
-operation, or audio operation was performed.
+owner authorized exact continuation after a forced restart on 2026-07-12, then
+dated a controlling free-V1 product boundary on 2026-07-13: June, generative
+AI, models, Browser, and ResearchHub are paid-only and hidden/inert; Kokoro and
+the deterministic local capability ring remain free. The latest continuation
+now has a passing narrow free-V1 regression result, exactly one current Release
+archive, a verified local ad-hoc sandbox signature, and a green exact-artifact
+gate. The owner-visible runtime matrix did not begin because macOS was locked.
+No model load, provider request, Keychain-secret read, owner-vault operation,
+or audio operation was performed.
 
 ## Owner Intent Checkpoint
 
@@ -383,14 +385,183 @@ preflight, delete the surviving Debug app and any stale archives, produce one
 and only one signed Release archive, run every artifact gate against that
 archive, and launch only if they all pass. Do not begin Prompt 3.
 
+## Free V1 Continuation Evidence — 2026-07-13
+
+This dated continuation supersedes the stale statement that Apple enrollment,
+payment, or distribution signing is required before free-V1 source, archive,
+or local runtime evidence can proceed. It does not represent the resulting
+archive as App Store submission-ready.
+
+### Controlling owner steer
+
+Verbatim excerpts:
+
+> the v1 free versjon will have no ai at all.
+
+> browser, research hub both are needing to be on paid version as well an
+> hidden from v1 releawe
+
+> movig forward there must be oe build whever testung u must delte the stale
+> builds before building an ew app
+
+Applied product boundary:
+
+- Free V1 keeps KEELSTONE, Epdoc/LUMENLENS deterministic planner work,
+  RECKONER, Meeting, Sync, Quick Capture, calendar/tasks, PDF/import, Kokoro,
+  graph/search, and portable workspace/export capabilities.
+- June, Epdoc Assist, model/provider/generative/agent actions, Browser, and
+  ResearchHub are future paid capabilities and are hidden and inert in free V1.
+- Payment, StoreKit, Apple enrollment, and distribution signing remain
+  deferred. They do not block free-V1 source or local ad-hoc evidence.
+- The one-current-build rule remains mandatory before every build, test build,
+  or archive.
+
+### Current repository and resource identity
+
+- Branch: `feat/goose-surface`.
+- HEAD during the evidence leg:
+  `5e0a335d3cc2de87d89ec91698a3077036d693a7`.
+- Dirty entries before the final runtime preflight: 56.
+- Final runtime preflight: 457.75 MiB swap used of 1 GiB, 72% free memory,
+  zero throttled pages, about 750 GiB free disk, and no competing Xcode,
+  compiler, model, or Epistemos process.
+- The branch/worktree remained intentionally dirty with the scoped free-V1
+  implementation and canon/handoff work. Nothing was reset or overwritten.
+
+### Free V1 implementation and focused regression
+
+The current target now declares `EPISTEMOS_PRODUCT_EDITION=FREE_V1` and the
+`EPISTEMOS_FREE_V1` compilation condition. A centralized
+`ProductCapabilityPolicy` classifies the paid and free surfaces. Paid routes,
+shortcuts, startup work, provider state, App Intents, June, Browser,
+ResearchHub/arXiv, and generative note actions fail closed. Kokoro and the
+deterministic free capability ring remain available. Free packaging removes
+`JuneWeb`, `model_manifest.json`, and `DefaultSkills`.
+
+Exact focused result bundle:
+
+`/tmp/Epistemos-FreeV1-Policy.xcresult`
+
+`xcresulttool` summary: **Passed — 8 total, 8 passed, zero failed, zero
+skipped, zero expected failures**, arm64 macOS 26.3.1. The startup log now
+reports `Free V1 model boundary: June=DISABLED, local-gguf-runtime=DISABLED,
+cloud-models=OFF`.
+
+The edition-aware source gate also passed. It validates the centralized policy,
+free build setting/condition, paid-web build skip, free resource omissions,
+and the existing MAS architecture boundaries.
+
+### Exactly one fresh Release archive
+
+Before the evidence build, the prior test host and all stale Epistemos app and
+archive products were removed. A first signing-enabled archive attempt stopped
+before compilation because the requested Apple provisioning profile is absent;
+it produced no app or archive. After a fresh resource preflight and without a
+competing build, this exact local-evidence command succeeded:
+
+```bash
+./scripts/xcodebuild_epistemos.sh archive \
+  -project Epistemos.xcodeproj \
+  -scheme Epistemos-AppStore \
+  -configuration Release \
+  -destination 'generic/platform=macOS' \
+  -derivedDataPath /Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-FreeV1-Archive \
+  -archivePath /Users/jojo/Downloads/Epistemos/build/archives/Epistemos-FreeV1-current.xcarchive \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+```
+
+Result: `** ARCHIVE SUCCEEDED **`.
+
+Retained archive and app:
+
+- Archive:
+  `/Users/jojo/Downloads/Epistemos/build/archives/Epistemos-FreeV1-current.xcarchive`
+- App:
+  `/Users/jojo/Downloads/Epistemos/build/archives/Epistemos-FreeV1-current.xcarchive/Products/Applications/Epistemos.app`
+- Bundle: `com.epistemos.appstore`, version `1.0.0`, build `1`.
+- Executable: universal `x86_64` + `arm64`.
+- Executable SHA-256 after local signing:
+  `3e4273c9cdfe7ed3f3deca7883f9d05020fd92fc3d95ec986ba18cd6f6513f5b`.
+- App size: 234,456 KiB. Archive size: 647,928 KiB.
+- Final inventory: exactly one Epistemos app and exactly one Epistemos
+  xcarchive; no DerivedData app product remains.
+
+The app and its nested dylibs/framework were signed locally with ad-hoc
+identity `-` for evidence only. Strict deep verification passed. Effective
+entitlements include `com.apple.security.app-sandbox=true`; app CDHash is
+`2fd8aab90e02e5534892ed4f616e526a4ed531b1`. `TeamIdentifier` is absent, so
+this is not Apple distribution signing and cannot prove submission readiness.
+
+### Exact artifact gates
+
+Command:
+
+```bash
+bash scripts/keelstone-release-gate.sh \
+  --appstore-app /Users/jojo/Downloads/Epistemos/build/archives/Epistemos-FreeV1-current.xcarchive/Products/Applications/Epistemos.app
+```
+
+Result: **PASS**. The exact archive app:
+
+- has the App Sandbox entitlement;
+- omits `JuneWeb`, `model_manifest.json`, and `DefaultSkills`;
+- has no quarantine attributes;
+- has no prohibited parked account/backend, retired-lane, 1Code, research/tool
+  resource, or prohibited runtime-string/linkage finding;
+- passes the comprehensive App Store bundle scanner.
+
+The archive still links dormant shared implementation libraries including
+`libagent_core.dylib`, `libomega_mcp.dylib`, and `llama.framework`. No model,
+June web app, agent skills, route, shortcut, startup, provider, or generative
+capability is active in the free edition, and the scanner found no prohibited
+runtime symbol. Removing paid-only native libraries from the free target is
+separate size/build-topology debt; deleting them from the finished bundle is
+unsafe because the executable currently links them.
+
+### Finite free-V1 runtime matrix and stop boundary
+
+The later owner steer removes the old Qwen/provider/June items from the current
+free-V1 matrix. The remaining finite matrix is:
+
+1. Normal product identity as Epistemos free V1.
+2. June, models/providers/generative actions, Browser, and ResearchHub absent
+   from navigation, settings, shortcuts, restoration, and background startup.
+3. Disposable-vault select, edit/save, quit/relaunch/restore, and second save.
+4. Epdoc rich-Markdown fidelity across Epdoc, Source, and Prose.
+5. Deterministic Meeting, Quick Capture, task/planner, Sync-status,
+   calendar-permission, PDF/import, and export entry points.
+6. Writable/responsive graph-to-editor and search/source routing.
+7. English Kokoro preview/read-aloud with correlated local logs and no agent or
+   provider startup.
+8. Correlated logs contain no paid-route restoration, provider request, model
+   load, `no vault URL`, silent loss, or false success.
+
+The exact app was not launched. Computer-use returned: `The Mac is locked and
+automatic unlock could not unlock it.` A process scan found no Epistemos
+process, and the correlated unified-log query found no Epistemos runtime line.
+Therefore no vault, model, provider, Keychain, network, microphone, or audio
+operation began. Bypassing the lock would not provide owner-visible evidence.
+
+Exact next action:
+
+1. Unlock the Mac manually; do not change the owner's five-minute lock setting.
+2. Re-run the resource preflight and stop if any owner threshold is red.
+3. Re-run the exact artifact gate if the archive bytes changed; otherwise keep
+   this sole archive immutable.
+4. Launch the exact archive app and run only the finite free-V1 runtime matrix
+   serially with correlated logs and a disposable vault.
+5. Update this document and stop after the KEELSTONE verdict. Do not start a
+   new canonical execution key or paid/payment work.
+
 ## Final KEELSTONE Verdict
 
 **INCOMPLETE**
 
-Reason: the post-reset resource gate and narrow Debug compile/regression leg
-now pass, but Apple signing remains absent. No current signed Release archive,
-archive artifact-gate pass, or finite owner-visible runtime matrix exists.
-KEELSTONE therefore remains incomplete at the Release-archive signing
-boundary.
+Reason: the focused free-V1 regression and exact Release archive artifact gate
+now pass, but the owner-visible free-V1 runtime matrix is blocked at the locked
+Mac boundary. Apple distribution signing/payment is intentionally deferred and
+is separately unproven. No claim of App Store submission readiness, audible
+Kokoro behavior, vault persistence, Epdoc fidelity, or paid-feature runtime
+absence beyond the proven source/artifact boundaries is made.
 
 No recommendation to begin another canonical execution key is made.

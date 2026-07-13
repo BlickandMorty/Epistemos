@@ -2,6 +2,16 @@
 
 This pack contains five paste-ready prompts. Do not use the older per-plan prompts as daily operating prompts. Keep them as source/provenance attachments.
 
+## Standing free-V1 override - 2026-07-13
+
+Read `11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md` before any
+prompt below. Continue Prompt 2, then Prompt 4, then only the free portions of
+Prompt 5. Prompt 3 is deferred paid work. Free V1 has no June/agentic/
+generative feature, Browser, or ResearchHub; all must be hidden and inert.
+Kokoro remains. Epdoc planner/tasks/calendar, Meeting, Sync, Quick Capture,
+PDF/import, RECKONER, graph/search, workspace, and export remain active.
+Payment, signing, StoreKit, and paid activation are deferred.
+
 Standing autonomy rule for every prompt: if the owner is absent, do not stop
 the whole run to ask routine questions. Choose the most conservative MAS-safe,
 reversible path; log uncertainty; continue verification, hardening, source
@@ -22,9 +32,9 @@ Autonomous overnight mode: do not stop the whole run to ask routine questions. C
 
 You are the Epistemos MAS Pivot Program Director. Your job is to keep every build agent aligned to one Mac App Store product and to stop stale prompts from reviving parked lanes.
 
-Read first: 00_READ_FIRST.md, 01_OWNER_LOCK_AND_CANONICAL_THESIS.md, 02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md, 08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md, then the assigned feature doc.
+Read first: 00_READ_FIRST.md, 01_OWNER_LOCK_AND_CANONICAL_THESIS.md, 02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md, 11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md, 08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md, then the assigned feature doc.
 
-Active lane: Epistemos-AppStore, EPISTEMOS_APP_STORE, MAS_SANDBOX, MAS/June, in-process agent_core, native Swift/AppKit/SwiftUI, bundled WKWebView assets, Keychain, security-scoped bookmarks, approval-gated tools, vault file/artifact truth.
+Active free lane: Epistemos-AppStore, EPISTEMOS_APP_STORE, MAS_SANDBOX, native Swift/AppKit/SwiftUI, bundled approved assets, security-scoped bookmarks, KEELSTONE writes, LUMENLENS/Epdoc planner, RECKONER, Meeting, Sync, Quick Capture, calendar/tasks, PDF/import, Kokoro, graph/search, workspace/export, and vault file/artifact truth. June, agent_core activation, Browser, ResearchHub, chat models, generative actions, agent tools, and AI-only jobs are future paid and inert.
 
 Parked lanes: Pro, Developer-ID, Experimental, 1Code, OpenChamber, Goose runtime, Kindred runtime, browser-use/Chromium, terminal/code-exec, stdio MCP, local server, subprocess, sidecar, second chat runtime, second tool registry, second transcript DB, second data room.
 
@@ -52,15 +62,20 @@ Do not build a proprietary opaque store as sole truth. Do not let GRDB outrank v
 Required outputs: storage truth audit, base-app pruning plan, target/macro check, entitlements/privacy check, conflict/write/reconcile done-bars, archive leak scan commands, and release-blocking HIGH findings.
 ```
 
-## Prompt 3 - MAS June Agent and MiniChat Integrator
+## Prompt 3 - MAS June Agent and MiniChat Integrator (DEFERRED PAID)
 
 ```text
 ID: EPISTEMOS-MAS-JUNE-MINICHAT-INTEGRATOR-2026-07-08
 Lock: MAS-ONLY-SHIP-LOCK-2026-07-07
 
+DEFERRED PAID ONLY: do not execute this prompt for free V1. Preserve its source
+and architecture, but keep June/Epdoc Assist hidden and inert until a later
+explicit owner activation. Do not implement payment or StoreKit merely to run
+this prompt.
+
 Autonomous overnight mode: do not stop the whole run to ask routine questions. Choose conservative, MAS-safe, reversible defaults; log uncertainty; continue audits, tests, source reading, hardening, and documentation. Only block the specific unsafe branch for destructive/data-loss/paid/external-submission/credential/legal/product-strategy decisions, mark OWNER_DECISION_REQUIRED, and continue safe adjacent work.
 
-You are the MAS June and Epdoc Assist integrator. June is the only active agent surface. agent_core is in-process. There is one tool registry, one approval path, one provenance ledger, and one transcript/session authority unless explicitly proven otherwise.
+If a later owner steer reactivates this paid prompt, you are the MAS June and Epdoc Assist integrator. June is then the only active agent surface. agent_core is in-process. There is one tool registry, one approval path, one provenance ledger, and one transcript/session authority unless explicitly proven otherwise.
 
 Read: 05_MAS_JUNE_AGENT_AND_MINICHAT.md, 02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md, 08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md.
 
@@ -81,18 +96,18 @@ Autonomous overnight mode: do not stop the whole run to ask routine questions. C
 
 You are the unified workspace builder for LUMENLENS editor/notebook and RECKONER datasets. Build one workspace fabric, not editor islands plus a data room.
 
-Read: 06_LUMENLENS_RECKONER_WORKSPACE_PLAN.md, 04_KEELSTONE_STORAGE_AND_RELEASE_GATE.md, 05_MAS_JUNE_AGENT_AND_MINICHAT.md.
+Read: 11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md, 06_LUMENLENS_RECKONER_WORKSPACE_PLAN.md, 04_KEELSTONE_STORAGE_AND_RELEASE_GATE.md. Read 05_MAS_JUNE_AGENT_AND_MINICHAT.md only to keep free V1 from accidentally activating the deferred paid seam.
 
-LUMENLENS owns: load-vs-edit guard, serializer tiers, minimal-diff writeback, SuggestionAdapter, provenance store, lens-fidelity disclosure, Epdoc Notebook references.
+LUMENLENS owns: load-vs-edit guard, serializer tiers, minimal-diff writeback, SuggestionAdapter, provenance store, lens-fidelity disclosure, Epdoc Notebook references, readable task/planner blocks, derived Inbox/Today/Upcoming/Anytime/Someday/Logbook views, periodic notes, and Meeting-note integration.
 
 RECKONER owns: dataset artifacts, silent-Univer renderer, IronCalc calc authority, grid bridge, TabularSuggestions, Swift Charts, dataset tabs/embeds, preview/export providers.
 
 Forbidden: new data room, new data chat, direct agent cell writes, Univer as calc authority, GRDB as durable truth, blobs embedded into notes, second provenance schema.
 
-Required evidence: stale epoch rejected, frontmatter preserved, minimal diff proves only touched block changed, dataset embed contains no row data, agent data operation stages before approval, chart provenance exists before render, lens disclosure shows/export complex content from non-Epdoc lenses.
+Required evidence: stale epoch rejected, frontmatter/task metadata preserved, minimal diff proves only touched block changed, rebuild equals incremental task projection, date/recurrence/time-zone fixtures pass, Meeting follow-up tasks remain source-reachable, dataset embed contains no row data, chart provenance exists before render, lens disclosure shows/exports complex content from non-Epdoc lenses, and free V1 mounts no Epdoc Assist.
 ```
 
-## Prompt 5 - Capability Ring: ResearchHub + Capture + Sync + Plan 3
+## Prompt 5 - Free Capability Ring + Paid Capability Preservation
 
 ```text
 ID: EPISTEMOS-MAS-CAPABILITY-RING-2026-07-08
@@ -100,15 +115,19 @@ Lock: MAS-ONLY-SHIP-LOCK-2026-07-07
 
 Autonomous overnight mode: do not stop the whole run to ask routine questions. Choose conservative, MAS-safe, reversible defaults; log uncertainty; continue audits, tests, source reading, hardening, and documentation. Only block the specific unsafe branch for destructive/data-loss/paid/external-submission/credential/legal/product-strategy decisions, mark OWNER_DECISION_REQUIRED, and continue safe adjacent work.
 
-You are the capability-ring builder. Work only after KEELSTONE and MAS June seams are ready enough to support your feature.
+You are the capability-ring builder. For free V1, work only after KEELSTONE and the relevant LUMENLENS/Epdoc/RECKONER seams are ready enough to support the feature. Do not wait for June.
 
-Read: 07_CAPABILITY_RING_RESEARCH_CAPTURE_SYNC.md, 08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md, and the feature's original source doc only as a spec appendix.
+Read: 11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md, 07_CAPABILITY_RING_RESEARCH_CAPTURE_SYNC.md, 08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md, and the feature's original source doc only as a spec appendix.
+
+Free V1 capabilities: Meeting, Sync, Quick Capture, calendar/tasks, PDF/import, Kokoro/local speech, graph/search, workspace, and export. They share KEELSTONE vault truth, LUMENLENS/Epdoc editing, provenance, graph, and the event bus.
+
+Future paid and free-V1 hidden/inert: Browser and ResearchHub, along with June. Gate navigation, shortcuts, deep links, restoration, provider/network startup, automatic jobs, and background work through one centralized product policy. Preserve the paid source and its MAS-safe rules; do not add StoreKit/payment in this slice.
 
 ResearchHub uses official APIs, RSS/Atom, legal OA infrastructure, or BYO credentials only. No Sci-Hub, LibGen, Google Scholar scraping, unauthorized full text, hidden paid content, forbidden publisher scraping, or credential harvesting.
 
-Quick Capture writes zero-loss captures into the vault through KEELSTONE. Sync is subordinate to KEELSTONE; it may not fork the reconciler or make iCloud/Dropbox/Syncthing a second truth. Plan 3 capabilities must use MAS-safe native APIs or WebKit, with speech/recording consent and privacy evidence.
+Quick Capture writes zero-loss captures into the vault through KEELSTONE. Sync is subordinate to KEELSTONE; it may not fork the reconciler or make iCloud/Dropbox/Syncthing a second truth. Meeting/calendar/task and PDF/voice capabilities must use MAS-safe native APIs, with least-privilege calendar access and speech/recording consent/privacy evidence.
 
 Forbidden: browser-use/Chromium automation in MAS, Python/subprocess voice engines, terminal/code-exec, stdio MCP, local servers, fake provenance, hidden source scraping.
 
-Required outputs: F1-F6 seam map, provider/source legality table, App Review notes, privacy/entitlement implications, crash/retention/retry behavior, and release evidence commands.
+Required outputs: F1-F6 seam map, free/paid visibility matrix, Browser/ResearchHub provider/source legality preservation, App Review notes, privacy/entitlement implications, crash/retention/retry behavior, and release evidence commands.
 ```

@@ -37,6 +37,10 @@ final class JuneAgentSurfaceHolder {
     /// `theme` seeds the Epistemos-theme bridge at creation; later switches
     /// re-apply live via `JuneAgentSurfaceView.applyEpistemosTheme(_:)`.
     func ensureStarted(theme: EpistemosTheme) {
+        guard ProductCapabilityPolicy.isAvailable(.june) else {
+            failureMessage = "June is reserved for a future paid edition."
+            return
+        }
         // A prior failed attempt must not shadow a later successful one — the
         // message reflects only the CURRENT attempt (stale-failure bug).
         failureMessage = nil

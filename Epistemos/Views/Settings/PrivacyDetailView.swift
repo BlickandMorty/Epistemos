@@ -49,7 +49,7 @@ struct PrivacyDetailView: View {
                     "Notes, vault contents, and any file you attach.",
                     "Embeddings, search indexes, knowledge graph, and vault recall data.",
                     "Settings, preferences, and chat history.",
-                    "Optional verified GGUF language-model and Kokoro voice-model data installed in the app container."
+                    "Optional Kokoro voice-model data installed in the app container."
                 ])
             }
         }
@@ -61,10 +61,9 @@ struct PrivacyDetailView: View {
                 cardTitle("What leaves this Mac")
                 #if EPISTEMOS_APP_STORE || MAS_SANDBOX
                 bullets([
-                    "June cloud-model API requests, only when you select an OpenAI or Anthropic model connected to June.",
-                    "Provider-specific cloud consent is off by default and revocable in Settings; June blocks cloud prompt transmission until you enable it for that provider.",
-                    "The matching API key travels only to that provider endpoint; the key remains stored in macOS Keychain.",
-                    "Nothing is sent to any Epistemos-operated server. There is no telemetry server."
+                    "The free V1 release has no June, model-provider, ResearchHub, or in-app Browser requests.",
+                    "Vault sync uses the folder you select; Epistemos does not upload the vault to an Epistemos-operated service.",
+                    "Nothing is sent to an Epistemos-operated server. There is no telemetry server."
                 ])
                 #else
                 bullets([
@@ -84,7 +83,7 @@ struct PrivacyDetailView: View {
                 bullets([
                     "Tracking identifiers (the App Privacy manifest declares NSPrivacyTracking = false).",
                     "Advertising SDKs, attribution SDKs, and third-party analytics SDKs.",
-                    "No in-app telemetry or analytics is sent off the Mac. Consent-gated June cloud prompts are disclosed separately as provider App Functionality, not analytics or tracking. Apple's standard system-level reports (e.g. crash logs) are governed by your macOS Privacy & Analytics settings, not by this app."
+                    "No in-app telemetry or analytics is sent off the Mac. Apple's standard system-level reports (e.g. crash logs) are governed by your macOS Privacy & Analytics settings, not by this app."
                 ])
             }
         }
@@ -100,8 +99,7 @@ struct PrivacyDetailView: View {
 
                 manifestRow(label: "NSPrivacyTracking", value: "false")
                 manifestRow(label: "NSPrivacyTrackingDomains", value: "(empty)")
-                manifestRow(label: "Collected: Other User Content", value: "Linked · App Functionality · not tracking (only when June cloud consent is enabled)")
-                manifestRow(label: "Collected: User ID", value: "Provider account/API-key identity · linked · App Functionality · not tracking")
+                manifestRow(label: "NSPrivacyCollectedDataTypes", value: "(empty)")
 
                 Divider().opacity(0.3)
 
@@ -141,9 +139,9 @@ struct PrivacyDetailView: View {
                 cardTitle("Related controls")
                 #if EPISTEMOS_APP_STORE || MAS_SANDBOX
                 bullets([
-                    "Provider credentials, when configured by a surface, are stored in the macOS Keychain.",
                     "Vault path and sync state live in Settings > Vault.",
-                    "June native tools, provenance, and safety status live in Settings > Epistemos Foundation."
+                    "Native import, provenance, and safety status live in Settings > Epistemos Foundation.",
+                    "Voice and Kokoro read-aloud controls live in Settings > Voice."
                 ])
                 #else
                 bullets([

@@ -375,7 +375,7 @@ final class AIPartnerService {
     // MARK: - Session Management
     
     func startSession(code: String, language: String, filePath: String?) {
-        guard isEnabled else { return }
+        guard isEnabled, ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
 
         currentCode = code
         currentLines = code.components(separatedBy: .newlines)
@@ -432,7 +432,7 @@ final class AIPartnerService {
     
     private func schedulePeriodicAnalysis() {
         periodicTimer?.invalidate()
-        guard isEnabled else { return }
+        guard isEnabled, ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
         
         let interval = configuration.suggestionFrequency.interval
         guard interval > 0 else { return }

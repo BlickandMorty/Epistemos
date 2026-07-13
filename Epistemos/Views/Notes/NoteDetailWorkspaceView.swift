@@ -3496,7 +3496,7 @@ private struct IdeasPanel: View {
                         Text(
                             activeTab == .ideas
                                 ? "Place your cursor on a line, then add an idea"
-                                : "Dump raw thoughts — format & insert with AI"
+                                : "Capture raw thoughts and insert them when ready"
                         )
                         .font(.system(size: 10))
                         .foregroundStyle(theme.mutedForeground.opacity(0.3))
@@ -3757,6 +3757,7 @@ private struct IdeasPanel: View {
     /// Uses the editor selection captured BEFORE the popover opened (popover steals focus).
     /// Sends the full note for context so AI understands the broader piece.
     private func integrateWithAI(_ item: NoteIdea) {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
         guard busyItemId == nil else { return }
 
         let ideaText = item.formattedBody ?? item.body
@@ -3892,6 +3893,7 @@ private struct IdeasPanel: View {
 
     /// Use Apple Intelligence to format a brain dump into coherent text.
     private func formatWithAI(_ item: NoteIdea) {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
         guard busyItemId == nil else { return }
         busyItemId = item.id
 
@@ -4055,46 +4057,46 @@ private struct IdeaRow: View {
                     .accessibilityLabel("Insert at anchor line")
                     .help("Insert text at anchor line")
 
-                    // Integrate with AI
-                    Button {
-                        onIntegrate()
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 9))
-                            Text("Integrate")
-                                .font(.system(size: 9, weight: .medium))
-                        }
-                        .foregroundStyle(.purple)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.purple.opacity(0.1), in: Capsule())
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Integrate with AI")
-                    .help("AI integrates this into the note")
-
-                    // Format brain dump (brain dumps only, no formatted body yet)
-                    if item.type == .brainDump && item.formattedBody == nil && !item.body.isEmpty {
+                    if ProductCapabilityPolicy.isAvailable(.generativeActions) {
                         Button {
-                            onFormat()
+                            onIntegrate()
                         } label: {
                             HStack(spacing: 4) {
-                                Image(systemName: "wand.and.stars")
+                                Image(systemName: "sparkles")
                                     .font(.system(size: 9))
-                                Text("Format")
+                                Text("Integrate")
                                     .font(.system(size: 9, weight: .medium))
                             }
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.purple)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.orange.opacity(0.1), in: Capsule())
+                            .background(Color.purple.opacity(0.1), in: Capsule())
                             .contentShape(Capsule())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Format with AI")
-                        .help("Format with Apple Intelligence")
+                        .accessibilityLabel("Integrate with AI")
+                        .help("AI integrates this into the note")
+
+                        if item.type == .brainDump && item.formattedBody == nil && !item.body.isEmpty {
+                            Button {
+                                onFormat()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "wand.and.stars")
+                                        .font(.system(size: 9))
+                                    Text("Format")
+                                        .font(.system(size: 9, weight: .medium))
+                                }
+                                .foregroundStyle(.orange)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.orange.opacity(0.1), in: Capsule())
+                                .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Format with AI")
+                            .help("Format with Apple Intelligence")
+                        }
                     }
 
                     // Toggle raw/formatted (brain dumps with formatted body)
@@ -4127,7 +4129,7 @@ private struct IdeaRow: View {
                     .font(.system(size: 9))
                     .foregroundStyle(theme.textTertiary.opacity(0.6))
                 if item.formattedBody != nil {
-                    Text("AI formatted")
+                    Text(ProductCapabilityPolicy.isAvailable(.generativeActions) ? "AI formatted" : "Formatted")
                         .font(.system(size: 8, weight: .medium))
                         .foregroundStyle(theme.resolved.accent.color.opacity(0.7))
                         .padding(.horizontal, 8)

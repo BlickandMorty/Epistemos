@@ -784,19 +784,21 @@ public struct EpdocEditorChromeView: View {
                 .allowsHitTesting(false)
         }
         .overlay(alignment: .bottomTrailing) {
-            EpdocCopilotDockView(
-                wordCount: controller.toolbarModel.wordCount,
-                dispatch: controller.dispatch,
-                assistContext: assistContextProvider?(),
-                submitAssist: { prompt, context in
-                    JuneEpdocAssistBridge.submit(prompt: prompt, context: context, theme: theme)
-                },
-                stageAssistSuggestion: { sessionID, context in
-                    JuneEpdocAssistBridge.latestNoteSuggestion(sessionID: sessionID, context: context)
-                }
-            )
-            .padding(.trailing, 24)
-            .padding(.bottom, 18)
+            if ProductCapabilityPolicy.isAvailable(.epdocAssist) {
+                EpdocCopilotDockView(
+                    wordCount: controller.toolbarModel.wordCount,
+                    dispatch: controller.dispatch,
+                    assistContext: assistContextProvider?(),
+                    submitAssist: { prompt, context in
+                        JuneEpdocAssistBridge.submit(prompt: prompt, context: context, theme: theme)
+                    },
+                    stageAssistSuggestion: { sessionID, context in
+                        JuneEpdocAssistBridge.latestNoteSuggestion(sessionID: sessionID, context: context)
+                    }
+                )
+                .padding(.trailing, 24)
+                .padding(.bottom, 18)
+            }
         }
         .overlay(alignment: .topTrailing) {
             if let surfaceToolbarAccessory {
@@ -814,14 +816,16 @@ public struct EpdocEditorChromeView: View {
                 EpdocEditorToolbar(model: controller.toolbarModel, onSave: controller.onSave)
             }
             ToolbarItemGroup(placement: .primaryAction) {
-                EpdocAgentTokenCounter(
-                    estimate: EpdocAgentTokenEstimate.estimate(
-                        markdown: controller.latestMarkdownSnapshot,
-                        fallbackWordCount: controller.toolbarModel.wordCount,
-                        fallbackCharacterCount: controller.toolbarModel.characterCount
-                    ),
-                    label: controller.documentTitle
-                )
+                if ProductCapabilityPolicy.isAvailable(.epdocAssist) {
+                    EpdocAgentTokenCounter(
+                        estimate: EpdocAgentTokenEstimate.estimate(
+                            markdown: controller.latestMarkdownSnapshot,
+                            fallbackWordCount: controller.toolbarModel.wordCount,
+                            fallbackCharacterCount: controller.toolbarModel.characterCount
+                        ),
+                        label: controller.documentTitle
+                    )
+                }
                 Button {
                     controller.onShowProjectionInfo()
                 } label: {

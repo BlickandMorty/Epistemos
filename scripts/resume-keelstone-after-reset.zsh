@@ -15,6 +15,7 @@ prompt_pack="$canon_dir/03_MINIMAL_PROMPT_PACK.md"
 evidence_doc="$repo_root/docs/plans/keelstone/KEELSTONE_EXACT_RUNTIME_EVIDENCE_2026_07_10.md"
 handoff="$repo_root/docs/handoffs/CURRENT_INFLIGHT_FEATURE_HANDOFF.md"
 expected_key=EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08
+expected_edition=FREE_V1
 expected_june_head=adffe8fdc6ed8da868b705ed37ace96ff182d314
 expected_june_main_sha=518eef05376dd0a6ad3537cede4647d155c8bc7cfd9088d1a2ef77387d96a7fd
 expected_june_index_sha=822fd4be182eca74eedbf73cae1a6c4a7ff169960069c3bc778082fffb9a6bad
@@ -34,6 +35,10 @@ fail() {
 blocked() {
   print "BLOCK $1"
   prerequisite_count=$((prerequisite_count + 1))
+}
+
+info() {
+  print "INFO  $1"
 }
 
 restore_directory_if_needed() {
@@ -122,9 +127,9 @@ else
   blocked "Rust toolchain is absent; focused Xcode tests and archive builds cannot start"
 fi
 if command -v bun >/dev/null 2>&1; then
-  pass "Bun is installed"
+  info "Bun is installed for future paid JuneWeb work; free V1 does not require it"
 else
-  blocked "Bun is absent; JuneWeb cannot be rebuilt from donor source"
+  info "Bun is absent; this does not block free V1 because JuneWeb is paid-only and omitted"
 fi
 if xcodebuild -version >/dev/null 2>&1; then
   pass "Xcode command-line build tools are available"
@@ -132,6 +137,14 @@ else
   blocked "Xcode command-line build tools are unavailable"
 fi
 
+if grep -Fq "EPISTEMOS_PRODUCT_EDITION: $expected_edition" "$repo_root/project.yml" &&
+   grep -Fq 'case freeV1' "$repo_root/Epistemos/App/ProductCapabilityPolicy.swift"; then
+  pass "Current product edition is $expected_edition with a centralized capability policy"
+else
+  fail "Free V1 product-edition or centralized capability-policy identity is missing"
+fi
+
+print "\n== Future paid/distribution status (reported, never blocks free V1) =="
 stage="$repo_root/.june-web-stage"
 stage_main=$(find "$stage/dist/assets" -maxdepth 1 -type f -name 'main-*.js' -print -quit 2>/dev/null || true)
 if [[ -n "$stage_main" && -f "$stage/dist/index.html" && -f "$stage/tauri-internals-shim.js" ]]; then
@@ -139,12 +152,12 @@ if [[ -n "$stage_main" && -f "$stage/dist/index.html" && -f "$stage/tauri-intern
   index_sha=$(shasum -a 256 "$stage/dist/index.html" | awk '{print $1}')
   shim_sha=$(shasum -a 256 "$stage/tauri-internals-shim.js" | awk '{print $1}')
   if [[ "$main_sha" == "$expected_june_main_sha" && "$index_sha" == "$expected_june_index_sha" && "$shim_sha" == "$expected_june_shim_sha" ]]; then
-    pass "JuneWeb stage matches the current reviewed post-reset artifact hashes"
+    info "Paid JuneWeb stage matches the retained post-reset artifact hashes"
   else
-    blocked "JuneWeb stage differs from the current reviewed post-reset hashes; review before use"
+    info "Paid JuneWeb stage differs from retained hashes; review it only when paid work is reactivated"
   fi
 else
-  blocked "Exact reviewed JuneWeb stage is absent"
+  info "Paid JuneWeb stage is absent; free V1 must omit it"
 fi
 
 june_donor="$HOME/dev/june-epistemos"
@@ -153,21 +166,21 @@ if [[ -d "$june_donor/.git" ]]; then
   if [[ "$june_head" == "$expected_june_head" ]]; then
     june_dirty_count=$(git -C "$june_donor" status --porcelain=v1 -uall | wc -l | tr -d ' ')
     if [[ "$june_dirty_count" == 0 ]]; then
-      pass "Recovered June donor is clean at the current durable checkpoint"
+      info "Future paid June donor is clean at the retained durable checkpoint"
     else
-      blocked "Recovered June donor has $june_dirty_count worktree entries; inspect without resetting or overwriting"
+      info "Future paid June donor has $june_dirty_count worktree entries; inspect before paid work"
     fi
   else
-    blocked "June donor HEAD differs from current durable checkpoint $expected_june_head"
+    info "Future paid June donor HEAD differs from retained checkpoint $expected_june_head"
   fi
 else
-  blocked "Recovered June donor is absent; restore its complete-history bundle before continuing"
+  info "Future paid June donor is absent; this does not block free V1"
 fi
 
 if security find-identity -v -p codesigning 2>/dev/null | grep -Eq 'Apple Development|Apple Distribution|3rd Party Mac Developer'; then
-  pass "At least one Apple code-signing identity is available"
+  info "Apple distribution signing is available"
 else
-  blocked "Apple code-signing identity is absent"
+  info "Apple distribution signing is absent; payment/signing is deferred and does not block free-V1 source or local ad-hoc evidence"
 fi
 
 print "\n== Owner resource safety threshold =="
@@ -203,8 +216,9 @@ print "\n== Canonical continuation boundary =="
 print "Prompt authority: $prompt_pack"
 print "Active prompt: Prompt 2 only"
 print "Execution key: $expected_key"
+print "Active product edition: $expected_edition"
 print "Evidence ledger to update: $evidence_doc"
-print "Next action after every prerequisite and safety check is green: run only the narrow serial compile/regression batch, then exactly one Release archive, every artifact gate, and the finite correlated runtime matrix. Do not begin Prompt 3."
+print "Next action after every free-V1 prerequisite and safety check is green: run only the narrow serial compile/regression batch, then exactly one unsigned Release archive, locally ad-hoc sign it for sandbox artifact evidence, run every artifact gate, and complete the finite non-AI runtime matrix while the Mac is unlocked. Do not start paid June, Browser, ResearchHub, payment, or another execution key."
 
 if (( fatal_count > 0 )); then
   print -u2 "\nRESET/RESUME IDENTITY: FAILED ($fatal_count fatal finding(s)); stop without overwriting anything."

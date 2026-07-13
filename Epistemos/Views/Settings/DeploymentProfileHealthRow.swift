@@ -38,8 +38,8 @@ public struct DeploymentProfileHealthRow: View {
 
     #if EPISTEMOS_APP_STORE || MAS_SANDBOX
     private static let activeMASBoundaries: [String] = [
-        "June in-process agent (OpenAI / Anthropic API keys)",
-        "Apple Intelligence / selected local GGUF chat lanes inside June",
+        "Free V1: Epdoc, Meeting, Sync, PDF import, graph, search, and Kokoro voice",
+        "June, Browser, ResearchHub, models, and generative actions hidden and inactive",
         "Security-scoped, user-selected vault access",
         "No subprocess, CLI passthrough, local server, or terminal execution",
     ]
@@ -57,7 +57,7 @@ public struct DeploymentProfileHealthRow: View {
 
     private var profileTruth: String {
         #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        "MAS Settings describes the active June product boundary only."
+        "MAS Settings describes the active free V1 product boundary only."
         #else
         "Compile-time Developer ID profile is visible in Settings."
         #endif
@@ -95,7 +95,7 @@ public struct DeploymentProfileHealthRow: View {
 
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             VStack(alignment: .leading, spacing: 4) {
-                Text("Active MAS June boundaries:")
+                Text("Active free V1 boundaries:")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
                 ForEach(Self.activeMASBoundaries, id: \.self) { name in

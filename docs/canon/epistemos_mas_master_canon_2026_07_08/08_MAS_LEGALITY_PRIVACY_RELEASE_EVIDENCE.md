@@ -12,6 +12,7 @@ This document is a release gate, not background. If a feature touches App Store 
 - Apple WKWebView: https://developer.apple.com/documentation/webkit/wkwebview
 - Apple StoreKit: https://developer.apple.com/documentation/storekit
 - Apple App Store Server API: https://developer.apple.com/documentation/appstoreserverapi
+- Apple EventKit event-store access: https://developer.apple.com/documentation/eventkit/accessing-the-event-store
 - arXiv API: https://info.arxiv.org/help/api/index.html
 - arXiv API Terms: https://info.arxiv.org/help/api/tou.html
 - Crossref REST tips: https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-the-crossref-rest-api/
@@ -51,21 +52,30 @@ This document is a release gate, not background. If a feature touches App Store 
 - Provider/API integrations need permission under provider terms, attribution
   where required, and cache/purge/retention behavior that can be explained in
   App Review notes.
+- EventKit access must be explicitly requested, limited to the access actually
+  needed, denial-safe, and accompanied by the macOS Calendar sandbox
+  entitlement when the app reads calendar data. Calendar and reminder stores
+  remain external truth rather than a hidden Epistemos copy.
+- The July 13 free-V1 boundary makes June, Browser, and ResearchHub future paid
+  and hidden/inert. Paid status never relaxes their App Review, WebKit, source,
+  privacy, or legality obligations.
 
 ## MAS legality matrix
 
 | Area | Verdict | Release evidence |
 |---|---|---|
-| MAS June | SAFE WITH CONDITIONS | bundled assets, in-process `agent_core`, approval UI, no forbidden symbols |
-| Epdoc Assist | SAFE WITH CONDITIONS | same June session/tool/provenance authority, no second DB/runtime |
+| MAS June (future paid) | SAFE WITH CONDITIONS | hidden/inert in free V1; bundled assets, in-process `agent_core`, approval UI, no forbidden symbols when later activated |
+| Epdoc Assist (future paid) | SAFE WITH CONDITIONS | hidden/inert in free V1; same June session/tool/provenance authority, no second DB/runtime when later activated |
 | KEELSTONE | SAFE WITH CONDITIONS | entitlements, bookmarks, coordinated writes, conflict/soak tests |
-| LUMENLENS | SAFE WITH CONDITIONS | bundled editor, no private APIs, serializer/epoch proof |
+| LUMENLENS/Epdoc planner | SAFE WITH CONDITIONS | bundled editor, no private APIs, readable Markdown task/Meeting truth, serializer/epoch/minimal-diff/rebuild proof |
 | RECKONER | SAFE WITH CONDITIONS | bundled grid/WASM, IronCalc authority, artifact truth, no data room |
 | Quick Capture/voice | SAFE WITH CONDITIONS | mic consent, visible recording, zero-loss crash recovery |
 | Sync/iCloud | SAFE WITH CONDITIONS | file coordination, placeholder handling, conflict UI |
-| ResearchHub | SAFE WITH CONDITIONS | provider matrix, attribution, retention/purge, no scraping |
-| Browser | SAFE only as WebKit | no Chromium/browser-use in MAS |
-| StoreKit/proxy/cloud | SAFE WITH CONDITIONS | StoreKit/App Store Server proof, Keychain token |
+| Meeting/calendar/tasks | SAFE WITH CONDITIONS | EventKit least privilege, Calendar entitlement, consent/denial state, external-reference integrity, no second task/calendar/transcript DB |
+| Kokoro local voice | SAFE WITH CONDITIONS | free-V1 exception; local routing, no general model/agent surface, no mic permission for read-aloud alone |
+| ResearchHub (future paid) | SAFE WITH CONDITIONS | hidden/inert in free V1; provider matrix, attribution, retention/purge, no scraping |
+| Browser (future paid) | SAFE only as WebKit | hidden/inert in free V1; no Chromium/browser-use in MAS |
+| StoreKit/proxy/cloud (deferred) | SAFE WITH CONDITIONS | no free-V1 implementation dependency; later StoreKit/App Store Server proof and Keychain token |
 | Local models | SAFE/RESEARCH NEEDED | Foundation Models preferred; no sidecar/downloaded runtime |
 | Parked lanes | FORBIDDEN in archive | strings/nm/rg scans clean |
 
@@ -84,6 +94,9 @@ Watch for:
 - app-scoped bookmarks
 - `network.client` if network features ship
 - `network.server` only if explicitly justified and App Review-noted
+- `com.apple.security.personal-information.calendars` only when the shipped
+  EventKit feature reads calendar data, with matching permission copy and
+  denial-safe UI
 - no broad temporary exceptions without reason
 
 ## Privacy manifest / required reason checklist
@@ -106,7 +119,11 @@ Explain these plainly:
 - ResearchHub provider sources and legal OA-only rule.
 - Reddit/X/BYO-source retention or limitations.
 - Recording/voice capture and how users know recording is active.
-- Browser/WebKit scope and no Chromium/browser-use automation.
+- Meeting/calendar permission, external-event references, recording/transcript
+  retention, and follow-up-task behavior.
+- Kokoro local read-aloud and why it does not request microphone access.
+- Browser/WebKit scope, ResearchHub source policy, and their paid-only hidden/
+  inert state in free V1; no Chromium/browser-use automation.
 - Any loopback/network.server entitlement if retained.
 
 ## Release evidence commands
@@ -169,6 +186,11 @@ working on safe adjacent hardening if:
 - MiniChat creates a second transcript DB or tool registry.
 - ResearchHub adapter requires scraping or uncertain commercial terms.
 - A build agent wants to make GRDB or proprietary opaque storage durable truth.
+- Free V1 can enter or initialize June, Browser, or ResearchHub through any
+  route, shortcut, deep link, restoration, provider startup, automatic job, or
+  background task.
+- EventKit denial, restricted access, deleted/changed event identifiers, or
+  recording consent can cause silent data loss or hidden capture.
 
 For overnight/autonomous work, these triggers do not mean "stop all useful
 work." They mean: do not proceed with the unsafe release/product branch; record

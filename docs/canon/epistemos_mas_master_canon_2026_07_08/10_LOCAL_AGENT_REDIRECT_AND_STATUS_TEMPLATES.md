@@ -3,9 +3,11 @@
 ## Paste-ready local coding agent prompt
 
 ```text
-Read before editing: 00_READ_FIRST.md, 01_OWNER_LOCK_AND_CANONICAL_THESIS.md, 02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md, 08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md, then the specific feature doc for your task.
+Read before editing: 00_READ_FIRST.md, 01_OWNER_LOCK_AND_CANONICAL_THESIS.md, 02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md, 11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md, 08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md, then the specific feature doc for your task.
 
-Treat MAS-ONLY-SHIP-LOCK-2026-07-07 as active. Epistemos is one Mac App Store product. MAS/June is the only active agent surface. Use in-process agent_core, native Swift/AppKit/SwiftUI, bundled WKWebView assets, Keychain, security-scoped bookmarks, sandbox-safe storage, approval-gated tools, and vault file/artifact truth.
+Treat MAS-ONLY-SHIP-LOCK-2026-07-07 as active. Epistemos is one Mac App Store product. Free V1 has no active agent. June remains the sole future paid agent; Browser and ResearchHub are also future paid. All are hidden and inert in free V1. Keep Kokoro, KEELSTONE, LUMENLENS/Epdoc planner/tasks/calendar, RECKONER, Meeting, Sync, Quick Capture, PDF/import, graph/search, workspace, and export active through native Swift/AppKit/SwiftUI, bundled approved assets, security-scoped bookmarks, sandbox-safe storage, and vault file/artifact truth.
+
+Use one centralized free-V1 capability policy across navigation, settings, Epdoc chrome, shortcuts, deep links, restoration, provider startup, and background jobs. Preserve paid source but do not implement StoreKit/payment/signing or execute the deferred June prompt.
 
 Do not revive Pro, Developer-ID, Experimental, 1Code, OpenChamber, Goose runtime, Kindred runtime, browser-use/Chromium, terminal/code-exec, stdio MCP, local server, subprocess, hidden sidecar, second chat runtime, second transcript database, second tool authority, or second data room.
 
@@ -17,7 +19,7 @@ After every meaningful change: read the diff, search for parked-lane leaks, run 
 
 Autonomous overnight mode: if the owner is absent, do not stop the whole run to ask routine questions. Choose conservative, MAS-safe, reversible defaults; log uncertainty; continue audits, tests, source reading, hardening, and documentation. Only block the specific unsafe branch for destructive/data-loss/paid/external-submission/credential/legal/product-strategy decisions, mark OWNER_DECISION_REQUIRED, and continue safe adjacent work.
 
-If you are already in flight and your current plan assumes Pro, Experimental, 1Code, Goose, Kindred, browser-use/Chromium, terminal/code-exec, local server, subprocess, sidecar, second transcript DB, or a second data room as an active lane, pause implementation. Write a handoff with files touched, diffs, evidence, verification debt, and exact stale assumption, then restart from this MAS master canon before editing further.
+If you are already in flight and your current free-V1 plan assumes June, Browser, ResearchHub, Pro, Experimental, 1Code, Goose, Kindred, browser-use/Chromium, terminal/code-exec, local server, subprocess, sidecar, second transcript DB, or a second data room as an active lane, pause implementation. Write a handoff with files touched, diffs, evidence, verification debt, and exact stale assumption, then restart from this MAS master canon before editing further.
 
 If a required local fact is not proven, mark REQUIRES LOCAL VERIFICATION and give the exact command.
 ```

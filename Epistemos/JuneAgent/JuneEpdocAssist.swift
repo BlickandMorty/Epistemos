@@ -390,6 +390,9 @@ enum JuneEpdocAssistBridge {
         context: JuneEpdocAssistContext,
         theme: EpistemosTheme
     ) -> JuneEpdocAssistSubmissionResult {
+        guard ProductCapabilityPolicy.isAvailable(.epdocAssist) else {
+            return .unavailable("Epdoc Assist is reserved for a future paid edition.")
+        }
         #if EPISTEMOS_APP_STORE
         let holder = JuneAgentSurfaceHolder.shared
         holder.ensureStarted(theme: theme)
@@ -406,6 +409,9 @@ enum JuneEpdocAssistBridge {
         sessionID: String,
         context: JuneEpdocAssistContext
     ) -> JuneEpdocAssistSuggestionStageResult {
+        guard ProductCapabilityPolicy.isAvailable(.epdocAssist) else {
+            return .unavailable("Epdoc Assist is reserved for a future paid edition.")
+        }
         #if EPISTEMOS_APP_STORE
         let holder = JuneAgentSurfaceHolder.shared
         guard let gateway = holder.bridge?.gateway else {

@@ -130,8 +130,10 @@ struct SettingsView: View {
                 .general,
                 .ambientFrequencies,
                 .voice,
-                .cloudModels,
             ]
+            if ProductCapabilityPolicy.isAvailable(.models) {
+                sections.append(.cloudModels)
+            }
             #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             sections.insert(.skills, at: 3)
             #endif
@@ -147,6 +149,9 @@ struct SettingsView: View {
         }
 
         static func safeDetailSelection(for section: SettingsSection?) -> SettingsSection? {
+            if section == .cloudModels, !ProductCapabilityPolicy.isAvailable(.models) {
+                return .general
+            }
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             if section == .skills {
                 return .general
@@ -238,7 +243,7 @@ struct SettingsView: View {
                 "Read-only audit trail for graph, tool, and mutation projections."
             case .substrateHealth:
                 #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-                "Native foundation: search, June tools, provenance, and safety."
+                "Native foundation: search, import tools, provenance, and safety."
                 #else
                 "Native foundation IP: search, tools, MCP, provenance, and safety."
                 #endif
@@ -1612,7 +1617,9 @@ private struct GeneralDetailView: View {
                 // SS-M / Obscura (owner 2026-06-19): honest browser/scraper/privacy status — real HTTP
                 // fetch/extract/crawl + private web views work; the Obscura stealth engine is a
                 // NotConfigured stub (Pro, unbuilt). Read-only; no fake control.
-                BrowserCapabilityHealthRow()
+                if ProductCapabilityPolicy.isAvailable(.browser) {
+                    BrowserCapabilityHealthRow()
+                }
                 // RCA13 P1-021: deployment-profile honesty row.
                 // Visible in BOTH profiles so users + auditors can see
                 // at a glance whether this build is MAS or Pro and

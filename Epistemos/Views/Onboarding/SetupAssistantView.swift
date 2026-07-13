@@ -204,7 +204,7 @@ struct SetupAssistantView: View {
             SetupPixelGlyph(kind: .vault, tint: .purple)
             Group {
                 #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-                Text("June Foundation")
+                Text("Free V1 Foundation")
                 #else
                 Text("Foundation Features")
                 #endif
@@ -213,7 +213,7 @@ struct SetupAssistantView: View {
                 .foregroundStyle(theme.fontAccent)
             Group {
                 #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-                Text("MAS June uses your vault, fast search, provenance, and approval-gated tools. Its model lanes are connected OpenAI or Anthropic models, Apple Intelligence when available, and your selected local GGUF models.")
+                Text("Free V1 keeps your vault, Epdoc planning, graph, search, Meeting, Sync, PDF import, and Kokoro voice available without agent or generative-model features.")
                 #else
                 Text("Epistemos keeps the native foundation focused on vault sync, fast search, provenance, skills, tools, and MCP connections. Model chat runs through the connected provider surfaces.")
                 #endif
@@ -226,8 +226,8 @@ struct SetupAssistantView: View {
                 statusRow("Vault sync", done: true)
                 statusRow("Fast search", done: true)
                 #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-                statusRow("MAS June", done: true)
-                statusRow("Approval-gated tools", done: true)
+                statusRow("Epdoc planning and tasks", done: true)
+                statusRow("Meeting, PDF import, and Kokoro voice", done: true)
                 #else
                 statusRow("Skills, tools, and MCP", done: true)
                 statusRow("Provenance foundation", done: true)

@@ -1,6 +1,7 @@
 {
   "id": "EPISTEMOS-MAS-MASTER-CANON-2026-07-08",
   "created": "2026-07-08",
+  "updated": "2026-07-13",
   "lock": "MAS-ONLY-SHIP-LOCK-2026-07-07",
   "active_docs": [
     "00_READ_FIRST.md",
@@ -13,9 +14,12 @@
     "07_CAPABILITY_RING_RESEARCH_CAPTURE_SYNC.md",
     "08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md",
     "09_PARKED_PROVENANCE_AND_SUPERSESSION_LEDGER.md",
-    "10_LOCAL_AGENT_REDIRECT_AND_STATUS_TEMPLATES.md"
+    "10_LOCAL_AGENT_REDIRECT_AND_STATUS_TEMPLATES.md",
+    "11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md"
   ],
-  "active_doc_count": 11,
+  "active_doc_count": 12,
+  "active_docs_digest_method": "from canon root: find . -maxdepth 1 -type f -name '[0-9][0-9]_*.md' -print0 | LC_ALL=C sort -z | xargs -0 shasum -a 256 | shasum -a 256",
+  "active_docs_sha256": "15cfce8620606ceb0572383c812311bdb2c972ef3cf2d158e42f9d1b9b3d2a44",
   "input_archive_count": 18,
   "source_files_inventoried": 733,
   "source_archive_originals": [
@@ -45,8 +49,9 @@
     "research4.zip"
   ],
   "recommended_first_build_prompt": "03_MINIMAL_PROMPT_PACK.md / Prompt 1 - MAS Pivot Program Director, then Prompt 2 - KEELSTONE Storage and MAS Release Gate",
+  "current_free_v1_sequence": "Prompt 2 KEELSTONE, then Prompt 4 LUMENLENS/RECKONER/Epdoc planner, then free portions of Prompt 5; Prompt 3 June plus Browser and ResearchHub are deferred paid-only",
   "storage_verdict": "HYBRIDIZE current KEELSTONE: vault files/artifacts as truth plus append-only provenance/op-log, stable IDs, and rebuildable derived projections",
-  "minichat_verdict": "MAS-June owned Epdoc Assist; no Goose/1Code/Kindred/separate runtime",
+  "minichat_verdict": "future paid MAS-June owned Epdoc Assist, hidden and inert in free V1; no Goose/1Code/Kindred/separate runtime",
   "major_contradictions_resolved": 8,
   "owner_decisions_still_required": 4,
   "local_verification_items_remaining": 16,
@@ -78,6 +83,9 @@
     "Internet Archive developer docs",
     "Gutendex",
     "Zotero Web API",
-    "Readwise API"
+    "Readwise API",
+    "Things support: Today/Upcoming/Anytime/Someday, calendar context, Quick Entry, projects/areas, reminders, tags, headings",
+    "NotePlan official features/knowledge base: Markdown daily and periodic notes, tasks, time blocks, meetings, and sync",
+    "Apple EventKit event-store access and macOS Calendar sandbox entitlement"
   ]
 }

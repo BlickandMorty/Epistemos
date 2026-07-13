@@ -570,6 +570,12 @@ final class NoteWindowManager {
     /// 2026-07-03). The browser joins the note tab strip so browsing lives right
     /// alongside notes instead of being a separate home page.
     func openBrowserTab(url: String? = nil) {
+        guard ProductCapabilityPolicy.isAvailable(.browser) else {
+            if let url, let externalURL = URL(string: url) {
+                NSWorkspace.shared.open(externalURL)
+            }
+            return
+        }
         guard let bootstrap = AppBootstrap.shared else { return }
 
         let view = BrowserView(initialAddress: url)

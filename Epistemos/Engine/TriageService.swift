@@ -671,6 +671,13 @@ final class TriageService {
         operatingMode: EpistemosOperatingMode,
         reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            return StreamingBufferPolicy.throwingStream { continuation in
+                continuation.finish(
+                    throwing: ProductCapabilityUnavailableError(capability: .generativeActions)
+                )
+            }
+        }
         prepareForRouting()
         let decision = routeDecisionForNotes(
             operation: operation,
@@ -741,6 +748,9 @@ final class TriageService {
         query: String? = nil,
         operatingMode: EpistemosOperatingMode
     ) async throws -> String {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            throw ProductCapabilityUnavailableError(capability: .generativeActions)
+        }
         prepareForRouting()
         let decision = routeDecisionForNotes(
             operation: operation,
@@ -801,6 +811,13 @@ final class TriageService {
         steeringHintsJSON: String? = nil,
         reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            return StreamingBufferPolicy.throwingStream { continuation in
+                continuation.finish(
+                    throwing: ProductCapabilityUnavailableError(capability: .generativeActions)
+                )
+            }
+        }
         prepareForRouting()
         let decision = routeDecisionForGeneral(
             operation: operation,
@@ -859,6 +876,9 @@ final class TriageService {
         localSurface: LocalModelSelectionSurface = .mainChat,
         steeringHintsJSON: String? = nil
     ) async throws -> String {
+        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
+            throw ProductCapabilityUnavailableError(capability: .generativeActions)
+        }
         prepareForRouting()
         let decision = routeDecisionForGeneral(
             operation: operation,
