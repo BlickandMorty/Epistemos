@@ -6007,3 +6007,52 @@ original attachment path.
 - Update the KEELSTONE evidence document with the exact cleanup and the single
   artifact produced; do not start another build while an older app/archive
   remains in the selected output location.
+
+## Owner Continuity Steer 2026-07-12 — Resume After Restart
+
+### Verbatim owner wording
+
+> i restarted it please conitnue
+
+### Interpreted intent
+
+- Resume the interrupted forced-shutdown recovery and Treasure-drive closeout
+  from the last durable checkpoint, without repeating completed source work or
+  treating the restart as permission to skip verification.
+- Preserve a current offline continuation copy of both the Epistemos feature
+  branch and the reconstructed June donor before the drive is unplugged.
+- Continue canonical Prompt 2 only as far as present exact evidence permits.
+
+### Hard constraints and non-goals
+
+- Re-verify repository identity, worktree cleanliness, system resources,
+  Treasure volume health, signing state, and GitHub state after the restart.
+- Do not reset or overwrite the intentional local-ahead history. Do not
+  force-push, expose credentials, begin Prompt 3, or substitute an unsigned
+  Debug product for signed Release evidence.
+- Before any future build, test build, or archive, preserve the durable
+  one-current-build rule. No build is authorized while Apple signing remains
+  absent at the Release boundary.
+- Remove the older drive continuation pack only after its current replacement
+  passes checksum and complete-history verification.
+
+### Current evidence, acceptance checks, and next action
+
+- Main repository is clean at `2c019466b837e17a6ee938d6794896eddd3520ac`
+  on `feat/goose-surface`; fetched `origin/feat/goose-surface` remains
+  `f73b3244c09a76a14961050964969bcb5ac9fa70`, an intentional documented
+  five-commit fast-forward publication debt.
+- Reconstructed June donor is clean at
+  `adffe8fdc6ed8da868b705ed37ace96ff182d314` on
+  `codex/recover-june-exact-2026-07-12`.
+- Restart preflight passes: zero swap, 88% free memory, zero throttled pages,
+  and no competing Epistemos/build/model process. Treasure UUID
+  `FC33F188-7A19-33E7-BCF7-65496C19C7DC` passes `diskutil verifyVolume` with
+  ExFAT check exit code zero.
+- Apple signing still reports zero valid identities and no provisioning-profile
+  directory; GitHub CLI remains unauthenticated. KEELSTONE therefore remains
+  `INCOMPLETE` at the signed Release-archive boundary.
+- Commit this restart checkpoint, regenerate and verify current complete-history
+  Epistemos and June bundles, install one unambiguous replacement pack on the
+  Treasure drive, remove only its superseded recovery pack after verification,
+  refresh the drive pointers/report, sync, and software-eject the drive.
