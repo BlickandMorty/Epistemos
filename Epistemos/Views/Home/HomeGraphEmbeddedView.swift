@@ -317,7 +317,7 @@ struct HomeGraphEmbeddedView: View {
             graphState.requestGraphRebuild()
             return
         }
-        inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
+        inspectorState.selectNode(node)
     }
 
     private func handleAppear() {

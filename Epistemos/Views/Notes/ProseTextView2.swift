@@ -465,18 +465,6 @@ final class ProseTextView2: NSTextView {
         return false
     }
 
-    /// LIVE-EDITOR agent edit (VAULT-DEEP-INTEGRATION §720 #4): apply a structured `AgentNoteEdit` to THIS
-    /// open buffer — the agent surface's entry to edit a note the user has open. Resolves the edit against the
-    /// current text (`resolveTextEdit`) and applies it via the existing programmatic-edit path. HONEST: returns
-    /// `false` and mutates NOTHING when the edit's find/anchor isn't in the current text (no out-of-range edit).
-    @discardableResult
-    func applyAgentEdit(_ edit: AgentNoteEdit) -> Bool {
-        let current = textStorage?.string ?? string
-        guard let textEdit = edit.resolveTextEdit(in: current) else { return false }
-        _ = applyAutomaticMarkdownEdit(textEdit)
-        return true
-    }
-
     /// Set edit location for programmatic inserts that bypass shouldChangeText.
     /// Prevents applyLinkAttributesToStorage from doing a full-document scan.
     func setProgrammaticEditLocation(_ location: Int) {

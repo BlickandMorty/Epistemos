@@ -821,17 +821,6 @@ final class MetalGraphNSView: NSView {
     private var cachedColorResolvedTheme: EpistemosTheme?
     private var cachedDepthColors: [String: DialogueDepthColor] = [:]
 
-    // AR6 (master plan Phase 8 / Wave 13 §"Phase 8") — caches the
-    // CognitiveDepthOverlay lookup per node so the visualization
-    // contract (altitude / radiusScale / colorTint) is paid once per
-    // commit rather than per render frame. Mirrors the dialogue
-    // depth-color cache shape so future renderers (label haloing,
-    // insight bubbles) can read the same map without re-hitting the
-    // sidecar.
-    private var cachedCognitiveDepthMarkers: [String: DepthMarker] = [:]
-    private var cachedCognitiveDepthAltitudes: [String: Float] = [:]
-    private var cachedCognitiveDepthRadiusScales: [String: Float] = [:]
-    private var cachedCognitiveDepthTopologyVersion: Int = -1
     private let deferredMetadataDriver = GraphDeferredMetadataDriver()
     private var fullGraphCommitTask: Task<Void, Never>?
     private var pendingFullGraphCommitVersion: Int?
@@ -1387,7 +1376,6 @@ final class MetalGraphNSView: NSView {
         // Push visual theme to Rust.
         graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
         applyDialogueDepthPalette()
-        applyCognitiveDepthOverlay()
         lastVisualThemeVersion = graphState.visualThemeVersion
 
         if graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
@@ -1473,7 +1461,6 @@ final class MetalGraphNSView: NSView {
             graph_engine_commit_incremental(engine)
             if !nodePayload.ids.isEmpty {
                 applyDialogueDepthPalette(for: nodePayload.ids)
-                applyCognitiveDepthOverlay(for: nodePayload.ids)
             }
         }
 
@@ -1880,7 +1867,6 @@ final class MetalGraphNSView: NSView {
             lastVisualThemeVersion = graphState.visualThemeVersion
             graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
             applyDialogueDepthPalette()
-            applyCognitiveDepthOverlay()
         }
 
         // Sync laboratory params (toggles + knobs for advanced physics).
@@ -2850,78 +2836,6 @@ final class MetalGraphNSView: NSView {
             }
         }
 
-        needsRender = true
-    }
-
-    // MARK: - Cognitive Depth Overlay (AR6 / master-plan Phase 8)
-
-    /// Resolve the on-disk source URL backing a graph note node by
-    /// fetching the SDPage's `filePath` via the GraphState model
-    /// context. Returns nil for nodes that don't map to a file
-    /// (folder/tag/source/quote/block) or for notes whose SDPage has
-    /// no persisted `filePath` yet (in-memory-only drafts). Run on
-    /// the @MainActor since SwiftData fetches are MainActor-isolated.
-    private func cognitiveDepthSourceURL(for node: GraphNodeRecord) -> URL? {
-        guard node.type == .note,
-              let pageId = node.sourceId, !pageId.isEmpty,
-              let context = graphState?.modelContext else {
-            return nil
-        }
-        let descriptor = FetchDescriptor<SDPage>(
-            predicate: #Predicate<SDPage> { $0.id == pageId }
-        )
-        guard let page = (try? context.fetch(descriptor))?.first,
-              let raw = page.filePath?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty else {
-            return nil
-        }
-        return URL(fileURLWithPath: raw)
-    }
-
-    /// AR6 (master-plan Phase 8 / Wave 13 §"Phase 8") — for every
-    /// visible note node, look up its `DepthMarker` via
-    /// `CognitiveDepthOverlay.shared.depth(for:)` then read the
-    /// overlay's non-color visualization helpers. The base graph body
-    /// palette is owned by the Rust renderer so light-mode nodes stay
-    /// solid OLED black and dark-mode nodes stay pitch white. Altitude
-    /// + radiusScale are cached on the Swift side so the label / halo
-    /// overlay path can read them without re-hitting the sidecar.
-    ///
-    /// Targeted recomputation: when `nodeIds` is non-nil only those
-    /// nodes are re-paid (used by `commitIncrementalAdds`); when nil
-    /// the entire visible set is repainted (used by `commitGraphData`
-    /// + topology change).
-    private func applyCognitiveDepthOverlay(for nodeIds: [String]? = nil) {
-        guard let graphState else { return }
-        let store = graphState.store
-        let currentTopology = store.topologyVersion
-
-        let interval = Log.graphPerf.beginInterval("applyCognitiveDepthOverlay")
-        defer { Log.graphPerf.endInterval("applyCognitiveDepthOverlay", interval) }
-
-        let isFullRepaint = nodeIds == nil
-        if isFullRepaint && cachedCognitiveDepthTopologyVersion != currentTopology {
-            cachedCognitiveDepthMarkers.removeAll(keepingCapacity: true)
-            cachedCognitiveDepthAltitudes.removeAll(keepingCapacity: true)
-            cachedCognitiveDepthRadiusScales.removeAll(keepingCapacity: true)
-        }
-
-        let overlay = CognitiveDepthOverlay.shared
-        let targetIds = nodeIds ?? Array(store.nodes.keys)
-        for nodeId in targetIds {
-            guard let node = store.nodes[nodeId],
-                  graphState.filter.isNodeVisible(node),
-                  let sourceURL = cognitiveDepthSourceURL(for: node) else { continue }
-
-            let marker = overlay.depth(for: sourceURL)
-            cachedCognitiveDepthMarkers[nodeId] = marker
-            cachedCognitiveDepthAltitudes[nodeId] = overlay.altitude(for: marker)
-            cachedCognitiveDepthRadiusScales[nodeId] = overlay.radiusScale(for: marker)
-        }
-
-        if isFullRepaint {
-            cachedCognitiveDepthTopologyVersion = currentTopology
-        }
         needsRender = true
     }
 

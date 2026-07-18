@@ -288,160 +288,7 @@ enum CodeEditorReleasePolicy {
     static let aiPartnerEnabled = false
 }
 
-nonisolated enum CodeEditorSemanticLSP {
-    private static let supportedLanguages: Set<String> = ["rust", "swift"]
-    private static let pollIntervalNanos: UInt64 = 1_000_000
-
-    static var runtimeAvailable: Bool { false }
-
-    static func supportsLanguage(language: String) -> Bool {
-        supportedLanguages.contains(language.lowercased())
-    }
-
-    static func canRun(language: String) -> Bool {
-        runtimeAvailable && supportsLanguage(language: language)
-    }
-
-    static func unavailableMessage(language: String) -> String {
-        if !supportsLanguage(language: language) {
-            return "Semantic LSP is not available for \(CodeLanguage.displayName(for: language))."
-        }
-        if !runtimeAvailable {
-            return "Semantic LSP unavailable: in-process Rust runtime is not linked in this build."
-        }
-        return "Semantic LSP unavailable."
-    }
-
-    static func documentURL(filePath: String?, language: String) -> URL {
-        if let filePath, !filePath.isEmpty {
-            return URL(fileURLWithPath: filePath)
-        }
-
-        let fileExtension: String
-        switch language.lowercased() {
-        case "rust": fileExtension = "rs"
-        case "swift": fileExtension = "swift"
-        default: fileExtension = "txt"
-        }
-        return URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("epistemos-code-editor")
-            .appendingPathExtension(fileExtension)
-    }
-
-    static func lspPosition(text: String, oneBasedLine: Int, oneBasedColumn: Int) -> LSPPosition {
-        let targetLine = max(0, oneBasedLine - 1)
-        let targetColumn = max(0, oneBasedColumn - 1)
-        var currentLine = 0
-        var lineStart = text.startIndex
-        var index = text.startIndex
-
-        while index < text.endIndex {
-            if currentLine == targetLine {
-                let lineEnd = text[index...].firstIndex(where: \.isNewline) ?? text.endIndex
-                let lineWidth = text[lineStart..<lineEnd].utf16.count
-                return LSPPosition(line: currentLine, character: min(targetColumn, lineWidth))
-            }
-
-            if text[index].isNewline {
-                currentLine += 1
-                text.formIndex(after: &index)
-                lineStart = index
-            } else {
-                text.formIndex(after: &index)
-            }
-        }
-
-        let lineWidth = text[lineStart..<text.endIndex].utf16.count
-        return LSPPosition(line: currentLine, character: min(targetColumn, lineWidth))
-    }
-
-    static func hoverSummary(
-        text: String,
-        language: String,
-        filePath: String?,
-        cursorLine: Int,
-        cursorColumn: Int
-    ) async throws -> String? {
-        let languageId = language.lowercased()
-        guard canRun(language: languageId), !text.isEmpty else { return nil }
-
-        let uri = documentURL(filePath: filePath, language: languageId)
-        let position = lspPosition(
-            text: text,
-            oneBasedLine: cursorLine,
-            oneBasedColumn: cursorColumn
-        )
-        let transport = RustLSPTransport(pollIntervalNanos: pollIntervalNanos)
-        await transport.startPolling()
-
-        let client = LSPClient(transport: transport)
-        await client.startRouting()
-
-        do {
-            _ = try await client.initialize(workspaceRoot: uri.deletingLastPathComponent())
-            try await client.didOpen(uri: uri, languageId: languageId, version: 1, text: text)
-            let hover = try await client.hover(
-                uri: uri,
-                line: position.line,
-                character: position.character
-            )
-            try? await client.didClose(uri: uri)
-            await transport.shutdown()
-            return summarizedHover(hover)
-        } catch {
-            await transport.shutdown()
-            throw error
-        }
-    }
-
-    static func definitionLocation(
-        text: String,
-        language: String,
-        filePath: String?,
-        cursorLine: Int,
-        cursorColumn: Int
-    ) async throws -> LSPLocation? {
-        let languageId = language.lowercased()
-        guard canRun(language: languageId), !text.isEmpty else { return nil }
-
-        let uri = documentURL(filePath: filePath, language: languageId)
-        let position = lspPosition(
-            text: text,
-            oneBasedLine: cursorLine,
-            oneBasedColumn: cursorColumn
-        )
-        let transport = RustLSPTransport(pollIntervalNanos: pollIntervalNanos)
-        await transport.startPolling()
-
-        let client = LSPClient(transport: transport)
-        await client.startRouting()
-
-        do {
-            _ = try await client.initialize(workspaceRoot: uri.deletingLastPathComponent())
-            try await client.didOpen(uri: uri, languageId: languageId, version: 1, text: text)
-            let definitions = try await client.definition(
-                uri: uri,
-                line: position.line,
-                character: position.character
-            )
-            try? await client.didClose(uri: uri)
-            await transport.shutdown()
-            return definitions.first
-        } catch {
-            await transport.shutdown()
-            throw error
-        }
-    }
-
-    static func nsRange(for range: LSPRange, in text: String) -> NSRange? {
-        guard let start = utf16Offset(in: text, line: range.start.line, character: range.start.character),
-              let end = utf16Offset(in: text, line: range.end.line, character: range.end.character),
-              end >= start else {
-            return nil
-        }
-        return NSRange(location: start, length: end - start)
-    }
-
+nonisolated enum CodeEditorTextPosition {
     static func utf16Offset(in text: String, line targetLine: Int, character targetCharacter: Int) -> Int? {
         let source = text as NSString
         let clampedLine = max(0, targetLine)
@@ -478,27 +325,6 @@ nonisolated enum CodeEditorSemanticLSP {
         return length
     }
 
-    static func summarizedHover(_ hover: LSPHoverResult?) -> String? {
-        guard let hover else { return nil }
-        let lines = hover.contents
-            .split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        let joined = lines.joined(separator: " ")
-        guard !joined.isEmpty else { return nil }
-        if joined.count > 360 {
-            return String(joined.prefix(357)) + "..."
-        }
-        return joined
-    }
-
-    static func userFacingError(_ error: any Error) -> String {
-        let description = String(describing: error)
-        if description.contains("Editor runtime bridge unavailable") {
-            return "Semantic LSP unavailable: in-process Rust runtime is not linked in this build."
-        }
-        return "Semantic LSP unavailable: \(description)"
-    }
 }
 
 // MARK: - Language Detection
@@ -868,7 +694,6 @@ struct CodeEditorView: View {
     @State private var outlineRefreshRevision: UInt64 = 0
     @State private var outlineRefreshWorkerGeneration: UInt64 = 0
     @State private var semanticRefreshTask: Task<Void, Never>?
-    @State private var semanticLookupTask: Task<Void, Never>?
     @State private var textSnapshotTask: Task<Void, Never>?
     @State private var textSnapshotRevision: UInt64 = 0
     @State private var textSnapshotWorkerGeneration: UInt64 = 0
@@ -913,10 +738,6 @@ struct CodeEditorView: View {
     @State private var activeSearchRange: NSRange?
     @State private var goToLineNumber = ""
     @State private var codeContextBridge: CodeContextBridge?
-    @State private var semanticStatusMessage: String?
-    @State private var semanticStatusIsError = false
-    @State private var semanticStatusIsLoading = false
-    @State private var semanticStatusCopyText: String?
     @State private var showLivePreview = false
     @State private var livePreviewText = ""
     @State private var livePreviewTask: Task<Void, Never>?
@@ -999,7 +820,6 @@ struct CodeEditorView: View {
             .onDisappear {
                 cancelOutlineRefreshWorker()
                 semanticRefreshTask?.cancel()
-                semanticLookupTask?.cancel()
                 textSnapshotTask?.cancel()
                 textSnapshotWorkerGeneration &+= 1
                 textSnapshotTask = nil
@@ -1014,14 +834,9 @@ struct CodeEditorView: View {
                 contentDebouncer?.detach()
                 contentDebouncer = nil
                 codeContextBridge?.cancelPendingWork()
-                semanticStatusCopyText = nil
             }
             .onChange(of: text) { _, newText in
                 activeSearchRange = nil
-                semanticLookupTask?.cancel()
-                semanticStatusMessage = nil
-                semanticStatusIsLoading = false
-                semanticStatusCopyText = nil
                 if isEditable {
                     scheduleTextSnapshotPublish()
                     ensureContentDebouncer().enqueue(newText)
@@ -1265,34 +1080,6 @@ struct CodeEditorView: View {
             .buttonStyle(.plain)
             .help("Go to line")
 
-            // L3-CHROME graft: LSP hover / Go-to-definition / Outline live here in the mounted top
-            // bar (their status overlay + outline sidebar are already mounted in codeEditorChromeContent).
-            // Previously these triggers existed only in `breadcrumbBar`, which is never mounted, so
-            // the Outline and on-demand LSP actions were unreachable.
-            Button {
-                requestSemanticHover()
-            } label: {
-                Image(systemName: semanticStatusIsLoading ? "info.circle.fill" : "info.circle")
-                    .foregroundStyle(semanticStatusIsLoading ? Color.accentColor : .secondary)
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!CodeEditorSemanticLSP.canRun(language: language) || semanticStatusIsLoading)
-            .help(semanticLSPHelpText)
-
-            Button {
-                requestSemanticDefinition()
-            } label: {
-                Image(systemName: "arrow.down.right.circle")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!CodeEditorSemanticLSP.canRun(language: language) || semanticStatusIsLoading)
-            .help(definitionLSPHelpText)
-
             Button {
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                     showOutlineNavigator.toggle()
@@ -1375,26 +1162,6 @@ struct CodeEditorView: View {
                 .help("Find (Cmd-F)")
 
                 Button {
-                    requestSemanticHover()
-                } label: {
-                    Image(systemName: semanticStatusIsLoading ? "info.circle.fill" : "info.circle")
-                        .foregroundStyle(semanticStatusIsLoading ? Color.accentColor : .secondary)
-                }
-                .buttonStyle(.plain)
-                .disabled(!CodeEditorSemanticLSP.canRun(language: language) || semanticStatusIsLoading)
-                .help(semanticLSPHelpText)
-
-                Button {
-                    requestSemanticDefinition()
-                } label: {
-                    Image(systemName: "arrow.down.right.circle")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .disabled(!CodeEditorSemanticLSP.canRun(language: language) || semanticStatusIsLoading)
-                .help(definitionLSPHelpText)
-
-                Button {
                     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                         showOutlineNavigator.toggle()
                     }
@@ -1465,9 +1232,6 @@ struct CodeEditorView: View {
             }
 
             searchBarOverlay
-        }
-        .overlay(alignment: .bottomLeading) {
-            semanticLSPStatusOverlay
         }
         .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: codeEditorTheme))
     }
@@ -1876,83 +1640,6 @@ struct CodeEditorView: View {
         }
     }
 
-    private var semanticLSPHelpText: String {
-        if CodeEditorSemanticLSP.canRun(language: language) {
-            return "Inspect Symbol"
-        }
-        return CodeEditorSemanticLSP.unavailableMessage(language: language)
-    }
-
-    private var definitionLSPHelpText: String {
-        if CodeEditorSemanticLSP.canRun(language: language) {
-            return "Go to Definition"
-        }
-        return CodeEditorSemanticLSP.unavailableMessage(language: language)
-    }
-
-    @ViewBuilder
-    private var semanticLSPStatusOverlay: some View {
-        if let message = semanticStatusMessage {
-            HStack(alignment: .top, spacing: 8) {
-                if semanticStatusIsLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: semanticStatusIsError ? "exclamationmark.triangle" : "info.circle")
-                        .foregroundStyle(semanticStatusIsError ? Color.orange : Color.accentColor)
-                }
-
-                Text(message)
-                    .font(.caption)
-                    .lineLimit(3)
-                    .textSelection(.enabled)
-
-                Spacer(minLength: 8)
-
-                if semanticStatusCopyText != nil {
-                    Button {
-                        copySemanticStatusTarget()
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Copy definition target")
-                }
-
-                Button {
-                    semanticStatusMessage = nil
-                    semanticStatusIsLoading = false
-                    semanticStatusCopyText = nil
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-                .help("Dismiss")
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .frame(maxWidth: 520, alignment: .leading)
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .padding(12)
-        }
-    }
-
-    private func copySemanticStatusTarget() {
-        guard let target = semanticStatusCopyText else { return }
-
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(target, forType: .string)
-
-        semanticStatusMessage = "Definition target copied."
-        semanticStatusIsError = false
-        semanticStatusIsLoading = false
-        semanticStatusCopyText = nil
-    }
-    
     @ViewBuilder
     private var semanticSidebar: some View {
         if showSemanticSidebar, let bridge = codeContextBridge {
@@ -1982,7 +1669,7 @@ struct CodeEditorView: View {
     
     private func performSearch(direction: CodeEditorSearchDirection) {
         guard !searchQuery.isEmpty else { return }
-        let cursorOffset = CodeEditorSemanticLSP.utf16Offset(
+        let cursorOffset = CodeEditorTextPosition.utf16Offset(
             in: text,
             line: cursorLine - 1,
             character: cursorCol - 1
@@ -2006,146 +1693,6 @@ struct CodeEditorView: View {
         requestEditorSelection(match)
     }
 
-    // MARK: - Semantic LSP Lookup
-
-    private func requestSemanticHover() {
-        guard CodeEditorSemanticLSP.canRun(language: language) else {
-            semanticStatusMessage = CodeEditorSemanticLSP.unavailableMessage(language: language)
-            semanticStatusIsError = true
-            semanticStatusIsLoading = false
-            semanticStatusCopyText = nil
-            return
-        }
-
-        let textSnapshot = text
-        let languageSnapshot = language
-        let filePathSnapshot = filePath
-        let cursorLineSnapshot = cursorLine
-        let cursorColSnapshot = cursorCol
-
-        semanticLookupTask?.cancel()
-        semanticStatusMessage = "Inspecting symbol..."
-        semanticStatusIsError = false
-        semanticStatusIsLoading = true
-        semanticStatusCopyText = nil
-
-        semanticLookupTask = Task {
-            do {
-                let summary = try await CodeEditorSemanticLSP.hoverSummary(
-                    text: textSnapshot,
-                    language: languageSnapshot,
-                    filePath: filePathSnapshot,
-                    cursorLine: cursorLineSnapshot,
-                    cursorColumn: cursorColSnapshot
-                )
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    semanticStatusMessage = summary ?? "No symbol information at cursor."
-                    semanticStatusIsError = false
-                    semanticStatusIsLoading = false
-                    semanticStatusCopyText = nil
-                }
-            } catch {
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    semanticStatusMessage = CodeEditorSemanticLSP.userFacingError(error)
-                    semanticStatusIsError = true
-                    semanticStatusIsLoading = false
-                    semanticStatusCopyText = nil
-                }
-            }
-        }
-    }
-
-    private func requestSemanticDefinition() {
-        guard CodeEditorSemanticLSP.canRun(language: language) else {
-            semanticStatusMessage = CodeEditorSemanticLSP.unavailableMessage(language: language)
-            semanticStatusIsError = true
-            semanticStatusIsLoading = false
-            semanticStatusCopyText = nil
-            return
-        }
-
-        let textSnapshot = text
-        let languageSnapshot = language
-        let filePathSnapshot = filePath
-        let cursorLineSnapshot = cursorLine
-        let cursorColSnapshot = cursorCol
-        let documentURI = CodeEditorSemanticLSP.documentURL(
-            filePath: filePathSnapshot,
-            language: languageSnapshot
-        ).absoluteString
-
-        semanticLookupTask?.cancel()
-        semanticStatusMessage = "Finding definition..."
-        semanticStatusIsError = false
-        semanticStatusIsLoading = true
-        semanticStatusCopyText = nil
-
-        semanticLookupTask = Task {
-            do {
-                let definition = try await CodeEditorSemanticLSP.definitionLocation(
-                    text: textSnapshot,
-                    language: languageSnapshot,
-                    filePath: filePathSnapshot,
-                    cursorLine: cursorLineSnapshot,
-                    cursorColumn: cursorColSnapshot
-                )
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    guard let definition else {
-                        semanticStatusMessage = "No definition found at cursor."
-                        semanticStatusIsError = false
-                        semanticStatusIsLoading = false
-                        semanticStatusCopyText = nil
-                        return
-                    }
-
-                    let lineNumber = definition.range.start.line + 1
-                    if definition.uri == documentURI,
-                       let definitionRange = CodeEditorSemanticLSP.nsRange(for: definition.range, in: textSnapshot) {
-                        activeSearchRange = nil
-                        requestEditorSelection(definitionRange)
-                        cursorLine = lineNumber
-                        cursorCol = definition.range.start.character + 1
-                        semanticStatusMessage = "Definition selected at line \(lineNumber)."
-                        semanticStatusIsError = false
-                        semanticStatusCopyText = nil
-                    } else {
-                        let target = URL(string: definition.uri)?.lastPathComponent ?? "another file"
-                        let columnNumber = definition.range.start.character + 1
-                        semanticStatusCopyText = Self.definitionTargetText(
-                            uri: definition.uri,
-                            line: lineNumber,
-                            column: columnNumber
-                        )
-                        semanticStatusMessage = "Definition found in \(target) at line \(lineNumber)."
-                        semanticStatusIsError = false
-                    }
-                    semanticStatusIsLoading = false
-                }
-            } catch {
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    semanticStatusMessage = CodeEditorSemanticLSP.userFacingError(error)
-                    semanticStatusIsError = true
-                    semanticStatusIsLoading = false
-                    semanticStatusCopyText = nil
-                }
-            }
-        }
-    }
-
-    private static func definitionTargetText(uri: String, line: Int, column: Int) -> String {
-        let location: String
-        if let url = URL(string: uri), !url.path.isEmpty {
-            location = url.path
-        } else {
-            location = uri
-        }
-        return "\(location):\(line):\(column)"
-    }
-    
     // MARK: - Editor Settings Menu
     
     private var editorSettingsMenu: some View {

@@ -824,9 +824,6 @@ final class GraphState {
         get { engineHandleState.load() }
         set { engineHandleState.store(newValue) }
     }
-    private var loadedPreparedRetrievalIndexEngine: OpaquePointer?
-    private var loadedPreparedRetrievalIndexManifestPath: String?
-
     /// True when physics is explicitly frozen by the user.
     /// Updated after each commit/refresh cycle. UI uses this to grey out physics controls.
     var isStaticLayout: Bool = false
@@ -842,12 +839,6 @@ final class GraphState {
 
     /// Embedding service for semantic similarity (NLEmbedding → Rust SIMD).
     let embeddingService: EmbeddingService
-    var preparedRetrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration? {
-        embeddingService.preparedRetrievalRuntimeConfiguration
-    }
-    var preparedRetrievalExecutionMode: PreparedRetrievalExecutionMode {
-        embeddingService.preparedRetrievalExecutionMode
-    }
     var semanticClusteringAvailable: Bool {
         embeddingService.isSwiftEmbeddingFallbackAvailable
     }
@@ -870,20 +861,6 @@ final class GraphState {
         restorePhysicsSettings()
         restoreLabelPolicy()
         restoreGraphNodeVisibility()
-    }
-
-    func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
-        embeddingService.applyPreparedRetrievalRuntimeConfiguration(configuration)
-        loadedPreparedRetrievalIndexEngine = nil
-        loadedPreparedRetrievalIndexManifestPath = nil
-        guard !semanticClusteringAvailable else { return }
-        if useSemanticClustering {
-            useSemanticClustering = false
-        }
-        if !semanticClusterIds.isEmpty {
-            semanticClusterIds.removeAll(keepingCapacity: true)
-            semanticClusterVersion += 1
-        }
     }
 
     func incomingEdges(
@@ -1203,10 +1180,7 @@ final class GraphState {
             graph_engine_clear(engine)
             graph_engine_clear_highlight(engine)
             graph_engine_clear_embeddings(engine)
-            graph_engine_clear_prepared_retrieval_index(engine)
         }
-        loadedPreparedRetrievalIndexEngine = nil
-        loadedPreparedRetrievalIndexManifestPath = nil
         requestRecommit()
     }
 
@@ -2922,13 +2896,6 @@ final class GraphState {
         query: String,
         limit: Int
     ) -> SemanticSearchQueryResult? {
-        if let preparedResult = preparedSemanticSearchWithQueryEmbedding(
-            query: query,
-            limit: limit
-        ) {
-            return preparedResult
-        }
-
         guard canRunFallbackSemanticSearch(),
               let engine = engineHandle,
               embeddingService.dimension > 0,
@@ -2953,41 +2920,6 @@ final class GraphState {
                 results: results,
                 count: &count,
                 resolveNode: { [store] nodeID in store.nodes[nodeID] }
-            )
-        }
-        return SemanticSearchQueryResult(hits: hits, queryEmbedding: queryVec)
-    }
-
-    private func preparedSemanticSearchWithQueryEmbedding(
-        query: String,
-        limit: Int
-    ) -> SemanticSearchQueryResult? {
-        guard preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
-              ensurePreparedRetrievalIndexLoaded(),
-              let engine = engineHandle else {
-            return nil
-        }
-
-        let dimension = Int(graph_engine_prepared_retrieval_dimension(engine))
-        guard dimension > 0,
-              let queryVec = embeddingService.queryEmbedding(for: query, expectedDimension: dimension) else {
-            return SemanticSearchQueryResult(hits: [], queryEmbedding: [])
-        }
-
-        let hits = queryVec.withUnsafeBufferPointer { buf in
-            guard let baseAddress = buf.baseAddress else { return [GraphStore.SearchHit]() }
-            var count: UInt32 = 0
-            let results = graph_engine_prepared_retrieval_search(
-                engine,
-                baseAddress,
-                UInt32(dimension),
-                UInt32(limit),
-                &count
-            )
-            return collectSemanticHits(
-                results: results,
-                count: &count,
-                resolveNode: { [store] pageID in store.node(bySourceId: pageID, type: .note) }
             )
         }
         return SemanticSearchQueryResult(hits: hits, queryEmbedding: queryVec)
@@ -3018,30 +2950,6 @@ final class GraphState {
         }
 
         return hits
-    }
-
-    func ensurePreparedRetrievalIndexLoaded() -> Bool {
-        guard preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
-              let engine = engineHandle,
-              let manifestPath = embeddingService.preparedRetrievalIndexManifestPath else {
-            return false
-        }
-
-        if loadedPreparedRetrievalIndexEngine == engine,
-           loadedPreparedRetrievalIndexManifestPath == manifestPath {
-            return true
-        }
-
-        let loaded = manifestPath.withCString { graph_engine_load_prepared_retrieval_index(engine, $0) != 0 }
-        if loaded {
-            loadedPreparedRetrievalIndexEngine = engine
-            loadedPreparedRetrievalIndexManifestPath = manifestPath
-            return true
-        }
-
-        loadedPreparedRetrievalIndexEngine = nil
-        loadedPreparedRetrievalIndexManifestPath = nil
-        return false
     }
 
     func hybridSearch(query: String, limit: Int = 20) -> [GraphStore.SearchHit] {

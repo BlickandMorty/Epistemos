@@ -85,11 +85,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     static var visibleCases: [LandingFeatureButton] {
-        allCases.filter(\.isAvailableInCurrentEdition)
-    }
-
-    var isAvailableInCurrentEdition: Bool {
-        true
+        allCases
     }
 
     var title: String {
@@ -130,12 +126,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         nil
     }
 
-    var isPaidOnly: Bool {
-        productCapability.edition == .futurePaid
-    }
-
     var isAvailableInThisBuild: Bool {
-        guard isAvailableInCurrentEdition else { return false }
         switch self {
         case .pdfImport:
             return LiteParseImportGateStatus.status().isActive
@@ -185,36 +176,17 @@ struct LandingFeatureButtonTile: View {
     var body: some View {
         let accent = feature.accent(in: theme)
 
-        ZStack(alignment: .topTrailing) {
-            PixelLandingCommandTile(
-                title: feature.title,
-                shortcut: feature.shortcut,
-                glyph: feature.glyph,
-                theme: theme,
-                accent: accent,
-                haptic: feature.haptic,
-                brand: feature.integrationBrand,
-                action: action
-            )
-            .opacity(feature.isAvailableInThisBuild ? 1 : 0.58)
-
-            if feature.isPaidOnly && !feature.isAvailableInThisBuild {
-                Text("PAID")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(accent)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .background {
-                        Capsule(style: .continuous)
-                            .fill(accent.opacity(theme.isDark ? 0.20 : 0.12))
-                    }
-                    .overlay {
-                        Capsule(style: .continuous)
-                            .stroke(accent.opacity(0.45), lineWidth: 0.75)
-                    }
-                    .padding(5)
-            }
-        }
+        PixelLandingCommandTile(
+            title: feature.title,
+            shortcut: feature.shortcut,
+            glyph: feature.glyph,
+            theme: theme,
+            accent: accent,
+            haptic: feature.haptic,
+            brand: feature.integrationBrand,
+            action: action
+        )
+        .opacity(feature.isAvailableInThisBuild ? 1 : 0.58)
         .help(feature.helpText)
     }
 }

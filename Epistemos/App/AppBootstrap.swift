@@ -293,6 +293,19 @@ final class AppBootstrap {
         return value
     }
 
+    private static func makeFallbackModelContainer(schema: Schema) -> ModelContainer {
+        do {
+            return try ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            )
+        } catch {
+            preconditionFailure(
+                "Failed to create in-memory model container fallback: \(error.localizedDescription)"
+            )
+        }
+    }
+
     private nonisolated static func makeFallbackSearchIndexService() -> SearchIndexService? {
         do {
             return try SearchIndexService()
@@ -340,8 +353,6 @@ final class AppBootstrap {
     let instantRecallService = InstantRecallService()
     private var _textCapturePipeline: TextCapturePipeline?
     var textCapturePipeline: TextCapturePipeline { Self.requireInitialized(_textCapturePipeline, name: "textCapturePipeline") }
-    private var _mutationOpLogProjectionWorker: MutationOpLogProjectionWorker?
-    var mutationOpLogProjectionWorker: MutationOpLogProjectionWorker? { _mutationOpLogProjectionWorker }
     private var _workspaceService: WorkspaceService?
     var workspaceService: WorkspaceService { Self.requireInitialized(_workspaceService, name: "workspaceService") }
     let activityTracker = ActivityTracker()
@@ -369,17 +380,12 @@ final class AppBootstrap {
     var queryTask: Task<Void, Never>?
     private var healthyVaultBodyCleanupTask: Task<Void, Never>?
 
-    #if !EPISTEMOS_FREE_V1
-    private var preparedRetrievalRefreshTask: Task<Void, Never>?
-    private var didStartDeferredRuntimeServices = false
-    #endif
     private var startupIntegrityReport: StartupIntegrityReport?
     private var didStartPrimaryLaunchInitialization = false
     private var didCompletePrimaryLaunchInitialization = false
 
     private nonisolated static let primaryLaunchInitializationWaitTimeout: Duration = .seconds(6)
     private nonisolated static let primaryLaunchInitializationPollInterval: Duration = .milliseconds(50)
-    private nonisolated static let deferredRuntimeServicesDelay: Duration = .milliseconds(250)
 
     private struct InstantRecallSeed: Sendable {
         let id: String
@@ -761,10 +767,6 @@ final class AppBootstrap {
     private var _triageService: TriageService?
     var triageService: TriageService { Self.requireInitialized(_triageService, name: "triageService") }
     #endif
-    #if !EPISTEMOS_FREE_V1
-    let preparedModelRegistryState: PreparedModelRegistryState
-    let preparedModelRegistry: PreparedModelRegistry
-    #endif
     let vaultSync: VaultSyncService
 #if !EPISTEMOS_FREE_V1
     let vaultChatMutator: VaultChatMutator
@@ -894,24 +896,6 @@ final class AppBootstrap {
         self.localRuntimeControlPlane = localRuntimeControlPlane
         #endif
 
-        #if !EPISTEMOS_FREE_V1
-        let preparedModelRegistryState = PreparedModelRegistryState()
-        self.preparedModelRegistryState = preparedModelRegistryState
-
-        let preparedModelRegistry = PreparedModelRegistry()
-        self.preparedModelRegistry = preparedModelRegistry
-
-        // Defer the prepared-model manifest load off the synchronous init path.
-        // Reading the manifest + parsing it previously blocked the first
-        // foreground tap on launch (the "app feels frozen when I click on it"
-        // symptom). The state starts empty; downstream clients are wired with
-        // `nil` generation-runtime configuration and will fall back to
-        // baseline defaults. `refreshPreparedRetrievalRuntimeConfigurationIfNeeded`
-        // is scheduled from `didStartPrimaryLaunchInitialization` / activation
-        // notifications and will apply the real snapshot once loaded.
-        graphState.applyPreparedRetrievalRuntimeConfiguration(nil)
-        #endif
-
         // Start centralized power authority — must be before any subsystem that
         // checks PowerGuard.shared.currentMode during init.
         PowerGuard.shared.start()
@@ -923,10 +907,6 @@ final class AppBootstrap {
 
         // Start centralized thermal authority before any inference work.
         Task { await ThermalGuard.shared.start() }
-
-        // Persist FSRS spaced-repetition enrollments across launches (opt-in feature; the store is
-        // in-memory until this points it at its dedicated Application Support database).
-        Task { await FSRSDecayStore.shared.configureDefaultPersistence() }
 
         supervisor.start()
 
@@ -1095,20 +1075,11 @@ final class AppBootstrap {
         let searchIndexProvider: QueryEngine.SearchIndexProvider = { [vaultSync] in
             vaultSync.searchService ?? Self.makeFallbackSearchIndexService()
         }
-        #if EPISTEMOS_FREE_V1
         queryEngine.configure(
             graphStore: graphState.store,
             graphState: graphState,
             searchIndexProvider: searchIndexProvider
         )
-        #else
-        queryEngine.configure(
-            graphStore: graphState.store,
-            graphState: graphState,
-            searchIndexProvider: searchIndexProvider,
-            preparedRetrievalRuntimeConfiguration: preparedModelRegistryState.retrievalRuntimeConfiguration
-        )
-        #endif
 
         // App Shortcuts metadata is static and Settings exposes an explicit
         // refresh action. Do not touch external Shortcuts services during
@@ -1529,29 +1500,6 @@ final class AppBootstrap {
         )
     }
 
-    #if !EPISTEMOS_FREE_V1
-    private func startDeferredRuntimeServicesIfNeeded() {
-        guard !Self.isRunningTests else { return }
-        guard !didStartDeferredRuntimeServices else { return }
-        didStartDeferredRuntimeServices = true
-
-        Task { @MainActor [weak self] in
-            do {
-                try await Task.sleep(for: Self.deferredRuntimeServicesDelay)
-            } catch is CancellationError {
-                return
-            } catch {
-                Log.app.error("Deferred runtime services launch failed: \(error.localizedDescription, privacy: .public)")
-                return
-            }
-            guard let self else { return }
-
-            self.mutationOpLogProjectionWorker?.scheduleDrain(reason: "deferred_runtime_services")
-
-        }
-    }
-    #endif
-
     /// On-demand support bundle probe for the derived search index. The
     /// SQLite index is a recoverable cache, so this reports health only; it
     /// never makes the index authoritative over vault files.
@@ -1678,10 +1626,6 @@ final class AppBootstrap {
     func clearVaultLifecycleRuntimeState(reason: String, clearWorkspaceRestore: Bool = false) {
         queryTask?.cancel()
         queryTask = nil
-        #if !EPISTEMOS_FREE_V1
-        preparedRetrievalRefreshTask?.cancel()
-        preparedRetrievalRefreshTask = nil
-        #endif
         healthyVaultBodyCleanupTask?.cancel()
         healthyVaultBodyCleanupTask = nil
 

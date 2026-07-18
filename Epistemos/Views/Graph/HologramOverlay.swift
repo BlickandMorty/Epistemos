@@ -1208,7 +1208,7 @@ final class HologramOverlay {
         for mode: NodeInspectorState.InspectorMode
     ) -> CGSize {
         switch mode {
-        case .profile:
+        case .overview:
             CGSize(width: 330, height: 520)
         case .editor:
             CGSize(width: 330, height: 520)
@@ -1219,7 +1219,7 @@ final class HologramOverlay {
         for mode: NodeInspectorState.InspectorMode
     ) -> CGSize {
         switch mode {
-        case .profile:
+        case .overview:
             CGSize(width: 330, height: 520)
         case .editor:
             CGSize(width: 330, height: 520)
@@ -1536,7 +1536,6 @@ final class HologramOverlay {
     }
 
     private func syncInspectorStateWithGraphSelection() {
-        guard let modelContext = modelContainer?.mainContext else { return }
         guard let nodeId = graphState.selectedNodeId else {
             inspectorState.clearSelection()
             return
@@ -1546,7 +1545,7 @@ final class HologramOverlay {
             graphState.requestGraphRebuild()
             return
         }
-        inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
+        inspectorState.selectNode(node)
     }
 
     private func revealGraphNode(_ nodeId: String, graphView: MetalGraphNSView?) {
@@ -2036,7 +2035,6 @@ final class HologramOverlay {
         window = nil
         // Clear inspector state so it's fresh on next open.
         inspectorState.clearSelection()
-        inspectorState.clearCache()
     }
 
     // MARK: - Window Creation

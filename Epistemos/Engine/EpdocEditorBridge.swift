@@ -955,12 +955,6 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
     case replaceCurrent(query: String, replacement: String, caseSensitive: Bool)
     case replaceAll(query: String, replacement: String, caseSensitive: Bool)
     case clearFindHighlights
-    /// Plan 2 Stage 4 — settled AI edit preview. Stage/reject/clear only
-    /// affect preview decorations; accepting applies the proposed document.
-    case stageAIDiff(request: EpdocAIDiffStageRequest)
-    case acceptAIDiff
-    case rejectAIDiff
-    case clearAIDiff
     /// LumenLens tracked suggestions. These stage one bounded span through the
     /// JS SuggestionAdapter and keep accept/reject as explicit user actions.
     case applySuggestion(payload: EpdocSuggestionSpanPayload)
@@ -1027,14 +1021,6 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             return "window.epistemos.replaceAll(\(jsStringLiteral(query)), \(jsStringLiteral(replacement)), \(caseSensitive))"
         case .clearFindHighlights:
             return "window.epistemos.clearFindHighlights()"
-        case .stageAIDiff(let request):
-            return "window.epistemos.runCommand(\"stageEpdocAIDiff\", ...[\(Self.aiDiffStageRequestLiteral(request))])"
-        case .acceptAIDiff:
-            return Self.noArgumentRunCommandExpression("acceptEpdocAIDiff")
-        case .rejectAIDiff:
-            return Self.noArgumentRunCommandExpression("rejectEpdocAIDiff")
-        case .clearAIDiff:
-            return Self.noArgumentRunCommandExpression("clearEpdocAIDiff")
         case .applySuggestion(let payload):
             return "window.epistemos.runCommand(\"applySuggestion\", ...[\(Self.suggestionSpanPayloadLiteral(payload))])"
         case .acceptSuggestion(let id):
@@ -1042,14 +1028,6 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
         case .rejectSuggestion(let id):
             return "window.epistemos.runCommand(\"rejectSuggestion\", ...[\(jsStringLiteral(id))])"
         }
-    }
-
-    private static func noArgumentRunCommandExpression(_ name: String) -> String {
-        "window.epistemos.runCommand(\(jsStringLiteral(name)), ...[])"
-    }
-
-    private static func aiDiffStageRequestLiteral(_ request: EpdocAIDiffStageRequest) -> String {
-        "{\"markdown\":\(jsStringLiteral(request.markdown)),\"claimId\":\(jsStringLiteral(request.claimId)),\"batchId\":\(jsStringLiteral(request.batchId)),\"settled\":true}"
     }
 
     private static func suggestionSpanPayloadLiteral(_ payload: EpdocSuggestionSpanPayload) -> String {

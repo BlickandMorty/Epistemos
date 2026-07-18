@@ -410,8 +410,7 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
     }
 
     static func presentationDataJSON(from dataJSON: String) -> String {
-        guard ProductCapabilityPolicy.currentEdition == .freeV1,
-              let data = dataJSON.data(using: .utf8),
+        guard let data = dataJSON.data(using: .utf8),
               let envelope = try? JSONDecoder.epdocCanonical.decode(HTMLWorkspaceDataFeedEnvelope.self, from: data) else {
             return dataJSON
         }
@@ -432,7 +431,7 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         let hidesStoredContext = visibleResults.count != envelope.results.count
             || visibleContextKinds != envelope.epistemos.contextKinds
             || visibleRequiredContextKind != envelope.epistemos.requiredContextKind
-            || ProductCapabilityPolicy.freeV1HiddenWorkspaceContextKinds.contains { hiddenKind in
+            || ProductCapabilityPolicy.hiddenWorkspaceContextKinds.contains { hiddenKind in
                 envelope.epistemos.provenance.contains(hiddenKind)
             }
         guard hidesStoredContext else { return dataJSON }

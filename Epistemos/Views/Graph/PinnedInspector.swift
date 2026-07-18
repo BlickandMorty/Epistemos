@@ -11,22 +11,12 @@ final class PinnedInspector: Identifiable {
     let nodeId: String
     private var nodeReference: GraphNodeRecord?
     
-    var inspectorMode: NodeInspectorState.InspectorMode = .profile
     var summaryText: String = ""
     var displayedSummary: String = ""
     var isSummarizing: Bool = false
-    var profile: DialogueNodeProfile?
-    
+
     private var summaryTask: Task<Void, Never>?
-    private var profileTask: Task<Void, Never>?
     private var summaryCache: [String: String] = [:]
-    private var profileCache: [ProfileCacheKey: DialogueNodeProfile] = [:]
-    
-    private struct ProfileCacheKey: Hashable {
-        let nodeId: String
-        let nodeUpdatedAt: Date
-        let topologyVersion: Int
-    }
 
     private struct BodyReadStage: Sendable {
         let pageId: String
@@ -52,7 +42,6 @@ final class PinnedInspector: Identifiable {
     
     func close() {
         summaryTask?.cancel()
-        profileTask?.cancel()
     }
     
     // MARK: - Summarization

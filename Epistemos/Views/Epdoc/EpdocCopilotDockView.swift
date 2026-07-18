@@ -117,7 +117,6 @@ public struct EpdocCopilotDockView: View {
     public let wordCount: Int
     public let dispatch: @Sendable @MainActor (EpdocEditorCommand) -> Void
     public let freeformAgentEnabled: Bool
-    public let aiDiffDraft: EpdocAIDiffReviewDraft?
     public let assistContext: JuneEpdocAssistContext?
     public let submitAssist: (@MainActor (String, JuneEpdocAssistContext) -> JuneEpdocAssistSubmissionResult)?
     public let stageAssistSuggestion: (@MainActor (String, JuneEpdocAssistContext) -> JuneEpdocAssistSuggestionStageResult)?
@@ -132,7 +131,6 @@ public struct EpdocCopilotDockView: View {
         wordCount: Int,
         dispatch: @escaping @Sendable @MainActor (EpdocEditorCommand) -> Void,
         freeformAgentEnabled: Bool = false,
-        aiDiffDraft: EpdocAIDiffReviewDraft? = nil,
         assistContext: JuneEpdocAssistContext? = nil,
         submitAssist: (@MainActor (String, JuneEpdocAssistContext) -> JuneEpdocAssistSubmissionResult)? = nil,
         stageAssistSuggestion: (@MainActor (String, JuneEpdocAssistContext) -> JuneEpdocAssistSuggestionStageResult)? = nil
@@ -140,7 +138,6 @@ public struct EpdocCopilotDockView: View {
         self.wordCount = wordCount
         self.dispatch = dispatch
         self.freeformAgentEnabled = freeformAgentEnabled
-        self.aiDiffDraft = aiDiffDraft
         self.assistContext = assistContext
         self.submitAssist = submitAssist
         self.stageAssistSuggestion = stageAssistSuggestion
@@ -233,33 +230,6 @@ public struct EpdocCopilotDockView: View {
                         help: transform.response
                     ) {
                         dispatch(transform.command)
-                    }
-                }
-
-                if let aiDiffDraft {
-                    Divider()
-                        .frame(height: 22)
-                        .opacity(0.58)
-                    dockButton(
-                        title: "Review edit",
-                        symbol: "sparkles",
-                        help: aiDiffDraft.summary
-                    ) {
-                        dispatch(aiDiffDraft.previewCommand)
-                    }
-                    iconButton(
-                        symbol: "checkmark",
-                        label: "Accept AI edit",
-                        help: "Apply the staged AI edit preview."
-                    ) {
-                        dispatch(aiDiffDraft.acceptCommand)
-                    }
-                    iconButton(
-                        symbol: "xmark",
-                        label: "Reject AI edit",
-                        help: "Discard the staged AI edit preview."
-                    ) {
-                        dispatch(aiDiffDraft.rejectCommand)
                     }
                 }
             }

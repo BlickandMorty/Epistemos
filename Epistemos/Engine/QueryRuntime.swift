@@ -210,152 +210,23 @@ nonisolated enum GraphEventProjectionHint {
 }
 
 @MainActor
-protocol RetrievalScoring {
-    func score(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate]
-}
-
-struct PassthroughRetrievalScorer: RetrievalScoring {
-    func score(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
-        candidates
-    }
-}
-
-@MainActor
-protocol PreparedRetrievalRuntimeResolving {
-    func resolveScorer(
-        configuration: PreparedRetrievalRuntimeConfiguration?,
-        executionMode: PreparedRetrievalExecutionMode,
-        graphState: GraphState
-    ) -> any RetrievalScoring
-
-    func resolveEmbeddingLookup(
-        configuration: PreparedRetrievalRuntimeConfiguration?,
-        executionMode: PreparedRetrievalExecutionMode,
-        fallback: any TextEmbeddingLookup
-    ) -> any TextEmbeddingLookup
-}
-
-struct DefaultPreparedRetrievalRuntimeResolver: PreparedRetrievalRuntimeResolving {
-    func resolveScorer(
-        configuration: PreparedRetrievalRuntimeConfiguration?,
-        executionMode: PreparedRetrievalExecutionMode,
-        graphState: GraphState
-    ) -> any RetrievalScoring {
-        guard executionMode.hasPreparedIndexRuntime else {
-            return PassthroughRetrievalScorer()
-        }
-        return PreparedIndexSimilarityScorer(
-            graphState: graphState,
-            embeddingService: graphState.embeddingService
-        )
-    }
-
-    func resolveEmbeddingLookup(
-        configuration: PreparedRetrievalRuntimeConfiguration?,
-        executionMode: PreparedRetrievalExecutionMode,
-        fallback: any TextEmbeddingLookup
-    ) -> any TextEmbeddingLookup {
-        fallback
-    }
-}
-
-@MainActor
-final class PreparedIndexSimilarityScorer: RetrievalScoring {
-    private weak var graphState: GraphState?
-    private let embeddingService: EmbeddingService
-
-    init(graphState: GraphState, embeddingService: EmbeddingService) {
-        self.graphState = graphState
-        self.embeddingService = embeddingService
-    }
-
-    func score(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
-        guard candidates.count > 1,
-              embeddingService.preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
-              let graphState,
-              graphState.ensurePreparedRetrievalIndexLoaded(),
-              let engine = graphState.engineHandle else {
-            return candidates
-        }
-
-        let dimension = Int(graph_engine_prepared_retrieval_dimension(engine))
-        guard dimension > 0,
-              let queryVector = embeddingService.queryEmbedding(for: query, expectedDimension: dimension) else {
-            return candidates
-        }
-
-        let candidatePageIDs = candidates.compactMap(\.node.sourceId)
-        guard candidatePageIDs.count > 1 else { return candidates }
-
-        let scores = queryVector.withUnsafeBufferPointer { queryBuffer -> [String: Float] in
-            guard let queryBaseAddress = queryBuffer.baseAddress else { return [:] }
-            return withStableCStringArray(candidatePageIDs) { pointerBuffer in
-                let list = graph_engine_prepared_retrieval_score_page_ids(
-                    engine,
-                    queryBaseAddress,
-                    UInt32(dimension),
-                    pointerBuffer.baseAddress,
-                    UInt32(candidatePageIDs.count)
-                )
-                defer { graph_engine_free_prepared_retrieval_candidates(list) }
-                guard let candidates = list.candidates, list.count > 0 else { return [:] }
-
-                var scoreMap: [String: Float] = [:]
-                scoreMap.reserveCapacity(Int(list.count))
-                for index in 0..<Int(list.count) {
-                    let result = candidates[index]
-                    let pageID = result.page_id.map { String(cString: $0) } ?? ""
-                    guard !pageID.isEmpty else { continue }
-                    scoreMap[pageID] = result.score
-                }
-                return scoreMap
-            } ?? [:]
-        }
-
-        guard !scores.isEmpty else { return candidates }
-
-        let indexedCandidates = Array(candidates.enumerated())
-        return indexedCandidates
-            .sorted { lhs, rhs in
-                let lhsScore = lhs.element.node.sourceId.flatMap { scores[$0] } ?? -.greatestFiniteMagnitude
-                let rhsScore = rhs.element.node.sourceId.flatMap { scores[$0] } ?? -.greatestFiniteMagnitude
-                if lhsScore == rhsScore {
-                    return lhs.offset < rhs.offset
-                }
-                return lhsScore > rhsScore
-            }
-            .map(\.element)
-    }
-}
-
-@MainActor
 final class RetrievalRuntime {
-    private enum RetrievalPolicy {
-        static let scoreLimit = 12
-    }
-
     private static let graphEventProjectionEnvironmentKey = "EPISTEMOS_GRAPH_EVENT_QUERY_PROJECTION_V1"
 
     private let graphStore: GraphStore
     private let graphState: GraphState
     private let searchIndex: SearchIndexService
-    private let scorer: any RetrievalScoring
-    private let scoreLimit: Int
     private let graphEventProjectionSnapshotProvider: GraphEventProjectionSnapshotProvider
 
     init(
         graphStore: GraphStore,
         graphState: GraphState,
         searchIndex: SearchIndexService,
-        scorer: any RetrievalScoring = PassthroughRetrievalScorer(),
-        scoreLimit: Int = RetrievalPolicy.scoreLimit,
         graphEventProjectionSnapshotProvider: GraphEventProjectionSnapshotProvider? = nil
     ) {
         self.graphStore = graphStore
         self.graphState = graphState
         self.searchIndex = searchIndex
-        self.scorer = scorer
-        self.scoreLimit = max(0, scoreLimit)
         self.graphEventProjectionSnapshotProvider = graphEventProjectionSnapshotProvider
             ?? Self.defaultGraphEventProjectionSnapshot
     }
@@ -391,7 +262,7 @@ final class RetrievalRuntime {
                     )
                 }
                 return graphEventHintedCandidates(
-                    scoredCandidates(query: checkedQuery, candidates: candidates)
+                    candidates
                 ).map(\.node)
             } catch {
                 Log.ffiBoundary.error(
@@ -442,7 +313,7 @@ final class RetrievalRuntime {
         }
 
         return graphEventHintedCandidates(
-            scoredCandidates(query: checkedQuery, candidates: candidates)
+            candidates
         ).map(\.node)
     }
 
@@ -455,7 +326,7 @@ final class RetrievalRuntime {
                 source: .semanticGraph
             )
         }
-        return scoredCandidates(query: checkedQuery, candidates: candidates).map(\.node)
+        return candidates.map(\.node)
     }
 
     private func appendNoteResult(
@@ -479,21 +350,6 @@ final class RetrievalRuntime {
                 source: source
             )
         )
-    }
-
-    private func scoredCandidates(
-        query: String,
-        candidates: [RetrievalCandidate]
-    ) -> [RetrievalCandidate] {
-        guard candidates.count > 1, scoreLimit > 0 else { return candidates }
-        let prefixCount = min(scoreLimit, candidates.count)
-        let prefix = Array(candidates.prefix(prefixCount))
-        let scoredPrefix = scorer.score(query: query, candidates: prefix)
-        guard scoredPrefix.count == prefix.count,
-              Set(scoredPrefix.map(\.node.id)) == Set(prefix.map(\.node.id)) else {
-            return candidates
-        }
-        return scoredPrefix + candidates.dropFirst(prefixCount)
     }
 
     private func graphEventHintedCandidates(_ candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
@@ -546,7 +402,6 @@ final class QueryRuntime {
         graphStore: GraphStore,
         graphState: GraphState,
         searchIndex: SearchIndexService,
-        scorer: any RetrievalScoring = PassthroughRetrievalScorer(),
         graphEventProjectionSnapshotProvider: GraphEventProjectionSnapshotProvider? = nil
     ) {
         self.graphStore = graphStore
@@ -556,7 +411,6 @@ final class QueryRuntime {
             graphStore: graphStore,
             graphState: graphState,
             searchIndex: searchIndex,
-            scorer: scorer,
             graphEventProjectionSnapshotProvider: graphEventProjectionSnapshotProvider
         )
     }
@@ -626,7 +480,7 @@ final class QueryRuntime {
     }
 
     private func currentProductAggregation(from aggregation: QueryAggregation?) -> QueryAggregation? {
-        ProductCapabilityPolicy.currentEdition == .freeV1 ? nil : aggregation
+        nil
     }
 
     private func applyOrdering(_ nodes: [QueryResultNode], orderBy: OrderBy) -> [QueryResultNode] {

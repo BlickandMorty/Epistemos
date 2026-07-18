@@ -15,8 +15,7 @@ private enum HologramInspectorPreviewPolicy {
 }
 
 // MARK: - HologramNodeInspector
-// Right-side floating panel: node details and AI summary.
-// True accordion layout — one section expanded at a time.
+// Right-side floating panel for node details and note previews.
 // Native macOS 26 Liquid Glass styling.
 
 struct HologramNodeInspector: View {
@@ -27,8 +26,6 @@ struct HologramNodeInspector: View {
     let inspectorState: NodeInspectorState
     let modelContext: ModelContext
 
-    enum Section: CaseIterable { case profile, summary, relationships }
-    @State private var expandedSection: Section = .profile
     @State private var editorText = ""
     @State private var editorPreviewFilePath: String?
     @State private var editorPreviewTask: Task<Void, Never>?
@@ -72,11 +69,7 @@ struct HologramNodeInspector: View {
 
     private func syncSelection(from nodeId: String?) {
         if let nodeId, let node = graphState.store.nodes[nodeId] {
-            let previousSelection = inspectorState.selectedNodeId
-            inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
-            if previousSelection != nodeId {
-                expandedSection = .profile
-            }
+            inspectorState.selectNode(node)
             if graphState.requestEditorMode {
                 graphState.requestEditorMode = false
                 inspectorState.inspectorMode = .editor
@@ -280,7 +273,6 @@ struct HologramNodeInspector: View {
     }
 
     private func compactVitals(_ node: GraphNodeRecord) -> some View {
-        let profile = inspectorState.profile
         let stats = compactEdgeStats(for: node)
 
         return VStack(alignment: .leading, spacing: 8) {
@@ -291,9 +283,9 @@ struct HologramNodeInspector: View {
                 systemImage: "link"
             )
             compactFactRow(
-                "Layer",
-                value: profile?.insight.hierarchyLabel ?? "Layer -",
-                detail: profile?.insight.tier.displayName ?? stats.resonanceLabel,
+                "Type",
+                value: node.type.displayName,
+                detail: stats.resonanceLabel,
                 systemImage: "square.stack.3d.up"
             )
             compactFactRow(
@@ -422,7 +414,7 @@ struct HologramNodeInspector: View {
            !quote.isEmpty {
             return quote
         }
-        return inspectorState.profile?.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        return nil
     }
 
     private func compactDate(_ date: Date) -> String {
@@ -432,7 +424,7 @@ struct HologramNodeInspector: View {
 
     private var modePicker: some View {
         Picker("", selection: Bindable(inspectorState).inspectorMode) {
-            Text("Profile").tag(NodeInspectorState.InspectorMode.profile)
+            Text("Overview").tag(NodeInspectorState.InspectorMode.overview)
             Text("Preview").tag(NodeInspectorState.InspectorMode.editor)
         }
         .pickerStyle(.segmented)
@@ -564,194 +556,6 @@ struct HologramNodeInspector: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
-    private func accordionBody(_ node: GraphNodeRecord) -> some View {
-        sectionHeader(.profile, icon: "person.crop.circle", title: "Profile", preview: profilePreview)
-        if expandedSection == .profile {
-            profileBody
-            Divider()
-        }
-
-        sectionHeader(.summary, icon: "sparkles", title: "Summary", preview: summaryPreview)
-        if expandedSection == .summary {
-            summaryBody
-            Divider()
-        }
-
-        sectionHeader(.relationships, icon: "arrow.triangle.branch", title: "Relationships", preview: relationshipsPreview(node))
-        if expandedSection == .relationships {
-            RelationshipBrowser(
-                nodeId: node.id,
-                store: graphState.store,
-                onNavigate: { graphState.selectNode($0) }
-            )
-            Divider()
-        }
-    }
-
-    // MARK: - Section Header
-
-    private func sectionHeader(_ section: Section, icon: String, title: String, preview: String) -> some View {
-        // 2026-05-13 fifth pass: on Ember, section titles ("Profile",
-        // "Summary", "Relationships") + their truncated preview text
-        // route through `theme.boxedLabelText(_:)` which lowercases the
-        // string so ColorBasic-Regular renders the white-on-black
-        // boxed glyph form. Other themes pass through unchanged.
-        let labelTitle = theme.boxedLabelText(title)
-        let panelTitleFont = AppDisplayTypography.panelFont(size: 12, weight: .semibold, theme: theme)
-        let panelPreviewFont = AppDisplayTypography.panelFont(size: 11, weight: .regular, theme: theme)
-        return Button {
-            let newSection = section
-            withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) {
-                expandedSection = newSection
-            }
-            guard newSection == .summary else { return }
-            if let node = inspectorState.selectedNode {
-                inspectorState.ensureSummary(for: node, store: graphState.store, modelContext: modelContext)
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: expandedSection == section ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-                    .frame(width: 12)
-
-                Label {
-                    Text(labelTitle)
-                        .font(panelTitleFont)
-                } icon: {
-                    Image(systemName: icon)
-                }
-                .foregroundStyle(.secondary)
-
-                if expandedSection != section && !preview.isEmpty {
-                    let previewText = theme.boxedLabelText(preview)
-                    Text("— \(previewText)")
-                        .font(panelPreviewFont)
-                        .foregroundStyle(.quaternary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-
-                Spacer()
-
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Previews (collapsed state)
-
-    private var summaryPreview: String {
-        let text = inspectorState.summaryText
-        if text.isEmpty { return inspectorState.isSummarizing ? "Loading…" : "" }
-        let firstLine = text.prefix(while: { $0 != "\n" })
-        return String(firstLine.prefix(60))
-    }
-
-    private func relationshipsPreview(_ node: GraphNodeRecord) -> String {
-        let count = graphState.store.adjacency[node.id]?.count ?? 0
-        return count > 0 ? "\(count)" : ""
-    }
-
-    private var profilePreview: String {
-        guard let p = inspectorState.profile else { return "" }
-        return "\(p.insight.hierarchyLabel) · \(p.insight.contentLabel)"
-    }
-
-    // MARK: - Profile Body
-
-    private var profileBody: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                if let p = inspectorState.profile {
-                    if !p.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text(p.summary)
-                            .font(.callout)
-                            .foregroundStyle(.primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    // Node vitals: Age, Drift, Resonance
-                    if let node = inspectorState.selectedNode {
-                        nodeVitals(node)
-                    }
-
-                    // Content info
-                    HStack(spacing: 12) {
-                        Label(p.insight.contentLabel, systemImage: "doc.text")
-                        Label(p.insight.hierarchyLabel, systemImage: "arrow.up.arrow.down")
-                        Label(p.insight.tier.displayName, systemImage: "square.stack.3d.up")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-
-                    // Keywords
-                    if !p.focusKeywords.isEmpty {
-                        FlowLayout(spacing: 4) {
-                            ForEach(p.focusKeywords, id: \.self) { kw in
-                                Text(kw)
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(.quaternary, in: Capsule())
-                            }
-                        }
-                    }
-                } else {
-                    Text("No profile available.")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                }
-            }
-            .padding(16)
-        }
-    }
-
-    // MARK: - Node Vitals (Age, Resonance)
-
-    private func nodeVitals(_ node: GraphNodeRecord) -> some View {
-        let store = graphState.store
-        let edgeIds = store.edgesByNode[node.id] ?? []
-        let edgeRecords = edgeIds.compactMap { store.edges[$0] }
-        let inDegree = edgeRecords.filter { $0.targetNodeId == node.id }.count
-        let outDegree = edgeRecords.filter { $0.sourceNodeId == node.id }.count
-        let total = max(inDegree + outDegree, 1)
-        let resonance = Double(inDegree) / Double(total) // 1.0 = pure sink, 0.0 = pure source
-
-        return HStack(spacing: 16) {
-            // Age
-            VStack(spacing: 2) {
-                Image(systemName: "clock")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(nodeAge(node.createdAt))
-                    .font(.caption2.monospaced())
-            }
-
-            Divider().frame(height: 20)
-
-            // 2026-05-19: removed the "Drift" metric (wind icon + Rust-engine
-            // drift value) per user direction — the value was an internal
-            // graph-physics debug signal, not user-meaningful. Age + in/out
-            // edge ratio remain.
-
-            // Resonance
-            VStack(spacing: 2) {
-                Image(systemName: resonance > 0.6 ? "arrow.down.circle" : resonance < 0.4 ? "arrow.up.circle" : "arrow.left.arrow.right.circle")
-                    .font(.caption)
-                    .foregroundStyle(resonance > 0.6 ? .purple : resonance < 0.4 ? .green : .secondary)
-                Text("\(inDegree)↓ \(outDegree)↑")
-                    .font(.caption2.monospaced())
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
     private func nodeAge(_ date: Date) -> String {
         let interval = Date().timeIntervalSince(date)
         guard interval.isFinite else { return "?" }
@@ -761,114 +565,4 @@ struct HologramNodeInspector: View {
         return "\(Int(interval / 2_592_000))mo"
     }
 
-    // MARK: - Header
-
-    private func headerSection(_ node: GraphNodeRecord) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // 2026-05-19: the NSPanel-level inspector toggle button (the
-            // diagonal popout arrows) was being absolute-positioned at the
-            // panel's trailing edge, occluding the SwiftUI close button. The
-            // close X is now first (left of pin) and the trailing padding
-            // reserves the corner for the popout-toggle overlay, so all
-            // three controls are visible side-by-side.
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(node.type.swiftUIColor)
-                    .frame(width: 8, height: 8)
-                Text(node.type.displayName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                // Close: deselects the node and dismisses the inspector.
-                Button {
-                    graphState.selectNode(nil)
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Close inspector")
-
-                // Pin: creates a persistent panel attached to this node
-                Button {
-                    if let nodeId = graphState.selectedNodeId,
-                       let gnode = graphState.store.nodes[nodeId] {
-                        let mgr = PinnedInspectorManager.shared
-                        _ = mgr.pin(node: gnode, store: graphState.store, modelContext: modelContext)
-                    }
-                } label: {
-                    Image(systemName: "pin")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.tertiary)
-                }
-                .buttonStyle(.plain)
-                .help("Pin inspector to this node")
-            }
-            // Reserve trailing room for the NSPanel-level popout-toggle
-            // overlay (the diagonal arrows at content.trailingAnchor - 10).
-            .padding(.trailing, 36)
-
-            TypewriterHeading(
-                text: MarkdownHeadingDisplay.displayText(node.label, level: 1),
-                role: .pageTitle,
-                color: theme.fontAccent,
-                animateOnAppear: true,
-                animationKey: node.id,
-                // 2026-05-13 sixth pass: route the selected-node title
-                // through `theme.nodeTitleFontName` so Ember picks
-                // ChonkyPixels instead of the case-driven ColorBasic
-                // box glyphs.
-                fontOverride: Font.custom(
-                    theme.nodeTitleFontName,
-                    size: AppHeadingRole.pageTitle.fontSize
-                )
-            )
-            .lineLimit(3)
-
-            HStack(spacing: 12) {
-                let linkCount = graphState.store.adjacency[node.id]?.count ?? 0
-                Label("\(linkCount) connections", systemImage: "link")
-                if node.createdAt != .distantPast {
-                    Label(node.createdAt.formatted(.dateTime.month(.abbreviated).day()), systemImage: "calendar")
-                }
-            }
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-        }
-        .padding(16)
-    }
-
-    // MARK: - Summary Body
-
-    private var summaryBody: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                if inspectorState.summaryText.isEmpty {
-                    if inspectorState.isSummarizing {
-                        ProgressView()
-                            .frame(maxWidth: .infinity, minHeight: 40)
-                    } else {
-                        Text("No summary available.")
-                            .font(.callout)
-                            .foregroundStyle(.tertiary)
-                            .frame(maxWidth: .infinity, minHeight: 40)
-                    }
-                } else {
-                    Text(inspectorState.displayedSummary)
-                        .font(.callout)
-                        .lineSpacing(3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                        .transaction { $0.animation = nil }
-                }
-
-                if inspectorState.isSummarizing && !inspectorState.summaryText.isEmpty {
-                    ProgressView()
-                        .controlSize(.mini)
-                }
-            }
-            .padding(16)
-        }
-    }
 }

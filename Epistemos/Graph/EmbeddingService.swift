@@ -390,66 +390,9 @@ final class EmbeddingService {
     private var embeddingCacheMissCount = 0
     private var embeddingCacheEvictionCount = 0
     private var embeddingCacheCapacityOverride: Int?
-    private let fallbackEmbeddingLookup: any TextEmbeddingLookup
-    private let preparedRetrievalRuntimeResolver: any PreparedRetrievalRuntimeResolving
-    // CONC-15: `activeEmbeddingLookup` is a multi-word existential written on MainActor
-    // (init / applyPreparedRetrievalRuntimeConfiguration) and read from nonisolated
-    // embedding functions. "Effectively immutable between changes" is NOT a mechanism —
-    // an overlapping read during a write tears the existential (witness-table / value
-    // mismatch → crash), TSan-visible. Every access now goes through `embeddingLookupLock`.
-    private let embeddingLookupLock = NSLock()
-    // SAFETY: only touched inside `embeddingLookupLock` via the `activeEmbeddingLookup`
-    // computed accessor below; the sole direct use is `init` before the instance escapes.
-    nonisolated(unsafe) private var _activeEmbeddingLookup: any TextEmbeddingLookup
-    nonisolated private var activeEmbeddingLookup: any TextEmbeddingLookup {
-        get {
-            embeddingLookupLock.lock()
-            defer { embeddingLookupLock.unlock() }
-            return _activeEmbeddingLookup
-        }
-        set {
-            embeddingLookupLock.lock()
-            defer { embeddingLookupLock.unlock() }
-            _activeEmbeddingLookup = newValue
-        }
-    }
-    // LOW-9 (audit 2026-07-03): these were written on MainActor + read from nonisolated
-    // background funcs unsynchronized (a benign, byte-sized TSan race). Route them
-    // through the same embeddingLookupLock as _activeEmbeddingLookup for a clean TSan run.
-    nonisolated(unsafe) private var _swiftEmbeddingFallbackActive = true
-    nonisolated private var swiftEmbeddingFallbackActive: Bool {
-        get {
-            embeddingLookupLock.lock()
-            defer { embeddingLookupLock.unlock() }
-            return _swiftEmbeddingFallbackActive
-        }
-        set {
-            embeddingLookupLock.lock()
-            defer { embeddingLookupLock.unlock() }
-            _swiftEmbeddingFallbackActive = newValue
-        }
-    }
+    nonisolated private let embeddingLookup: any TextEmbeddingLookup
     nonisolated var isSwiftEmbeddingFallbackAvailable: Bool {
-        guard swiftEmbeddingFallbackActive else { return false }
-        return activeEmbeddingLookup.dimension > 0
-    }
-    nonisolated(unsafe) private var _preparedQueryEmbeddingActive = false
-    nonisolated private var preparedQueryEmbeddingActive: Bool {
-        get {
-            embeddingLookupLock.lock()
-            defer { embeddingLookupLock.unlock() }
-            return _preparedQueryEmbeddingActive
-        }
-        set {
-            embeddingLookupLock.lock()
-            defer { embeddingLookupLock.unlock() }
-            _preparedQueryEmbeddingActive = newValue
-        }
-    }
-    private(set) var preparedRetrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration?
-    private(set) var preparedRetrievalExecutionMode: PreparedRetrievalExecutionMode = .appleEmbeddingFallback
-    var preparedRetrievalIndexManifestPath: String? {
-        preparedRetrievalRuntimeConfiguration?.assetLayout?.indexManifestPath
+        embeddingLookup.dimension > 0
     }
 
     // SAFETY: accessed from nonisolated cancelPendingTask/drainAndDestroyEngineOffMain only after
@@ -463,38 +406,14 @@ final class EmbeddingService {
 
     init(
         maxCacheEntries: Int = EmbeddingCacheConfig.capacity,
-        embeddingLookup: any TextEmbeddingLookup = ProductDefaultTextEmbeddingLookup.make(),
-        preparedRetrievalRuntimeResolver: any PreparedRetrievalRuntimeResolving = DefaultPreparedRetrievalRuntimeResolver()
+        embeddingLookup: any TextEmbeddingLookup = ProductDefaultTextEmbeddingLookup.make()
     ) {
         self.defaultEmbeddingCacheCapacity = max(0, maxCacheEntries)
-        fallbackEmbeddingLookup = embeddingLookup
-        self.preparedRetrievalRuntimeResolver = preparedRetrievalRuntimeResolver
-        _activeEmbeddingLookup = embeddingLookup  // CONC-15: direct backing-store init (pre-escape)
+        self.embeddingLookup = embeddingLookup
     }
 
     func prepareForEngineUse() {
         detachedEngineUseTracker.open()
-    }
-
-    func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
-        let previousConfiguration = preparedRetrievalRuntimeConfiguration
-        let previousExecutionMode = preparedRetrievalExecutionMode
-        preparedRetrievalRuntimeConfiguration = configuration
-        preparedRetrievalExecutionMode = configuration?.preparedRetrievalExecutionMode ?? .appleEmbeddingFallback
-        swiftEmbeddingFallbackActive = preparedRetrievalExecutionMode.usesSwiftEmbeddingFallback
-        preparedQueryEmbeddingActive = preparedRetrievalExecutionMode.hasPreparedIndexRuntime
-        activeEmbeddingLookup = preparedRetrievalRuntimeResolver.resolveEmbeddingLookup(
-            configuration: configuration,
-            executionMode: preparedRetrievalExecutionMode,
-            fallback: fallbackEmbeddingLookup
-        )
-        if previousConfiguration != preparedRetrievalRuntimeConfiguration || previousExecutionMode != preparedRetrievalExecutionMode {
-            cancelPendingTask()
-            clearEmbeddingCache()
-            dimension = 0
-            clearEngineEmbeddings()
-            clearPreparedRetrievalIndexRuntime()
-        }
     }
 
     private var embeddingCacheCapacity: Int {
@@ -532,12 +451,12 @@ final class EmbeddingService {
             return
         }
 
-        let embeddingLookup = activeEmbeddingLookup
+        let activeLookup = embeddingLookup
 
         // Heavy compute on background thread — NLEmbedding word lookups + vector math.
         // Task.detached escapes @MainActor isolation so this doesn't block rendering.
         computeTask = Task.detached(priority: .utility) { [weak self] in
-            let dim = embeddingLookup.dimension
+            let dim = activeLookup.dimension
             guard dim > 0 else {
 #if !EPISTEMOS_FREE_V1
                 await MainActor.run { Log.app.error("EmbeddingService: NLEmbedding unavailable") }
@@ -553,7 +472,7 @@ final class EmbeddingService {
                 if let vector = Self.averageEmbedding(
                     for: snapshot.text,
                     dimension: dim,
-                    embeddingLookup: embeddingLookup
+                    embeddingLookup: activeLookup
                 ) {
                     newEmbeddings[snapshot.id] = vector
                 }
@@ -660,8 +579,7 @@ final class EmbeddingService {
     // MARK: - Block Embeddings
 
     nonisolated func queryEmbedding(for query: String, expectedDimension: Int? = nil) -> [Float]? {
-        guard isSwiftEmbeddingFallbackAvailable || preparedQueryEmbeddingActive else { return nil }
-        let embeddingLookup = activeEmbeddingLookup
+        guard isSwiftEmbeddingFallbackAvailable else { return nil }
         let dimension = expectedDimension ?? embeddingLookup.dimension
         guard dimension > 0 else { return nil }
         guard expectedDimension == nil || expectedDimension == dimension else { return nil }
@@ -677,7 +595,6 @@ final class EmbeddingService {
     /// Empty blocks or inputs unavailable to the lookup are skipped.
     nonisolated func computeBlockVectors(blocks: [(id: String, content: String)]) -> [String: [Float]] {
         guard isSwiftEmbeddingFallbackAvailable else { return [:] }
-        let embeddingLookup = activeEmbeddingLookup
         let dim = embeddingLookup.dimension
         guard dim > 0 else { return [:] }
         var result: [String: [Float]] = [:]
@@ -700,7 +617,7 @@ final class EmbeddingService {
         guard isSwiftEmbeddingFallbackAvailable else { return [:] }
         return SemanticClusterService.computeClusters(
             store: store,
-            embeddingLookup: fallbackEmbeddingLookup
+            embeddingLookup: embeddingLookup
         )
     }
 
@@ -711,7 +628,7 @@ final class EmbeddingService {
     /// the lookup to off-main k-means without forcing the EmbeddingService
     /// instance itself across the MainActor boundary.
     func swiftFallbackEmbeddingLookupForBackground() -> any TextEmbeddingLookup {
-        fallbackEmbeddingLookup
+        embeddingLookup
     }
 
     /// Push pre-computed block embeddings to the Rust engine via FFI.
@@ -815,11 +732,6 @@ final class EmbeddingService {
     private func clearEngineEmbeddings() {
         guard let engine = graphState?.engineHandle else { return }
         graph_engine_clear_embeddings(engine)
-    }
-
-    private func clearPreparedRetrievalIndexRuntime() {
-        guard let engine = graphState?.engineHandle else { return }
-        graph_engine_clear_prepared_retrieval_index(engine)
     }
 
     private nonisolated static func prepareEngineEmbeddingStore(_ engine: OpaquePointer, dimension: Int) -> Bool {

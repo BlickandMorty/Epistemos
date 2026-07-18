@@ -758,17 +758,6 @@ struct NotesSidebar: View {
     @State private var pendingDeleteFolder: SidebarFolderItem?
     @State private var showingNewCodeFileSheet = false
     @State private var creationStatusText: String?
-    // W9.13 — daily-note quick-glance sheet. Toggled by the "Today"
-    // button in the bottom bar. Shows DailyNoteView with the
-    // currently selected day plus the FSRS due-review section.
-    @State private var dailyNoteSheetDate: Date? = nil
-
-    /// W9.13 — Identifiable Date wrapper so SwiftUI's `.sheet(item:)`
-    /// can drive presentation off the optional date binding.
-    private struct SheetDateBox: Identifiable {
-        let date: Date
-        var id: TimeInterval { date.timeIntervalSince1970 }
-    }
     @FocusState private var isSearchFocused: Bool
 
     // MARK: - Cached value-type mappings (breaks @Observable tracking)
@@ -1532,10 +1521,6 @@ struct NotesSidebar: View {
                 onNewCollection: { createCollection(title: "Untitled Collection") },
                 onTodayJournal: { Task { await getOrCreateTodayJournal() } }
             )
-            // 2026-05-19: removed the W9.13 "Today's brief" button and its
-            // DailyNoteView sheet per user direction. The daily-note quick
-            // glance + FSRS due-for-review surface didn't fit the simplified
-            // sidebar; the journal folder section was also removed.
         }
     }
 

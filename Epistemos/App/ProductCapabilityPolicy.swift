@@ -8,6 +8,10 @@ nonisolated enum ProductCapabilityPolicy {
         .rawThought,
         .toolTrace,
     ]
+    static let hiddenWorkspaceContextKinds: Set<String> = [
+        "provenance_claim",
+        "recent_chat",
+    ]
 
     static func allowsGraphProjection(of type: GraphNodeType) -> Bool {
         !hiddenGraphNodeTypes.contains(type)
@@ -30,7 +34,7 @@ nonisolated enum ProductCapabilityPolicy {
     }
 
     static func allowsWorkspaceContextPresentation(kind: String) -> Bool {
-        kind != "recent_chat" && kind != "provenance_claim"
+        !hiddenWorkspaceContextKinds.contains(kind)
     }
 
     static func sanitizedAIOutput(_ output: String) -> String { "" }

@@ -60,7 +60,6 @@ public struct ShadowPanelContent: View {
     public var body: some View {
         VStack(spacing: 0) {
             graphProjectionRibbon
-            provenanceLedgerRibbon
             Divider()
             resultsList
             if hoveredID != nil {
@@ -100,43 +99,6 @@ public struct ShadowPanelContent: View {
         // Inner ribbons are theme-tinted overlays only — no nested Material.
         .background(theme.glassBg.opacity(0.55))
         .accessibilityLabel(graphProjectionAccessibilityLabel(for: report))
-    }
-
-    /// V2 Lane 1 — DAG-authoritative Rust provenance signal surfaced in
-    /// the Halo panel as a peer of the GraphEvent projection ribbon. The
-    /// legacy ClaimLedger bridge stays available for compatibility, but
-    /// the visible ambient signal follows the Cognitive DAG because the
-    /// DAG is the provenance ledger after the Phase 8 mirror wiring.
-    private var provenanceLedgerRibbon: some View {
-        let stats = RustCognitiveDagClient.stats()
-        return HStack(spacing: 6) {
-            Image(systemName: "checkmark.shield")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Text(provenanceLedgerLabel(for: stats))
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        // 2026-05-20 single-blur policy: the Halo panel now carries its
-        // ONE NSVisualEffectView at the window level (see ShadowPanel.swift).
-        // Inner ribbons are theme-tinted overlays only — no nested Material.
-        .background(theme.glassBg.opacity(0.55))
-        .accessibilityLabel(provenanceLedgerAccessibilityLabel(for: stats))
-    }
-
-    private func provenanceLedgerLabel(for stats: RustCognitiveDagStats) -> String {
-        if stats.isEmpty {
-            return "DAG ledger empty"
-        }
-        return "DAG ledger: \(stats.nodeCount) nodes · \(stats.edgeCount) edges"
-    }
-
-    private func provenanceLedgerAccessibilityLabel(for stats: RustCognitiveDagStats) -> String {
-        "Rust Cognitive DAG provenance: \(stats.nodeCount) nodes, \(stats.edgeCount) edges, schema version \(stats.schemaVersion)"
     }
 
     /// Returns the recoverable-error message when the controller has

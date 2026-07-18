@@ -40,7 +40,7 @@
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
-		57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Epistemos-AppStore.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		57F63CBF79B9214731AD2154 /* Epistemos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Epistemos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CA1ADD76D0A683D0954DDB5 /* KokoroPipeline */ = {isa = PBXFileReference; lastKnownFileType = folder; name = KokoroPipeline; path = LocalPackages/KokoroPipeline; sourceTree = SOURCE_ROOT; };
 		A0DEC64ED9ED804781639E05 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSpotlight.framework; path = System/Library/Frameworks/CoreSpotlight.framework; sourceTree = SDKROOT; };
@@ -50,21 +50,9 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		37F519C8472FADBCC70357FE /* Exceptions for "Epistemos" folder in "Epistemos-AppStore" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				epistemos_coreFFI.h,
-				epistemos_coreFFI.modulemap,
-				epistemos_coreFFI/epistemos_coreFFI.h,
-				epistemos_coreFFI/module.modulemap,
-			);
-			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
-		};
-		37F519C8472FADBCC70357FE /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"Resources/CoreEditor/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
-				"Resources/CoreEditor/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
 				"Resources/CoreEditor/chunks/clike-B9uivgTg.js",
 				"Resources/CoreEditor/chunks/cmake-BQqOBYOt.js",
 				"Resources/CoreEditor/chunks/commonlisp-DBKNyK5s.js",
@@ -75,17 +63,17 @@
 				"Resources/CoreEditor/chunks/haskell-Cw1EW3IL.js",
 				"Resources/CoreEditor/chunks/http-DBlCnlav.js",
 				"Resources/CoreEditor/chunks/index-8I92uQ-M.js",
-				"Resources/CoreEditor/chunks/index-BUeEVpaI.js",
 				"Resources/CoreEditor/chunks/index-BlhD2nGL.js",
 				"Resources/CoreEditor/chunks/index-BmhwsT7l.js",
+				"Resources/CoreEditor/chunks/index-BUeEVpaI.js",
 				"Resources/CoreEditor/chunks/index-C459kODO.js",
-				"Resources/CoreEditor/chunks/index-CJR-36EO.js",
 				"Resources/CoreEditor/chunks/index-CipSngav.js",
+				"Resources/CoreEditor/chunks/index-CJR-36EO.js",
 				"Resources/CoreEditor/chunks/index-Cv5U3tHP.js",
 				"Resources/CoreEditor/chunks/index-D9xYuCvh.js",
 				"Resources/CoreEditor/chunks/index-DNGUBWes.js",
-				"Resources/CoreEditor/chunks/index-RYDeKCek.js",
 				"Resources/CoreEditor/chunks/index-o5-7ktni.css",
+				"Resources/CoreEditor/chunks/index-RYDeKCek.js",
 				"Resources/CoreEditor/chunks/julia-DuME0IfC.js",
 				"Resources/CoreEditor/chunks/lua-VAEuO923.js",
 				"Resources/CoreEditor/chunks/mathematica-DTrFuWx2.js",
@@ -97,6 +85,8 @@
 				"Resources/CoreEditor/chunks/r-B6wPVr8A.js",
 				"Resources/CoreEditor/chunks/ruby-B2Rjki9n.js",
 				"Resources/CoreEditor/chunks/scheme-C41bIUwD.js",
+				"Resources/CoreEditor/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
+				"Resources/CoreEditor/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
 				"Resources/CoreEditor/chunks/shell-CjFT_Tl9.js",
 				"Resources/CoreEditor/chunks/swift-BzpIVaGY.js",
 				"Resources/CoreEditor/chunks/toml-Bm5Em-hy.js",
@@ -108,33 +98,18 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8498727F02475E046A16C239 /* build-rust/swift-bindings */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
 			path = "build-rust/swift-bindings";
 			sourceTree = "<group>";
 		};
 		B46C64D2B0A3DFDFDAD54295 /* EpistemosAppStoreKeelstoneTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
 			path = EpistemosAppStoreKeelstoneTests;
 			sourceTree = "<group>";
 		};
 		DC577E252B5002D94779881E /* Epistemos */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				37F519C8472FADBCC70357FE /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+				37F519C8472FADBCC70357FE /* Exceptions for "Epistemos" folder in "Epistemos-AppStore" target */,
 			);
 			path = Epistemos;
 			sourceTree = "<group>";
@@ -176,7 +151,7 @@
 		21C2583A1AFD8B5552357491 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */,
+				57F63CBF79B9214731AD2154 /* Epistemos.app */,
 				FDCC764E331624B8EF1C1BED /* EpistemosAppStoreKeelstoneTests.xctest */,
 			);
 			name = Products;
@@ -262,8 +237,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				DC577E252B5002D94779881E /* Epistemos */,
 				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
+				DC577E252B5002D94779881E /* Epistemos */,
 			);
 			name = "Epistemos-AppStore";
 			packageProductDependencies = (
@@ -273,7 +248,7 @@
 				B5565EA54F11316CA03FCE0A /* MarkEditCore */,
 			);
 			productName = "Epistemos-AppStore";
-			productReference = 57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */;
+			productReference = 57F63CBF79B9214731AD2154 /* Epistemos.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -446,7 +421,16 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lepistemos_core -lepistemos_shadow -lepistemos_code_index -lc++";
+				OTHER_LDFLAGS = (
+					"-L$(PROJECT_DIR)/build-rust/appstore",
+					"-L$(PROJECT_DIR)/build-rust",
+					"-lgraph_engine",
+					"-lsyntax_core",
+					"-lepistemos_core",
+					"-lepistemos_shadow",
+					"-lepistemos_code_index",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -599,7 +583,16 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lepistemos_core -lepistemos_shadow -lepistemos_code_index -lc++";
+				OTHER_LDFLAGS = (
+					"-L$(PROJECT_DIR)/build-rust/appstore",
+					"-L$(PROJECT_DIR)/build-rust",
+					"-lgraph_engine",
+					"-lsyntax_core",
+					"-lepistemos_core",
+					"-lepistemos_shadow",
+					"-lepistemos_code_index",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;

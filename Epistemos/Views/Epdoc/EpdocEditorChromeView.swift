@@ -251,8 +251,6 @@ public final class EpdocEditorChromeController {
     public var onShowProjectionInfo: @Sendable @MainActor () -> Void
     /// Open a first-class HTML Workspace for DOM/interactive visual work.
     public var onOpenHTMLWorkspace: @Sendable @MainActor () -> Void
-    /// Halo backend search closure for the Insert link picker (W8.4).
-    public var onSearchLinks: @Sendable @MainActor (String) async -> [EpdocLinkSuggestion]
     /// Resolve package-local assets for the `epistemos-doc:///assets/...`
     /// URL-scheme path. The owning `EpdocDocument` installs this so the
     /// WebView can render media stored in the `.epdoc` package.
@@ -287,7 +285,6 @@ public final class EpdocEditorChromeController {
                 NSApplication.shared.presentError(error)
             }
         }
-        self.onSearchLinks = { _ in [] }
         self.onResolveDocumentAsset = { _ in nil }
         self.onStoreDocumentAsset = { filename, mimeType, data in
             "data:\(mimeType);base64,\(data.base64EncodedString())"

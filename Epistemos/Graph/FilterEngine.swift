@@ -128,30 +128,6 @@ final class FilterEngine {
         activeEdgeTypes = Set(GraphEdgeType.visibleCases)
     }
 
-    // MARK: - Vault Mode
-
-    /// The set of node types visible before entering agent vault mode.
-    private var savedNodeTypes: Set<GraphNodeType>?
-
-    /// Apply agent vault mode — show only live agent-memory graph nodes.
-    /// Source/quote nodes stay disconnected from production paths.
-    func applyAgentVaultMode() {
-        savedNodeTypes = activeNodeTypes
-        activeNodeTypes = ProductCapabilityPolicy.sanitizedGraphProjection([.idea, .tag])
-    }
-
-    /// Restore human vault mode — show the canonical default-active
-    /// node-type set. When the user had saved a custom set before
-    /// entering agent vault mode, we restore that exact set; otherwise
-    /// fall back to `defaultActiveCases` (per user direction 2026-05-15
-    /// — folders disabled by default).
-    func applyHumanVaultMode() {
-        activeNodeTypes = ProductCapabilityPolicy.sanitizedGraphProjection(
-            savedNodeTypes ?? Set(GraphNodeType.defaultActiveCases)
-        )
-        savedNodeTypes = nil
-    }
-
     // MARK: - Focus Methods
 
     /// Focus on a specific node, showing only it and the provided connected set.
@@ -184,7 +160,6 @@ final class FilterEngine {
     func resetForVaultLifecycle() {
         activeNodeTypes = Set(GraphNodeType.defaultActiveCases)
         activeEdgeTypes = Set(GraphEdgeType.visibleCases)
-        savedNodeTypes = nil
         clearFocus()
         clearSearchFilter()
         clearModelFilter()

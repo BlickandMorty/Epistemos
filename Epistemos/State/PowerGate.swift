@@ -9,7 +9,6 @@ import OSLog
 // Shared pre-flight predicate used by all background subsystems so a
 // single thermal / battery pressure event throttles the whole stack
 // uniformly. Used by:
-//   - FSRS-6 daily decay pass (W10.2)
 //   - SpeechAnalyzer always-on transcription (W10.11)
 //   - MLX subconscious dispatch (W10.5 — `canRunMLX()` already
 //     wraps similar checks; PowerGate is the canonical extraction)

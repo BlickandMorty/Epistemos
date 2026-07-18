@@ -413,11 +413,7 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             evaluateEpdocScript("window.webModules?.search?.replaceAll?.();", in: webView)
         case .clearFindHighlights:
             evaluateEpdocScript("window.webModules?.search?.setState?.({ enabled: false });", in: webView)
-        case .stageAIDiff,
-             .acceptAIDiff,
-             .rejectAIDiff,
-             .clearAIDiff,
-             .applySuggestion,
+        case .applySuggestion,
              .acceptSuggestion,
              .rejectSuggestion:
             break

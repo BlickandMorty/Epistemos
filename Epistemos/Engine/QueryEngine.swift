@@ -29,32 +29,16 @@ final class QueryEngine {
     private var runtime: QueryRuntime?
     private var activeReactiveQuery: ReactiveQuery?
     private var reactiveTask: Task<Void, Never>?
-    private(set) var preparedRetrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration?
-    private(set) var preparedRetrievalExecutionMode: PreparedRetrievalExecutionMode = .appleEmbeddingFallback
-    private var preparedRetrievalRuntimeResolver: any PreparedRetrievalRuntimeResolving =
-        DefaultPreparedRetrievalRuntimeResolver()
 
     /// Configure with live dependencies. Called once during app bootstrap.
     func configure(
         graphStore: GraphStore,
         graphState: GraphState,
-        searchIndexProvider: @escaping SearchIndexProvider,
-        preparedRetrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration? = nil,
-        preparedRetrievalRuntimeResolver: any PreparedRetrievalRuntimeResolving = DefaultPreparedRetrievalRuntimeResolver()
+        searchIndexProvider: @escaping SearchIndexProvider
     ) {
         self.graphStore = graphStore
         self.graphState = graphState
         self.searchIndexProvider = searchIndexProvider
-        self.preparedRetrievalRuntimeConfiguration = preparedRetrievalRuntimeConfiguration
-        self.preparedRetrievalExecutionMode = preparedRetrievalRuntimeConfiguration?.preparedRetrievalExecutionMode
-            ?? .appleEmbeddingFallback
-        self.preparedRetrievalRuntimeResolver = preparedRetrievalRuntimeResolver
-        invalidateRuntime()
-    }
-
-    func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
-        preparedRetrievalRuntimeConfiguration = configuration
-        preparedRetrievalExecutionMode = configuration?.preparedRetrievalExecutionMode ?? .appleEmbeddingFallback
         invalidateRuntime()
     }
 
@@ -73,12 +57,7 @@ final class QueryEngine {
         let runtime = QueryRuntime(
             graphStore: graphStore,
             graphState: graphState,
-            searchIndex: searchIndex,
-            scorer: preparedRetrievalRuntimeResolver.resolveScorer(
-                configuration: preparedRetrievalRuntimeConfiguration,
-                executionMode: preparedRetrievalExecutionMode,
-                graphState: graphState
-            )
+            searchIndex: searchIndex
         )
         self.runtime = runtime
         return runtime

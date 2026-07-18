@@ -586,9 +586,6 @@ struct NoteDetailWorkspaceView: View {
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
     @State private var tocItems: [TOCItem] = []
-    /// KC block-outline rows for the outline panel's Blocks mode (Slice 3 cutover,
-    /// Option 1). Empty unless the knowledgeCoreRuntimeV0 runtime is standing.
-    @State private var blockOutlineItems: [TOCItem] = []
     @State private var selectedNotebookTabID = EpdocNotebookManifest.bodyTabID
     @State private var deterministicOutlineState: KnowledgeCoreOutlineProjectionState
     @State private var wordCountDebounce: Task<Void, Never>?
@@ -975,8 +972,7 @@ struct NoteDetailWorkspaceView: View {
                         onNavigateItem: { item in
                             navigateActiveOutline(to: item)
                         },
-                        externalItems: activeOutlineExternalItems(for: page),
-                        blockItems: activeOutlineBlockItems(for: page)
+                        externalItems: activeOutlineExternalItems(for: page)
                     )
                 }
             }
@@ -1319,11 +1315,6 @@ struct NoteDetailWorkspaceView: View {
         case .document, .preview, .source:
             return nil
         }
-    }
-
-    private func activeOutlineBlockItems(for page: SDPage) -> [TOCItem]? {
-        guard resolvedNoteMode(for: page) == .edit else { return nil }
-        return blockOutlineItems.isEmpty ? nil : blockOutlineItems
     }
 
     private var editorSurfacesAcceptInput: Bool {
@@ -2241,16 +2232,6 @@ struct NoteDetailWorkspaceView: View {
                 }
                 if tocItems != nextHeadings {
                     tocItems = nextHeadings
-                }
-            }
-            if includeHeavyOutlines {
-                // Slice 3 cutover (Option 1) — KC block outline for the panel's Blocks
-                // mode. Returns [] when the knowledgeCoreRuntimeV0 runtime is off, so
-                // this is inherently flag-gated and the panel keeps headings-only.
-                let nextBlocks = await KnowledgeCoreBlockOutline.items(pageId: pageId, markdown: body)
-                guard !Task.isCancelled else { return }
-                if blockOutlineItems != nextBlocks {
-                    blockOutlineItems = nextBlocks
                 }
             }
         }
