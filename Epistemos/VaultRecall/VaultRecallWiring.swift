@@ -88,7 +88,6 @@ nonisolated public struct VaultRecallCandidate: Codable, Hashable, Sendable {
     public let fusedScore: Double
     public let signals: [VaultRecallSignalScore]
     public let selectionReason: String
-    public let uasAddress: UasAddress?
 
     public init(
         path: String,
@@ -96,8 +95,7 @@ nonisolated public struct VaultRecallCandidate: Codable, Hashable, Sendable {
         snippet: String?,
         fusedScore: Double,
         signals: [VaultRecallSignalScore],
-        selectionReason: String,
-        uasAddress: UasAddress? = nil
+        selectionReason: String
     ) {
         self.path = path
         self.title = title
@@ -105,7 +103,6 @@ nonisolated public struct VaultRecallCandidate: Codable, Hashable, Sendable {
         self.fusedScore = fusedScore
         self.signals = signals
         self.selectionReason = selectionReason
-        self.uasAddress = uasAddress
     }
 
     enum CodingKeys: String, CodingKey {
@@ -115,7 +112,6 @@ nonisolated public struct VaultRecallCandidate: Codable, Hashable, Sendable {
         case fusedScore = "fused_score"
         case signals
         case selectionReason = "selection_reason"
-        case uasAddress = "uas_address"
     }
 }
 
