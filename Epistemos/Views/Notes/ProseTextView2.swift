@@ -862,7 +862,7 @@ final class ProseTextView2: NSTextView {
         )
         tv.textContainer?.widthTracksTextView = true
         tv.textContainer?.lineFragmentPadding = 0
-        tv.writingToolsBehavior = .default
+        tv.writingToolsBehavior = .none
         tv.wantsLayer = true
 
         tv.applyTheme(.nativeDefault)
@@ -1666,7 +1666,6 @@ final class ProseTextView2: NSTextView {
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = super.menu(for: event) ?? NSMenu()
-        WritingToolsBridge.appendStandardItems(to: menu, hasSelection: selectedRange().length > 0)
 
         // Reveal in Graph
         if let pid = pageId {

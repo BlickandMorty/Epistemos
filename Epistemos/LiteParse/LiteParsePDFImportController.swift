@@ -122,7 +122,7 @@ enum LiteParsePDFImportController {
             // FSRS (opt-in): enroll the imported PDF into spaced-repetition review IF the user
             // turned it on in Settings (epistemos.fsrs.autoEnroll, default false). Same gate as the
             // arXiv import path.
-            if UserDefaults.standard.bool(forKey: "epistemos.fsrs.autoEnroll") {
+            if FoundationSafety.runtimeUserDefaults.bool(forKey: "epistemos.fsrs.autoEnroll") {
                 _ = await FSRSDecayStore.shared.ensure(noteId: page.id)
             }
             return .imported(

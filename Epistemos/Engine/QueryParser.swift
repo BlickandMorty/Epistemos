@@ -15,12 +15,20 @@ enum QueryParser {
     private static let connectedPathPattern = /how is (.+?) connected to (.+)/
     private static let pathFromPattern = /path (?:from )?(.+?) to (.+)/
     private static let connectionBetweenPattern = /connection(?:s)? between (.+?) and (.+)/
+    private static let unavailableFreeV1CollectionQueries: Set<String> = [
+        "all chats",
+        "show chats",
+        "list chats",
+    ]
 
     /// Parse NL query to QueryAST for the compiler pipeline.
     /// Returns nil only if the query is empty.
     static func parseToAST(_ query: String) -> QueryAST? {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+        guard !unavailableFreeV1CollectionQueries.contains(trimmed.lowercased()) else {
+            return nil
+        }
 
         // Try heuristic patterns first
         if let result = heuristicParseToAST(trimmed) {
@@ -48,10 +56,6 @@ enum QueryParser {
 
         if matches(q, patterns: ["all ideas", "show ideas", "list ideas"]) {
             return .typeFilter(types: [.idea])
-        }
-
-        if matches(q, patterns: ["all chats", "show chats", "list chats"]) {
-            return .typeFilter(types: [.chat])
         }
 
         if matches(q, patterns: ["all blocks", "show blocks", "list blocks"]) {

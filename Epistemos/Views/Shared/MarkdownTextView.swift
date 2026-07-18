@@ -792,10 +792,6 @@ enum MarkdownPreviewSurfaceStyle {
         if theme.followsSystemAppearance {
             return .textBackgroundColor
         }
-        if AppCustomTheme.isActive {
-            let noteSurface = AppCustomTheme.noteSurfaceHex(isDark: theme.presetResolved.isDark)
-            return EpistemosTheme.ResolvedColorToken.hex(noteSurface).nsColor
-        }
         return theme.resolved.background.nsColor
     }
 
@@ -826,10 +822,6 @@ enum MarkdownPreviewSurfaceStyle {
     }
 
     static func solidFlatBackgroundNSColor(for theme: EpistemosTheme) -> NSColor {
-        if AppCustomTheme.isActive {
-            let noteSurface = AppCustomTheme.noteSurfaceHex(isDark: theme.presetResolved.isDark)
-            return EpistemosTheme.ResolvedColorToken.hex(noteSurface).nsColor
-        }
         return theme.resolved.card.nsColor.withAlphaComponent(1.0)
     }
 

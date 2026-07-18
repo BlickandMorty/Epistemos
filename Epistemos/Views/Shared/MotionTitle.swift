@@ -1,5 +1,11 @@
 import SwiftUI
 
+nonisolated struct EditorTitleRevealKey: Hashable, Sendable {
+    let documentID: String
+    let surface: String
+    let activationGeneration: UInt64
+}
+
 /// THE reusable "ASCII-typewriter + Apple-blur" title motion (owner 2026-06-21 §317/§329) — the signature
 /// "time-machine" motion ontology as ONE reusable component, not a one-off. It COUPLES the two primitives
 /// the app already has into a single titled motion: the ASCII typewriter reveal (`TypewriterASCIIRippleText`)
@@ -20,10 +26,11 @@ struct MotionTitle: View {
     var color: Color = .primary
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(UIState.self) private var ui: UIState?
 
     var body: some View {
         Group {
-            if reduceMotion {
+            if reduceMotion || ui?.windowOccluded == true {
                 // Reduce-motion: plain static title, no typewriter, no ripple.
                 Text(text)
                     .font(font)
@@ -35,5 +42,7 @@ struct MotionTitle: View {
         }
         // …coupled with the Apple-blur reveal — the layered "meta animation" (also reduce-motion-safe).
         .motionReveal()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
     }
 }

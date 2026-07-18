@@ -225,10 +225,10 @@ public final class LiveCodeEditorController {
     /// language + diskContentHash so subsequent setText calls
     /// correctly toggle isDirty.
     public func load(fileURL: URL, via files: CodeFileService) throws {
-        let pair = try files.readCodeFile(at: fileURL)
-        self.text = pair.body
-        self.language = pair.sidecar?.kind ?? CodeArtifactKind.from(fileURL: fileURL)
-        self.diskContentHash = Self.sha256(of: pair.body)
+        let body = try files.readCodeFile(at: fileURL)
+        self.text = body
+        self.language = CodeArtifactKind.from(fileURL: fileURL)
+        self.diskContentHash = Self.sha256(of: body)
         self.isDirty = false
         recomputeHighlights()
     }
@@ -237,11 +237,10 @@ public final class LiveCodeEditorController {
     /// updates diskContentHash + clears the dirty flag on success.
     public func save(
         fileURL: URL,
-        via files: CodeFileService,
-        provenanceOverride: CodeProvenance? = nil
+        via files: CodeFileService
     ) throws {
         if !isDirty { return }
-        try files.updateCodeFile(at: fileURL, body: text, provenanceOverride: provenanceOverride)
+        try files.updateCodeFile(at: fileURL, body: text)
         diskContentHash = Self.sha256(of: text)
         isDirty = false
     }
@@ -252,14 +251,11 @@ public final class LiveCodeEditorController {
         // Defer to CryptoKit only when we actually have content; an
         // empty file's hash is the well-known empty digest.
         if text.isEmpty { return "" }
-        return CodeArtifactSidecarHashHelper.sha256Hex(of: Data(text.utf8))
+        return CodeFileContentHash.sha256Hex(of: Data(text.utf8))
     }
 }
 
-/// Tiny shim around the same SHA-256 the CodeFileService uses for
-/// content_hash, exposed here so the controller can compute the same
-/// digest without depending on CodeFileService internals.
-nonisolated enum CodeArtifactSidecarHashHelper {
+nonisolated enum CodeFileContentHash {
     static func sha256Hex(of data: Data) -> String {
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()

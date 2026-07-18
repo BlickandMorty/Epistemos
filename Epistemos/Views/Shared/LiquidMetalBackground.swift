@@ -4,7 +4,7 @@ import SwiftUI
 // "liquid" Metal backdrop — a subtle aurora / domain-warp gradient over a base tint,
 // driven by the `auroraFlow` stitchable shader (Shaders/LiquidSurface.metal) through
 // SwiftUI's ShaderLibrary + TimelineView. Confirmed loadable: the app ships a
-// default.metallib (makeDefaultLibrary is used by CodeEditorView / MetalRuntimeManager).
+// default.metallib (makeDefaultLibrary is used by CodeEditorView).
 //
 // PERF CONTRACT (PhysicsModifiers.swift:8-13 — "zero cost when idle"): the caller MUST
 // pass `active: !ui.windowOccluded` so the animation stops when the window is occluded;

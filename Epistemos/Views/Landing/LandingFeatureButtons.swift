@@ -1,4 +1,3 @@
-import AVFoundation
 import SwiftUI
 
 nonisolated enum LandingFeatureButtonTextPolicy {
@@ -61,8 +60,7 @@ nonisolated enum MeetingNoteLandingGateStatus {
     }
 
     static func status(
-        speechAnalyzerAvailable: Bool = isSpeechAnalyzerAvailable,
-        audioAuthorizationStatus: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        speechAnalyzerAvailable: Bool = isSpeechAnalyzerAvailable
     ) -> Status {
         guard speechAnalyzerAvailable else {
             return Status(
@@ -72,35 +70,17 @@ nonisolated enum MeetingNoteLandingGateStatus {
             )
         }
 
-        switch audioAuthorizationStatus {
-        case .denied, .restricted:
-            return Status(
-                isActive: false,
-                headline: "Meeting notes: microphone unavailable",
-                detail: "Meeting notes require microphone access in System Settings before on-device transcription can start."
-            )
-        case .notDetermined, .authorized:
-            return Status(
-                isActive: true,
-                headline: "Meeting notes: ready",
-                detail: "Meeting notes use macOS 26 SpeechAnalyzer for on-device transcription. Microphone permission is requested when recording starts."
-            )
-        @unknown default:
-            return Status(
-                isActive: false,
-                headline: "Meeting notes: microphone status unknown",
-                detail: "Meeting notes are unavailable until microphone authorization can be checked."
-            )
-        }
+        return Status(
+            isActive: true,
+            headline: "Meeting notes: ready",
+            detail: "Meeting notes use macOS 26 SpeechAnalyzer for on-device transcription. Microphone permission is requested when recording starts."
+        )
     }
 }
 
 enum LandingFeatureButton: String, CaseIterable, Identifiable {
     case pdfImport
-    case arxiv
-    case browser
     case meetingNote
-    case agent
 
     var id: String { rawValue }
 
@@ -108,42 +88,21 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         allCases.filter(\.isAvailableInCurrentEdition)
     }
 
-    var productCapability: ProductCapability {
-        switch self {
-        case .pdfImport: .pdfImport
-        case .arxiv: .researchHub
-        case .browser: .browser
-        case .meetingNote: .meeting
-        case .agent: .june
-        }
-    }
-
     var isAvailableInCurrentEdition: Bool {
-        ProductCapabilityPolicy.isAvailable(productCapability)
+        true
     }
 
     var title: String {
         switch self {
         case .pdfImport: "pdf import"
-        case .arxiv: "arXiv"
-        case .browser: "browser"
         case .meetingNote: "meeting"
-        case .agent:
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            "june"
-            #else
-            "agent"
-            #endif
         }
     }
 
     var glyph: PixelGlyphKind {
         switch self {
         case .pdfImport: .document
-        case .arxiv: .search
-        case .browser: .html
         case .meetingNote: .capture
-        case .agent: .agent
         }
     }
 
@@ -155,8 +114,6 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport:
             theme.resolved.accent.color
-        case .arxiv, .browser, .agent:
-            theme.resolved.headingAccent.color
         case .meetingNote:
             theme.resolved.foreground.color.opacity(theme.isDark ? 0.88 : 0.76)
         }
@@ -164,8 +121,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
 
     var haptic: HomeCommandHapticStyle {
         switch self {
-        case .pdfImport, .arxiv: .document
-        case .browser, .agent: .agent
+        case .pdfImport: .document
         case .meetingNote: .capture
         }
     }
@@ -183,14 +139,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport:
             return LiteParseImportGateStatus.status().isActive
-        case .arxiv:
-            return ArxivPullGateStatus.status().isActive
         case .meetingNote:
             return MeetingNoteLandingGateStatus.status().isActive
-        case .browser:
-            return true
-        case .agent:
-            return true
         }
     }
 
@@ -198,18 +148,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport:
             return LiteParseImportGateStatus.status().detail
-        case .arxiv:
-            return ArxivPullGateStatus.status().detail
-        case .browser:
-            return "Browser is unavailable in this build."
         case .meetingNote:
             return MeetingNoteLandingGateStatus.status().detail
-        case .agent:
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            return "June is unavailable in this build."
-            #else
-            return "The agent workspace ships in the Pro build."
-            #endif
         }
     }
 
@@ -224,18 +164,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport:
             return "Import a PDF and turn it into searchable, linked notes in your vault."
-        case .arxiv:
-            return "Search arXiv, browse featured AI & ML papers, and save any paper to notes."
-        case .browser:
-            return "A themed in-app browser — save any page to notes; links across the app open here."
         case .meetingNote:
             return "Record a meeting and capture a live, auto-saved transcript."
-        case .agent:
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            return "June — chat with Cloud Agent, Apple Intelligence, or your selected local models."
-            #else
-            return "The agent workspace — chat with coding agents over your projects, with files, git, diffs, and a terminal."
-            #endif
         }
     }
 

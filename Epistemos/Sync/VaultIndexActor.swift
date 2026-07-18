@@ -7,6 +7,29 @@ import os
 /// Posted when vault folder relationships are repaired, so sidebar can rebuild its cache.
 nonisolated let vaultFoldersRepairedNotification = Notification.Name("VaultFoldersRepaired")
 
+enum VaultPageExportError: Error, Sendable {
+    case missingBackingFile
+    case unreadableBackingFile
+    case externalModification
+    case durabilityUnproven
+}
+
+nonisolated struct SearchIndexMutationBatchID: Hashable, Sendable {
+    fileprivate let rawValue: UInt64
+}
+
+nonisolated struct SuppressedSearchMutationBatchSnapshot: Sendable, Equatable {
+    let id: SearchIndexMutationBatchID
+    let revision: UInt64
+    let committed: SearchIndexMutationReceipt
+    let failedOperationCount: Int
+    let preparedDiff: SearchIndexDiffReceipt?
+
+    var isValid: Bool {
+        failedOperationCount == 0
+    }
+}
+
 // MARK: - VaultIndexActor
 // Background actor for all SwiftData write operations that shouldn't block the main thread.
 // Handles vault imports, bulk operations, and re-indexing.
@@ -32,6 +55,10 @@ actor VaultIndexActor {
         let willIndex: Bool
     }
 
+    private enum SpotlightJournalError: Error {
+        case typedEntityRequestFailed
+    }
+
     struct VaultImportComparableCounts: Sendable, Equatable {
         let trackedVaultPageCount: Int
         let uniqueTrackedVaultPathCount: Int
@@ -41,16 +68,15 @@ actor VaultIndexActor {
 
     struct VaultImportInventory: Sendable, Equatable {
         let files: [URL]
-        let routedArtifactFiles: [URL]
         let discoveredRegularFileCount: Int
         let unsupportedFileCount: Int
         let skippedPolicyCount: Int
-        let routedArtifactCount: Int
+        let quarantinedArtifactCount: Int
         let folderCount: Int
         let duplicateFileNameCount: Int
         let fileTypeCounts: [String: Int]
         let unsupportedFileTypeCounts: [String: Int]
-        let routedArtifactTypeCounts: [String: Int]
+        let quarantinedArtifactTypeCounts: [String: Int]
         let skippedPolicyReasonCounts: [String: Int]
     }
 
@@ -67,7 +93,9 @@ actor VaultIndexActor {
         let title: String
         let filePath: String?
         let inlineBody: String
+        let tags: [String]
         let tagsJoined: String
+        let createdAt: Date
         let updatedAt: Date
 
         init(page: SDPage) {
@@ -75,7 +103,9 @@ actor VaultIndexActor {
             title = page.title
             filePath = page.filePath
             inlineBody = page.body
+            tags = page.tags
             tagsJoined = page.tags.joined(separator: " ")
+            createdAt = page.createdAt
             updatedAt = page.updatedAt
         }
     }
@@ -116,7 +146,6 @@ actor VaultIndexActor {
 
     private let log = Logger(subsystem: "com.epistemos", category: "VaultIndex")
     nonisolated private static let staticLog = Logger(subsystem: "com.epistemos", category: "VaultIndex")
-    nonisolated static let spotlightIndexDateKey = "epistemos.lastSpotlightIndexDate"
     nonisolated private static let excludedDirs: Set<String> = [
         "node_modules", ".git", ".build", "Pods", "DerivedData", ".svn", ".venv", "venv",
         "__pycache__", ".pytest_cache", ".mypy_cache",
@@ -161,17 +190,216 @@ actor VaultIndexActor {
 
     // MARK: - FTS5 Search Index (GRDB)
     typealias SaveContextOperation = @Sendable (String) throws -> Bool
+#if DEBUG
+    typealias RequiredPageTimestampsOperation = @Sendable () throws -> [(id: String, updatedAt: Date)]
+#endif
+
+    private struct SuppressedSearchMutationBatch {
+        let id: SearchIndexMutationBatchID
+        let service: SearchIndexService
+        var revision: UInt64
+        var committed: SearchIndexMutationReceipt
+        var failedOperationCount: Int
+        var preparedDiff: SearchIndexDiffReceipt?
+
+        var snapshot: SuppressedSearchMutationBatchSnapshot {
+            SuppressedSearchMutationBatchSnapshot(
+                id: id,
+                revision: revision,
+                committed: committed,
+                failedOperationCount: failedOperationCount,
+                preparedDiff: preparedDiff
+            )
+        }
+    }
 
     private var searchService: SearchIndexService?
+    private var nextSuppressedSearchMutationBatchID: UInt64 = 0
+    private var suppressedSearchMutationBatch: SuppressedSearchMutationBatch?
     private var saveContextOverride: SaveContextOperation?
+#if DEBUG
+    private var requiredPageTimestampsOperationOverride: RequiredPageTimestampsOperation?
+    private var forceRequiredDerivedRebuildSourceFailureForTesting = false
+#endif
 
-    func setSearchService(_ service: SearchIndexService) {
+    @discardableResult
+    func setSearchService(_ service: SearchIndexService) -> Bool {
+        if let batch = suppressedSearchMutationBatch,
+           batch.service !== service {
+            log.error("Refused to replace Search service while a suppressed mutation batch is pending")
+            return false
+        }
         self.searchService = service
+        return true
+    }
+
+    @discardableResult
+    func beginSuppressedSearchMutationBatch(
+        for service: SearchIndexService
+    ) -> SearchIndexMutationBatchID? {
+        guard suppressedSearchMutationBatch == nil else {
+            log.error("Refused to replace an unconsumed suppressed Search mutation batch")
+            return nil
+        }
+        guard nextSuppressedSearchMutationBatchID < UInt64.max else {
+            log.error("Refused to reuse an exhausted suppressed Search mutation batch identifier")
+            return nil
+        }
+        nextSuppressedSearchMutationBatchID += 1
+        let batchID = SearchIndexMutationBatchID(
+            rawValue: nextSuppressedSearchMutationBatchID
+        )
+        searchService = service
+        suppressedSearchMutationBatch = SuppressedSearchMutationBatch(
+            id: batchID,
+            service: service,
+            revision: 0,
+            committed: .empty,
+            failedOperationCount: 0,
+            preparedDiff: nil
+        )
+        return batchID
+    }
+
+    func suppressedSearchMutationBatchSnapshot(
+        id: SearchIndexMutationBatchID,
+        service: SearchIndexService
+    ) -> SuppressedSearchMutationBatchSnapshot? {
+        guard let batch = suppressedSearchMutationBatch,
+              batch.id == id,
+              batch.service === service,
+              searchService === service else {
+            return nil
+        }
+        return batch.snapshot
+    }
+
+    func prepareSuppressedSearchMutationBatchReceipt(
+        id: SearchIndexMutationBatchID,
+        expectedRevision: UInt64,
+        service: SearchIndexService,
+        diff: SearchIndexDiffReceipt
+    ) -> SearchIndexSynchronizationReceipt? {
+        guard var batch = suppressedSearchMutationBatch,
+              batch.id == id,
+              batch.revision == expectedRevision,
+              batch.service === service,
+              searchService === service,
+              batch.failedOperationCount == 0 else {
+            return nil
+        }
+        if let preparedDiff = batch.preparedDiff {
+            guard preparedDiff == diff else { return nil }
+        } else {
+            batch.preparedDiff = diff
+            suppressedSearchMutationBatch = batch
+        }
+        let receipt = SearchIndexSynchronizationReceipt(
+            suppressedImport: batch.committed,
+            diff: diff
+        )
+        return receipt
+    }
+
+    @discardableResult
+    func consumeSuppressedSearchMutationBatch(
+        id: SearchIndexMutationBatchID,
+        expectedRevision: UInt64,
+        service: SearchIndexService
+    ) -> Bool {
+        guard let batch = suppressedSearchMutationBatch,
+              batch.id == id,
+              batch.revision == expectedRevision,
+              batch.service === service,
+              searchService === service,
+              batch.failedOperationCount == 0,
+              batch.preparedDiff != nil else {
+            return false
+        }
+        suppressedSearchMutationBatch = nil
+        return true
+    }
+
+    @discardableResult
+    func discardSuppressedSearchMutationBatch(
+        id: SearchIndexMutationBatchID,
+        service: SearchIndexService
+    ) -> Bool {
+        guard let batch = suppressedSearchMutationBatch else { return true }
+        guard batch.id == id,
+              batch.service === service else {
+            return false
+        }
+        suppressedSearchMutationBatch = nil
+        return true
+    }
+
+    private func validatedSearchMutationContext(
+        batchID: SearchIndexMutationBatchID?
+    ) -> (service: SearchIndexService, notifyObservers: Bool)? {
+        guard let searchService else { return nil }
+        guard let batchID else {
+            return (searchService, true)
+        }
+        guard let batch = suppressedSearchMutationBatch,
+              batch.id == batchID,
+              batch.service === searchService,
+              batch.preparedDiff == nil else {
+            log.error("Rejected a Search mutation with a stale suppressed-batch identity")
+            return nil
+        }
+        return (searchService, false)
+    }
+
+    private func recordSearchIndexMutation(
+        _ receipt: SearchIndexMutationReceipt,
+        batchID: SearchIndexMutationBatchID?,
+        service: SearchIndexService
+    ) {
+        guard let batchID,
+              var batch = suppressedSearchMutationBatch,
+              batch.id == batchID,
+              batch.service === service,
+              batch.preparedDiff == nil else {
+            return
+        }
+        batch.revision &+= 1
+        batch.committed = batch.committed.merging(receipt)
+        suppressedSearchMutationBatch = batch
+    }
+
+    private func recordSearchIndexMutationFailure(
+        batchID: SearchIndexMutationBatchID?,
+        service: SearchIndexService?
+    ) {
+        guard let batchID,
+              let service,
+              var batch = suppressedSearchMutationBatch,
+              batch.id == batchID,
+              batch.service === service,
+              batch.preparedDiff == nil else {
+            return
+        }
+        batch.revision &+= 1
+        batch.failedOperationCount += 1
+        suppressedSearchMutationBatch = batch
     }
 
     func setSaveContextOverrideForTesting(_ saveContextOverride: SaveContextOperation?) {
         self.saveContextOverride = saveContextOverride
     }
+
+#if DEBUG
+    func setRequiredPageTimestampsOperationForTesting(
+        _ operation: RequiredPageTimestampsOperation?
+    ) {
+        requiredPageTimestampsOperationOverride = operation
+    }
+
+    func setForceRequiredDerivedRebuildSourceFailureForTesting(_ shouldFail: Bool) {
+        forceRequiredDerivedRebuildSourceFailureForTesting = shouldFail
+    }
+#endif
 
     private func fetchAll<T: PersistentModel>(
         _ descriptor: FetchDescriptor<T>,
@@ -298,14 +526,13 @@ actor VaultIndexActor {
         rootURL: URL?
     ) -> VaultImportInventory {
         var drained: [URL] = []
-        var routedArtifactFiles: [URL] = []
         var discoveredRegularFileCount = 0
         var unsupportedFileCount = 0
         var skippedPolicyCount = 0
-        var routedArtifactCount = 0
+        var quarantinedArtifactCount = 0
         var fileTypeCounts: [String: Int] = [:]
         var unsupportedFileTypeCounts: [String: Int] = [:]
-        var routedArtifactTypeCounts: [String: Int] = [:]
+        var quarantinedArtifactTypeCounts: [String: Int] = [:]
         var skippedPolicyReasonCounts: [String: Int] = [:]
         var folderPaths = Set<String>()
         var fileNameCounts: [String: Int] = [:]
@@ -339,10 +566,9 @@ actor VaultIndexActor {
                     }
                 }
             case .datasetTable, .datasetWorkbook, .datasetCompanion:
-                routedArtifactFiles.append(fileURL)
-                routedArtifactCount += 1
-                routedArtifactTypeCounts[ext, default: 0] += 1
-                skippedPolicyReasonCounts["dataset-artifact-routed", default: 0] += 1
+                quarantinedArtifactCount += 1
+                quarantinedArtifactTypeCounts[ext, default: 0] += 1
+                skippedPolicyReasonCounts["dataset-artifact-quarantined", default: 0] += 1
             case .unsupported:
                 unsupportedFileCount += 1
                 unsupportedFileTypeCounts[ext, default: 0] += 1
@@ -355,16 +581,15 @@ actor VaultIndexActor {
 
         return VaultImportInventory(
             files: drained,
-            routedArtifactFiles: routedArtifactFiles,
             discoveredRegularFileCount: discoveredRegularFileCount,
             unsupportedFileCount: unsupportedFileCount,
             skippedPolicyCount: skippedPolicyCount,
-            routedArtifactCount: routedArtifactCount,
+            quarantinedArtifactCount: quarantinedArtifactCount,
             folderCount: folderPaths.count,
             duplicateFileNameCount: duplicateFileNameCount,
             fileTypeCounts: fileTypeCounts,
             unsupportedFileTypeCounts: unsupportedFileTypeCounts,
-            routedArtifactTypeCounts: routedArtifactTypeCounts,
+            quarantinedArtifactTypeCounts: quarantinedArtifactTypeCounts,
             skippedPolicyReasonCounts: skippedPolicyReasonCounts
         )
     }
@@ -416,24 +641,6 @@ actor VaultIndexActor {
 
     nonisolated static func isImportableNoteFile(_ fileURL: URL) -> Bool {
         vaultArtifactKind(for: fileURL) == .note
-    }
-
-    nonisolated static func isRoutableVaultFile(_ fileURL: URL) -> Bool {
-        switch vaultArtifactKind(for: fileURL) {
-        case .note, .datasetTable, .datasetWorkbook, .datasetCompanion:
-            return true
-        case .unsupported:
-            return false
-        }
-    }
-
-    nonisolated static func isDatasetArtifactFile(_ fileURL: URL) -> Bool {
-        switch vaultArtifactKind(for: fileURL) {
-        case .datasetTable, .datasetWorkbook, .datasetCompanion:
-            return true
-        case .note, .unsupported:
-            return false
-        }
     }
 
     nonisolated static func countImportableNoteFiles(in url: URL) -> Int {
@@ -598,7 +805,8 @@ actor VaultIndexActor {
 
     private func discardPendingImportedPages(
         _ pendingInsertedPageIDs: [String],
-        failedSaveLabel: String
+        failedSaveLabel: String,
+        searchMutationBatchID: SearchIndexMutationBatchID?
     ) {
         guard !pendingInsertedPageIDs.isEmpty else { return }
 
@@ -606,13 +814,28 @@ actor VaultIndexActor {
         for pageID in seenPageIDs {
             NoteFileStorage.deleteBody(pageId: pageID)
 
-            do {
-                try searchService?.delete(pageId: pageID)
-                try? searchService?.deleteBlocksForPage(pageId: pageID)
-            } catch {
-                log.error(
-                    "VaultIndex: failed to remove search row for discarded imported page \(pageID, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
+            if let searchContext = validatedSearchMutationContext(
+                batchID: searchMutationBatchID
+            ) {
+                do {
+                    let receipt = try searchContext.service.delete(
+                        pageId: pageID,
+                        notifyObservers: searchContext.notifyObservers
+                    )
+                    recordSearchIndexMutation(
+                        receipt.mutationReceipt,
+                        batchID: searchMutationBatchID,
+                        service: searchContext.service
+                    )
+                } catch {
+                    recordSearchIndexMutationFailure(
+                        batchID: searchMutationBatchID,
+                        service: searchContext.service
+                    )
+                    log.error(
+                        "VaultIndex: failed to remove search row for discarded imported page \(pageID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
             }
         }
 
@@ -623,7 +846,8 @@ actor VaultIndexActor {
 
     private func restorePendingUpdatedPages(
         _ pendingUpdatedPages: [UpdatedPageSnapshot],
-        failedSaveLabel: String
+        failedSaveLabel: String,
+        searchMutationBatchID: SearchIndexMutationBatchID?
     ) {
         guard !pendingUpdatedPages.isEmpty else { return }
 
@@ -659,7 +883,8 @@ actor VaultIndexActor {
                 title: snapshot.title,
                 body: snapshot.body,
                 tags: snapshot.tags,
-                updatedAt: snapshot.updatedAt
+                updatedAt: snapshot.updatedAt,
+                searchMutationBatchID: searchMutationBatchID
             )
 
             let restoredPageId = snapshot.pageId
@@ -689,7 +914,8 @@ actor VaultIndexActor {
     func importVault(
         from url: URL,
         deleteMissingFiles: Bool = true,
-        progress: VaultImportProgressHandler? = nil
+        progress: VaultImportProgressHandler? = nil,
+        searchMutationBatchID: SearchIndexMutationBatchID? = nil
     ) async throws -> VaultImportProgressSnapshot? {
         let fm = FileManager.default
 
@@ -757,16 +983,15 @@ actor VaultIndexActor {
         var failedCount = 0
         var importInventory = VaultImportInventory(
             files: [],
-            routedArtifactFiles: [],
             discoveredRegularFileCount: 0,
             unsupportedFileCount: 0,
             skippedPolicyCount: 0,
-            routedArtifactCount: 0,
+            quarantinedArtifactCount: 0,
             folderCount: 0,
             duplicateFileNameCount: 0,
             fileTypeCounts: [:],
             unsupportedFileTypeCounts: [:],
-            routedArtifactTypeCounts: [:],
+            quarantinedArtifactTypeCounts: [:],
             skippedPolicyReasonCounts: [:]
         )
         var pendingInsertedPages = [SDPage]()
@@ -851,8 +1076,16 @@ actor VaultIndexActor {
                 let pendingInsertedPageIDs = pendingInsertedPages.map(\.id)
                 modelContext.rollback()
                 modelContext.processPendingChanges()
-                discardPendingImportedPages(pendingInsertedPageIDs, failedSaveLabel: label)
-                restorePendingUpdatedPages(pendingUpdatedPages, failedSaveLabel: label)
+                discardPendingImportedPages(
+                    pendingInsertedPageIDs,
+                    failedSaveLabel: label,
+                    searchMutationBatchID: searchMutationBatchID
+                )
+                restorePendingUpdatedPages(
+                    pendingUpdatedPages,
+                    failedSaveLabel: label,
+                    searchMutationBatchID: searchMutationBatchID
+                )
                 throw error
             }
         }
@@ -874,7 +1107,6 @@ actor VaultIndexActor {
             // so the filter is identical to the pre-migration
             // iteration behaviour.
             importInventory = Self.drainEnumeratorWithInventory(enumerator, rootURL: url)
-            routeDatasetArtifacts(importInventory.routedArtifactFiles, vaultURL: url, reason: "vault import")
             let drained = importInventory.files
             if let progress {
                 let snapshot = makeProgressSnapshot(phase: "Found \(drained.count) importable files")
@@ -940,7 +1172,12 @@ actor VaultIndexActor {
                         // outer sync import loop still has its own
                         // scratch context that releases between pages.
                         do {
-                            let result = try await upsertPage(from: fileURL, vaultURL: url, existingPage: existingPage)
+                            let result = try await upsertPage(
+                                from: fileURL,
+                                vaultURL: url,
+                                existingPage: existingPage,
+                                searchMutationBatchID: searchMutationBatchID
+                            )
                             switch result {
                             case .updated(let snapshot):
                                 pendingUpdatedPages.append(snapshot)
@@ -973,7 +1210,11 @@ actor VaultIndexActor {
                 } else {
                     // New file — insert. Same Phase R.3 note as above.
                     do {
-                        let result = try await upsertPage(from: fileURL, vaultURL: url)
+                        let result = try await upsertPage(
+                            from: fileURL,
+                            vaultURL: url,
+                            searchMutationBatchID: searchMutationBatchID
+                        )
                         switch result {
                         case .inserted(let page):
                             pendingInsertedPages.append(page)
@@ -1038,7 +1279,10 @@ actor VaultIndexActor {
             for path in deletedPaths {
                 if let page = existingByPath[path] {
                     recordPostImportDeletedPageID(page.id)
-                    removePageArtifacts(page)
+                    removePageArtifacts(
+                        page,
+                        searchMutationBatchID: searchMutationBatchID
+                    )
                     modelContext.delete(page)
                     deleteCount += 1
                 }
@@ -1066,9 +1310,13 @@ actor VaultIndexActor {
         }
 
         if completedScan && deleteMissingFiles {
-            let removedDuplicateCount = try removeDuplicateTrackedVaultPages(in: url)
+            let removedDuplicateCount = try removeDuplicateTrackedVaultPages(
+                in: url,
+                searchMutationBatchID: searchMutationBatchID
+            )
             if removedDuplicateCount > 0 {
                 deleteCount += removedDuplicateCount
+                postImportChangeIDsAreComplete = false
             }
         }
 
@@ -1252,28 +1500,10 @@ actor VaultIndexActor {
 
     // MARK: - Single File Re-index
 
-    private func routeDatasetArtifacts(_ fileURLs: [URL], vaultURL: URL?, reason: String) {
-        guard !fileURLs.isEmpty else { return }
-
-        // RECKONER owns dataset re-derive/repaint and artifact conflict resolution.
-        // KEELSTONE only classifies and routes these vault files so note indexing
-        // never treats CSV/XLSX/ICALC or *.dataset.md as ordinary note bodies.
-        log.info(
-            "Routed \(fileURLs.count, privacy: .public) dataset artifact(s) for \(reason, privacy: .public); RECKONER dataset hook pending"
-        )
-        _ = vaultURL
-    }
-
     /// Re-index a single file that changed externally.
     @discardableResult
     func reindexFile(at url: URL, vaultURL: URL) async throws -> Bool {
-        guard Self.isImportableNoteFile(url) else {
-            if Self.isDatasetArtifactFile(url) {
-                routeDatasetArtifacts([url], vaultURL: vaultURL, reason: "single-file event")
-                return true
-            }
-            return false
-        }
+        guard Self.isImportableNoteFile(url) else { return false }
 
         let matchingPages = try fetchTrackedPages(atFileURL: url)
         let result = try await upsertPage(
@@ -1307,7 +1537,8 @@ actor VaultIndexActor {
     func exportPage(
         pageId: String,
         to vaultURL: URL,
-        bodyOverride: String? = nil
+        bodyOverride: String? = nil,
+        indexForSearch: Bool = true
     ) async throws -> (path: String, bodyHash: String)? {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.id == pageId }
@@ -1380,14 +1611,76 @@ actor VaultIndexActor {
         let output = Self.shouldWriteMarkdownFrontMatter(to: fileURL)
             ? buildMarkdown(for: page, body: body)
             : body
-        try FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
+        let currentFileData: Data?
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            do {
+                currentFileData = try Data(contentsOf: fileURL)
+            } catch {
+                throw VaultPageExportError.unreadableBackingFile
+            }
+        } else {
+            currentFileData = nil
+        }
+        if !isNewFile {
+            guard let currentFileData else {
+                throw VaultPageExportError.missingBackingFile
+            }
+            guard let currentSource = String(data: currentFileData, encoding: .utf8) else {
+                throw VaultPageExportError.unreadableBackingFile
+            }
+            let parsedCurrent = Self.shouldWriteMarkdownFrontMatter(to: fileURL)
+                ? Self.parseFrontMatter(currentSource)
+                : ([:], currentSource)
+            let currentBody = parsedCurrent.1
+            let currentBodyFingerprint = Self.importedCleanBodyHash(
+                for: currentBody,
+                fileURL: fileURL
+            )
+            if currentBody != body,
+               page.lastSyncedBodyHash != currentBodyFingerprint
+            {
+                throw VaultPageExportError.externalModification
+            }
+            if Self.shouldWriteMarkdownFrontMatter(to: fileURL) {
+                let expectedFrontMatter = Self.parseFrontMatter(
+                    buildMarkdown(for: page, body: currentBody)
+                ).0
+                guard parsedCurrent.0 == expectedFrontMatter else {
+                    throw VaultPageExportError.externalModification
+                }
+            }
+        }
+        let expectedBaseline = currentFileData.map(VaultFileBaseline.contents) ?? .absent
         // KEELSTONE Phase 1: vault files are truth. Write the complete buffer
         // through the coordinated same-volume temp -> replace spine; never write
         // partial content directly into the vault file.
-        try await coordinatedWrite(output, to: fileURL)
+        let outputData = Data(output.utf8)
+        do {
+            _ = try await coordinatedWrite(
+                outputData,
+                to: fileURL,
+                ifCurrentMatches: expectedBaseline
+            )
+        } catch {
+            let observedData = try? Data(contentsOf: fileURL)
+            guard observedData == outputData else { throw error }
+            do {
+                try AtomicVaultWriter.synchronizeParentDirectory(of: fileURL)
+            } catch {
+                if isNewFile {
+                    do {
+                        try saveContext("uncertain exported page file path")
+                    } catch {
+                        try? CoordinatedVaultFileMutation.removeItem(
+                            at: fileURL,
+                            ifCurrentMatches: .contents(outputData)
+                        )
+                        page.filePath = nil
+                    }
+                }
+                throw VaultPageExportError.durabilityUnproven
+            }
+        }
 
         // Persist filePath back to the store so subsequent exports use the same path.
         // Without this save, the filePath only exists in the background actor's memory
@@ -1408,7 +1701,9 @@ actor VaultIndexActor {
             }
             throw error
         }
-        upsertSearchIndex(page: page, body: body)
+        if indexForSearch {
+            upsertSearchIndex(page: page, body: body)
+        }
 
         log.debug("Exported: \(fileURL.lastPathComponent, privacy: .public)")
         return (fileURL.path, bodyHash)
@@ -1477,7 +1772,6 @@ actor VaultIndexActor {
 
         guard FileManager.default.fileExists(atPath: oldURL.path) else { return nil }
         try CoordinatedVaultFileMutation.moveItem(at: oldURL, to: newURL)
-        Self.updateCodeSidecarAfterFileRename(oldURL: oldURL, newURL: newURL, vaultURL: vaultURL)
         return newURL.path
     }
 
@@ -1485,12 +1779,7 @@ actor VaultIndexActor {
 
     /// Remove a page from SwiftData when its .md file is deleted externally.
     func handleFileDeletion(at url: URL) throws {
-        guard Self.isImportableNoteFile(url) else {
-            if Self.isDatasetArtifactFile(url) {
-                routeDatasetArtifacts([url], vaultURL: nil, reason: "artifact deletion")
-            }
-            return
-        }
+        guard Self.isImportableNoteFile(url) else { return }
 
         let existing = try fetchTrackedPages(atFileURL: url)
         for page in existing {
@@ -1574,7 +1863,10 @@ actor VaultIndexActor {
     }
 
     @discardableResult
-    private func removeDuplicateTrackedVaultPages(in vaultURL: URL) throws -> Int {
+    private func removeDuplicateTrackedVaultPages(
+        in vaultURL: URL,
+        searchMutationBatchID: SearchIndexMutationBatchID?
+    ) throws -> Int {
         let pages = try modelContext.fetch(FetchDescriptor<SDPage>())
         let vaultRoot = Self.canonicalFilePath(vaultURL.path)
         let trackedPrefix = vaultRoot.hasSuffix("/") ? vaultRoot : vaultRoot + "/"
@@ -1599,7 +1891,10 @@ actor VaultIndexActor {
 
             guard let keeper = orderedPages.first else { continue }
             for duplicate in orderedPages.dropFirst() {
-                removePageArtifacts(duplicate)
+                removePageArtifacts(
+                    duplicate,
+                    searchMutationBatchID: searchMutationBatchID
+                )
                 modelContext.delete(duplicate)
                 removedCount += 1
             }
@@ -1615,28 +1910,44 @@ actor VaultIndexActor {
         return removedCount
     }
 
-    private func removePageArtifacts(_ page: SDPage) {
+    private func removePageArtifacts(
+        _ page: SDPage,
+        searchMutationBatchID: SearchIndexMutationBatchID? = nil
+    ) {
         let pageId = page.id
         SpotlightIndexer.deindex(pageId)
-        do {
-            try searchService?.delete(pageId: pageId)
-            try? searchService?.deleteBlocksForPage(pageId: pageId)
-        } catch {
-            log.error(
-                "VaultIndex: failed to remove search row for duplicate page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
+        if let searchContext = validatedSearchMutationContext(
+            batchID: searchMutationBatchID
+        ) {
+            do {
+                let receipt = try searchContext.service.delete(
+                    pageId: pageId,
+                    notifyObservers: searchContext.notifyObservers
+                )
+                recordSearchIndexMutation(
+                    receipt.mutationReceipt,
+                    batchID: searchMutationBatchID,
+                    service: searchContext.service
+                )
+            } catch {
+                recordSearchIndexMutationFailure(
+                    batchID: searchMutationBatchID,
+                    service: searchContext.service
+                )
+                log.error(
+                    "VaultIndex: failed to remove search row for duplicate page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
         NoteFileStorage.deleteBody(pageId: pageId)
-        Task { @MainActor in
-            AppBootstrap.shared?.instantRecallService.removeNote(noteId: pageId)
-        }
     }
 
     /// Upsert a page from a .md file URL. Updates if exists (by filePath), creates if new.
     private func upsertPage(
         from fileURL: URL,
         vaultURL: URL,
-        existingPage knownExistingPage: SDPage? = nil
+        existingPage knownExistingPage: SDPage? = nil,
+        searchMutationBatchID: SearchIndexMutationBatchID? = nil
     ) async throws -> PageUpsertResult {
         switch await iCloudMaterializer.shared.state(of: fileURL) {
         case .downloading:
@@ -1736,7 +2047,10 @@ actor VaultIndexActor {
                 }
                 return currentBody
             }()
-            let incomingBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
+            let incomingBodyHash = Self.importedCleanBodyHash(
+                for: importedStorageBody,
+                fileURL: fileURL
+            )
             let liveEditorIsDirty = liveEditorBody.map { editorBody in
                 Self.liveEditorBodyConflictsWithVaultBody(
                     liveEditorBody: editorBody,
@@ -1840,7 +2154,11 @@ actor VaultIndexActor {
                 }
 
                 let indexBody = preserveBody ? (liveEditorBody ?? localDraftBody) : importedStorageBody
-                upsertSearchIndex(page: page, body: searchIndexBody(indexBody, filePath: filePath))
+                upsertSearchIndex(
+                    page: page,
+                    body: searchIndexBody(indexBody, filePath: filePath),
+                    searchMutationBatchID: searchMutationBatchID
+                )
                 return .updated(snapshot)
             }
             return .unchanged
@@ -1879,7 +2197,10 @@ actor VaultIndexActor {
             page.filePath = filePath
             page.wordCount = parsedWordCount
             page.emoji = parsedEmoji
-            page.lastSyncedBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
+            page.lastSyncedBodyHash = Self.importedCleanBodyHash(
+                for: importedStorageBody,
+                fileURL: fileURL
+            )
             page.lastSyncedAt = .now
             page.needsVaultSync = false
 
@@ -1903,7 +2224,11 @@ actor VaultIndexActor {
             page.templateId = frontMatter["template"]
 
             modelContext.insert(page)
-            upsertSearchIndex(page: page, body: searchIndexBody(importedStorageBody, filePath: filePath))
+            upsertSearchIndex(
+                page: page,
+                body: searchIndexBody(importedStorageBody, filePath: filePath),
+                searchMutationBatchID: searchMutationBatchID
+            )
             return .inserted(page)
         }
     }
@@ -1995,10 +2320,7 @@ actor VaultIndexActor {
         )
     }
 
-    private func importedCleanBodyHash(for body: String, fileURL: URL) -> String {
-        guard body.utf8.count <= Self.searchIndexBodyByteLimit else {
-            return Self.largeVaultFileFingerprint(for: fileURL, fallbackByteCount: body.utf8.count)
-        }
+    nonisolated static func importedCleanBodyHash(for body: String, fileURL: URL) -> String {
         return SDPage.bodyHash(body)
     }
 
@@ -2108,7 +2430,7 @@ actor VaultIndexActor {
         var endIndex = -1
 
         for i in 1..<lines.count {
-            let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+            let trimmed = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed == "---" {
                 endIndex = i
                 break
@@ -2117,8 +2439,8 @@ actor VaultIndexActor {
             if trimmed.hasPrefix("#") { continue }
             let parts = lines[i].split(separator: ":", maxSplits: 1)
             if parts.count == 2 {
-                let key = parts[0].trimmingCharacters(in: .whitespaces)
-                var value = parts[1].trimmingCharacters(in: .whitespaces)
+                let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                var value = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
                 // Strip YAML double-quote wrapping (written by yamlEscapeTitle)
                 if value.hasPrefix("\"") && value.hasSuffix("\"") && value.count >= 2 {
                     value = String(value.dropFirst().dropLast())
@@ -2133,13 +2455,37 @@ actor VaultIndexActor {
         }
 
         if endIndex > 0 {
-            let bodyLines = Array(lines[(endIndex + 1)...])
-            let body = bodyLines.joined(separator: "\n")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            return (frontMatter, body)
+            return (frontMatter, markdownBodyPreservingBytes(from: cleaned))
         }
 
         return ([:], cleaned)
+    }
+
+    private nonisolated static func markdownBodyPreservingBytes(from source: String) -> String {
+        guard let firstLineEnd = source.firstIndex(of: "\n"),
+              String(source[..<firstLineEnd])
+                .trimmingCharacters(in: .whitespacesAndNewlines) == "---"
+        else { return source }
+
+        var lineStart = source.index(after: firstLineEnd)
+        while lineStart < source.endIndex {
+            let lineEnd = source[lineStart...].firstIndex(of: "\n") ?? source.endIndex
+            let line = String(source[lineStart..<lineEnd])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if line == "---" {
+                guard lineEnd < source.endIndex else { return "" }
+                var bodyStart = source.index(after: lineEnd)
+                if source[bodyStart...].hasPrefix("\r\n") {
+                    bodyStart = source.index(bodyStart, offsetBy: 2)
+                } else if source[bodyStart...].hasPrefix("\n") {
+                    bodyStart = source.index(after: bodyStart)
+                }
+                return String(source[bodyStart...])
+            }
+            guard lineEnd < source.endIndex else { break }
+            lineStart = source.index(after: lineEnd)
+        }
+        return source
     }
 
     nonisolated static func isEpdocMarkdownSource(_ frontMatter: [String: String]) -> Bool {
@@ -2313,7 +2659,7 @@ actor VaultIndexActor {
     }
 
     /// Sanitize a title for use as a filename (Obsidian-compatible superset).
-    nonisolated private static func sanitizeFileName(_ title: String) -> String {
+    nonisolated static func sanitizeFileName(_ title: String) -> String {
         var s = title
         // Normalize smart quotes
         s = s.replacingOccurrences(of: "\u{2018}", with: "'")
@@ -2337,7 +2683,7 @@ actor VaultIndexActor {
         return s.isEmpty ? "Untitled" : s
     }
 
-    nonisolated private static func sanitizeFileBaseName(
+    nonisolated static func sanitizeFileBaseName(
         _ title: String,
         preservingExtension extensionToPreserve: String
     ) -> String {
@@ -2366,63 +2712,6 @@ actor VaultIndexActor {
         return sanitized
     }
 
-    nonisolated private static func updateCodeSidecarAfterFileRename(
-        oldURL: URL,
-        newURL: URL,
-        vaultURL: URL
-    ) {
-        guard let oldRelativePath = Self.vaultRelativePath(for: oldURL, in: vaultURL),
-              let newRelativePath = Self.vaultRelativePath(for: newURL, in: vaultURL)
-        else { return }
-
-        let oldSidecarURL = CodeSidecarPath.sidecarURL(
-            forVaultRoot: vaultURL,
-            vaultRelativePath: oldRelativePath
-        )
-        guard FileManager.default.fileExists(atPath: oldSidecarURL.path) else { return }
-
-        do {
-            let data = try Data(contentsOf: oldSidecarURL)
-            let existing = try JSONDecoder.epdocCanonical.decode(CodeArtifactSidecar.self, from: data)
-            let migrated = CodeArtifactSidecar(
-                schemaVersion: existing.schemaVersion,
-                vaultRelativePath: newRelativePath,
-                kind: CodeArtifactKind.from(fileURL: newURL),
-                contentHash: existing.contentHash,
-                indexedAt: existing.indexedAt,
-                provenance: existing.provenance,
-                symbols: existing.symbols,
-                crossReferences: existing.crossReferences,
-                embedding: existing.embedding
-            )
-            let newSidecarURL = CodeSidecarPath.sidecarURL(
-                forVaultRoot: vaultURL,
-                vaultRelativePath: newRelativePath
-            )
-            try FileManager.default.createDirectory(
-                at: newSidecarURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            let migratedData = try JSONEncoder.epdocCanonical.encode(migrated)
-            try AtomicVaultWriter.writeSynchronously(migratedData, to: newSidecarURL)
-            if oldSidecarURL.path != newSidecarURL.path {
-                try? CoordinatedVaultFileMutation.removeItem(at: oldSidecarURL)
-            }
-        } catch {
-            Logger(subsystem: "com.epistemos", category: "VaultIndex").warning(
-                "Failed to migrate code sidecar after rename: \(error.localizedDescription, privacy: .public)"
-            )
-        }
-    }
-
-    nonisolated private static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String? {
-        let rootPath = vaultURL.standardizedFileURL.path
-        let filePath = fileURL.standardizedFileURL.path
-        let prefix = rootPath.hasSuffix("/") ? rootPath : "\(rootPath)/"
-        guard filePath.hasPrefix(prefix) else { return nil }
-        return String(filePath.dropFirst(prefix.count))
-    }
-
     // MARK: - Title Sanitization
 
     /// Strip control characters from a title. Safe to call from any isolation context.
@@ -2435,13 +2724,18 @@ actor VaultIndexActor {
 
     // MARK: - Search Index Helpers
 
-    private func upsertSearchIndex(page: SDPage, body: String) {
+    private func upsertSearchIndex(
+        page: SDPage,
+        body: String,
+        searchMutationBatchID: SearchIndexMutationBatchID? = nil
+    ) {
         upsertSearchIndex(
             pageId: page.id,
             title: page.title,
             body: body,
             tags: page.tags,
-            updatedAt: page.updatedAt
+            updatedAt: page.updatedAt,
+            searchMutationBatchID: searchMutationBatchID
         )
     }
 
@@ -2450,20 +2744,38 @@ actor VaultIndexActor {
         title: String,
         body: String,
         tags: [String],
-        updatedAt: Date
+        updatedAt: Date,
+        searchMutationBatchID: SearchIndexMutationBatchID? = nil
     ) {
-        do {
-            try searchService?.upsert(
-                id: pageId,
-                title: title,
-                body: body,
-                tags: tags.joined(separator: " "),
-                updatedAt: updatedAt
-            )
-        } catch {
-            log.error("FTS5 upsert failed for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        if let searchContext = validatedSearchMutationContext(
+            batchID: searchMutationBatchID
+        ) {
+            do {
+                let receipt = try searchContext.service.upsert(
+                    id: pageId,
+                    title: title,
+                    body: body,
+                    tags: tags.joined(separator: " "),
+                    updatedAt: updatedAt,
+                    notifyObservers: searchContext.notifyObservers
+                )
+                recordSearchIndexMutation(
+                    receipt,
+                    batchID: searchMutationBatchID,
+                    service: searchContext.service
+                )
+            } catch {
+                recordSearchIndexMutationFailure(
+                    batchID: searchMutationBatchID,
+                    service: searchContext.service
+                )
+                log.error("FTS5 upsert failed for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
-        reindexBlocks(forPageId: pageId)
+        reindexBlocks(
+            forPageId: pageId,
+            searchMutationBatchID: searchMutationBatchID
+        )
     }
 
     /// Mirror a page's SDBlocks into the block search index (indexed_blocks /
@@ -2473,27 +2785,82 @@ actor VaultIndexActor {
     /// replace this page's block rows. Without this, indexed_blocks had NO writer,
     /// so block search + the RRF `block` fusion source returned empty. Derivative
     /// index — a failure is logged and self-heals on the next save.
-    private func reindexBlocks(forPageId pageId: String) {
+    private func reindexBlocks(
+        forPageId pageId: String,
+        searchMutationBatchID: SearchIndexMutationBatchID?
+    ) {
         let descriptor = FetchDescriptor<SDBlock>(
             predicate: #Predicate { $0.pageId == pageId },
             sortBy: [SortDescriptor(\.order)]
         )
-        guard let blocks = try? modelContext.fetch(descriptor) else { return }
+        let blocks: [SDBlock]
         do {
-            try searchService?.replaceBlocksForPage(
-                pageId: pageId,
-                blocks: blocks.map { (blockId: $0.id, content: $0.content) }
-            )
+            blocks = try modelContext.fetch(descriptor)
         } catch {
-            log.error("Block index reindex failed for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            recordSearchIndexMutationFailure(
+                batchID: searchMutationBatchID,
+                service: searchService
+            )
+            log.error(
+                "Block index source read failed for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
+        if let searchContext = validatedSearchMutationContext(
+            batchID: searchMutationBatchID
+        ) {
+            do {
+                let receipt = try searchContext.service.replaceBlocksForPage(
+                    pageId: pageId,
+                    blocks: blocks.map { (blockId: $0.id, content: $0.content) },
+                    notifyObservers: searchContext.notifyObservers
+                )
+                recordSearchIndexMutation(
+                    receipt,
+                    batchID: searchMutationBatchID,
+                    service: searchContext.service
+                )
+            } catch {
+                recordSearchIndexMutationFailure(
+                    batchID: searchMutationBatchID,
+                    service: searchContext.service
+                )
+                log.error("Block index reindex failed for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
     /// All page (id, updatedAt) pairs for diff sync.
     func allPageTimestamps() -> [(id: String, updatedAt: Date)] {
+        do {
+            return try loadPageTimestamps()
+        } catch {
+            log.error(
+                "VaultIndex: failed to fetch all page timestamps: \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
+    }
+
+    func requiredPageTimestampsForSearchDiff() -> [(id: String, updatedAt: Date)]? {
+        do {
+            return try loadPageTimestamps()
+        } catch {
+            log.error(
+                "VaultIndex: required Search timestamp fetch failed: \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    private func loadPageTimestamps() throws -> [(id: String, updatedAt: Date)] {
+#if DEBUG
+        if let requiredPageTimestampsOperationOverride {
+            return try requiredPageTimestampsOperationOverride()
+        }
+#endif
         let descriptor = FetchDescriptor<SDPage>()
-        guard let pages = fetchAll(descriptor, label: "all page timestamps") else { return [] }
-        return pages.map { ($0.id, $0.updatedAt) }
+        return try modelContext.fetch(descriptor).map { ($0.id, $0.updatedAt) }
     }
 
     private func bodyForIndexing(
@@ -2554,10 +2921,30 @@ actor VaultIndexActor {
     /// Phase R.3 / KEELSTONE: vault-file-first body reads via the
     /// primitives helper, inside an async for-loop (sync `.map` can't await).
     func allPagesForRebuild() async -> [(id: String, title: String, body: String, tags: String, updatedAt: Date)] {
+        await pagesForDerivedRebuild() ?? []
+    }
+
+    func requiredPagesForSearchRebuild() async -> [(id: String, title: String, body: String, tags: String, updatedAt: Date)]? {
+        await pagesForDerivedRebuild()
+    }
+
+    func requiredPagesForInstantRecallRebuild() async -> [(id: String, title: String, body: String, tags: String, updatedAt: Date)]? {
+        return await pagesForDerivedRebuild()
+    }
+
+    private func pagesForDerivedRebuild() async -> [(id: String, title: String, body: String, tags: String, updatedAt: Date)]? {
+#if DEBUG
+        if forceRequiredDerivedRebuildSourceFailureForTesting {
+            log.error("VaultIndex: forced required derived rebuild source failure")
+            return nil
+        }
+#endif
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived && $0.templateId == nil }
         )
-        guard let pages = fetchAll(descriptor, label: "pages for search index rebuild") else { return [] }
+        guard let pages = fetchAll(descriptor, label: "pages for derived index rebuild") else {
+            return nil
+        }
         var out: [(id: String, title: String, body: String, tags: String, updatedAt: Date)] = []
         out.reserveCapacity(pages.count)
         for page in pages {
@@ -2878,16 +3265,11 @@ actor VaultIndexActor {
 
     // MARK: - Spotlight Indexing (Background)
 
-    private func spotlightReindexSnapshot() -> SpotlightReindexSnapshot {
-        let lastIndexDate =
-            UserDefaults.standard.object(forKey: Self.spotlightIndexDateKey) as? Date
-            ?? .distantPast
-
-        var descriptor = FetchDescriptor<SDPage>(
-            predicate: #Predicate<SDPage> { $0.updatedAt > lastIndexDate },
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+    private func spotlightReindexSnapshot(since lastIndexDate: Date) -> SpotlightReindexSnapshot {
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.updatedAt >= lastIndexDate },
+            sortBy: [SortDescriptor(\.updatedAt, order: .forward)]
         )
-        descriptor.fetchLimit = 1000
 
         let changedPageCount = fetchCount(
             descriptor,
@@ -2900,8 +3282,8 @@ actor VaultIndexActor {
         )
     }
 
-    func spotlightReindexSnapshotForTesting() -> SpotlightReindexSnapshot {
-        spotlightReindexSnapshot()
+    func spotlightReindexSnapshotForTesting(since lastIndexDate: Date) -> SpotlightReindexSnapshot {
+        spotlightReindexSnapshot(since: lastIndexDate)
     }
 
     /// Re-index pages into Core Spotlight, skipping pages unchanged since last index.
@@ -2909,46 +3291,68 @@ actor VaultIndexActor {
     ///
     /// Phase R.3: body reads go through the Sendable-primitive
     /// helper. Sync `.map` replaced by a sequential async for-loop.
-    func spotlightReindexAll() async {
-        let snapshot = spotlightReindexSnapshot()
-        let lastIndexDate = snapshot.lastIndexDate
-
-        var descriptor = FetchDescriptor<SDPage>(
-            predicate: #Predicate<SDPage> { $0.updatedAt > lastIndexDate },
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+    func spotlightReindexAll(since lastIndexDate: Date?) async throws -> VaultSpotlightJournalReceipt {
+        let cursor = lastIndexDate ?? .distantPast
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.updatedAt >= cursor },
+            sortBy: [SortDescriptor(\.updatedAt, order: .forward)]
         )
-        // Safety cap: don't try to index more than 1000 at once
-        descriptor.fetchLimit = 1000
 
-        guard let pages = fetchAll(descriptor, label: "spotlight reindex pages") else {
-            return
+        let pages: [SDPage]
+        do {
+            pages = try modelContext.fetch(descriptor)
+        } catch {
+            log.error(
+                "Spotlight journal candidate fetch failed: \(error.localizedDescription, privacy: .private)"
+            )
+            throw error
         }
-        guard !pages.isEmpty else {
+        let pageSnapshots = pages.map(PageIndexingSnapshot.init)
+        guard !pageSnapshots.isEmpty else {
             log.info("Spotlight: no pages changed since last index")
-            return
+            return VaultSpotlightJournalReceipt(
+                candidateCursor: nil,
+                pageCount: 0,
+                legacyItemCount: 0,
+                typedEntityCount: 0
+            )
         }
 
         let batchSize = 50
-        let total = pages.count
+        let total = pageSnapshots.count
+        var legacyItemCount = 0
+        var typedEntityCount = 0
 
         for batchStart in stride(from: 0, to: total, by: batchSize) {
+            try Task.checkCancellation()
             let batchEnd = min(batchStart + batchSize, total)
-            let batch = Array(pages[batchStart..<batchEnd])
+            let batch = Array(pageSnapshots[batchStart..<batchEnd])
 
             var items: [CSSearchableItem] = []
             items.reserveCapacity(batch.count)
+            var typedRows: [(id: String, title: String, body: String)] = []
+            typedRows.reserveCapacity(batch.count)
             for page in batch {
+                try Task.checkCancellation()
                 let pageBody = await bodyForIndexing(page)
-                items.append(SpotlightIndexer.makeItem(for: page, body: pageBody))
+                try Task.checkCancellation()
+                items.append(
+                    SpotlightIndexer.makeItem(
+                        pageId: page.id,
+                        title: page.title,
+                        tags: page.tags,
+                        tagsJoined: page.tags.joined(separator: ", "),
+                        createdAt: page.createdAt,
+                        updatedAt: page.updatedAt,
+                        body: pageBody
+                    )
+                )
+                typedRows.append((page.id, page.title, pageBody))
             }
 
-            do {
-                try await CSSearchableIndex.default().indexSearchableItems(items)
-            } catch {
-                log.error(
-                    "Spotlight batch reindex failed: \(error.localizedDescription, privacy: .private)"
-                )
-            }
+            try await CSSearchableIndex.default().indexSearchableItems(items)
+            legacyItemCount += items.count
+            try Task.checkCancellation()
 
             // W14.1 wire-up — also donate the typed NoteEntity batch
             // via the new macOS 26 indexAppEntities API so Spotlight
@@ -2956,32 +3360,39 @@ actor VaultIndexActor {
             // entities (legacy indexSearchableItems above only feeds
             // keyword search; the App Entity path is what surfaces
             // "Open Note" / "Preview Note" actions in Spotlight).
-            // toNoteEntity() is MainActor-isolated; project to plain
-            // Sendable triples here, then map to NoteEntity from a
-            // Sendable closure to avoid the SDPage-class data race.
-            let liteRows: [(String, String, String?)] = batch.map {
-                ($0.id, $0.title, $0.body)
+            let entities = typedRows.map { row in
+                NoteEntity(id: row.id, title: row.title, content: row.body)
             }
-            Task.detached(priority: .utility) {
-                let entities = await MainActor.run {
-                    liteRows.map { id, title, body in
-                        NoteEntity(id: id, title: title, content: body)
-                    }
-                }
-                await NoteEntitySpotlightIndexer.indexBulk(entities)
+            guard await NoteEntitySpotlightIndexer.indexBulk(entities) else {
+                throw SpotlightJournalError.typedEntityRequestFailed
             }
+            typedEntityCount += entities.count
+            try Task.checkCancellation()
         }
 
-        // Update last index timestamp
-        UserDefaults.standard.set(Date.now, forKey: Self.spotlightIndexDateKey)
-        log.info("Spotlight indexed \(total) changed notes (skipped unchanged)")
+        let candidateCursor = pageSnapshots.map(\.updatedAt).max()
+        log.info("Spotlight journal acknowledged \(total) changed notes")
+        return VaultSpotlightJournalReceipt(
+            candidateCursor: candidateCursor,
+            pageCount: total,
+            legacyItemCount: legacyItemCount,
+            typedEntityCount: typedEntityCount
+        )
     }
 
     // MARK: - Coordinated File Access
 
     /// Write a vault file through the KEELSTONE durable-write spine.
-    private func coordinatedWrite(_ content: String, to url: URL) async throws {
-        try await AtomicVaultWriter.shared.write(content, to: url)
+    private func coordinatedWrite(
+        _ data: Data,
+        to url: URL,
+        ifCurrentMatches expectedBaseline: VaultFileBaseline
+    ) async throws -> VaultFileBaseline {
+        try await AtomicVaultWriter.shared.write(
+            data,
+            to: url,
+            ifCurrentMatches: expectedBaseline
+        )
     }
 
     // MARK: - One-Time Migrations
@@ -2990,7 +3401,7 @@ actor VaultIndexActor {
     /// One-time migration on first launch after hybrid sync update.
     func migrateToHybridSync() {
         let migrationKey = "epistemos.hybridSyncMigrated"
-        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+        guard !FoundationSafety.runtimeUserDefaults.bool(forKey: migrationKey) else { return }
 
         let descriptor = FetchDescriptor<SDPage>()
         guard let pages = fetchAll(descriptor, label: "hybrid sync migration pages") else { return }
@@ -3024,7 +3435,7 @@ actor VaultIndexActor {
             }
         }
 
-        UserDefaults.standard.set(true, forKey: migrationKey)
+        FoundationSafety.runtimeUserDefaults.set(true, forKey: migrationKey)
         log.info("Hybrid sync migration: set hashes for \(migrated) existing pages")
     }
 
@@ -3032,7 +3443,7 @@ actor VaultIndexActor {
     /// One-time migration after body moved from external storage to inline SQLite.
     func migrateFromExternalStorage() {
         let migrationKey = "epistemos.inlineBodyMigrated"
-        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+        guard !FoundationSafety.runtimeUserDefaults.bool(forKey: migrationKey) else { return }
 
         let descriptor = FetchDescriptor<SDPage>()
         guard let pages = fetchAll(descriptor, label: "inline body migration pages") else { return }
@@ -3046,7 +3457,7 @@ actor VaultIndexActor {
             return
         }
 
-        UserDefaults.standard.set(true, forKey: migrationKey)
+        FoundationSafety.runtimeUserDefaults.set(true, forKey: migrationKey)
         log.info("Inline body migration: reset \(pages.count) page timestamps for re-import")
     }
 }

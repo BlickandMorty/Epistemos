@@ -320,27 +320,6 @@ final class SDPage {
             }
         }
 
-        if resourceServiceIsReady() {
-            let trimmedPath = filePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let reference = trimmedPath.isEmpty ? pageId : trimmedPath
-            do {
-                let resourceId = try await resourceResolve(reference: reference)
-                let content = try await resourceRead(id: resourceId)
-                if let decoded = String(data: content.bytes, encoding: .utf8) {
-                    if !trimmedPath.isEmpty {
-                        let fileURL = URL(fileURLWithPath: trimmedPath)
-                        return VaultIndexActor.shouldWriteMarkdownFrontMatter(to: fileURL)
-                            ? VaultIndexActor.parseFrontMatter(decoded).1
-                            : decoded
-                    }
-                    return decoded
-                }
-            } catch {
-                // Expected during vault-switch races or when the page
-                // is inline-body-only. Fall through to legacy path.
-            }
-        }
-
         return legacyManagedOrInlineBody(
             pageId: pageId,
             inlineBody: inlineBody,
@@ -459,10 +438,10 @@ final class SDPage {
         return refs
     }
 
-    /// SHA256 hash prefix (16 hex chars) for dirty detection.
+    /// Full SHA256 digest for dirty detection and exact vault-conflict checks.
     static func bodyHash(_ body: String) -> String {
         let digest = SHA256.hash(data: Data(body.utf8))
-        return digest.prefix(8).map { String(format: "%02x", $0) }.joined()
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     /// Whether this page has edits not yet saved to the vault .md file.

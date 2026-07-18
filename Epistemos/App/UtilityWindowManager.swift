@@ -2,6 +2,10 @@ import AppKit
 import SwiftData
 import SwiftUI
 
+extension Notification.Name {
+    static let meetingUtilityWindowWillClose = Notification.Name("EpistemosMeetingUtilityWindowWillClose")
+}
+
 // MARK: - Utility Window Manager
 // Manages floating NSPanel windows for utility views (Notes browser, Settings).
 
@@ -95,7 +99,6 @@ enum WindowThemeStyler {
 
 enum UtilityPanel: String, CaseIterable {
     case notes
-    case browser
     case meetingNote
     case settings
 
@@ -103,19 +106,11 @@ enum UtilityPanel: String, CaseIterable {
         [.notes, .settings]
     }
 
-    var isAvailableInCurrentEdition: Bool {
-        switch self {
-        case .browser:
-            ProductCapabilityPolicy.isAvailable(.browser)
-        case .notes, .meetingNote, .settings:
-            true
-        }
-    }
+    var isAvailableInCurrentEdition: Bool { true }
 
     var title: String {
         switch self {
         case .notes: "Notes"
-        case .browser: "Browser"
         case .meetingNote: "Meeting Note"
         case .settings: "Settings"
         }
@@ -124,7 +119,6 @@ enum UtilityPanel: String, CaseIterable {
     var icon: String {
         switch self {
         case .notes: "pencil.line"
-        case .browser: "safari"
         case .meetingNote: "waveform"
         case .settings: "gearshape"
         }
@@ -133,7 +127,6 @@ enum UtilityPanel: String, CaseIterable {
     var defaultSize: NSSize {
         switch self {
         case .notes: NSSize(width: 380, height: 520)
-        case .browser: NSSize(width: 1024, height: 720)
         case .meetingNote: NSSize(width: 760, height: 560)
         case .settings: NSSize(width: 900, height: 680)
         }
@@ -142,7 +135,6 @@ enum UtilityPanel: String, CaseIterable {
     var minimumSize: NSSize {
         switch self {
         case .notes: NSSize(width: 300, height: 320)
-        case .browser: NSSize(width: 620, height: 420)
         case .meetingNote: NSSize(width: 520, height: 420)
         case .settings: NSSize(width: 680, height: 420)
         }
@@ -151,7 +143,7 @@ enum UtilityPanel: String, CaseIterable {
     var maximumSize: NSSize? {
         switch self {
         case .notes: NSSize(width: 520, height: 720)
-        case .browser, .meetingNote: nil
+        case .meetingNote: nil
         case .settings: NSSize(width: 1040, height: 760)
         }
     }
@@ -165,22 +157,22 @@ enum UtilityPanelChrome {
         switch kind {
         case .notes:
             applySidebarChrome(to: panel)
-        case .browser, .meetingNote:
-            applyOmegaChrome(to: panel)
+        case .meetingNote:
+            applyDocumentChrome(to: panel)
         case .settings:
             applySettingsChrome(to: panel)
         }
     }
 
     @MainActor
-    static func applyOmegaChrome(to panel: NSPanel) {
+    static func applyDocumentChrome(to panel: NSPanel) {
         panel.styleMask.insert(.fullSizeContentView)
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         panel.hasShadow = true
         panel.backgroundColor = .windowBackgroundColor
-        let toolbar = panel.toolbar ?? NSToolbar(identifier: "AgentRuntimeToolbar")
+        let toolbar = panel.toolbar ?? NSToolbar(identifier: "EpistemosUtilityToolbar")
         if #unavailable(macOS 15.0) {
             toolbar.showsBaselineSeparator = false
         }
@@ -356,12 +348,9 @@ final class UtilityWindowManager {
 
         panels[kind] = panel
 
-        // Meeting HIGH (audit 2026-07-03): closing the meeting window (Cmd-W / red
-        // button) must stop the microphone. This panel is cached + isReleasedWhenClosed
-        // = false, so SwiftUI's onDisappear may not fire on close, which would leave the
-        // shared capture service recording in a now-hidden window — a privacy + trust
-        // failure (mic indicator lit, no visible UI). Stop it explicitly on close; the
-        // cached view keeps the accumulated transcript for when the user reopens.
+        // The cached meeting panel may not trigger SwiftUI onDisappear when it closes.
+        // Signal only the MeetingNoteView instance hosted by this utility panel; the
+        // embedded Landing meeting view must not tear down its unrelated lease.
         if kind == .meetingNote {
             NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
@@ -369,9 +358,7 @@ final class UtilityWindowManager {
                 queue: .main
             ) { _ in
                 MainActor.assumeIsolated {
-                    if LiveVoiceInputService.shared.isRecording {
-                        LiveVoiceInputService.shared.stop()
-                    }
+                    NotificationCenter.default.post(name: .meetingUtilityWindowWillClose, object: panel)
                 }
             }
         }
@@ -407,10 +394,8 @@ private struct ThemedUtilityRoot: View {
         Group {
             switch kind {
             case .notes: NotesBrowserView()
-            case .browser:
-                BrowserView()
             case .meetingNote:
-                MeetingNoteView()
+                MeetingNoteView(tearsDownOnUtilityWindowClose: true)
             case .settings:
                 SettingsView(initialSelection: initialSettingsSection)
             }

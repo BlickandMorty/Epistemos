@@ -91,11 +91,17 @@ struct VaultRecoveryIssue: Identifiable, Sendable {
     let id: String
     let snapshot: VaultHealthSnapshot
     let reason: String
+    let forceBlocksWorkspaceInteraction: Bool
 
-    init(snapshot: VaultHealthSnapshot, reason: String) {
+    init(
+        snapshot: VaultHealthSnapshot,
+        reason: String,
+        forceBlocksWorkspaceInteraction: Bool = false
+    ) {
         self.id = UUID().uuidString
         self.snapshot = snapshot
         self.reason = reason
+        self.forceBlocksWorkspaceInteraction = forceBlocksWorkspaceInteraction
     }
 
     var detailText: String {
@@ -114,11 +120,73 @@ struct VaultRecoveryIssue: Identifiable, Sendable {
     }
 
     var blocksWorkspaceInteraction: Bool {
-        snapshot.isVaultReadable && snapshot.vaultMarkdownCount > 0
+        forceBlocksWorkspaceInteraction
+            || (snapshot.isVaultReadable && snapshot.vaultMarkdownCount > 0)
     }
 }
 
-enum VaultPostImportRecallWorkload: Sendable, Equatable {
+enum PageIdentityCommitResult: Equatable, Sendable {
+    case committed
+    case rejected
+    case rolledBack
+    case recoveryRequired
+}
+
+private enum PageBodyFileSaveResult: Equatable {
+    case saved
+    case stale
+    case failed
+}
+
+private actor VaultPageFileMutationGate {
+    private var lockedPageIDs = Set<String>()
+    private var waiters: [String: [CheckedContinuation<Void, Never>]] = [:]
+
+    func acquire(pageId: String) async {
+        if lockedPageIDs.insert(pageId).inserted {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters[pageId, default: []].append(continuation)
+        }
+    }
+
+    func release(pageId: String) {
+        if var pageWaiters = waiters[pageId], !pageWaiters.isEmpty {
+            let continuation = pageWaiters.removeFirst()
+            if pageWaiters.isEmpty {
+                waiters.removeValue(forKey: pageId)
+            } else {
+                waiters[pageId] = pageWaiters
+            }
+            continuation.resume()
+            return
+        }
+        lockedPageIDs.remove(pageId)
+    }
+}
+
+private struct VaultMutationAdmission: Sendable {
+    let requestID: UInt64
+    let lifecycleEpoch: UInt64
+    let vaultPath: String
+}
+
+fileprivate struct VaultLifecycleToken: Sendable, Equatable {
+    let lifecycleEpoch: UInt64
+    let vaultPath: String
+}
+
+private enum VaultLifecyclePhase {
+    case disconnected(epoch: UInt64)
+    case operational(epoch: UInt64, vaultPath: String)
+    case draining(epoch: UInt64, vaultPath: String)
+}
+
+/// A candidate is admitted before it can replace any mounted vault state. The
+/// receipt holds the exact canonical bootstrap result, bounded folder scan, and
+/// preconstructed search dependency needed by the later mount transition.
+nonisolated enum VaultPostImportRecallWorkload: Sendable, Equatable {
     case none
     case incremental(changedPageIDs: [String], deletedPageIDs: [String])
     case rebuild
@@ -314,6 +382,43 @@ struct VaultFileSystemEvent: Sendable {
     }
 }
 
+nonisolated struct VaultFileSystemProcessingResult: Sendable {
+    let didProcess: Bool
+    let didMutate: Bool
+    let completedAuthoritativeFullRescan: Bool
+    let postImportRecallWorkload: VaultPostImportRecallWorkload
+
+    init(
+        didProcess: Bool,
+        didMutate: Bool,
+        completedAuthoritativeFullRescan: Bool = false,
+        postImportRecallWorkload: VaultPostImportRecallWorkload = .none
+    ) {
+        self.didProcess = didProcess
+        self.didMutate = didMutate
+        self.completedAuthoritativeFullRescan = completedAuthoritativeFullRescan
+        self.postImportRecallWorkload = postImportRecallWorkload
+    }
+}
+
+nonisolated struct VaultSpotlightJournalReceipt: Sendable, Equatable {
+    let candidateCursor: Date?
+    let pageCount: Int
+    let legacyItemCount: Int
+    let typedEntityCount: Int
+}
+
+nonisolated struct VaultInstantRecallNote: Sendable, Equatable {
+    let id: String
+    let text: String
+}
+
+nonisolated enum VaultInstantRecallMutation: Sendable, Equatable {
+    case none
+    case incremental(changedNotes: [VaultInstantRecallNote], deletedPageIDs: [String])
+    case rebuild(documents: [String: String])
+}
+
 enum VaultFileSystemEventClassification: Equatable, Sendable {
     case fullRescan
     case changed(String)
@@ -323,14 +428,16 @@ enum VaultFileSystemEventClassification: Equatable, Sendable {
 
 fileprivate final class VaultFileWatcherCallbackBox {
     nonisolated(unsafe) weak var service: VaultSyncService?
+    let lifecycleToken: VaultLifecycleToken
 
-    init(service: VaultSyncService) {
+    init(service: VaultSyncService, lifecycleToken: VaultLifecycleToken) {
         self.service = service
+        self.lifecycleToken = lifecycleToken
     }
 
     nonisolated func handle(_ events: [VaultFileSystemEvent]) {
-        Task { @MainActor [weak service] in
-            service?.handleVaultFileSystemEvents(events)
+        Task { @MainActor [weak service, lifecycleToken] in
+            service?.handleVaultFileSystemEvents(events, lifecycleToken: lifecycleToken)
         }
     }
 }
@@ -346,17 +453,53 @@ private final class VaultFileWatcherState {
     var pendingDeletedPaths = Set<String>()
     var pendingFullRescan = false
     var pendingLastEventID: FSEventStreamEventId?
+    var pendingRevision: UInt64 = 0
     let clock = ContinuousClock()
     var ignoreUntil: ContinuousClock.Instant?
+}
+
+nonisolated private final class VaultFileSystemBatchCompletionFence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isFinished = false
+    private var result: VaultFileSystemProcessingResult?
+    private var waiters: [CheckedContinuation<VaultFileSystemProcessingResult?, Never>] = []
+
+    func wait() async -> VaultFileSystemProcessingResult? {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if isFinished {
+                let completedResult = result
+                lock.unlock()
+                continuation.resume(returning: completedResult)
+                return
+            }
+            waiters.append(continuation)
+            lock.unlock()
+        }
+    }
+
+    func finish(with result: VaultFileSystemProcessingResult?) {
+        lock.lock()
+        guard !isFinished else {
+            lock.unlock()
+            return
+        }
+        isFinished = true
+        self.result = result
+        let pendingWaiters = waiters
+        waiters.removeAll(keepingCapacity: false)
+        lock.unlock()
+        pendingWaiters.forEach { $0.resume(returning: result) }
+    }
 }
 
 private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 
 @MainActor
 private enum VaultImportProgressBridge {
-    static func publish(_ snapshot: VaultImportProgressSnapshot, expectedVaultPath: String) {
+    static func publish(_ snapshot: VaultImportProgressSnapshot, lifecycleToken: VaultLifecycleToken) {
         guard let vaultSync = AppBootstrap.shared?.vaultSync,
-              vaultSync.vaultURL?.standardizedFileURL.path == expectedVaultPath
+              vaultSync.vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true)
         else { return }
         vaultSync.applyVaultImportProgress(snapshot)
     }
@@ -365,9 +508,37 @@ private enum VaultImportProgressBridge {
 @MainActor @Observable
 final class VaultSyncService {
     typealias ExportPageOperation = @Sendable (String, URL) async throws -> (path: String, bodyHash: String)?
+    typealias InitialImportOperation = @Sendable (URL) async -> Bool
+    typealias HybridMigrationOperation = @Sendable (VaultIndexActor) async -> Void
+    typealias InitialImportDerivedOperation = @Sendable (
+        VaultIndexActor,
+        SearchIndexService?,
+        VaultPostImportRecallWorkload
+    ) async -> VaultInstantRecallMutation
+    typealias InitialImportDerivedApplyOperation = @MainActor @Sendable (
+        VaultInstantRecallMutation
+    ) -> Void
+    typealias InitialImportDerivedCompletionOperation = @Sendable () async -> Void
+    typealias ExternalVaultFileSystemChangesOperation = @Sendable (
+        URL,
+        [String],
+        [String],
+        Bool
+    ) async -> VaultFileSystemProcessingResult
+    typealias VaultFileSystemRecallPreparationOperation = @Sendable (
+        VaultIndexActor,
+        VaultPostImportRecallWorkload
+    ) async -> VaultInstantRecallMutation?
+    typealias VaultFileSystemRecallApplyOperation = @MainActor @Sendable (
+        VaultInstantRecallMutation
+    ) -> Void
+    typealias VaultFileSystemRecallCompletionOperation = @Sendable () async -> Void
+    typealias PageIdentityBeforeForwardWriteOperation = @Sendable (String, URL) async throws -> Void
+    typealias PageIdentityAfterForwardWriteOperation = @Sendable (String, URL) async throws -> Void
     typealias TMUtilCommandRunner = @Sendable ([String]) throws -> String
     typealias BookmarkDataWriter = @Sendable (URL, URL.BookmarkCreationOptions) throws -> Data
     typealias SecurityScopeAccessOperation = @Sendable (URL) -> Bool
+    typealias SecurityScopeStopOperation = @Sendable (URL) -> Void
     fileprivate nonisolated static let bookmarkKey = "epistemos.vaultBookmark"
     fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
     fileprivate nonisolated static let vaultFSEventCheckpointPrefix = "keelstone.lastEventID."
@@ -375,6 +546,7 @@ final class VaultSyncService {
     fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
     fileprivate nonisolated static let testDefaultsSuitePrefix = "com.epistemos.tests.VaultSyncService."
     fileprivate nonisolated static let skipRestoreEnvironmentKey = "EPISTEMOS_SKIP_VAULT_RESTORE"
+    private nonisolated static let spotlightCursorPrefix = "keelstone.spotlightCursor.v2."
     /// Set at the very start of `disconnect()`. If the app crashes /
     /// is force-quit mid-disconnect, this flag survives and is detected
     /// by `restoreVaultFromBookmark()` on the next launch — which then
@@ -421,6 +593,10 @@ final class VaultSyncService {
         "\(vaultFSEventCheckpointPrefix)\(vaultCheckpointID(for: vaultURL))"
     }
 
+    private nonisolated static func spotlightCursorKey(for vaultURL: URL) -> String {
+        "\(spotlightCursorPrefix)\(vaultCheckpointID(for: vaultURL))"
+    }
+
     private nonisolated static func vaultFSEventStartID(
         for vaultURL: URL,
         defaults: UserDefaults
@@ -443,13 +619,35 @@ final class VaultSyncService {
     ) -> FSEventStreamEventId {
         vaultFSEventStartID(for: vaultURL, defaults: defaults)
     }
+
+    nonisolated static func spotlightCursorKeyForTesting(vaultURL: URL) -> String {
+        spotlightCursorKey(for: vaultURL)
+    }
 #endif
 
     nonisolated static func shouldRestoreVaultFromBookmark(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
-        processInfoEnvironment["XCTestConfigurationFilePath"] == nil
+        FoundationSafety.requireValidAuditRuntimeIsolationIfRequested(
+            processInfoEnvironment: processInfoEnvironment
+        )
+        return processInfoEnvironment["XCTestConfigurationFilePath"] == nil
             && !shouldSkipVaultRestore(processInfoEnvironment: processInfoEnvironment)
+    }
+
+    nonisolated static func shouldMigrateLegacyVaultBookmarkDefaults(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        switch FoundationSafety.auditRuntimeIsolationRequestState(
+            processInfoEnvironment: processInfoEnvironment
+        ) {
+        case .notRequested:
+            return true
+        case .active:
+            return false
+        case .requestedButInvalid:
+            preconditionFailure("Runtime-audit bookmark isolation is incomplete or invalid")
+        }
     }
 
     private nonisolated static func shouldSkipVaultRestore(
@@ -473,19 +671,245 @@ final class VaultSyncService {
     nonisolated private static func makeDefaultUserDefaults(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> UserDefaults {
+        switch FoundationSafety.auditRuntimeIsolationRequestState(
+            processInfoEnvironment: processInfoEnvironment
+        ) {
+        case .active:
+            return FoundationSafety.resolvedRuntimeUserDefaults(
+                processInfoEnvironment: processInfoEnvironment
+            )
+        case .requestedButInvalid:
+            preconditionFailure("Runtime-audit bookmark defaults are incomplete or invalid")
+        case .notRequested:
+            break
+        }
+
         guard shouldRestoreVaultFromBookmark(processInfoEnvironment: processInfoEnvironment), !isRunningTests else {
             let suiteName = "\(testDefaultsSuitePrefix)\(UUID().uuidString)"
-            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            guard let defaults = UserDefaults(suiteName: suiteName) else {
+                preconditionFailure("Could not create isolated no-restore defaults")
+            }
             defaults.removePersistentDomain(forName: suiteName)
             return defaults
         }
-        return .standard
+        return FoundationSafety.resolvedRuntimeUserDefaults(
+            processInfoEnvironment: processInfoEnvironment
+        )
     }
+
+#if DEBUG
+    nonisolated static func makeDefaultUserDefaultsForTesting(
+        processInfoEnvironment: [String: String]
+    ) -> UserDefaults {
+        makeDefaultUserDefaults(processInfoEnvironment: processInfoEnvironment)
+    }
+#endif
 
     private struct DirtySaveBatch {
         let context: ModelContext
-        let vaultURL: URL
         let dirtyIds: [String]
+    }
+
+    private struct AcceptedVaultFileSystemBatch: Sendable {
+        let admission: VaultMutationAdmission
+        let lifecycleToken: VaultLifecycleToken
+        let vaultURL: URL
+        let actor: VaultIndexActor
+        let searchService: SearchIndexService?
+        let processingOperation: ExternalVaultFileSystemChangesOperation?
+        let recallPreparationOperation: VaultFileSystemRecallPreparationOperation?
+        let recallApplyOperation: VaultFileSystemRecallApplyOperation?
+        let recallCompletionOperation: VaultFileSystemRecallCompletionOperation?
+        let changedPaths: [String]
+        let deletedPaths: [String]
+        let needsFullRescan: Bool
+        let lastEventID: FSEventStreamEventId?
+        let completionFence: VaultFileSystemBatchCompletionFence
+    }
+
+    private struct InitialImportResult: Sendable {
+        let didImport: Bool
+        let snapshot: VaultImportProgressSnapshot?
+        let suppressedSearchBatchID: SearchIndexMutationBatchID?
+    }
+
+    private struct InitialImportDerivedResult: Sendable {
+        let searchSynchronizationReceipt: SearchIndexSynchronizationReceipt?
+        let recallMutation: VaultInstantRecallMutation
+        let spotlightJournalReceipt: VaultSpotlightJournalReceipt?
+    }
+
+    private struct PageIdentityTransactionSnapshot {
+        let title: String
+        let tags: [String]
+        let folder: SDFolder?
+        let subfolder: String?
+        let filePath: String?
+        var fileData: Data?
+        var diskBody: String
+        let localDraftBody: String?
+        let inlineBody: String
+        let emoji: String
+        let isJournal: Bool
+        let journalDate: String?
+        let parentPageId: String?
+        let templateId: String?
+        let frontMatter: [String: String]
+        let updatedAt: Date
+        let lastSyncedBodyHash: String?
+        let lastSyncedAt: Date?
+        let needsVaultSync: Bool
+        let blockReferences: [String]
+        let wikilinkReferences: [String]
+        let wikilinkReferenceScanSignature: String?
+
+        init(page: SDPage, fileData: Data?, diskBody: String, localDraftBody: String?) {
+            title = page.title
+            tags = page.tags
+            folder = page.folder
+            subfolder = page.subfolder
+            filePath = page.filePath
+            self.fileData = fileData
+            self.diskBody = diskBody
+            self.localDraftBody = localDraftBody
+            inlineBody = page.body
+            emoji = page.emoji
+            isJournal = page.isJournal
+            journalDate = page.journalDate
+            parentPageId = page.parentPageId
+            templateId = page.templateId
+            frontMatter = page.frontMatter
+            updatedAt = page.updatedAt
+            lastSyncedBodyHash = page.lastSyncedBodyHash
+            lastSyncedAt = page.lastSyncedAt
+            needsVaultSync = page.needsVaultSync
+            blockReferences = page.blockReferences
+            wikilinkReferences = page.wikilinkReferences
+            wikilinkReferenceScanSignature = page.wikilinkReferenceScanSignature
+        }
+
+        func restore(on page: SDPage) {
+            page.title = title
+            page.tags = tags
+            page.folder = folder
+            page.subfolder = subfolder
+            page.filePath = filePath
+            page.body = inlineBody
+            page.emoji = emoji
+            page.isJournal = isJournal
+            page.journalDate = journalDate
+            page.parentPageId = parentPageId
+            page.templateId = templateId
+            page.frontMatter = frontMatter
+            page.updatedAt = updatedAt
+            page.lastSyncedBodyHash = lastSyncedBodyHash
+            page.lastSyncedAt = lastSyncedAt
+            page.needsVaultSync = needsVaultSync
+            page.blockReferences = blockReferences
+            page.wikilinkReferences = wikilinkReferences
+            page.wikilinkReferenceScanSignature = wikilinkReferenceScanSignature
+        }
+
+        func stillMatches(_ page: SDPage) -> Bool {
+            title == page.title
+                && tags == page.tags
+                && folder?.id == page.folder?.id
+                && subfolder == page.subfolder
+                && filePath == page.filePath
+                && inlineBody == page.body
+                && emoji == page.emoji
+                && isJournal == page.isJournal
+                && journalDate == page.journalDate
+                && parentPageId == page.parentPageId
+                && templateId == page.templateId
+                && frontMatter == page.frontMatter
+                && updatedAt == page.updatedAt
+                && lastSyncedBodyHash == page.lastSyncedBodyHash
+                && lastSyncedAt == page.lastSyncedAt
+                && needsVaultSync == page.needsVaultSync
+                && blockReferences == page.blockReferences
+                && wikilinkReferences == page.wikilinkReferences
+                && wikilinkReferenceScanSignature == page.wikilinkReferenceScanSignature
+        }
+    }
+
+    private struct PageIdentityDraftFingerprint: Equatable {
+        let liveBody: String?
+        let inlineBody: String
+        let pendingBody: String?
+    }
+
+    private struct PageIdentityTargetFingerprint: Equatable {
+        let folderID: String?
+        let folderRelativePath: String?
+        let subfolder: String?
+    }
+
+    private struct PageBodyMutationFingerprint: Equatable {
+        let liveBody: String?
+        let inlineBody: String
+        let pendingBody: String?
+        let saveRequestGeneration: UInt64?
+    }
+
+    private struct PageIdentityMetadataFingerprint: Equatable {
+        let title: String
+        let tags: [String]
+        let folderID: String?
+        let subfolder: String?
+        let filePath: String?
+        let inlineBody: String
+        let emoji: String
+        let isJournal: Bool
+        let journalDate: String?
+        let parentPageId: String?
+        let templateId: String?
+        let frontMatter: [String: String]
+        let updatedAt: Date
+        let lastSyncedBodyHash: String?
+        let lastSyncedAt: Date?
+        let needsVaultSync: Bool
+        let blockReferences: [String]
+        let wikilinkReferences: [String]
+        let wikilinkReferenceScanSignature: String?
+
+        init(page: SDPage) {
+            title = page.title
+            tags = page.tags
+            folderID = page.folder?.id
+            subfolder = page.subfolder
+            filePath = page.filePath
+            inlineBody = page.body
+            emoji = page.emoji
+            isJournal = page.isJournal
+            journalDate = page.journalDate
+            parentPageId = page.parentPageId
+            templateId = page.templateId
+            frontMatter = page.frontMatter
+            updatedAt = page.updatedAt
+            lastSyncedBodyHash = page.lastSyncedBodyHash
+            lastSyncedAt = page.lastSyncedAt
+            needsVaultSync = page.needsVaultSync
+            blockReferences = page.blockReferences
+            wikilinkReferences = page.wikilinkReferences
+            wikilinkReferenceScanSignature = page.wikilinkReferenceScanSignature
+        }
+    }
+
+    private struct PageIdentityFileMutationReceipt: Sendable {
+        let originalURL: URL?
+        let originalData: Data?
+        let forwardData: Data
+        var currentURL: URL
+        var moved: Bool
+    }
+
+    private enum PageIdentityTransactionError: Error {
+        case invalidOriginalFileData
+        case missingOriginalFile
+        case missingOriginalFileData
+        case originalPathOccupied
+        case vaultLifecycleChanged
     }
 
     private struct APFSSnapshotRecord: Codable, Sendable {
@@ -503,6 +927,13 @@ final class VaultSyncService {
     private var indexActor: VaultIndexActor?
     private let modelContainer: ModelContainer
     var exportPageOverride: ExportPageOperation?
+    private var initialImportOperationOverride: InitialImportOperation?
+    private var hybridMigrationOperationOverride: HybridMigrationOperation?
+    private var initialImportDerivedOperationOverride: InitialImportDerivedOperation?
+    private var initialImportDerivedApplyOperationOverride: InitialImportDerivedApplyOperation?
+    private var initialImportDerivedCompletionOperationOverride: InitialImportDerivedCompletionOperation?
+    private var pageIdentityBeforeForwardWriteOverride: PageIdentityBeforeForwardWriteOperation?
+    private var pageIdentityAfterForwardWriteOverride: PageIdentityAfterForwardWriteOperation?
     private var searchDatabaseURLOverride: URL?
     private var appSupportDirectoryURLOverride: URL?
     private var preferencesFileURLOverride: URL?
@@ -513,8 +944,11 @@ final class VaultSyncService {
     private var securityScopeAccessOperation: SecurityScopeAccessOperation = { url in
         url.startAccessingSecurityScopedResource()
     }
+    private var securityScopeStopOperation: SecurityScopeStopOperation = { url in
+        url.stopAccessingSecurityScopedResource()
+    }
     private var requiresSecurityScopedVaultAccessOverride: Bool?
-    private var defaults = UserDefaults.standard
+    private var defaults = FoundationSafety.runtimeUserDefaults
 
     private(set) var vaultURL: URL?
     private(set) var isWatching = false
@@ -549,6 +983,8 @@ final class VaultSyncService {
     private var isSecurityScoped = false
 
     private var importTask: Task<Void, Never>?
+    @ObservationIgnored
+    private var importTaskLifecycleToken: VaultLifecycleToken?
     private var autoSaveTask: Task<Void, Never>?
     private var versionCaptureTask: Task<Void, Never>?
     private var manifestRefreshTask: Task<Void, Never>?
@@ -561,12 +997,29 @@ final class VaultSyncService {
     @ObservationIgnored
     private var lastManifestRefreshEpoch: UInt64 = 0
     @ObservationIgnored
+    private var vaultLifecycleEpoch: UInt64 = 0
+    @ObservationIgnored
+    private var vaultLifecyclePhase: VaultLifecyclePhase = .disconnected(epoch: 0)
+    @ObservationIgnored
+    private var nextVaultMutationRequestID: UInt64 = 0
+    @ObservationIgnored
+    private var activeVaultMutationAdmissions: [UInt64: VaultMutationAdmission] = [:]
+    @ObservationIgnored
+    private var vaultMutationDrainWaiters: [CheckedContinuation<Void, Never>] = []
+    @ObservationIgnored
+    private var vaultMutationDrainStartWaiters: [CheckedContinuation<Void, Never>] = []
+    @ObservationIgnored
     private var powerModeObserverTask: Task<Void, Never>?
     private var inFlightDirtySaveTask: Task<Void, Never>?
     @ObservationIgnored
     private var fileFirstSaveTails: [String: Task<Bool, Never>] = [:]
     @ObservationIgnored
+    private var fileFirstSaveTailGenerations: [String: UInt64] = [:]
+    @ObservationIgnored
     private var fileFirstSaveGenerations: [String: UInt64] = [:]
+    @ObservationIgnored
+    private var nextFileFirstSaveGeneration: UInt64 = 0
+    private let pageFileMutationGate = VaultPageFileMutationGate()
     @ObservationIgnored
     private var graphPageMutationRefreshTask: Task<Void, Never>?
     private var pendingDirtySaveRequest = false
@@ -575,11 +1028,28 @@ final class VaultSyncService {
         bookmarkData: Data,
         resolvedBookmark: ResolvedVaultBookmark
     )?
+    @ObservationIgnored
+    private var externalVaultFileSystemChangesOperationOverride: ExternalVaultFileSystemChangesOperation?
+    @ObservationIgnored
+    private var vaultFileSystemRecallPreparationOperationOverride: VaultFileSystemRecallPreparationOperation?
+    @ObservationIgnored
+    private var vaultFileSystemRecallApplyOperationOverride: VaultFileSystemRecallApplyOperation?
+    @ObservationIgnored
+    private var vaultFileSystemRecallCompletionOperationOverride: VaultFileSystemRecallCompletionOperation?
+    @ObservationIgnored
+    private var acceptedVaultFileSystemBatches: [AcceptedVaultFileSystemBatch] = []
+    @ObservationIgnored
+    private var acceptedVaultFileSystemBatchHead = 0
+    @ObservationIgnored
+    private var vaultFileSystemProcessorTask: Task<Void, Never>?
+    @ObservationIgnored
+    private var blockedFSEventCheckpointToken: VaultLifecycleToken?
 
     // MARK: - File Watching
     @ObservationIgnored
     private let fileWatcherState = VaultFileWatcherState()
     private nonisolated static let recoverySnapshotLimit = 20
+    private nonisolated static let maxInitialReadinessWatcherDrains = 8
 
     private struct ResolvedVaultBookmark: Sendable {
         let url: URL
@@ -629,6 +1099,121 @@ final class VaultSyncService {
 
     deinit {
         powerModeObserverTask?.cancel()
+    }
+
+    private func advanceVaultLifecycleEpoch() -> UInt64 {
+        vaultLifecycleEpoch &+= 1
+        if vaultLifecycleEpoch == 0 {
+            vaultLifecycleEpoch = 1
+        }
+        return vaultLifecycleEpoch
+    }
+
+    private func activateVaultLifecycle(for vaultURL: URL) {
+        let epoch = advanceVaultLifecycleEpoch()
+        vaultLifecyclePhase = .operational(
+            epoch: epoch,
+            vaultPath: vaultURL.standardizedFileURL.path
+        )
+        blockedFSEventCheckpointToken = nil
+    }
+
+    private func disconnectVaultLifecycle() {
+        vaultLifecyclePhase = .disconnected(epoch: advanceVaultLifecycleEpoch())
+    }
+
+    private func currentOperationalVaultLifecycleToken(for vaultURL: URL) -> VaultLifecycleToken? {
+        let standardizedPath = vaultURL.standardizedFileURL.path
+        guard case let .operational(epoch, vaultPath) = vaultLifecyclePhase,
+              vaultPath == standardizedPath,
+              self.vaultURL?.standardizedFileURL.path == standardizedPath
+        else {
+            return nil
+        }
+        return VaultLifecycleToken(lifecycleEpoch: epoch, vaultPath: vaultPath)
+    }
+
+    fileprivate func vaultLifecycleTokenIsCurrent(
+        _ token: VaultLifecycleToken,
+        requireOperational: Bool
+    ) -> Bool {
+        guard vaultURL?.standardizedFileURL.path == token.vaultPath else { return false }
+        switch vaultLifecyclePhase {
+        case let .operational(epoch, vaultPath):
+            return epoch == token.lifecycleEpoch && vaultPath == token.vaultPath
+        case let .draining(epoch, vaultPath):
+            return !requireOperational
+                && epoch == token.lifecycleEpoch
+                && vaultPath == token.vaultPath
+        case .disconnected:
+            return false
+        }
+    }
+
+    private func registerVaultMutation() -> VaultMutationAdmission? {
+        guard let vaultURL else { return nil }
+        guard case let .operational(epoch, vaultPath) = vaultLifecyclePhase,
+              vaultURL.standardizedFileURL.path == vaultPath
+        else {
+            return nil
+        }
+        nextVaultMutationRequestID &+= 1
+        if nextVaultMutationRequestID == 0 {
+            nextVaultMutationRequestID = 1
+        }
+        let admission = VaultMutationAdmission(
+            requestID: nextVaultMutationRequestID,
+            lifecycleEpoch: epoch,
+            vaultPath: vaultPath
+        )
+        activeVaultMutationAdmissions[admission.requestID] = admission
+        return admission
+    }
+
+    private func vaultMutationAdmissionIsCurrent(
+        _ admission: VaultMutationAdmission,
+        vaultURL: URL? = nil
+    ) -> Bool {
+        guard activeVaultMutationAdmissions[admission.requestID]?.lifecycleEpoch
+                == admission.lifecycleEpoch,
+              (vaultURL ?? self.vaultURL)?.standardizedFileURL.path == admission.vaultPath
+        else {
+            return false
+        }
+        switch vaultLifecyclePhase {
+        case let .operational(epoch, vaultPath),
+             let .draining(epoch, vaultPath):
+            return epoch == admission.lifecycleEpoch && vaultPath == admission.vaultPath
+        case .disconnected:
+            return false
+        }
+    }
+
+    private func finishVaultMutation(_ admission: VaultMutationAdmission) {
+        guard activeVaultMutationAdmissions.removeValue(forKey: admission.requestID) != nil,
+              activeVaultMutationAdmissions.isEmpty
+        else {
+            return
+        }
+        let waiters = vaultMutationDrainWaiters
+        vaultMutationDrainWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+
+    private func beginVaultMutationDrain() {
+        guard case let .operational(epoch, vaultPath) = vaultLifecyclePhase else { return }
+        vaultLifecyclePhase = .draining(epoch: epoch, vaultPath: vaultPath)
+        let waiters = vaultMutationDrainStartWaiters
+        vaultMutationDrainStartWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+
+    private func waitForVaultMutationDrain() async {
+        if !activeVaultMutationAdmissions.isEmpty {
+            await withCheckedContinuation { continuation in
+                vaultMutationDrainWaiters.append(continuation)
+            }
+        }
     }
 
     private func fetchAll<T: PersistentModel>(
@@ -759,12 +1344,17 @@ final class VaultSyncService {
         }
     }
 
-    func setVaultURLForTesting(_ vaultURL: URL?) {
+    func setVaultURLForTesting(_ vaultURL: URL?, isSecurityScoped: Bool = false) {
         self.vaultURL = vaultURL
-        if vaultURL == nil {
+        self.isSecurityScoped = vaultURL != nil && isSecurityScoped
+        guard let vaultURL else {
+            initialImportCompleted = false
+            disconnectVaultLifecycle()
             indexActor = nil
             return
         }
+        activateVaultLifecycle(for: vaultURL)
+        initialImportCompleted = true
         if indexActor == nil {
             indexActor = VaultIndexActor(modelContainer: modelContainer)
         }
@@ -772,6 +1362,7 @@ final class VaultSyncService {
 
     func importVaultForTesting(from vaultURL: URL) async throws {
         self.vaultURL = vaultURL
+        activateVaultLifecycle(for: vaultURL)
         let actor = VaultIndexActor(modelContainer: modelContainer)
         indexActor = actor
         try await actor.importVault(from: vaultURL)
@@ -780,6 +1371,105 @@ final class VaultSyncService {
     func setExportPageOverrideForTesting(_ exportPageOverride: ExportPageOperation?) {
         self.exportPageOverride = exportPageOverride
     }
+
+    func setInitialImportOperationForTesting(_ operation: InitialImportOperation?) {
+        initialImportOperationOverride = operation
+    }
+
+    func setHybridMigrationOperationForTesting(_ operation: HybridMigrationOperation?) {
+        hybridMigrationOperationOverride = operation
+    }
+
+    func setInitialImportDerivedOperationsForTesting(
+        operation: InitialImportDerivedOperation?,
+        apply: InitialImportDerivedApplyOperation?,
+        completion: InitialImportDerivedCompletionOperation?
+    ) {
+        initialImportDerivedOperationOverride = operation
+        initialImportDerivedApplyOperationOverride = apply
+        initialImportDerivedCompletionOperationOverride = completion
+    }
+
+    func setExternalVaultFileSystemChangesOperationForTesting(
+        _ operation: ExternalVaultFileSystemChangesOperation?
+    ) {
+        externalVaultFileSystemChangesOperationOverride = operation
+    }
+
+    func setVaultFileSystemRecallPreparationOperationForTesting(
+        _ operation: VaultFileSystemRecallPreparationOperation?
+    ) {
+        vaultFileSystemRecallPreparationOperationOverride = operation
+    }
+
+    func setVaultFileSystemRecallApplyOperationForTesting(
+        _ operation: VaultFileSystemRecallApplyOperation?
+    ) {
+        vaultFileSystemRecallApplyOperationOverride = operation
+    }
+
+    func setVaultFileSystemRecallCompletionOperationForTesting(
+        _ operation: VaultFileSystemRecallCompletionOperation?
+    ) {
+        vaultFileSystemRecallCompletionOperationOverride = operation
+    }
+
+    func initialImportTaskForTesting() -> Task<Void, Never>? {
+        importTask
+    }
+
+    nonisolated static func initialImportSucceedsForTesting(
+        actor: VaultIndexActor,
+        url: URL
+    ) async -> Bool {
+        (await performInitialImport(
+            actor: actor,
+            url: url,
+            searchService: nil
+        )).didImport
+    }
+
+    nonisolated static func performSearchIndexDiffSyncForTesting(
+        from actor: VaultIndexActor,
+        searchService: SearchIndexService,
+        suppressedSearchBatchID: SearchIndexMutationBatchID? = nil,
+        canContinue: (@MainActor @Sendable () -> Bool)? = nil
+    ) async -> SearchIndexSynchronizationReceipt? {
+        await performSearchIndexDiffSync(
+            from: actor,
+            searchService: searchService,
+            suppressedSearchBatchID: suppressedSearchBatchID,
+            canContinue: canContinue
+        )
+    }
+
+    func setPageIdentityAfterForwardWriteOverrideForTesting(
+        _ operation: PageIdentityAfterForwardWriteOperation?
+    ) {
+        pageIdentityAfterForwardWriteOverride = operation
+    }
+
+    func setPageIdentityBeforeForwardWriteOverrideForTesting(
+        _ operation: PageIdentityBeforeForwardWriteOperation?
+    ) {
+        pageIdentityBeforeForwardWriteOverride = operation
+    }
+
+    func setSearchServiceForTesting(_ searchService: SearchIndexService?) async {
+        self.searchService = searchService
+        if let searchService {
+            await indexActor?.setSearchService(searchService)
+        }
+    }
+
+#if DEBUG
+    @discardableResult
+    func setForceRequiredDerivedRebuildSourceFailureForTesting(_ shouldFail: Bool) async -> Bool {
+        guard let indexActor else { return false }
+        await indexActor.setForceRequiredDerivedRebuildSourceFailureForTesting(shouldFail)
+        return true
+    }
+#endif
 
     func setSearchDatabaseURLForTesting(_ databaseURL: URL?) {
         searchDatabaseURLOverride = databaseURL
@@ -815,6 +1505,89 @@ final class VaultSyncService {
         }
     }
 
+    func setSecurityScopeStopOperationForTesting(_ operation: SecurityScopeStopOperation?) {
+        securityScopeStopOperation = operation ?? { url in
+            url.stopAccessingSecurityScopedResource()
+        }
+    }
+
+    func isVaultMutationDrainActiveForTesting() -> Bool {
+        if case .draining = vaultLifecyclePhase {
+            return true
+        }
+        return false
+    }
+
+    func activeVaultMutationAdmissionCountForTesting() -> Int {
+        activeVaultMutationAdmissions.count
+    }
+
+    func waitUntilVaultMutationDrainBeginsForTesting() async {
+        switch vaultLifecyclePhase {
+        case .draining, .disconnected:
+            return
+        case .operational:
+            await withCheckedContinuation { continuation in
+                vaultMutationDrainStartWaiters.append(continuation)
+            }
+        }
+    }
+
+    func waitUntilVaultMutationAdmissionsFinishForTesting() async {
+        await waitForVaultMutationDrain()
+    }
+
+    func vaultFileSystemProcessorStateForTesting() -> (running: Int, queued: Int) {
+        (
+            running: vaultFileSystemProcessorTask == nil ? 0 : 1,
+            queued: acceptedVaultFileSystemBatches.count - acceptedVaultFileSystemBatchHead
+        )
+    }
+
+    func captureVaultFileSystemEventDeliveryForTesting()
+        -> @MainActor @Sendable ([VaultFileSystemEvent]) -> Void
+    {
+        guard let vaultURL,
+              let lifecycleToken = currentOperationalVaultLifecycleToken(for: vaultURL)
+        else {
+            return { _ in }
+        }
+        return { [weak self, lifecycleToken] events in
+            self?.handleVaultFileSystemEvents(events, lifecycleToken: lifecycleToken)
+        }
+    }
+
+    func vaultFileSystemEventPendingStateForTesting() -> (
+        changedPathCount: Int,
+        deletedPathCount: Int,
+        needsFullRescan: Bool,
+        lastEventID: FSEventStreamEventId?,
+        debounceActive: Bool
+    ) {
+        (
+            changedPathCount: fileWatcherState.pendingChangedPaths.count,
+            deletedPathCount: fileWatcherState.pendingDeletedPaths.count,
+            needsFullRescan: fileWatcherState.pendingFullRescan,
+            lastEventID: fileWatcherState.pendingLastEventID,
+            debounceActive: fileWatcherState.debounceTask != nil
+        )
+    }
+
+    func processVaultFileSystemEventsImmediatelyForTesting(
+        _ events: [VaultFileSystemEvent]
+    ) {
+        guard let vaultURL,
+              let lifecycleToken = currentOperationalVaultLifecycleToken(for: vaultURL)
+        else { return }
+        handleVaultFileSystemEvents(events, lifecycleToken: lifecycleToken)
+        fileWatcherState.debounceTask?.cancel()
+        fileWatcherState.debounceTask = nil
+        _ = drainAndProcessPendingVaultFileSystemChanges(
+            shouldIgnore: false,
+            lifecycleToken: lifecycleToken
+        )
+    }
+
     func setRequiresSecurityScopedVaultAccessForTesting(_ value: Bool?) {
         requiresSecurityScopedVaultAccessOverride = value
     }
@@ -827,6 +1600,16 @@ final class VaultSyncService {
 
     func setInitialImportCompletedForTesting(_ value: Bool) {
         initialImportCompleted = value
+        guard value,
+              let vaultURL,
+              let lifecycleToken = currentOperationalVaultLifecycleToken(for: vaultURL)
+        else { return }
+        fileWatcherState.debounceTask?.cancel()
+        fileWatcherState.debounceTask = nil
+        _ = drainAndProcessPendingVaultFileSystemChanges(
+            shouldIgnore: false,
+            lifecycleToken: lifecycleToken
+        )
     }
 
     func handleVaultVolumeUnavailableForTesting(vaultURL: URL, reason: String) {
@@ -962,12 +1745,18 @@ final class VaultSyncService {
     private func exportPage(
         pageId: String,
         to vaultURL: URL,
-        bodyOverride: String? = nil
+        bodyOverride: String? = nil,
+        indexForSearch: Bool = true
     ) async throws -> (path: String, bodyHash: String)? {
         if let exportPageOverride {
             return try await exportPageOverride(pageId, vaultURL)
         }
-        return try await indexActor?.exportPage(pageId: pageId, to: vaultURL, bodyOverride: bodyOverride)
+        return try await indexActor?.exportPage(
+            pageId: pageId,
+            to: vaultURL,
+            bodyOverride: bodyOverride,
+            indexForSearch: indexForSearch
+        )
     }
 
     private func makeBookmarkData(
@@ -1128,12 +1917,14 @@ final class VaultSyncService {
     func detectRecoveryIssue(
         candidateVaultURL: URL?,
         bookmarkExists: Bool,
-        restoreFailed: Bool
+        restoreFailed: Bool,
+        initialImportCompletedOverride: Bool? = nil
     ) async -> VaultRecoveryIssue? {
         let snapshot = await buildVaultHealthSnapshot(
             candidateVaultURL: candidateVaultURL,
             bookmarkExists: bookmarkExists,
-            restoreFailed: restoreFailed
+            restoreFailed: restoreFailed,
+            initialImportCompletedOverride: initialImportCompletedOverride
         )
         guard snapshot.requiresRecovery else { return nil }
         return VaultRecoveryIssue(snapshot: snapshot, reason: recoveryReason(for: snapshot))
@@ -1200,7 +1991,8 @@ final class VaultSyncService {
     private func buildVaultHealthSnapshot(
         candidateVaultURL: URL?,
         bookmarkExists: Bool,
-        restoreFailed: Bool
+        restoreFailed: Bool,
+        initialImportCompletedOverride: Bool? = nil
     ) async -> VaultHealthSnapshot {
         let resolvedVaultURL = resolvedRecoveryVaultURL(from: candidateVaultURL)
         let isVaultReadable = resolvedVaultURL.map(isReadableVaultURL(_:)) ?? false
@@ -1240,7 +2032,7 @@ final class VaultSyncService {
             localBodyFileCount: localBodyFileCount,
             bookmarkExists: bookmarkExists,
             restoreFailed: restoreFailed,
-            initialImportCompleted: initialImportCompleted,
+            initialImportCompleted: initialImportCompletedOverride ?? initialImportCompleted,
             hadPriorLocalState: !pages.isEmpty
                 || localBodyFileCount > 0
                 || defaults.string(forKey: Self.lastVaultPathKey) != nil
@@ -1364,6 +2156,14 @@ final class VaultSyncService {
     private func preferencesFileURL() -> URL? {
         if let preferencesFileURLOverride {
             return preferencesFileURLOverride
+        }
+        switch FoundationSafety.auditRuntimeIsolationRequestState() {
+        case .active:
+            return nil
+        case .requestedButInvalid:
+            preconditionFailure("Runtime-audit preference snapshots are not isolated")
+        case .notRequested:
+            break
         }
         guard let library = FileManager.default.urls(
             for: .libraryDirectory,
@@ -2303,20 +3103,34 @@ final class VaultSyncService {
         }
     }
 
-    private func schedulePostImportMaintenance(vaultURL: URL, bookmarkExists: Bool, restoreFailed: Bool) async {
-        initialImportCompleted = true
-        let issue = await detectRecoveryIssue(
-            candidateVaultURL: vaultURL,
-            bookmarkExists: bookmarkExists,
-            restoreFailed: restoreFailed
-        )
-        recoveryIssue = issue
-        guard issue == nil else { return }
-
+    private func publishPostImportMaintenance(
+        lifecycleToken: VaultLifecycleToken
+    ) -> Bool {
+        guard vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true) else {
+            return false
+        }
         publishVaultMutation(.vaultChanged)
         AppBootstrap.shared?.refreshAmbientManifest()
         AppBootstrap.shared?.scheduleHealthyVaultBodyCleanup()
         scheduleGraphRefreshAfterVaultImport()
+        return true
+    }
+
+    private func recordInitialImportFailure(
+        vaultURL: URL,
+        lifecycleToken: VaultLifecycleToken,
+        reason: String
+    ) async {
+        let snapshot = await buildVaultHealthSnapshot(
+            candidateVaultURL: vaultURL,
+            bookmarkExists: true,
+            restoreFailed: false
+        )
+        guard vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true) else {
+            return
+        }
+        recoveryIssue = VaultRecoveryIssue(snapshot: snapshot, reason: reason)
+        AppBootstrap.shared?.uiState.showToast(reason, type: .error)
     }
 
     private func scheduleGraphRefreshAfterVaultImport() {
@@ -2455,7 +3269,7 @@ final class VaultSyncService {
         var data = defaults.data(forKey: Self.bookmarkKey)
         if let data {
             log.info("📦 Vault bookmark found in current domain (\(data.count) bytes)")
-        } else {
+        } else if Self.shouldMigrateLegacyVaultBookmarkDefaults() {
             log.info("📦 No vault bookmark in current domain — checking migration sources")
             let migrations: [(suite: String, key: String)] = [
                 ("Brainiac.epistemos", "epistemos.vaultBookmark"),
@@ -2480,6 +3294,8 @@ final class VaultSyncService {
                     log.info("📦 Could not open suite \(suite, privacy: .public)")
                 }
             }
+        } else {
+            log.info("📦 No vault bookmark in isolated audit domain — legacy domains skipped")
         }
         guard let data else {
             log.info("📦 No bookmark data found anywhere")
@@ -2646,7 +3462,12 @@ final class VaultSyncService {
 
         // If already watching, stop first (allows re-selection of vault folder)
         if isWatching {
+            guard activeVaultMutationAdmissions.isEmpty else {
+                log.error("Refusing synchronous vault replacement while file mutations are active; use switchToVaultAsync")
+                return
+            }
             stopWatching()
+            guard !isWatching else { return }
         }
         _ = beginWatching(
             vaultURL: vaultURL,
@@ -2691,6 +3512,14 @@ final class VaultSyncService {
             }
             beginScopeAlreadyAcquired = true
             acquiredCandidateSecurityScope = true
+        }
+
+        if acquiredCandidateSecurityScope,
+           !(await readableVaultURLAfterSecurityScopeSettle(vaultURL)) {
+            securityScopeStopOperation(vaultURL)
+            vaultActivityMessage = nil
+            log.error("Candidate vault is unavailable after security scope acquisition; keeping current vault active")
+            return false
         }
 
         if isWatching {
@@ -2759,6 +3588,11 @@ final class VaultSyncService {
         }
 
         self.vaultURL = vaultURL
+        activateVaultLifecycle(for: vaultURL)
+        let lifecycleToken = VaultLifecycleToken(
+            lifecycleEpoch: vaultLifecycleEpoch,
+            vaultPath: vaultURL.standardizedFileURL.path
+        )
         VaultCrashRecorder.updateVaultURL(vaultURL)
         self.isWatching = true
         self.initialImportCompleted = false
@@ -2774,7 +3608,6 @@ final class VaultSyncService {
         do {
             let svc = try SearchIndexService(databaseURL: searchDatabaseURLOverride)
             self.searchService = svc
-            installVaultRecallTraceProvider(searchService: svc)
             AppBootstrap.shared?.queryEngine.invalidateRuntime()
         } catch {
             log.error("Failed to create SearchIndexService: \(error.localizedDescription, privacy: .public)")
@@ -2784,45 +3617,265 @@ final class VaultSyncService {
         let actor = indexActor
         let url = vaultURL
         let svc = searchService
+        let initialSpotlightCursor = spotlightCursor(for: url)
         isIndexing = true
         beginVaultImportProgress(vaultName: vaultURL.lastPathComponent, phase: "Loading vault \"\(vaultURL.lastPathComponent)\"")
-        let expectedVaultPath = vaultURL.standardizedFileURL.path
         let progressHandler: VaultIndexActor.VaultImportProgressHandler = { snapshot in
-            await VaultImportProgressBridge.publish(snapshot, expectedVaultPath: expectedVaultPath)
+            await VaultImportProgressBridge.publish(snapshot, lifecycleToken: lifecycleToken)
         }
+        let initialImportOperation = initialImportOperationOverride
+        let hybridMigrationOperation = hybridMigrationOperationOverride
+        let initialImportDerivedOperation = initialImportDerivedOperationOverride
+        let initialImportDerivedApplyOperation = initialImportDerivedApplyOperationOverride
+        let initialImportDerivedCompletionOperation = initialImportDerivedCompletionOperationOverride
+        importTaskLifecycleToken = lifecycleToken
         importTask = Task {
-            let didImport = await Self.performInitialImport(
-                actor: actor,
-                url: url,
-                searchService: svc,
-                progressHandler: progressHandler
-            )
-            if didImport {
-                await self.schedulePostImportMaintenance(
-                    vaultURL: url,
-                    bookmarkExists: true,
-                    restoreFailed: false
+            var didBecomeReady = false
+            let canContinue: @MainActor @Sendable () -> Bool = { [weak self] in
+                guard let self else { return false }
+                return !Task.isCancelled
+                    && self.vaultLifecycleTokenIsCurrent(
+                        lifecycleToken,
+                        requireOperational: true
+                    )
+            }
+            defer {
+                if self.importTaskLifecycleToken == lifecycleToken {
+                    self.finishVaultImportProgress(keepSummary: didBecomeReady)
+                    self.vaultActivityMessage = nil
+                    self.isIndexing = false
+                    self.importTaskLifecycleToken = nil
+                    self.importTask = nil
+                }
+            }
+            if let actor {
+                await Self.performHybridMigrations(
+                    actor: actor,
+                    operation: hybridMigrationOperation
                 )
+            }
+            guard !Task.isCancelled,
+                  self.vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true)
+            else {
+                return
+            }
+            let importResult: InitialImportResult
+            if let initialImportOperation {
+                importResult = InitialImportResult(
+                    didImport: await initialImportOperation(url),
+                    snapshot: nil,
+                    suppressedSearchBatchID: nil
+                )
+            } else {
+                importResult = await Self.performInitialImport(
+                    actor: actor,
+                    url: url,
+                    searchService: svc,
+                    progressHandler: progressHandler
+                )
+            }
+            guard !Task.isCancelled,
+                  self.vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true)
+            else {
+                if let actor,
+                   let svc,
+                   let batchID = importResult.suppressedSearchBatchID {
+                    await actor.discardSuppressedSearchMutationBatch(
+                        id: batchID,
+                        service: svc
+                    )
+                }
+                return
+            }
+            let didImport = importResult.didImport
+            if didImport {
+                if let snapshot = importResult.snapshot {
+                    await progressHandler(
+                        snapshot.withPhase("Starting background indexes", isComplete: false)
+                    )
+                }
+                guard canContinue(), let actor else {
+                    if let actor,
+                       let svc,
+                       let batchID = importResult.suppressedSearchBatchID {
+                        await actor.discardSuppressedSearchMutationBatch(
+                            id: batchID,
+                            service: svc
+                        )
+                    }
+                    await initialImportDerivedCompletionOperation?()
+                    return
+                }
+
+                let recallWorkload =
+                    importResult.snapshot?.postImportRecallWorkload ?? .rebuild
+                let derivedResult: InitialImportDerivedResult?
+                if let initialImportDerivedOperation {
+                    derivedResult = InitialImportDerivedResult(
+                        searchSynchronizationReceipt: nil,
+                        recallMutation: await initialImportDerivedOperation(
+                            actor,
+                            svc,
+                            recallWorkload
+                        ),
+                        spotlightJournalReceipt: nil
+                    )
+                } else {
+                    derivedResult = await Self.performInitialImportDerivedWork(
+                        actor: actor,
+                        searchService: svc,
+                        vaultURL: url,
+                        spotlightCursor: initialSpotlightCursor,
+                        recallWorkload: recallWorkload,
+                        suppressedSearchBatchID: importResult.suppressedSearchBatchID,
+                        canContinue: canContinue
+                    )
+                }
+                guard canContinue() else {
+                    await initialImportDerivedCompletionOperation?()
+                    return
+                }
+                guard let derivedResult else {
+                    await self.recordInitialImportFailure(
+                        vaultURL: url,
+                        lifecycleToken: lifecycleToken,
+                        reason: "Vault loaded, but a required local index could not be prepared. Epistemos kept readiness closed so it can retry safely."
+                    )
+                    await initialImportDerivedCompletionOperation?()
+                    return
+                }
+                if let initialImportDerivedApplyOperation {
+                    initialImportDerivedApplyOperation(derivedResult.recallMutation)
+                } else {
+                    Self.applyInstantRecallMutation(derivedResult.recallMutation)
+                }
+                guard canContinue() else {
+                    await initialImportDerivedCompletionOperation?()
+                    return
+                }
+
+                var finalSpotlightReceipt = derivedResult.spotlightJournalReceipt
+                var successfulWatcherDrainCount = 0
+                while true {
+                    guard canContinue() else {
+                        await initialImportDerivedCompletionOperation?()
+                        return
+                    }
+                    self.fileWatcherState.debounceTask?.cancel()
+                    self.fileWatcherState.debounceTask = nil
+
+                    if self.hasPendingVaultFileSystemChanges,
+                       successfulWatcherDrainCount
+                            >= Self.maxInitialReadinessWatcherDrains {
+                        await self.recordInitialImportFailure(
+                            vaultURL: url,
+                            lifecycleToken: lifecycleToken,
+                            reason: "Vault files kept changing during startup. Epistemos preserved the remaining changes and kept readiness closed so it can retry safely."
+                        )
+                        await initialImportDerivedCompletionOperation?()
+                        return
+                    }
+
+                    let bufferedWatcherFence =
+                        self.drainAndProcessPendingVaultFileSystemChanges(
+                            shouldIgnore: false,
+                            lifecycleToken: lifecycleToken,
+                            allowBeforeInitialImportCompletion: true
+                        )
+                    if let bufferedWatcherFence {
+                        let bufferedResult = await bufferedWatcherFence.wait()
+                        guard canContinue() else {
+                            await initialImportDerivedCompletionOperation?()
+                            return
+                        }
+                        guard bufferedResult?.didProcess == true else {
+                            await self.recordInitialImportFailure(
+                                vaultURL: url,
+                                lifecycleToken: lifecycleToken,
+                                reason: "Vault changes arrived during startup but could not be reconciled. Epistemos preserved them for a safe retry and did not mark the vault ready."
+                            )
+                            await initialImportDerivedCompletionOperation?()
+                            return
+                        }
+                        successfulWatcherDrainCount += 1
+
+                        if let currentSpotlightReceipt = finalSpotlightReceipt {
+                            do {
+                                finalSpotlightReceipt = try await actor.spotlightReindexAll(
+                                    since: currentSpotlightReceipt.candidateCursor
+                                        ?? initialSpotlightCursor
+                                )
+                            } catch {
+                                await self.recordInitialImportFailure(
+                                    vaultURL: url,
+                                    lifecycleToken: lifecycleToken,
+                                    reason: "Vault changes were reconciled, but system search did not acknowledge the startup catch-up. Epistemos kept readiness closed so no stale completion is claimed."
+                                )
+                                await initialImportDerivedCompletionOperation?()
+                                return
+                            }
+                        }
+                        continue
+                    }
+
+                    let pendingRevision = self.fileWatcherState.pendingRevision
+                    let recoveryIssue = await self.detectRecoveryIssue(
+                        candidateVaultURL: url,
+                        bookmarkExists: true,
+                        restoreFailed: false,
+                        initialImportCompletedOverride: true
+                    )
+                    guard canContinue() else {
+                        await initialImportDerivedCompletionOperation?()
+                        return
+                    }
+                    guard pendingRevision == self.fileWatcherState.pendingRevision,
+                          !self.hasPendingVaultFileSystemChanges,
+                          self.vaultFileSystemProcessorTask == nil,
+                          self.acceptedVaultFileSystemBatchHead
+                            == self.acceptedVaultFileSystemBatches.count
+                    else {
+                        continue
+                    }
+
+                    self.recoveryIssue = recoveryIssue
+                    guard recoveryIssue == nil else {
+                        AppBootstrap.shared?.uiState.showToast(
+                            "Vault import needs recovery before Epistemos can mark it ready.",
+                            type: .error
+                        )
+                        await initialImportDerivedCompletionOperation?()
+                        return
+                    }
+
+                    if let finalSpotlightReceipt {
+                        self.persistSpotlightCursor(finalSpotlightReceipt, for: url)
+                    }
+                    self.initialImportCompleted = true
+                    guard self.publishPostImportMaintenance(lifecycleToken: lifecycleToken) else {
+                        await initialImportDerivedCompletionOperation?()
+                        return
+                    }
+                    break
+                }
+                if let snapshot = importResult.snapshot {
+                    await progressHandler(snapshot.withPhase("Vault ready", isComplete: true))
+                }
+                guard canContinue() else {
+                    await initialImportDerivedCompletionOperation?()
+                    return
+                }
+                didBecomeReady = true
                 AppBootstrap.shared?.uiState.showToast(
                     "Vault loaded: \(url.lastPathComponent)",
                     type: .success
                 )
+                await initialImportDerivedCompletionOperation?()
             } else {
                 AppBootstrap.shared?.uiState.showToast(
                     "Couldn't load vault \"\(url.lastPathComponent)\".",
                     type: .error
                 )
-            }
-            self.finishVaultImportProgress(keepSummary: didImport)
-            self.vaultActivityMessage = nil
-            self.isIndexing = false
-        }
-
-
-        if let actor = indexActor {
-            Task(priority: .utility) {
-                await actor.migrateToHybridSync()
-                await actor.migrateFromExternalStorage()
             }
         }
         restartAutoSaveTimer()
@@ -2868,6 +3921,14 @@ final class VaultSyncService {
     ///   next launch can do an incremental import (~instant) instead of a full reimport (~13s).
     ///   Pass `false` (default) for vault switches/disconnects to clear stale data.
     func stopWatching(preserveData: Bool = false) {
+        beginVaultMutationDrain()
+        quiesceVaultIngressForDrain()
+        guard activeVaultMutationAdmissions.isEmpty, importTask == nil else {
+            Task { @MainActor [weak self] in
+                _ = await self?.stopWatchingAsync(preserveData: preserveData)
+            }
+            return
+        }
         prepareToStopWatching()
 
         var shouldClearLocalData = !preserveData
@@ -2889,12 +3950,17 @@ final class VaultSyncService {
 
     @discardableResult
     func stopWatchingAsync(preserveData: Bool = false, skipRecoverySnapshot: Bool = false) async -> Bool {
+        beginVaultMutationDrain()
+        quiesceVaultIngressForDrain()
+        await waitForVaultMutationDrain()
+        let initialImportTask = importTask
+        await initialImportTask?.value
+        prepareToStopWatching()
+
         if preserveData {
-            stopWatching(preserveData: true)
+            finalizeStoppedWatching(preserveData: true)
             return true
         }
-
-        prepareToStopWatching()
 
         var didClearLocalData = true
         // USER REPORT 2026-05-12 v2 perf: explicit disconnect intentionally
@@ -2926,20 +3992,26 @@ final class VaultSyncService {
         dismissRecoveryIssue()
     }
 
-    private func prepareToStopWatching() {
+    private func quiesceVaultIngressForDrain() {
         importTask?.cancel()
-        importTask = nil
         autoSaveTask?.cancel()
-        autoSaveTask = nil
         versionCaptureTask?.cancel()
-        versionCaptureTask = nil
         manifestRefreshTask?.cancel()
-        manifestRefreshTask = nil
+        inFlightDirtySaveTask?.cancel()
         stopBackgroundMaintenanceTimers()
         stopFileWatcher()
+    }
+
+    private func prepareToStopWatching() {
+        quiesceVaultIngressForDrain()
+        importTask = nil
+        importTaskLifecycleToken = nil
+        autoSaveTask = nil
+        versionCaptureTask = nil
+        manifestRefreshTask = nil
+        inFlightDirtySaveTask = nil
         indexActor = nil
         searchService = nil
-        VaultRecallBridge.installTraceProvider(nil)
         AppBootstrap.shared?.queryEngine.invalidateRuntime()
         ambientManifest = nil
         AppBootstrap.shared?.ambientManifest = nil
@@ -2959,11 +4031,12 @@ final class VaultSyncService {
 
     private func finalizeStoppedWatching(preserveData: Bool) {
         if isSecurityScoped, let url = vaultURL {
-            url.stopAccessingSecurityScopedResource()
+            securityScopeStopOperation(url)
             isSecurityScoped = false
         }
 
         vaultURL = nil
+        disconnectVaultLifecycle()
         VaultCrashRecorder.updateVaultURL(nil)
         isWatching = false
         isIndexing = false
@@ -3049,49 +4122,156 @@ final class VaultSyncService {
         )
     }
 
+    private nonisolated static func performHybridMigrations(
+        actor: VaultIndexActor,
+        operation: HybridMigrationOperation?
+    ) async {
+        if let operation {
+            await operation(actor)
+            return
+        }
+        await actor.migrateToHybridSync()
+        await actor.migrateFromExternalStorage()
+    }
+
+    private nonisolated static func performInitialImportDerivedWork(
+        actor: VaultIndexActor,
+        searchService: SearchIndexService?,
+        vaultURL: URL,
+        spotlightCursor: Date?,
+        recallWorkload: VaultPostImportRecallWorkload,
+        suppressedSearchBatchID: SearchIndexMutationBatchID?,
+        canContinue: @escaping @MainActor @Sendable () -> Bool
+    ) async -> InitialImportDerivedResult? {
+        guard await canContinue() else {
+            if let suppressedSearchBatchID,
+               let searchService {
+                await actor.discardSuppressedSearchMutationBatch(
+                    id: suppressedSearchBatchID,
+                    service: searchService
+                )
+            }
+            return nil
+        }
+        guard let searchService else {
+            Log.vault.error("Initial Search index preparation failed: no Search service")
+            return nil
+        }
+        guard let searchSynchronizationReceipt = await Self.performSearchIndexDiffSync(
+            from: actor,
+            searchService: searchService,
+            suppressedSearchBatchID: suppressedSearchBatchID,
+            canContinue: canContinue
+        ) else { return nil }
+        guard await canContinue() else { return nil }
+
+        let spotlightJournalReceipt: VaultSpotlightJournalReceipt
+        do {
+            spotlightJournalReceipt = try await actor.spotlightReindexAll(
+                since: spotlightCursor
+            )
+        } catch {
+            Log.vault.error(
+                "Initial Spotlight journal request failed for \(vaultURL.lastPathComponent, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+        guard await canContinue() else { return nil }
+
+        guard let mutation = await Self.prepareInstantRecallMutation(
+            from: actor,
+            workload: recallWorkload
+        ) else {
+            Log.vault.error("Initial Instant Recall preparation failed")
+            return nil
+        }
+        guard await canContinue() else { return nil }
+        return InitialImportDerivedResult(
+            searchSynchronizationReceipt: searchSynchronizationReceipt,
+            recallMutation: mutation,
+            spotlightJournalReceipt: spotlightJournalReceipt
+        )
+    }
+
     private nonisolated static func performInitialImport(
         actor: VaultIndexActor?,
         url: URL,
         searchService: SearchIndexService?,
         progressHandler: VaultIndexActor.VaultImportProgressHandler? = nil
-    ) async -> Bool {
+    ) async -> InitialImportResult {
         let importInterval = Log.vaultPerf.beginInterval("initialVaultImport")
+        defer { Log.vaultPerf.endInterval("initialVaultImport", importInterval) }
         guard let actor else {
             Log.vault.error("Initial vault import failed: no active VaultIndexActor")
-            Log.vaultPerf.endInterval("initialVaultImport", importInterval)
-            return false
+            return InitialImportResult(
+                didImport: false,
+                snapshot: nil,
+                suppressedSearchBatchID: nil
+            )
         }
 
+        let suppressedSearchBatchID: SearchIndexMutationBatchID?
         if let searchService {
-            await actor.setSearchService(searchService)
+            suppressedSearchBatchID = await actor.beginSuppressedSearchMutationBatch(
+                for: searchService
+            )
+            guard suppressedSearchBatchID != nil else {
+                Log.vault.error("Initial vault import failed: Search mutation batch could not be opened")
+                return InitialImportResult(
+                    didImport: false,
+                    snapshot: nil,
+                    suppressedSearchBatchID: nil
+                )
+            }
+        } else {
+            suppressedSearchBatchID = nil
         }
-        let importSnapshot: VaultImportProgressSnapshot?
         do {
-            importSnapshot = try await actor.importVault(from: url, progress: progressHandler)
+            guard let importSnapshot = try await actor.importVault(
+                from: url,
+                progress: progressHandler,
+                searchMutationBatchID: suppressedSearchBatchID
+            ) else {
+                if let suppressedSearchBatchID,
+                   let searchService {
+                    await actor.discardSuppressedSearchMutationBatch(
+                        id: suppressedSearchBatchID,
+                        service: searchService
+                    )
+                }
+                Log.vault.error("Initial vault import failed: importer returned no snapshot")
+                return InitialImportResult(
+                    didImport: false,
+                    snapshot: nil,
+                    suppressedSearchBatchID: nil
+                )
+            }
             Log.vault.info("Initial vault import complete")
 
             await MainActor.run {
                 AppBootstrap.shared?.graphState.needsRefresh = true
             }
-
-            if let importSnapshot {
-                await progressHandler?(importSnapshot.withPhase("Starting background indexes", isComplete: false))
-            }
-            scheduleSpotlightReindex(from: actor)
-            scheduleInstantRecallPostImportUpdate(from: actor, snapshot: importSnapshot)
+            return InitialImportResult(
+                didImport: true,
+                snapshot: importSnapshot,
+                suppressedSearchBatchID: suppressedSearchBatchID
+            )
         } catch {
+            if let suppressedSearchBatchID,
+               let searchService {
+                await actor.discardSuppressedSearchMutationBatch(
+                    id: suppressedSearchBatchID,
+                    service: searchService
+                )
+            }
             Log.vault.error(
                 "Initial vault import failed: \(error.localizedDescription, privacy: .public)")
-            Log.vaultPerf.endInterval("initialVaultImport", importInterval)
-            return false
+            return InitialImportResult(
+                didImport: false,
+                snapshot: nil,
+                suppressedSearchBatchID: nil
+            )
         }
-        Log.vaultPerf.endInterval("initialVaultImport", importInterval)
-
-        scheduleSearchIndexDiffSync(from: actor, searchService: searchService)
-        if let importSnapshot {
-            await progressHandler?(importSnapshot.withPhase("Vault ready", isComplete: true))
-        }
-        return true
     }
 
     private nonisolated static let instantRecallRebuildBodyCharacterLimit = 16_384
@@ -3099,7 +4279,13 @@ final class VaultSyncService {
     private nonisolated static func scheduleSpotlightReindex(from actor: VaultIndexActor?) {
         guard let actor else { return }
         Task.detached(priority: .utility) {
-            await actor.spotlightReindexAll()
+            do {
+                _ = try await actor.spotlightReindexAll(since: nil)
+            } catch {
+                Log.vault.error(
+                    "Scheduled Spotlight journal request failed: \(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
     }
 
@@ -3109,24 +4295,119 @@ final class VaultSyncService {
     ) {
         guard let actor, let searchService else { return }
         Task.detached(priority: .utility) {
-            let diffSyncInterval = Log.vaultPerf.beginInterval("initialVaultDiffSync")
-            defer { Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval) }
-            let timestamps = await actor.allPageTimestamps()
+            _ = await performSearchIndexDiffSync(
+                from: actor,
+                searchService: searchService
+            )
+        }
+    }
+
+    private nonisolated static func performSearchIndexDiffSync(
+        from actor: VaultIndexActor,
+        searchService: SearchIndexService?,
+        suppressedSearchBatchID: SearchIndexMutationBatchID? = nil,
+        canContinue: (@MainActor @Sendable () -> Bool)? = nil
+    ) async -> SearchIndexSynchronizationReceipt? {
+        guard let searchService else { return nil }
+        let diffSyncInterval = Log.vaultPerf.beginInterval("initialVaultDiffSync")
+        defer { Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval) }
+
+        if let canContinue, !(await canContinue()) {
+            return nil
+        }
+
+        let suppressedSnapshot: SuppressedSearchMutationBatchSnapshot?
+        if let suppressedSearchBatchID {
+            guard let snapshot = await actor.suppressedSearchMutationBatchSnapshot(
+                id: suppressedSearchBatchID,
+                service: searchService
+            ), snapshot.isValid else {
+                Log.vault.error("FTS5 diff-sync stopped: suppressed Search mutation batch was missing or invalid")
+                return nil
+            }
+            suppressedSnapshot = snapshot
+        } else {
+            suppressedSnapshot = nil
+        }
+
+        let synchronizationReceipt: SearchIndexSynchronizationReceipt
+        if let suppressedSnapshot,
+           let preparedDiff = suppressedSnapshot.preparedDiff {
+            synchronizationReceipt = SearchIndexSynchronizationReceipt(
+                suppressedImport: suppressedSnapshot.committed,
+                diff: preparedDiff
+            )
+        } else {
+            guard let timestamps = await actor.requiredPageTimestampsForSearchDiff() else {
+                Log.vault.error("FTS5 diff-sync stopped: required page timestamps could not be read")
+                return nil
+            }
+            let diffReceipt: SearchIndexDiffReceipt
             do {
-                try await searchService.diffSync(
+                diffReceipt = try await searchService.diffSync(
                     swiftDataPages: timestamps,
-                    fullPageProvider: { id in await actor.fullPageData(for: id) }
+                    fullPageProvider: { id in await actor.fullPageData(for: id) },
+                    notifyObservers: false
                 )
             } catch {
                 Log.vault.error("FTS5 diff-sync failed: \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
+
+            if let suppressedSearchBatchID,
+               let suppressedSnapshot {
+                guard let prepared = await actor.prepareSuppressedSearchMutationBatchReceipt(
+                    id: suppressedSearchBatchID,
+                    expectedRevision: suppressedSnapshot.revision,
+                    service: searchService,
+                    diff: diffReceipt
+                ) else {
+                    Log.vault.error("FTS5 diff-sync stopped: suppressed Search mutation batch changed before publication")
+                    return nil
+                }
+                synchronizationReceipt = prepared
+            } else {
+                synchronizationReceipt = SearchIndexSynchronizationReceipt(
+                    suppressedImport: .empty,
+                    diff: diffReceipt
+                )
             }
         }
+
+        if !synchronizationReceipt.changedDependencies.isEmpty {
+            let didNotify = await searchService.notifyIndexChangedAsync(
+                synchronizationReceipt.changedDependencies,
+                when: canContinue
+            )
+            guard didNotify else { return nil }
+        }
+        if let suppressedSearchBatchID,
+           let suppressedSnapshot {
+            guard await actor.consumeSuppressedSearchMutationBatch(
+                id: suppressedSearchBatchID,
+                expectedRevision: suppressedSnapshot.revision,
+                service: searchService
+            ) else {
+                Log.vault.error("FTS5 diff-sync stopped: published Search mutation batch could not be consumed exactly")
+                return nil
+            }
+        }
+        return synchronizationReceipt
     }
 
     private nonisolated static func scheduleInstantRecallIndexRebuild(from actor: VaultIndexActor?) {
         guard let actor else { return }
         Task.detached(priority: .utility) {
-            await rebuildInstantRecallIndex(from: actor)
+            guard let mutation = await prepareInstantRecallMutation(
+                from: actor,
+                workload: .rebuild
+            ) else {
+                Log.vault.error("Scheduled Instant Recall rebuild preparation failed")
+                return
+            }
+            await MainActor.run {
+                applyInstantRecallMutation(mutation)
+            }
         }
     }
 
@@ -3135,67 +4416,91 @@ final class VaultSyncService {
         snapshot: VaultImportProgressSnapshot?
     ) {
         guard let actor else { return }
-        guard let snapshot else {
-            scheduleInstantRecallIndexRebuild(from: actor)
-            return
-        }
-        let changedPageIDs: [String]
-        let deletedPageIDs: [String]
-        switch snapshot.postImportRecallWorkload {
-        case .none:
-            return
-        case .rebuild:
-            scheduleInstantRecallIndexRebuild(from: actor)
-            return
-        case .incremental(let changed, let deleted):
-            changedPageIDs = changed
-            deletedPageIDs = deleted
-        }
+        let workload = snapshot?.postImportRecallWorkload ?? .rebuild
+        guard workload != .none else { return }
 
         Task.detached(priority: .utility) {
-            var changedNotes: [(id: String, text: String)] = []
-            changedNotes.reserveCapacity(changedPageIDs.count)
-            for pageID in changedPageIDs {
-                guard let page = await actor.fullPageData(for: pageID) else { continue }
-                changedNotes.append((
-                    id: pageID,
-                    text: boundedInstantRecallText(
-                        title: page.title,
-                        body: page.body,
-                        tags: page.tags
-                    )
-                ))
+            guard let mutation = await prepareInstantRecallMutation(
+                from: actor,
+                workload: workload
+            ) else {
+                Log.vault.error("Scheduled Instant Recall update preparation failed")
+                return
             }
-
             await MainActor.run {
-                guard let service = AppBootstrap.shared?.instantRecallService else { return }
-                for pageID in deletedPageIDs {
-                    service.removeNote(noteId: pageID)
-                }
-                for note in changedNotes {
-                    service.indexNote(noteId: note.id, text: note.text)
-                }
+                applyInstantRecallMutation(mutation)
             }
         }
     }
 
-    private nonisolated static func rebuildInstantRecallIndex(from actor: VaultIndexActor?) async {
-        guard let actor else { return }
-        let pages = await actor.allPagesForRebuild()
-        let notes = pages.map { page in
-            (
-                id: page.id,
-                text: boundedInstantRecallText(
+    private nonisolated static func prepareInstantRecallMutation(
+        from actor: VaultIndexActor,
+        workload: VaultPostImportRecallWorkload
+    ) async -> VaultInstantRecallMutation? {
+        switch workload {
+        case .none:
+            return .some(.none)
+        case .incremental(let changedPageIDs, let deletedPageIDs):
+            var changedNotes: [VaultInstantRecallNote] = []
+            changedNotes.reserveCapacity(changedPageIDs.count)
+            for pageID in changedPageIDs {
+                guard let page = await actor.fullPageData(for: pageID) else {
+                    Log.vault.error(
+                        "Instant Recall preparation could not resolve required page \(pageID, privacy: .private)"
+                    )
+                    return nil
+                }
+                changedNotes.append(
+                    VaultInstantRecallNote(
+                        id: pageID,
+                        text: boundedInstantRecallText(
+                            title: page.title,
+                            body: page.body,
+                            tags: page.tags
+                        )
+                    )
+                )
+            }
+            return .incremental(
+                changedNotes: changedNotes,
+                deletedPageIDs: deletedPageIDs
+            )
+        case .rebuild:
+            guard let pages = await actor.requiredPagesForInstantRecallRebuild() else {
+                Log.vault.error("Instant Recall rebuild source fetch failed")
+                return nil
+            }
+            var documents: [String: String] = [:]
+            documents.reserveCapacity(pages.count)
+            for page in pages {
+                let text = boundedInstantRecallText(
                     title: page.title,
                     body: page.body,
                     tags: page.tags
                 )
-            )
+                if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    documents[page.id] = text
+                }
+            }
+            return .rebuild(documents: documents)
         }
-        guard let service = await MainActor.run(body: { AppBootstrap.shared?.instantRecallService }) else {
+    }
+
+    private static func applyInstantRecallMutation(_ mutation: VaultInstantRecallMutation) {
+        guard let service = AppBootstrap.shared?.instantRecallService else { return }
+        switch mutation {
+        case .none:
             return
+        case .incremental(let changedNotes, let deletedPageIDs):
+            for pageID in deletedPageIDs {
+                service.removeNote(noteId: pageID)
+            }
+            for note in changedNotes {
+                service.indexNote(noteId: note.id, text: note.text)
+            }
+        case .rebuild(let documents):
+            service.replaceIndex(with: documents)
         }
-        await service.rebuildIndexAsync(notes: notes)
     }
 
     private nonisolated static func boundedInstantRecallText(
@@ -3245,33 +4550,20 @@ final class VaultSyncService {
     /// Search note bodies via FTS5 full-text index. Returns matching page IDs.
     /// Flag-aware: `EPISTEMOS_RRF_FUSION_V1` routes through the fused
     /// path and returns parent doc IDs from the fused entity rollup
-    /// (RRF Phase 4 wiring site §6 — AgentRuntime context retrieval +
-    /// any caller that just needs the matched IDs).
+    /// for callers that need the matched IDs.
     func searchIndex(query: String) async -> [String] {
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return [] }
         guard let svc = searchService else { return [] }
-        let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
                 do {
-                    let fused = try await svc.fusedSearchAsync(query: query)
-                    recordVaultRecallTraceIfEnabled(
-                        query: query,
-                        limit: FusionWeights.default.maxResults,
-                        fusedResults: fused,
-                        startedAt: traceStarted
-                    )
+                    let fused = try await svc.fusedSearchAsync(query: checkedQuery)
                     return fused.map(\.parentDocID)
                 } catch {
                     log.error("RRF fused searchIndex failed; falling back to legacy page search: \(error.localizedDescription, privacy: .public)")
                 }
             }
-            let results = try await svc.searchAsync(query: query)
-            recordVaultRecallTraceIfEnabled(
-                query: query,
-                limit: 50,
-                results: results,
-                startedAt: traceStarted
-            )
+            let results = try await svc.searchAsync(query: checkedQuery)
             return results.map(\.pageId)
         } catch {
             log.error("FTS5 search failed (fusion=\(RRFFusionFlags.isEnabled, privacy: .public)): \(error.localizedDescription, privacy: .public)")
@@ -3286,33 +4578,22 @@ final class VaultSyncService {
     /// `[FusedResult]` → `[SearchResult]` so existing callers stay
     /// source-compatible.
     func searchFull(query: String, limit: Int = 20) -> [SearchResult] {
+        guard let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit) else { return [] }
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return [] }
         guard let svc = searchService else { return [] }
-        let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
                 do {
                     let fused = try svc.fusedSearch(
-                        query: query,
-                        weights: FusionWeights(maxResults: limit)
-                    )
-                    recordVaultRecallTraceIfEnabled(
-                        query: query,
-                        limit: limit,
-                        fusedResults: fused,
-                        startedAt: traceStarted
+                        query: checkedQuery,
+                        weights: FusionWeights(maxResults: checkedLimit)
                     )
                     return fused.map(Self.mapFusedToSearchResult)
                 } catch {
                     log.error("RRF fused searchFull failed; falling back to legacy page search: \(error.localizedDescription, privacy: .public)")
                 }
             }
-            let results = try svc.search(query: query, limit: limit)
-            recordVaultRecallTraceIfEnabled(
-                query: query,
-                limit: limit,
-                results: results,
-                startedAt: traceStarted
-            )
+            let results = try svc.search(query: checkedQuery, limit: checkedLimit)
             return results
         } catch {
             log.error("searchFull failed (fusion=\(RRFFusionFlags.isEnabled, privacy: .public)): \(error.localizedDescription, privacy: .public)")
@@ -3321,96 +4602,26 @@ final class VaultSyncService {
     }
 
     func searchFullAsync(query: String, limit: Int = 20) async -> [SearchResult] {
+        guard let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit) else { return [] }
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return [] }
         guard let svc = searchService else { return [] }
-        let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
                 do {
                     let fused = try await svc.fusedSearchAsync(
-                        query: query,
-                        weights: FusionWeights(maxResults: limit)
-                    )
-                    recordVaultRecallTraceIfEnabled(
-                        query: query,
-                        limit: limit,
-                        fusedResults: fused,
-                        startedAt: traceStarted
+                        query: checkedQuery,
+                        weights: FusionWeights(maxResults: checkedLimit)
                     )
                     return fused.map(Self.mapFusedToSearchResult)
                 } catch {
                     log.error("RRF fused searchFullAsync failed; falling back to legacy page search: \(error.localizedDescription, privacy: .public)")
                 }
             }
-            let results = try await svc.searchAsync(query: query, limit: limit)
-            recordVaultRecallTraceIfEnabled(
-                query: query,
-                limit: limit,
-                results: results,
-                startedAt: traceStarted
-            )
+            let results = try await svc.searchAsync(query: checkedQuery, limit: checkedLimit)
             return results
         } catch {
             log.error("searchFullAsync failed (fusion=\(RRFFusionFlags.isEnabled, privacy: .public)): \(error.localizedDescription, privacy: .public)")
             return []
-        }
-    }
-
-    private func recordVaultRecallTraceIfEnabled(
-        query: String,
-        limit: Int,
-        results: [SearchResult],
-        startedAt: Date
-    ) {
-        guard VaultRecallFlags.isEnabled else { return }
-        let trace = SearchIndexService.vaultRecallTrace(
-            query: query,
-            limit: limit,
-            results: results
-        )
-        VaultRecallBridge.recordProductionTrace(
-            trace,
-            latencyMs: Date().timeIntervalSince(startedAt) * 1_000
-        )
-    }
-
-    private func recordVaultRecallTraceIfEnabled(
-        query: String,
-        limit: Int,
-        fusedResults: [FusedResult],
-        startedAt: Date
-    ) {
-        guard VaultRecallFlags.isEnabled else { return }
-        let trace = SearchIndexService.vaultRecallTrace(
-            query: query,
-            limit: limit,
-            fusedResults: fusedResults
-        )
-        VaultRecallBridge.recordProductionTrace(
-            trace,
-            latencyMs: Date().timeIntervalSince(startedAt) * 1_000
-        )
-    }
-
-    private func installVaultRecallTraceProvider(searchService: SearchIndexService) {
-        VaultRecallBridge.installTraceProvider { query in
-            let limit = 20
-            if RRFFusionFlags.isEnabled {
-                let fusedResults = try searchService.fusedSearch(
-                    query: query,
-                    weights: FusionWeights(maxResults: limit)
-                )
-                return SearchIndexService.vaultRecallTrace(
-                    query: query,
-                    limit: limit,
-                    fusedResults: fusedResults
-                )
-            }
-            let results = try searchService.search(query: query, limit: limit)
-            return SearchIndexService.vaultRecallTrace(
-                query: query,
-                limit: limit,
-                results: results
-            )
         }
     }
 
@@ -3429,9 +4640,11 @@ final class VaultSyncService {
     }
 
     func searchBlocksAsync(query: String, limit: Int = 20) async -> [BlockSearchResult] {
+        guard let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit) else { return [] }
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return [] }
         guard let svc = searchService else { return [] }
         do {
-            return try await svc.searchBlocksAsync(query: query, limit: limit)
+            return try await svc.searchBlocksAsync(query: checkedQuery, limit: checkedLimit)
         } catch {
             return []
         }
@@ -3452,14 +4665,19 @@ final class VaultSyncService {
         isIndexing = true
         Task {
             let interval = Log.vaultPerf.beginInterval("rebuildIndex")
-            defer { Log.vaultPerf.endInterval("rebuildIndex", interval) }
-            let pages = await actor.allPagesForRebuild()
+            defer {
+                Log.vaultPerf.endInterval("rebuildIndex", interval)
+                isIndexing = false
+            }
+            guard let pages = await actor.requiredPagesForSearchRebuild() else {
+                log.error("FTS5 index rebuild stopped: required pages could not be read")
+                return
+            }
             do {
                 try await svc.rebuildFromSwiftDataAsync(pages)
             } catch {
                 log.error("FTS5 index rebuild failed: \(error.localizedDescription, privacy: .public)")
             }
-            isIndexing = false
         }
     }
 
@@ -3471,7 +4689,10 @@ final class VaultSyncService {
     /// Pull external .md changes from the vault folder.
     /// Returns conflicts (both sides changed) for the UI to resolve.
     func syncFromVault() async -> [VaultSyncConflict] {
-        guard let vaultURL, let actor = indexActor else { return [] }
+        guard let vaultURL,
+              let actor = indexActor,
+              let lifecycleToken = currentOperationalVaultLifecycleToken(for: vaultURL)
+        else { return [] }
         let interval = Log.vaultPerf.beginInterval("syncFromVault")
         defer { Log.vaultPerf.endInterval("syncFromVault", interval) }
         isIndexing = true
@@ -3481,9 +4702,8 @@ final class VaultSyncService {
             vaultActivityMessage = nil
             isIndexing = false
         }
-        let expectedVaultPath = vaultURL.standardizedFileURL.path
         let progressHandler: VaultIndexActor.VaultImportProgressHandler = { snapshot in
-            await VaultImportProgressBridge.publish(snapshot, expectedVaultPath: expectedVaultPath)
+            await VaultImportProgressBridge.publish(snapshot, lifecycleToken: lifecycleToken)
         }
 
         let context = modelContainer.mainContext
@@ -3527,7 +4747,7 @@ final class VaultSyncService {
     /// Save a single page to its vault .md file and update sync tracking fields.
     @discardableResult
     func savePage(pageId: String) -> Task<Void, Never>? {
-        guard let vaultURL else {
+        guard vaultURL != nil else {
             log.warning("Cannot save page: no vault URL")
             return nil
         }
@@ -3550,51 +4770,14 @@ final class VaultSyncService {
 
         suppressFileWatcherForSelfOriginatedChange()
 
-        let task = Task {
-            do {
-                let body = await MainActor.run {
-                    let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-                    guard let page = self.fetchFirst(desc, in: context, label: "saved page body snapshot") else {
-                        return ""
-                    }
-                    return self.latestAvailableBody(for: page, pageId: pageId)
-                }
-                let exportResult = try await self.exportPage(pageId: pageId, to: vaultURL, bodyOverride: body)
-
-                await MainActor.run {
-                    let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-                    if let result = exportResult,
-                       let page = self.fetchFirst(desc, in: context, label: "saved page sync tracking") {
-                        page.filePath = result.path
-                        let currentHash = SDPage.bodyHash(
-                            self.latestAvailableBody(for: page, pageId: pageId)
-                        )
-                        if currentHash == result.bodyHash {
-                            page.lastSyncedBodyHash = currentHash
-                            page.lastSyncedAt = .now
-                            page.needsVaultSync = false
-                            SpotlightIndexer.index(page)
-                        } else {
-                            page.needsVaultSync = true
-                        }
-                        do {
-                            try context.save()
-                        } catch {
-                            Log.vault.error("Failed to save sync tracking for page (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
-                        }
-                    }
-                }
-
-                if let path = exportResult?.path {
-                    log.info("Saved page to vault: \(path, privacy: .private)")
-                }
-
-                await MainActor.run { [weak self] in
-                    self?.publishVaultMutation(.vaultPageChanged(pageId: pageId))
-                }
-            } catch {
-                log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+            guard let page = self.fetchFirst(desc, in: context, label: "saved page body snapshot") else {
+                return
             }
+            let body = self.latestAvailableBody(for: page, pageId: pageId)
+            _ = await self.savePageBodyFileFirst(pageId: pageId, body: body)
         }
         return task
     }
@@ -3606,21 +4789,7 @@ final class VaultSyncService {
         guard let page = fetchFirst(descriptor, in: context, label: "page export preparation") else {
             return
         }
-
-        let currentBody = latestAvailableBody(for: page, pageId: pageId)
-        guard let stagedBody = NoteFileStorage.stageBodyForImmediateRead(
-            pageId: pageId,
-            content: currentBody
-        ) else { return }
-        page.applyInteractiveDerivedState(from: stagedBody)
         page.needsVaultSync = true
-        ProseEditorView.syncNoteTitleIfNeeded(
-            from: stagedBody,
-            for: page,
-            modelContext: context
-        ) { [weak self] resolvedPageId, newTitle in
-            self?.renamePageFile(pageId: resolvedPageId, newTitle: newTitle)
-        }
     }
 
     /// Phase R.3 scope guard: the 4 `page.loadBody` call sites in
@@ -3640,6 +4809,9 @@ final class VaultSyncService {
             return liveBody
         }
         if page.needsVaultSync {
+            if let pendingBody = NoteFileStorage.pendingBodyForImmediateRead(pageId: pageId) {
+                return pendingBody
+            }
             if !page.body.isEmpty {
                 return page.body
             }
@@ -3663,82 +4835,823 @@ final class VaultSyncService {
     }
 
     @discardableResult
+    func commitPageIdentityFileFirst(
+        pageId: String,
+        title: String,
+        tags: [String],
+        folder: SDFolder?,
+        subfolder: String?,
+        markdownBody: String?
+    ) async -> PageIdentityCommitResult {
+        guard let admission = registerVaultMutation() else { return .rejected }
+        defer { finishVaultMutation(admission) }
+        _ = issuePageBodySaveGeneration(pageId: pageId)
+        await pageFileMutationGate.acquire(pageId: pageId)
+        guard !Task.isCancelled,
+              vaultMutationAdmissionIsCurrent(admission)
+        else {
+            await pageFileMutationGate.release(pageId: pageId)
+            return .rejected
+        }
+        let result = await performPageIdentityFileFirstCommit(
+            pageId: pageId,
+            title: title,
+            tags: tags,
+            folder: folder,
+            subfolder: subfolder,
+            markdownBody: markdownBody,
+            admission: admission
+        )
+        await pageFileMutationGate.release(pageId: pageId)
+        return result
+    }
+
+    private func performPageIdentityFileFirstCommit(
+        pageId: String,
+        title: String,
+        tags: [String],
+        folder: SDFolder?,
+        subfolder: String?,
+        markdownBody: String?,
+        admission: VaultMutationAdmission
+    ) async -> PageIdentityCommitResult {
+        guard let vaultURL,
+              vaultMutationAdmissionIsCurrent(admission, vaultURL: vaultURL)
+        else {
+            log.warning("Cannot commit page identity: no vault URL")
+            return .rejected
+        }
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        guard let page = fetchFirst(descriptor, in: context, label: "page identity transaction") else {
+            return .rejected
+        }
+
+        let initialTargetFingerprint = pageIdentityTargetFingerprint(
+            folder: folder,
+            subfolder: subfolder
+        )
+        let initialDraftFingerprint = pageIdentityDraftFingerprint(for: page)
+        let localDraftBody = initialDraftFingerprint.liveBody
+            ?? (page.needsVaultSync
+                ? (initialDraftFingerprint.pendingBody
+                    ?? (!page.body.isEmpty ? page.body : nil))
+                : nil)
+        var snapshot = PageIdentityTransactionSnapshot(
+            page: page,
+            fileData: nil,
+            diskBody: page.body,
+            localDraftBody: localDraftBody
+        )
+        let originalURL = snapshot.filePath.map {
+            URL(fileURLWithPath: $0).standardizedFileURL
+        }
+        let originalFileData: Data?
+        if let originalURL {
+            do {
+                originalFileData = try await Task.detached(priority: .userInitiated) {
+                    try Data(contentsOf: originalURL)
+                }.value
+            } catch {
+                log.error(
+                    "Refusing note identity mutation without rollback bytes: \(error.localizedDescription, privacy: .public)"
+                )
+                return .rejected
+            }
+        } else {
+            originalFileData = nil
+        }
+
+        guard snapshot.stillMatches(page),
+              initialDraftFingerprint == pageIdentityDraftFingerprint(for: page),
+              pageIdentityTargetStillMatches(
+                initialTargetFingerprint,
+                folder: folder,
+                subfolder: subfolder
+              )
+        else {
+            log.warning("Refusing note identity mutation after its source state changed during preflight")
+            return .rejected
+        }
+        let originalBody: String
+        do {
+            originalBody = try Self.pageIdentityBody(
+                from: originalFileData,
+                fileURL: originalURL,
+                fallback: localDraftBody ?? snapshot.inlineBody
+            )
+        } catch {
+            log.error("Refusing note identity mutation with undecodable source bytes")
+            return .rejected
+        }
+        snapshot.fileData = originalFileData
+        snapshot.diskBody = originalBody
+        let forwardBody = markdownBody ?? localDraftBody ?? originalBody
+        var forwardFrontMatter = snapshot.frontMatter
+        if let originalURL,
+           let originalFileData,
+           VaultIndexActor.shouldWriteMarkdownFrontMatter(to: originalURL)
+        {
+            guard let originalSource = String(data: originalFileData, encoding: .utf8) else {
+                return .rejected
+            }
+            let currentFrontMatter = VaultIndexActor.parseFrontMatter(originalSource).0
+            forwardFrontMatter = currentFrontMatter
+            let currentBodyHash = SDPage.bodyHash(originalBody)
+            guard forwardBody == originalBody
+                    || snapshot.lastSyncedBodyHash == currentBodyHash
+            else {
+                log.warning("Refusing note identity mutation after external body content changed")
+                return .rejected
+            }
+        }
+        let titleChanged = title != snapshot.title
+        let locationChanged = folder?.id != snapshot.folder?.id || subfolder != snapshot.subfolder
+        let destinationURL = Self.pageIdentityDestinationURL(
+            originalURL: originalURL,
+            title: title,
+            subfolder: subfolder,
+            vaultURL: vaultURL,
+            renameFile: titleChanged,
+            moveFile: locationChanged
+        )
+        let forwardData: Data
+        if VaultIndexActor.shouldWriteMarkdownFrontMatter(to: destinationURL) {
+            forwardData = Data(VaultIndexActor.buildMarkdownSource(
+                pageId: page.id,
+                title: title,
+                tags: tags,
+                emoji: snapshot.emoji,
+                isJournal: snapshot.isJournal,
+                journalDate: snapshot.journalDate,
+                parentPageId: snapshot.parentPageId,
+                templateId: snapshot.templateId,
+                frontMatter: forwardFrontMatter,
+                body: forwardBody
+            ).utf8)
+        } else if markdownBody == nil,
+                  !snapshot.needsVaultSync,
+                  let originalFileData
+        {
+            forwardData = originalFileData
+        } else {
+            forwardData = Data(forwardBody.utf8)
+        }
+
+        let writeURL = originalURL ?? destinationURL
+        let expectedBaseline = originalFileData.map { VaultFileBaseline.contents($0) } ?? .absent
+        var receipt: PageIdentityFileMutationReceipt?
+        do {
+            guard vaultMutationAdmissionIsCurrent(admission, vaultURL: vaultURL) else {
+                return .rejected
+            }
+            if let pageIdentityBeforeForwardWriteOverride {
+                try await pageIdentityBeforeForwardWriteOverride(page.id, writeURL)
+            }
+            guard vaultMutationAdmissionIsCurrent(admission, vaultURL: vaultURL) else {
+                return .rejected
+            }
+            let writtenBaseline = try await Task.detached(priority: .userInitiated) {
+                try AtomicVaultWriter.writeSynchronously(
+                    forwardData,
+                    to: writeURL,
+                    ifCurrentMatches: expectedBaseline
+                )
+            }.value
+            guard writtenBaseline == .contents(forwardData) else {
+                return .rejected
+            }
+            receipt = PageIdentityFileMutationReceipt(
+                originalURL: originalURL,
+                originalData: originalFileData,
+                forwardData: forwardData,
+                currentURL: writeURL,
+                moved: false
+            )
+            guard vaultMutationAdmissionIsCurrent(admission, vaultURL: vaultURL) else {
+                throw PageIdentityTransactionError.vaultLifecycleChanged
+            }
+
+            if let pageIdentityAfterForwardWriteOverride {
+                try await pageIdentityAfterForwardWriteOverride(page.id, writeURL)
+            }
+            guard vaultMutationAdmissionIsCurrent(admission, vaultURL: vaultURL) else {
+                throw PageIdentityTransactionError.vaultLifecycleChanged
+            }
+
+            if writeURL != destinationURL {
+                try await Task.detached(priority: .userInitiated) {
+                    try CoordinatedVaultFileMutation.moveItem(
+                        at: writeURL,
+                        to: destinationURL,
+                        ifSourceMatches: .contents(forwardData)
+                    )
+                }.value
+                receipt?.currentURL = destinationURL
+                receipt?.moved = true
+            }
+            guard vaultMutationAdmissionIsCurrent(admission, vaultURL: vaultURL) else {
+                throw PageIdentityTransactionError.vaultLifecycleChanged
+            }
+        } catch {
+            if receipt == nil {
+                let observedBaseline = try? Self.observedVaultFileBaseline(at: writeURL)
+                if observedBaseline == expectedBaseline {
+                    log.error(
+                        "Refusing note identity mutation after its forward write was not applied: \(error.localizedDescription, privacy: .public)"
+                    )
+                    return .rejected
+                }
+                if observedBaseline == .contents(forwardData) {
+                    receipt = PageIdentityFileMutationReceipt(
+                        originalURL: originalURL,
+                        originalData: originalFileData,
+                        forwardData: forwardData,
+                        currentURL: writeURL,
+                        moved: false
+                    )
+                } else {
+                    recordPageIdentityRecoveryIssue(
+                        pageId: page.id,
+                        reason: "Epistemos could not prove whether a failed note write changed the vault file. The current bytes were preserved for reconciliation."
+                    )
+                    return .recoveryRequired
+                }
+            }
+
+            if writeURL != destinationURL,
+               receipt?.currentURL == writeURL
+            {
+                let sourceBaseline = try? Self.observedVaultFileBaseline(at: writeURL)
+                let destinationBaseline = try? Self.observedVaultFileBaseline(at: destinationURL)
+                if sourceBaseline == .contents(forwardData) {
+                    // The move did not apply; rollback still owns the source bytes.
+                } else if sourceBaseline == .absent,
+                          destinationBaseline == .contents(forwardData)
+                {
+                    receipt?.currentURL = destinationURL
+                    receipt?.moved = true
+                } else {
+                    recordPageIdentityRecoveryIssue(
+                        pageId: page.id,
+                        reason: "Epistemos could not prove the outcome of a failed note move. Both paths were preserved for reconciliation."
+                    )
+                    return .recoveryRequired
+                }
+            }
+            guard let receipt else { return .recoveryRequired }
+            return await pageIdentityRollbackResult(
+                page: page,
+                snapshot: snapshot,
+                receipt: receipt,
+                context: context,
+                failure: "note file mutation",
+                metadataWasApplied: false,
+                expectedAppliedDraft: initialDraftFingerprint
+            )
+        }
+
+        guard let receipt else { return .rejected }
+        let finalBytesStillMatch = await Task.detached(priority: .userInitiated) {
+            (try? Data(contentsOf: receipt.currentURL)) == receipt.forwardData
+        }.value
+        guard vaultMutationAdmissionIsCurrent(admission, vaultURL: vaultURL),
+              finalBytesStillMatch,
+              snapshot.stillMatches(page),
+              initialDraftFingerprint == pageIdentityDraftFingerprint(for: page),
+              pageIdentityTargetStillMatches(
+                initialTargetFingerprint,
+                folder: folder,
+                subfolder: subfolder
+              )
+        else {
+            return await pageIdentityRollbackResult(
+                page: page,
+                snapshot: snapshot,
+                receipt: receipt,
+                context: context,
+                failure: "note state revalidation",
+                metadataWasApplied: false,
+                expectedAppliedDraft: initialDraftFingerprint
+            )
+        }
+
+        page.title = title
+        page.tags = tags
+        page.folder = folder
+        page.subfolder = subfolder
+        page.filePath = receipt.currentURL.path
+        page.updatedAt = .now
+        if VaultIndexActor.shouldWriteMarkdownFrontMatter(to: receipt.currentURL) {
+            page.frontMatter = VaultIndexActor.parseFrontMatter(
+                String(decoding: forwardData, as: UTF8.self)
+            ).0
+            page.applyInteractiveDerivedState(from: forwardBody)
+        }
+        page.lastSyncedBodyHash = SDPage.bodyHash(forwardBody)
+        page.lastSyncedAt = .now
+        page.needsVaultSync = false
+        let appliedMetadataFingerprint = PageIdentityMetadataFingerprint(page: page)
+        let appliedDraftFingerprint = pageIdentityDraftFingerprint(for: page)
+        do {
+            try context.save()
+        } catch {
+            return await pageIdentityRollbackResult(
+                page: page,
+                snapshot: snapshot,
+                receipt: receipt,
+                context: context,
+                failure: "note metadata save",
+                metadataWasApplied: true,
+                expectedAppliedMetadata: appliedMetadataFingerprint,
+                expectedAppliedDraft: appliedDraftFingerprint
+            )
+        }
+
+        _ = NoteFileStorage.stageBodyForImmediateRead(pageId: page.id, content: forwardBody)
+
+        publishCommittedPageDerivedState(
+            page: page,
+            body: forwardBody
+        )
+        return .committed
+    }
+
+    private func pageIdentityDraftFingerprint(for page: SDPage) -> PageIdentityDraftFingerprint {
+        PageIdentityDraftFingerprint(
+            liveBody: NoteWindowManager.shared.editorBody(for: page.id),
+            inlineBody: page.body,
+            pendingBody: NoteFileStorage.pendingBodyForImmediateRead(pageId: page.id)
+        )
+    }
+
+    private func pageIdentityTargetFingerprint(
+        folder: SDFolder?,
+        subfolder: String?
+    ) -> PageIdentityTargetFingerprint {
+        PageIdentityTargetFingerprint(
+            folderID: folder?.id,
+            folderRelativePath: folder?.relativePath,
+            subfolder: subfolder
+        )
+    }
+
+    private func pageIdentityTargetStillMatches(
+        _ initial: PageIdentityTargetFingerprint,
+        folder: SDFolder?,
+        subfolder: String?
+    ) -> Bool {
+        initial == pageIdentityTargetFingerprint(folder: folder, subfolder: subfolder)
+    }
+
+    private func issuePageBodySaveGeneration(pageId: String) -> UInt64 {
+        nextFileFirstSaveGeneration &+= 1
+        if nextFileFirstSaveGeneration == 0 {
+            nextFileFirstSaveGeneration = 1
+        }
+        fileFirstSaveGenerations[pageId] = nextFileFirstSaveGeneration
+        return nextFileFirstSaveGeneration
+    }
+
+    private func pageBodyMutationFingerprint(
+        for page: SDPage,
+        saveRequestGeneration: UInt64? = nil
+    ) -> PageBodyMutationFingerprint {
+        PageBodyMutationFingerprint(
+            liveBody: NoteWindowManager.shared.editorBody(for: page.id),
+            inlineBody: page.body,
+            pendingBody: NoteFileStorage.pendingBodyForImmediateRead(pageId: page.id),
+            saveRequestGeneration: saveRequestGeneration ?? fileFirstSaveGenerations[page.id]
+        )
+    }
+
+    private func pageIdentityRollbackResult(
+        page: SDPage,
+        snapshot: PageIdentityTransactionSnapshot,
+        receipt: PageIdentityFileMutationReceipt,
+        context: ModelContext,
+        failure: String,
+        metadataWasApplied: Bool,
+        expectedAppliedMetadata: PageIdentityMetadataFingerprint? = nil,
+        expectedAppliedDraft: PageIdentityDraftFingerprint? = nil
+    ) async -> PageIdentityCommitResult {
+        if await restorePageIdentityTransaction(
+            page: page,
+            snapshot: snapshot,
+            receipt: receipt,
+            context: context,
+            metadataWasApplied: metadataWasApplied,
+            expectedAppliedMetadata: expectedAppliedMetadata,
+            expectedAppliedDraft: expectedAppliedDraft
+        ) {
+            return .rolledBack
+        }
+        recordPageIdentityRecoveryIssue(
+            pageId: page.id,
+            reason: "Epistemos could not safely roll back a failed \(failure). Editing is paused so the vault can be reconciled without overwriting another file."
+        )
+        return .recoveryRequired
+    }
+
+    private func recordPageIdentityRecoveryIssue(pageId: String, reason: String) {
+        recoveryIssue = VaultRecoveryIssue(
+            snapshot: currentVaultHealthSnapshot(restoreFailed: true),
+            reason: reason,
+            forceBlocksWorkspaceInteraction: true
+        )
+        log.fault("Note identity recovery required for \(pageId, privacy: .public): \(reason, privacy: .public)")
+    }
+
+    private func publishCommittedPageDerivedState(page: SDPage, body: String) {
+        do {
+            try searchService?.upsert(
+                id: page.id,
+                title: page.title,
+                body: body,
+                tags: page.tags.joined(separator: " "),
+                updatedAt: page.updatedAt
+            )
+        } catch {
+            log.error(
+                "Failed to index committed note identity for \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
+        scheduleBlockMirrorSync(pageId: page.id, body: body)
+        SpotlightIndexer.index(page)
+        publishVaultMutation(.vaultPageChanged(pageId: page.id))
+    }
+
+    private func restorePageIdentityTransaction(
+        page: SDPage,
+        snapshot: PageIdentityTransactionSnapshot,
+        receipt: PageIdentityFileMutationReceipt,
+        context: ModelContext,
+        metadataWasApplied: Bool,
+        expectedAppliedMetadata: PageIdentityMetadataFingerprint?,
+        expectedAppliedDraft: PageIdentityDraftFingerprint?
+    ) async -> Bool {
+        suppressFileWatcherForSelfOriginatedChange()
+        let transactionVaultURL = vaultURL
+        let fileRestoreError = await Task.detached(priority: .userInitiated) {
+            do {
+                try Self.restorePageIdentityFile(
+                    receipt: receipt,
+                    vaultURL: transactionVaultURL
+                )
+                return nil as String?
+            } catch {
+                return error.localizedDescription
+            }
+        }.value
+        guard let fileRestoreError else {
+            guard metadataWasApplied else {
+                if let expectedAppliedDraft,
+                   snapshot.stillMatches(page),
+                   expectedAppliedDraft == pageIdentityDraftFingerprint(for: page),
+                   snapshot.localDraftBody == nil,
+                   NoteFileStorage.pendingBodyForImmediateRead(pageId: page.id) == nil,
+                   NoteWindowManager.shared.editorBody(for: page.id) == nil
+                {
+                    _ = NoteFileStorage.stageBodyForImmediateRead(
+                        pageId: page.id,
+                        content: snapshot.diskBody
+                    )
+                }
+                return true
+            }
+            guard let expectedAppliedMetadata,
+                  let expectedAppliedDraft,
+                  expectedAppliedMetadata == PageIdentityMetadataFingerprint(page: page),
+                  expectedAppliedDraft == pageIdentityDraftFingerprint(for: page)
+            else {
+                log.fault(
+                    "Note identity file bytes were restored, but newer in-memory edits prevented metadata rollback."
+                )
+                return false
+            }
+            snapshot.restore(on: page)
+            if snapshot.localDraftBody == nil,
+               NoteFileStorage.pendingBodyForImmediateRead(pageId: page.id) == nil,
+               NoteWindowManager.shared.editorBody(for: page.id) == nil
+            {
+                _ = NoteFileStorage.stageBodyForImmediateRead(
+                    pageId: page.id,
+                    content: snapshot.diskBody
+                )
+            }
+            do {
+                try context.save()
+            } catch {
+                log.fault(
+                    "Note identity bytes were restored but metadata rollback failed: \(error.localizedDescription, privacy: .public)"
+                )
+                return false
+            }
+            publishCommittedPageDerivedState(
+                page: page,
+                body: snapshot.diskBody
+            )
+            return true
+        }
+
+        log.fault(
+            "Note identity rollback refused to publish an unverified file path: \(fileRestoreError, privacy: .public)"
+        )
+        return false
+    }
+
+    private nonisolated static func restorePageIdentityFile(
+        receipt: PageIdentityFileMutationReceipt,
+        vaultURL: URL?
+    ) throws {
+        guard let originalURL = receipt.originalURL else {
+            try CoordinatedVaultFileMutation.removeItem(
+                at: receipt.currentURL,
+                ifCurrentMatches: .contents(receipt.forwardData)
+            )
+            return
+        }
+        guard let originalFileData = receipt.originalData else {
+            throw PageIdentityTransactionError.missingOriginalFileData
+        }
+
+        if receipt.currentURL != originalURL {
+            try CoordinatedVaultFileMutation.moveItem(
+                at: receipt.currentURL,
+                to: originalURL,
+                ifSourceMatches: .contents(receipt.forwardData)
+            )
+        }
+
+        try AtomicVaultWriter.writeSynchronously(
+            originalFileData,
+            to: originalURL,
+            ifCurrentMatches: .contents(receipt.forwardData)
+        )
+    }
+
+    nonisolated static func restorePageIdentityFileForTesting(
+        currentFilePath: String?,
+        originalFilePath: String?,
+        originalFileData: Data?,
+        vaultURL: URL?
+    ) throws {
+        guard let originalFilePath else {
+            throw PageIdentityTransactionError.missingOriginalFile
+        }
+        guard let originalFileData else {
+            throw PageIdentityTransactionError.missingOriginalFileData
+        }
+        let originalURL = URL(fileURLWithPath: originalFilePath).standardizedFileURL
+        if let currentFilePath {
+            let currentURL = URL(fileURLWithPath: currentFilePath).standardizedFileURL
+            if currentURL != originalURL,
+               FileManager.default.fileExists(atPath: originalURL.path)
+            {
+                guard try Data(contentsOf: originalURL) == originalFileData else {
+                    throw PageIdentityTransactionError.originalPathOccupied
+                }
+            }
+        }
+    }
+
+    private nonisolated static func observedVaultFileBaseline(
+        at fileURL: URL
+    ) throws -> VaultFileBaseline {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            return .absent
+        }
+        return .contents(try Data(contentsOf: fileURL))
+    }
+
+    private nonisolated static func pageIdentityBody(
+        from fileData: Data?,
+        fileURL: URL?,
+        fallback: String
+    ) throws -> String {
+        guard let fileData, let fileURL else { return fallback }
+        guard let raw = String(data: fileData, encoding: .utf8) else {
+            throw PageIdentityTransactionError.invalidOriginalFileData
+        }
+        guard VaultIndexActor.shouldWriteMarkdownFrontMatter(to: fileURL) else {
+            return raw
+        }
+        return VaultIndexActor.parseFrontMatter(raw).1
+    }
+
+    private nonisolated static func pageIdentityDestinationURL(
+        originalURL: URL?,
+        title: String,
+        subfolder: String?,
+        vaultURL: URL,
+        renameFile: Bool,
+        moveFile: Bool
+    ) -> URL {
+        if let originalURL, !renameFile, !moveFile {
+            return originalURL
+        }
+        let parentURL = subfolder
+            .flatMap { path in
+                let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty
+                    ? nil
+                    : vaultURL.appendingPathComponent(trimmed, isDirectory: true)
+            }
+            ?? vaultURL
+        let originalExtension = originalURL?.pathExtension ?? "md"
+        let fileExtension = originalExtension.isEmpty ? "md" : originalExtension
+        let baseName: String
+        if renameFile || originalURL == nil {
+            baseName = VaultIndexActor.sanitizeFileBaseName(
+                title,
+                preservingExtension: fileExtension
+            )
+        } else {
+            baseName = originalURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
+        }
+        var candidate = parentURL
+            .appendingPathComponent(baseName)
+            .appendingPathExtension(fileExtension)
+        if candidate.standardizedFileURL == originalURL?.standardizedFileURL {
+            return candidate
+        }
+        var suffix = 1
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            let suffixText = suffix > 100 ? String(UUID().uuidString.prefix(8)) : String(suffix)
+            candidate = parentURL
+                .appendingPathComponent("\(baseName)-\(suffixText)")
+                .appendingPathExtension(fileExtension)
+            suffix += 1
+        }
+        return candidate
+    }
+
+    @discardableResult
     func savePageBodyFileFirst(pageId: String, body: String) async -> Bool {
+        guard let admission = registerVaultMutation() else { return false }
+        defer { finishVaultMutation(admission) }
         let predecessor = fileFirstSaveTails[pageId]
-        let generation = (fileFirstSaveGenerations[pageId] ?? 0) &+ 1
-        fileFirstSaveGenerations[pageId] = generation
+        let generation = issuePageBodySaveGeneration(pageId: pageId)
         let task = Task { @MainActor [weak self] in
             if let predecessor {
                 _ = await predecessor.value
             }
             guard let self else { return false }
-            return await self.performPageBodyFileFirstSave(pageId: pageId, body: body)
+            await self.pageFileMutationGate.acquire(pageId: pageId)
+            guard self.vaultMutationAdmissionIsCurrent(admission) else {
+                await self.pageFileMutationGate.release(pageId: pageId)
+                return false
+            }
+            let result = await self.performPageBodyFileFirstSave(
+                pageId: pageId,
+                body: body,
+                generation: generation,
+                admission: admission
+            ) == .saved
+            await self.pageFileMutationGate.release(pageId: pageId)
+            return result
         }
         fileFirstSaveTails[pageId] = task
+        fileFirstSaveTailGenerations[pageId] = generation
         let result = await task.value
-        if fileFirstSaveGenerations[pageId] == generation {
+        if fileFirstSaveTailGenerations[pageId] == generation {
             fileFirstSaveTails.removeValue(forKey: pageId)
+            fileFirstSaveTailGenerations.removeValue(forKey: pageId)
+        }
+        if fileFirstSaveGenerations[pageId] == generation {
             fileFirstSaveGenerations.removeValue(forKey: pageId)
         }
         return result
     }
 
-    private func performPageBodyFileFirstSave(pageId: String, body: String) async -> Bool {
-        guard let vaultURL else {
+    private func performPageBodyFileFirstSave(
+        pageId: String,
+        body: String,
+        generation: UInt64,
+        admission: VaultMutationAdmission
+    ) async -> PageBodyFileSaveResult {
+        guard let vaultURL,
+              vaultMutationAdmissionIsCurrent(admission, vaultURL: vaultURL)
+        else {
             log.warning("Cannot save page body: no vault URL")
-            return false
+            return .failed
         }
 
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard let page = fetchFirst(descriptor, in: context, label: "file-first body save page") else {
-            return false
+            return .failed
+        }
+        guard fileFirstSaveGenerations[pageId] == generation else {
+            return .stale
         }
 
         guard let stagedBody = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: body) else {
-            return false
+            return .failed
+        }
+        let initialMutationFingerprint = pageBodyMutationFingerprint(
+            for: page,
+            saveRequestGeneration: generation
+        )
+        let isMarkdownBacked = page.filePath
+            .map { VaultIndexActor.shouldWriteMarkdownFrontMatter(to: URL(fileURLWithPath: $0)) }
+            ?? true
+        if isMarkdownBacked,
+           let syncedTitle = ProseEditorView.syncedNoteTitle(from: stagedBody),
+           syncedTitle != page.title
+        {
+            let identityResult = await performPageIdentityFileFirstCommit(
+                pageId: pageId,
+                title: syncedTitle,
+                tags: page.tags,
+                folder: page.folder,
+                subfolder: page.subfolder,
+                markdownBody: stagedBody,
+                admission: admission
+            )
+            if identityResult == .committed {
+                NoteFileStorage.clearPendingBodyForImmediateRead(
+                    pageId: pageId,
+                    matching: stagedBody
+                )
+            }
+            guard fileFirstSaveGenerations[pageId] == generation else {
+                page.needsVaultSync = true
+                try? context.save()
+                return .stale
+            }
+            switch identityResult {
+            case .committed:
+                return .saved
+            case .rolledBack:
+                page.needsVaultSync = true
+                try? context.save()
+                return .stale
+            case .rejected, .recoveryRequired:
+                page.needsVaultSync = true
+                try? context.save()
+                return .failed
+            }
         }
         suppressFileWatcherForSelfOriginatedChange()
 
         do {
-            guard let result = try await exportPage(pageId: pageId, to: vaultURL, bodyOverride: stagedBody) else {
-                return false
+            guard let result = try await exportPage(
+                pageId: pageId,
+                to: vaultURL,
+                bodyOverride: stagedBody,
+                indexForSearch: false
+            ) else {
+                return .failed
             }
-            let currentHash = SDPage.bodyHash(stagedBody)
-            page.filePath = result.path
-            page.applyInteractiveDerivedState(from: stagedBody)
-            page.updatedAt = .now
-            var titleRenameTask: Task<String?, Never>?
-            ProseEditorView.syncNoteTitleIfNeeded(
-                from: stagedBody,
-                for: page,
-                modelContext: context
-            ) { resolvedPageId, newTitle in
-                titleRenameTask = self.renamePageFile(
-                    pageId: resolvedPageId,
-                    newTitle: newTitle
+            guard vaultMutationAdmissionIsCurrent(admission, vaultURL: vaultURL) else {
+                NoteFileStorage.clearPendingBodyForImmediateRead(
+                    pageId: pageId,
+                    matching: stagedBody
                 )
-            }
-            if let titleRenameTask {
-                _ = await titleRenameTask.value
-            }
-            if currentHash == result.bodyHash {
-                page.lastSyncedBodyHash = currentHash
-                page.lastSyncedAt = .now
-                page.needsVaultSync = false
-                SpotlightIndexer.index(page)
-            } else {
                 page.needsVaultSync = true
+                try? context.save()
+                return .stale
             }
+            let exportedHash = SDPage.bodyHash(stagedBody)
+            guard result.bodyHash == exportedHash else {
+                page.needsVaultSync = true
+                try? context.save()
+                log.error("File-first save returned a mismatched body hash for \(pageId, privacy: .public)")
+                return .failed
+            }
+            guard initialMutationFingerprint == pageBodyMutationFingerprint(for: page) else {
+                NoteFileStorage.clearPendingBodyForImmediateRead(
+                    pageId: pageId,
+                    matching: stagedBody
+                )
+                page.needsVaultSync = true
+                try? context.save()
+                return .stale
+            }
+
+            let resultURL = URL(fileURLWithPath: result.path)
+            let resultIsMarkdown = VaultIndexActor.shouldWriteMarkdownFrontMatter(to: resultURL)
+            page.filePath = result.path
+            if resultIsMarkdown {
+                page.applyInteractiveDerivedState(from: stagedBody)
+            }
+            page.updatedAt = .now
+            page.lastSyncedBodyHash = exportedHash
+            page.lastSyncedAt = .now
+            page.needsVaultSync = false
             try context.save()
-            scheduleBlockMirrorSync(pageId: pageId, body: stagedBody)
-            publishVaultMutation(.vaultPageChanged(pageId: pageId))
-            return currentHash == result.bodyHash
+            NoteFileStorage.clearPendingBodyForImmediateRead(
+                pageId: pageId,
+                matching: stagedBody
+            )
+            publishCommittedPageDerivedState(page: page, body: stagedBody)
+            return .saved
         } catch {
             page.needsVaultSync = true
             try? context.save()
             log.error("Failed file-first body save for \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            return false
+            return .failed
         }
     }
 
@@ -3746,15 +5659,18 @@ final class VaultSyncService {
         var allSaved = true
         while !fileFirstSaveTails.isEmpty {
             let snapshot = fileFirstSaveTails.compactMap { pageId, task in
-                fileFirstSaveGenerations[pageId].map { (pageId, $0, task) }
+                fileFirstSaveTailGenerations[pageId].map { (pageId, $0, task) }
             }
             guard !snapshot.isEmpty else { break }
             for (pageId, generation, task) in snapshot {
                 if !(await task.value) {
                     allSaved = false
                 }
-                if fileFirstSaveGenerations[pageId] == generation {
+                if fileFirstSaveTailGenerations[pageId] == generation {
                     fileFirstSaveTails.removeValue(forKey: pageId)
+                    fileFirstSaveTailGenerations.removeValue(forKey: pageId)
+                }
+                if fileFirstSaveGenerations[pageId] == generation {
                     fileFirstSaveGenerations.removeValue(forKey: pageId)
                 }
             }
@@ -3795,18 +5711,26 @@ final class VaultSyncService {
             return task
         }
 
-        guard let initialBatch = nextDirtySaveBatch() else { return nil }
+        guard let admission = registerVaultMutation() else { return nil }
+        guard let initialBatch = nextDirtySaveBatch() else {
+            finishVaultMutation(admission)
+            return nil
+        }
 
         let task = Task { [weak self] in
             guard let self else { return }
-            await self.runDirtySaveLoop(startingWith: initialBatch)
+            defer { self.finishVaultMutation(admission) }
+            await self.runDirtySaveLoop(
+                startingWith: initialBatch,
+                admission: admission
+            )
         }
         inFlightDirtySaveTask = task
         return task
     }
 
     private func nextDirtySaveBatch() -> DirtySaveBatch? {
-        guard let vaultURL else { return nil }
+        guard vaultURL != nil else { return nil }
 
         let context = modelContainer.mainContext
         let dirtyDescriptor = FetchDescriptor<SDPage>(
@@ -3832,12 +5756,14 @@ final class VaultSyncService {
 
         return DirtySaveBatch(
             context: context,
-            vaultURL: vaultURL,
             dirtyIds: dirtyPages.map(\.id)
         )
     }
 
-    private func runDirtySaveLoop(startingWith initialBatch: DirtySaveBatch) async {
+    private func runDirtySaveLoop(
+        startingWith initialBatch: DirtySaveBatch,
+        admission: VaultMutationAdmission
+    ) async {
         let interval = Log.vaultPerf.beginInterval("saveAllDirtyPages")
         defer {
             Log.vaultPerf.endInterval("saveAllDirtyPages", interval)
@@ -3847,42 +5773,50 @@ final class VaultSyncService {
 
         var currentBatch: DirtySaveBatch? = initialBatch
         while !Task.isCancelled {
+            guard vaultMutationAdmissionIsCurrent(admission) else { return }
             pendingDirtySaveRequest = false
             guard let batch = currentBatch ?? nextDirtySaveBatch() else { return }
             currentBatch = nil
 
-            struct SuccessfulExport {
-                let pageId: String
-                let path: String
-                let bodyHash: String
-            }
-            var successfulExports: [SuccessfulExport] = []
-            successfulExports.reserveCapacity(batch.dirtyIds.count)
+            var successfulExportCount = 0
             var exportFailures = 0
 
             for pageId in batch.dirtyIds {
-                do {
-                    suppressFileWatcherForSelfOriginatedChange()
-                    let body = await MainActor.run {
-                        let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-                        guard let page = self.fetchFirst(desc, in: batch.context, label: "dirty page body snapshot") else {
-                            return ""
-                        }
-                        return self.latestAvailableBody(for: page, pageId: pageId)
+                let generation = issuePageBodySaveGeneration(pageId: pageId)
+                await pageFileMutationGate.acquire(pageId: pageId)
+                guard vaultMutationAdmissionIsCurrent(admission) else {
+                    await pageFileMutationGate.release(pageId: pageId)
+                    return
+                }
+                let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+                let page = fetchFirst(desc, in: batch.context, label: "dirty page body snapshot")
+                let body = page.map { latestAvailableBody(for: $0, pageId: pageId) }
+                let saveResult = if let body {
+                    await performPageBodyFileFirstSave(
+                        pageId: pageId,
+                        body: body,
+                        generation: generation,
+                        admission: admission
+                    )
+                } else {
+                    PageBodyFileSaveResult.failed
+                }
+                await pageFileMutationGate.release(pageId: pageId)
+                if fileFirstSaveGenerations[pageId] == generation {
+                    fileFirstSaveGenerations.removeValue(forKey: pageId)
+                }
+
+                switch saveResult {
+                case .saved:
+                    successfulExportCount += 1
+                    if let page {
+                        AppBootstrap.shared?.instantRecallService.indexNote(noteId: page.id, text: body ?? "")
                     }
-                    if let result = try await exportPage(pageId: pageId, to: batch.vaultURL, bodyOverride: body) {
-                        successfulExports.append(
-                            SuccessfulExport(
-                                pageId: pageId,
-                                path: result.path,
-                                bodyHash: result.bodyHash
-                            )
-                        )
-                    }
-                } catch {
+                case .stale:
+                    pendingDirtySaveRequest = true
+                case .failed:
                     exportFailures += 1
-                    lastVaultSaveError = error.localizedDescription
-                    log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    lastVaultSaveError = "File-first save failed for page \(pageId)"
                 }
             }
 
@@ -3891,44 +5825,14 @@ final class VaultSyncService {
             // saved" diagnostic can be surfaced (Settings → vault-save health); reset
             // on any success. Additive — does NOT change the save/retry logic (the
             // pages stay dirty and retry on the next tick / on reconnect).
-            if !successfulExports.isEmpty {
+            if successfulExportCount > 0 {
                 vaultSaveFailureStreak = 0
                 lastVaultSaveError = nil
             } else if exportFailures > 0 {
                 vaultSaveFailureStreak += 1
             }
 
-            for export in successfulExports {
-                let pid = export.pageId
-                let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pid })
-                guard let page = fetchFirst(desc, in: batch.context, label: "dirty page sync tracking") else {
-                    continue
-                }
-
-                page.filePath = export.path
-                let currentHash = SDPage.bodyHash(
-                    latestAvailableBody(for: page, pageId: pid)
-                )
-                if currentHash == export.bodyHash {
-                    page.lastSyncedBodyHash = currentHash
-                    page.lastSyncedAt = .now
-                    page.needsVaultSync = false
-                    SpotlightIndexer.index(page)
-                    // Ω18: Index synced note for instant recall
-                    let body = page.loadBody(mapped: true)
-                    AppBootstrap.shared?.instantRecallService.indexNote(noteId: page.id, text: body)
-                } else {
-                    pendingDirtySaveRequest = true
-                }
-            }
-
-            do {
-                try batch.context.save()
-            } catch {
-                Log.vault.error("Failed to save sync tracking after dirty pages export: \(error.localizedDescription, privacy: .public)")
-            }
-
-            log.info("Saved \(successfulExports.count) of \(batch.dirtyIds.count) dirty pages to vault")
+            log.info("Saved \(successfulExportCount) of \(batch.dirtyIds.count) dirty pages to vault")
 
             guard pendingDirtySaveRequest else { return }
         }
@@ -4108,19 +6012,27 @@ final class VaultSyncService {
     /// files anywhere in the vault and the changed note is reindexed without a full import.
     /// A directory DispatchSource remains as a coarse fallback if FSEvents cannot be created.
     private func startFileWatcher() {
-        guard let url = vaultURL else { return }
+        guard let url = vaultURL,
+              let lifecycleToken = currentOperationalVaultLifecycleToken(for: url)
+        else { return }
         stopFileWatcher()
 
-        if startFSEventsWatcher(for: url) {
+        if startFSEventsWatcher(for: url, lifecycleToken: lifecycleToken) {
             log.info("FSEvents watcher started for: \(url.lastPathComponent, privacy: .public)")
             return
         }
 
-        startDirectoryDispatchSourceWatcher(for: url)
+        startDirectoryDispatchSourceWatcher(for: url, lifecycleToken: lifecycleToken)
     }
 
-    private func startFSEventsWatcher(for url: URL) -> Bool {
-        let callbackBox = VaultFileWatcherCallbackBox(service: self)
+    private func startFSEventsWatcher(
+        for url: URL,
+        lifecycleToken: VaultLifecycleToken
+    ) -> Bool {
+        let callbackBox = VaultFileWatcherCallbackBox(
+            service: self,
+            lifecycleToken: lifecycleToken
+        )
         let unmanagedBox = Unmanaged.passRetained(callbackBox)
         var context = FSEventStreamContext(
             version: 0,
@@ -4167,11 +6079,33 @@ final class VaultSyncService {
         return true
     }
 
+    private func spotlightCursor(for vaultURL: URL) -> Date? {
+        defaults.object(forKey: Self.spotlightCursorKey(for: vaultURL)) as? Date
+    }
+
+    private func persistSpotlightCursor(
+        _ receipt: VaultSpotlightJournalReceipt,
+        for vaultURL: URL
+    ) {
+        guard let candidateCursor = receipt.candidateCursor else { return }
+        let key = Self.spotlightCursorKey(for: vaultURL)
+        if let storedCursor = defaults.object(forKey: key) as? Date,
+           storedCursor >= candidateCursor {
+            return
+        }
+        defaults.set(candidateCursor, forKey: key)
+    }
+
     private func persistVaultFSEventCheckpoint(
         _ eventID: FSEventStreamEventId,
         for vaultURL: URL
     ) {
         let key = Self.vaultFSEventCheckpointKey(for: vaultURL)
+        if let storedValue = defaults.string(forKey: key),
+           let storedEventID = UInt64(storedValue),
+           storedEventID >= eventID {
+            return
+        }
         defaults.set(String(eventID), forKey: key)
     }
 
@@ -4212,7 +6146,10 @@ final class VaultSyncService {
         }
     }
 
-    private func startDirectoryDispatchSourceWatcher(for url: URL) {
+    private func startDirectoryDispatchSourceWatcher(
+        for url: URL,
+        lifecycleToken: VaultLifecycleToken
+    ) {
         let fd = open(url.path, O_EVTONLY)
         guard fd >= 0 else {
             log.warning("File watcher: failed to open vault directory for monitoring")
@@ -4226,8 +6163,8 @@ final class VaultSyncService {
             queue: .main
         )
 
-        source.setEventHandler { [weak self] in
-            self?.handleFileSystemChange()
+        source.setEventHandler { [weak self, lifecycleToken] in
+            self?.handleFileSystemChange(lifecycleToken: lifecycleToken)
         }
 
         source.setCancelHandler { [fd] in
@@ -4246,6 +6183,7 @@ final class VaultSyncService {
         fileWatcherState.pendingChangedPaths.removeAll(keepingCapacity: false)
         fileWatcherState.pendingDeletedPaths.removeAll(keepingCapacity: false)
         fileWatcherState.pendingFullRescan = false
+        fileWatcherState.pendingLastEventID = nil
         if let stream = fileWatcherState.eventStream {
             FSEventStreamStop(stream)
             FSEventStreamInvalidate(stream)
@@ -4286,8 +6224,16 @@ final class VaultSyncService {
         return false
     }
 
-    fileprivate func handleVaultFileSystemEvents(_ events: [VaultFileSystemEvent]) {
-        guard let vaultURL else { return }
+    fileprivate func handleVaultFileSystemEvents(
+        _ events: [VaultFileSystemEvent],
+        lifecycleToken: VaultLifecycleToken
+    ) {
+        guard vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true),
+              let vaultURL
+        else { return }
+        if !events.isEmpty {
+            fileWatcherState.pendingRevision &+= 1
+        }
         for event in events {
             if let pendingLastEventID = fileWatcherState.pendingLastEventID {
                 fileWatcherState.pendingLastEventID = max(pendingLastEventID, event.eventID)
@@ -4317,7 +6263,7 @@ final class VaultSyncService {
             }
         }
 
-        scheduleDebouncedVaultFileSystemRefresh()
+        scheduleDebouncedVaultFileSystemRefresh(lifecycleToken: lifecycleToken)
     }
 
     private func handleVaultVolumeUnavailable(vaultURL: URL, reason: String) {
@@ -4367,64 +6313,249 @@ final class VaultSyncService {
         guard !components.contains(where: { $0.hasPrefix(".") || VaultIndexActor.shouldSkipDescendants(for: $0) }) else {
             return nil
         }
-        guard VaultIndexActor.isRoutableVaultFile(fileURL) else { return nil }
+        guard VaultIndexActor.isImportableNoteFile(fileURL) else { return nil }
         return fileURL
     }
 
     /// Coarse fallback when FSEvents cannot be started. The directory source has no paths, so
     /// the safest useful response is a complete import pass with the importer's own deletion guards.
-    private func handleFileSystemChange() {
+    private func handleFileSystemChange(lifecycleToken: VaultLifecycleToken) {
+        guard vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true) else { return }
         fileWatcherState.pendingFullRescan = true
-        scheduleDebouncedVaultFileSystemRefresh()
+        fileWatcherState.pendingRevision &+= 1
+        scheduleDebouncedVaultFileSystemRefresh(lifecycleToken: lifecycleToken)
     }
 
     /// Debounced handler for file-system event batches.
     /// Waits 2 seconds after the last change before importing, so rapid
     /// saves (e.g. typing in an external editor) don't trigger 50 imports.
-    private func scheduleDebouncedVaultFileSystemRefresh() {
+    private func scheduleDebouncedVaultFileSystemRefresh(
+        lifecycleToken: VaultLifecycleToken
+    ) {
+        guard vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true) else { return }
         let shouldIgnore = shouldIgnoreFileWatcherChange()
         if shouldIgnore {
             log.debug("File watcher: self-originated event window active; reconciling anyway to avoid hiding external races")
         }
 
         fileWatcherState.debounceTask?.cancel()
-        fileWatcherState.debounceTask = Task { [weak self] in
+        fileWatcherState.debounceTask = Task { @MainActor [weak self, lifecycleToken] in
             guard await Self.sleepHandlingCancellation(
                 for: .seconds(2),
                 label: "file watcher debounce"
             ) else { return }
             guard !Task.isCancelled else { return }
-            await self?.drainAndProcessPendingVaultFileSystemChanges(shouldIgnore: shouldIgnore)
+            guard let self,
+                  self.vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true)
+            else { return }
+            _ = self.drainAndProcessPendingVaultFileSystemChanges(
+                shouldIgnore: shouldIgnore,
+                lifecycleToken: lifecycleToken
+            )
         }
     }
 
-    private func drainAndProcessPendingVaultFileSystemChanges(shouldIgnore: Bool) {
+    private var hasPendingVaultFileSystemChanges: Bool {
+        fileWatcherState.pendingLastEventID != nil
+            || !fileWatcherState.pendingChangedPaths.isEmpty
+            || !fileWatcherState.pendingDeletedPaths.isEmpty
+            || fileWatcherState.pendingFullRescan
+    }
+
+    private func drainAndProcessPendingVaultFileSystemChanges(
+        shouldIgnore: Bool,
+        lifecycleToken: VaultLifecycleToken,
+        allowBeforeInitialImportCompletion: Bool = false
+    ) -> VaultFileSystemBatchCompletionFence? {
+        guard vaultLifecycleTokenIsCurrent(lifecycleToken, requireOperational: true) else {
+            return nil
+        }
+        guard initialImportCompleted || allowBeforeInitialImportCompletion else { return nil }
         let changedPaths = Array(fileWatcherState.pendingChangedPaths)
         let deletedPaths = Array(fileWatcherState.pendingDeletedPaths)
         let needsFullRescan = fileWatcherState.pendingFullRescan
         let lastEventID = fileWatcherState.pendingLastEventID
+        guard !changedPaths.isEmpty
+                || !deletedPaths.isEmpty
+                || needsFullRescan
+                || lastEventID != nil
+        else { return nil }
+        guard let vaultURL, let actor = indexActor else { return nil }
+        guard let admission = registerVaultMutation() else { return nil }
+        let completionFence = VaultFileSystemBatchCompletionFence()
         fileWatcherState.pendingChangedPaths.removeAll(keepingCapacity: true)
         fileWatcherState.pendingDeletedPaths.removeAll(keepingCapacity: true)
         fileWatcherState.pendingFullRescan = false
         fileWatcherState.pendingLastEventID = nil
 
-        guard let vaultURL, let actor = indexActor else { return }
-        let searchService = self.searchService
-
-        Task.detached(priority: .utility) { [weak self] in
-            let didProcess = await Self.processExternalVaultFileSystemChanges(
-                actor: actor,
+        acceptedVaultFileSystemBatches.append(
+            AcceptedVaultFileSystemBatch(
+                admission: admission,
+                lifecycleToken: lifecycleToken,
                 vaultURL: vaultURL,
+                actor: actor,
+                searchService: searchService,
+                processingOperation: externalVaultFileSystemChangesOperationOverride,
+                recallPreparationOperation: vaultFileSystemRecallPreparationOperationOverride,
+                recallApplyOperation: vaultFileSystemRecallApplyOperationOverride,
+                recallCompletionOperation: vaultFileSystemRecallCompletionOperationOverride,
                 changedPaths: changedPaths,
                 deletedPaths: deletedPaths,
                 needsFullRescan: needsFullRescan,
-                searchService: searchService
+                lastEventID: lastEventID,
+                completionFence: completionFence
             )
-            guard didProcess, let lastEventID else { return }
-            await MainActor.run {
-                self?.persistVaultFSEventCheckpoint(lastEventID, for: vaultURL)
+        )
+        startNextVaultFileSystemProcessorIfNeeded()
+        return completionFence
+    }
+
+    private func startNextVaultFileSystemProcessorIfNeeded() {
+        guard vaultFileSystemProcessorTask == nil,
+              acceptedVaultFileSystemBatchHead < acceptedVaultFileSystemBatches.count
+        else { return }
+
+        let batch = acceptedVaultFileSystemBatches[acceptedVaultFileSystemBatchHead]
+        acceptedVaultFileSystemBatchHead += 1
+        if acceptedVaultFileSystemBatchHead == acceptedVaultFileSystemBatches.count {
+            acceptedVaultFileSystemBatches.removeAll(keepingCapacity: true)
+            acceptedVaultFileSystemBatchHead = 0
+        } else if acceptedVaultFileSystemBatchHead >= 64 {
+            acceptedVaultFileSystemBatches.removeFirst(acceptedVaultFileSystemBatchHead)
+            acceptedVaultFileSystemBatchHead = 0
+        }
+
+        vaultFileSystemProcessorTask = Task.detached(priority: .utility) { [weak self] in
+            var completionResult: VaultFileSystemProcessingResult?
+            defer { batch.completionFence.finish(with: completionResult) }
+            guard let self else { return }
+            let result: VaultFileSystemProcessingResult
+            if let processingOperation = batch.processingOperation {
+                result = await processingOperation(
+                    batch.vaultURL,
+                    batch.changedPaths,
+                    batch.deletedPaths,
+                    batch.needsFullRescan
+                )
+            } else {
+                result = await Self.processExternalVaultFileSystemChanges(
+                    actor: batch.actor,
+                    vaultURL: batch.vaultURL,
+                    changedPaths: batch.changedPaths,
+                    deletedPaths: batch.deletedPaths,
+                    needsFullRescan: batch.needsFullRescan,
+                    searchService: batch.searchService
+                )
+            }
+            let recallMutation: VaultInstantRecallMutation?
+            switch result.postImportRecallWorkload {
+            case .none:
+                recallMutation = .some(.none)
+            default:
+                if let preparationOperation = batch.recallPreparationOperation {
+                    recallMutation = await preparationOperation(
+                        batch.actor,
+                        result.postImportRecallWorkload
+                    )
+                } else {
+                    recallMutation = await Self.prepareInstantRecallMutation(
+                        from: batch.actor,
+                        workload: result.postImportRecallWorkload
+                    )
+                }
+            }
+            let effectiveResult: VaultFileSystemProcessingResult
+            if result.postImportRecallWorkload != .none, recallMutation == nil {
+                Self.backgroundLog.error(
+                    "File watcher: required Instant Recall preparation failed; preserving the batch for retry"
+                )
+                effectiveResult = VaultFileSystemProcessingResult(
+                    didProcess: false,
+                    didMutate: result.didMutate,
+                    completedAuthoritativeFullRescan: false,
+                    postImportRecallWorkload: result.postImportRecallWorkload
+                )
+            } else {
+                effectiveResult = result
+            }
+            await self.completeVaultFileSystemBatch(
+                batch,
+                result: effectiveResult,
+                recallMutation: recallMutation ?? .none
+            )
+            await batch.recallCompletionOperation?()
+            completionResult = effectiveResult
+        }
+    }
+
+    private func completeVaultFileSystemBatch(
+        _ batch: AcceptedVaultFileSystemBatch,
+        result: VaultFileSystemProcessingResult,
+        recallMutation: VaultInstantRecallMutation
+    ) {
+        defer {
+            vaultFileSystemProcessorTask = nil
+            finishVaultMutation(batch.admission)
+            startNextVaultFileSystemProcessorIfNeeded()
+        }
+
+        guard vaultLifecycleTokenIsCurrent(
+            batch.lifecycleToken,
+            requireOperational: true
+        ) else { return }
+
+        switch recallMutation {
+        case .none:
+            break
+        default:
+            if let recallApplyOperation = batch.recallApplyOperation {
+                recallApplyOperation(recallMutation)
+            } else {
+                Self.applyInstantRecallMutation(recallMutation)
             }
         }
+
+        if !result.didProcess {
+            blockedFSEventCheckpointToken = batch.lifecycleToken
+            requeueFailedVaultFileSystemBatch(batch)
+        }
+
+        if result.didProcess,
+           result.completedAuthoritativeFullRescan,
+           blockedFSEventCheckpointToken == batch.lifecycleToken {
+            blockedFSEventCheckpointToken = nil
+        }
+
+        if result.didProcess,
+           blockedFSEventCheckpointToken != batch.lifecycleToken,
+           let lastEventID = batch.lastEventID {
+            persistVaultFSEventCheckpoint(lastEventID, for: batch.vaultURL)
+        }
+
+        if result.didMutate {
+            publishVaultMutation(.vaultChanged)
+        }
+    }
+
+    private func requeueFailedVaultFileSystemBatch(
+        _ batch: AcceptedVaultFileSystemBatch
+    ) {
+        for path in batch.changedPaths
+            where !fileWatcherState.pendingDeletedPaths.contains(path) {
+            fileWatcherState.pendingChangedPaths.insert(path)
+        }
+        for path in batch.deletedPaths
+            where !fileWatcherState.pendingChangedPaths.contains(path) {
+            fileWatcherState.pendingDeletedPaths.insert(path)
+        }
+        fileWatcherState.pendingFullRescan = true
+        if let batchEventID = batch.lastEventID {
+            fileWatcherState.pendingLastEventID = max(
+                fileWatcherState.pendingLastEventID ?? 0,
+                batchEventID
+            )
+        }
+        fileWatcherState.pendingRevision &+= 1
     }
 
     private nonisolated static func processExternalVaultFileSystemChanges(
@@ -4434,10 +6565,10 @@ final class VaultSyncService {
         deletedPaths: [String],
         needsFullRescan: Bool,
         searchService: SearchIndexService?
-    ) async -> Bool {
+    ) async -> VaultFileSystemProcessingResult {
         let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
         var didMutate = false
-        let importSnapshot: VaultImportProgressSnapshot?
+        var postImportRecallWorkload: VaultPostImportRecallWorkload = .none
 
         do {
             if needsFullRescan {
@@ -4447,16 +6578,18 @@ final class VaultSyncService {
                     from: vaultURL,
                     deleteMissingFiles: shouldRemoveMissingFilesDuringFallbackImport
                 ) else {
-                    return false
+                    return VaultFileSystemProcessingResult(didProcess: false, didMutate: false)
                 }
-                importSnapshot = snapshot
                 didMutate = snapshot.postImportMutationCount > 0
+                if didMutate {
+                    postImportRecallWorkload = snapshot.postImportRecallWorkload
+                }
             } else {
-                importSnapshot = nil
                 for path in deletedPaths.sorted() {
                     let fileURL = URL(fileURLWithPath: path)
                     try await actor.handleFileDeletion(at: fileURL)
                     didMutate = true
+                    postImportRecallWorkload = .rebuild
                 }
 
                 for path in changedPaths.sorted() {
@@ -4464,36 +6597,50 @@ final class VaultSyncService {
                     if FileManager.default.fileExists(atPath: fileURL.path) {
                         let changed = try await actor.reindexFile(at: fileURL, vaultURL: vaultURL)
                         didMutate = didMutate || changed
+                        if changed {
+                            postImportRecallWorkload = .rebuild
+                        }
                     } else {
                         try await actor.handleFileDeletion(at: fileURL)
                         didMutate = true
+                        postImportRecallWorkload = .rebuild
                     }
                 }
             }
 
-            guard didMutate else { return true }
-            if needsFullRescan {
-                scheduleInstantRecallPostImportUpdate(from: actor, snapshot: importSnapshot)
-            } else {
-                scheduleInstantRecallIndexRebuild(from: actor)
+            guard didMutate else {
+                return VaultFileSystemProcessingResult(didProcess: true, didMutate: false)
             }
 
             if let searchService {
-                let timestamps = await actor.allPageTimestamps()
+                guard let timestamps = await actor.requiredPageTimestampsForSearchDiff() else {
+                    log.error(
+                        "File watcher: required Search timestamps could not be read; preserving the batch for retry"
+                    )
+                    return VaultFileSystemProcessingResult(
+                        didProcess: false,
+                        didMutate: didMutate,
+                        postImportRecallWorkload: postImportRecallWorkload
+                    )
+                }
                 try await searchService.diffSync(
                     swiftDataPages: timestamps,
                     fullPageProvider: { id in await actor.fullPageData(for: id) }
                 )
             }
 
-            await MainActor.run { [weak vaultSync = AppBootstrap.shared?.vaultSync] in
-                vaultSync?.publishVaultMutation(.vaultChanged)
-                AppBootstrap.shared?.refreshAmbientManifest()
-            }
-            return true
+            return VaultFileSystemProcessingResult(
+                didProcess: true,
+                didMutate: true,
+                postImportRecallWorkload: postImportRecallWorkload
+            )
         } catch {
             log.error("File watcher: external vault refresh failed: \(error.localizedDescription, privacy: .public)")
-            return false
+            return VaultFileSystemProcessingResult(
+                didProcess: false,
+                didMutate: didMutate,
+                postImportRecallWorkload: postImportRecallWorkload
+            )
         }
     }
 
@@ -4965,7 +7112,11 @@ final class VaultSyncService {
     /// failed. Pre-RCA13 callers ignored failures by accident, leaving
     /// SwiftData claiming the move while disk stayed in the old location.
     @discardableResult
-    func movePage(pageId: String, toSubfolder subfolder: String?) -> Bool {
+    func movePage(
+        pageId: String,
+        toSubfolder subfolder: String?,
+        publishMutation: Bool = true
+    ) -> Bool {
         guard let vaultURL else {
             log.warning("Cannot move page: no vault URL")
             return false
@@ -5033,8 +7184,14 @@ final class VaultSyncService {
                 // re-imports as a DUPLICATE page on the next launch (store still points
                 // at the old path; the file now sits at the new one).
                 if let move = performedMove {
-                    try? CoordinatedVaultFileMutation.moveItem(at: move.to, to: move.from)
-                    page.filePath = move.from.path
+                    do {
+                        try CoordinatedVaultFileMutation.moveItem(at: move.to, to: move.from)
+                        page.filePath = move.from.path
+                    } catch {
+                        log.fault(
+                            "Failed to roll back page move after metadata save failure: \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
                 }
                 throw error
             }
@@ -5042,7 +7199,9 @@ final class VaultSyncService {
             if page.filePath == nil {
                 savePage(pageId: pageId)
             }
-            publishVaultMutation(.vaultChanged)
+            if publishMutation {
+                publishVaultMutation(.vaultChanged)
+            }
             return true
         } catch {
             log.error("Failed to move page: \(error.localizedDescription, privacy: .public)")
@@ -5190,7 +7349,7 @@ enum VaultConnectionActions {
             // sees the flag + clears the bookmark BEFORE the bookmark
             // gets a chance to re-mount the vault. Best of both worlds —
             // no hang during disconnect AND crash-safe.
-            UserDefaults.standard.set(true, forKey: VaultSyncService.disconnectInProgressKey)
+            FoundationSafety.runtimeUserDefaults.set(true, forKey: VaultSyncService.disconnectInProgressKey)
 
             // Step 1: canonical runtime-state clear — graph engine,
             // query engine, contextual shadows, instant recall,
@@ -5229,7 +7388,7 @@ enum VaultConnectionActions {
             vaultSync.clearPersistedVaultSelection()
             // Also clear the in-progress flag — disconnect completed
             // cleanly, no recovery needed on next launch.
-            UserDefaults.standard.removeObject(forKey: VaultSyncService.disconnectInProgressKey)
+            FoundationSafety.runtimeUserDefaults.removeObject(forKey: VaultSyncService.disconnectInProgressKey)
             await Task.yield()
 
             // Step 3: reset UI surface — vaultURL is already nil so
@@ -5245,7 +7404,7 @@ enum VaultConnectionActions {
             // Re-arm the SetupAssistant sheet by clearing the
             // first-launch completion flag so the rich setup flow
             // surfaces again instead of being locked out.
-            UserDefaults.standard.set(false, forKey: "epistemos.setupComplete")
+            FoundationSafety.runtimeUserDefaults.set(false, forKey: "epistemos.setupComplete")
             await Task.yield()
 
             // Step 4: post-teardown clear catches any state emitted

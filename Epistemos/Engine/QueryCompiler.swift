@@ -24,7 +24,7 @@ enum QueryCompiler {
 
         case .typeFilter(let types):
             return QueryPlan(
-                steps: [.graphStoreFilter(NodeFilter(types: types))],
+                steps: [.graphStoreFilter(NodeFilter(types: ProductCapabilityPolicy.sanitizedQueryNodeTypes(types)))],
                 combiner: .single
             )
 

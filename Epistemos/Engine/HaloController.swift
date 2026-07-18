@@ -25,7 +25,7 @@ import OSLog
 /// `MockShadowSearchService` so the state machine is fully covered
 /// without spinning up the Rust crate.
 public protocol ShadowSearchServicing: Sendable {
-    func search(text: String, domain: ShadowDomain, limit: Int) async -> [ShadowHit]
+    func search(text: String, limit: Int) async -> [ShadowHit]
 
     /// Same as `search` but surfaces backend failures so the UI can
     /// show "Search backend unavailable" instead of silently treating
@@ -34,7 +34,6 @@ public protocol ShadowSearchServicing: Sendable {
     /// overrides to actually catch FFI errors. Per RCA13 P5.
     func searchReportingErrors(
         text: String,
-        domain: ShadowDomain,
         limit: Int
     ) async -> (hits: [ShadowHit], errorMessage: String?)
 }
@@ -42,10 +41,9 @@ public protocol ShadowSearchServicing: Sendable {
 extension ShadowSearchServicing {
     public func searchReportingErrors(
         text: String,
-        domain: ShadowDomain,
         limit: Int
     ) async -> (hits: [ShadowHit], errorMessage: String?) {
-        let hits = await search(text: text, domain: domain, limit: limit)
+        let hits = await search(text: text, limit: limit)
         return (hits: hits, errorMessage: nil)
     }
 }
@@ -67,7 +65,7 @@ public struct NullHaloTelemetry: HaloTelemetry, Sendable {
 }
 
 /// The Halo state machine controller. @MainActor + @Observable so
-/// SwiftUI bindings can read `state`, `matches`, and `domain` without
+/// SwiftUI bindings can read `state` and `matches` without
 /// an actor hop, while the heavy search work happens on the background
 /// `ShadowSearchServicing` actor.
 @MainActor
@@ -79,7 +77,6 @@ public final class HaloController {
 
     public private(set) var state: HaloState = .dormant
     public private(set) var matches: [ShadowHit] = []
-    public private(set) var domain: ShadowDomain = .notes
     private(set) var graphProjectionReport: GraphEventAuditProjectionReport = .empty
 
     // MARK: - Tunables (V1 decision §"performance budget")
@@ -151,16 +148,9 @@ public final class HaloController {
 
     /// Called from the NSTextView delegate on every text change. Cheap.
     /// Always returns instantly — the heavy work runs in a detached Task.
-    public func editorTextDidChange(_ text: String, domain: ShadowDomain = .notes) {
+    public func editorTextDidChange(_ text: String) {
         let queryContext = Self.extractQueryContext(from: text)
         lastQueryContext = queryContext
-        // HC-1 (audit 2026-07-04): guard equality before assigning — HaloController is @Observable,
-        // so an unguarded per-keystroke reassignment re-publishes `domain` and invalidates observing
-        // views every character even though it almost never changes (siblings selectDomain/transition
-        // already guard). scheduleSearch uses the `domain` parameter, not self.domain — no behavior change.
-        if self.domain != domain {
-            self.domain = domain
-        }
 
         guard isMeaningful(queryContext) else {
             clearSearch()
@@ -169,24 +159,6 @@ public final class HaloController {
 
         scheduleSearch(
             queryContext: queryContext,
-            domain: domain,
-            keepPanelOpen: state.isPanelOpen
-        )
-    }
-
-    /// Called from the Halo panel's segmented domain picker. Reuses the latest
-    /// meaningful editor query so switching Notes/Chats is a real search, not
-    /// a visual-only control.
-    public func selectDomain(_ domain: ShadowDomain) {
-        guard self.domain != domain else { return }
-        self.domain = domain
-        guard isMeaningful(lastQueryContext) else {
-            clearSearch()
-            return
-        }
-        scheduleSearch(
-            queryContext: lastQueryContext,
-            domain: domain,
             keepPanelOpen: state.isPanelOpen
         )
     }
@@ -200,7 +172,6 @@ public final class HaloController {
 
     private func scheduleSearch(
         queryContext: String,
-        domain: ShadowDomain,
         keepPanelOpen: Bool
     ) {
         // Cancel any in-flight search (cooperative cancellation).
@@ -210,7 +181,6 @@ public final class HaloController {
         }
 
         let captured = queryContext
-        let capturedDomain = domain
         let capturedDebounce = UInt64(debounceWindowMs) * 1_000_000
         let capturedThreshold = scoreThreshold
         pendingSearch = Task { [weak self] in
@@ -227,7 +197,6 @@ public final class HaloController {
             // empty matches list that looks identical to "no hits."
             let outcome = await self.search.searchReportingErrors(
                 text: captured,
-                domain: capturedDomain,
                 // SS-IR accuracy-first: 10 → 16 so the panel surfaces a wider, more complete recall
                 // set (the warm RRF/HNSW backend already ranks; more candidates = fewer misses).
                 limit: 16
@@ -240,12 +209,14 @@ public final class HaloController {
                 return
             }
 
-            let above = outcome.hits.filter { $0.score >= capturedThreshold }
+            let above = outcome.hits.filter {
+                $0.domain == .notes && $0.score >= capturedThreshold
+            }
             self.matches = above
             if above.isEmpty {
-                self.transition(to: keepPanelOpen ? .open(domain: capturedDomain) : .dormant)
+                self.transition(to: keepPanelOpen ? .open(domain: .notes) : .dormant)
             } else if keepPanelOpen {
-                self.transition(to: .open(domain: capturedDomain))
+                self.transition(to: .open(domain: .notes))
             } else {
                 self.transition(to: .available(count: above.count))
             }
@@ -264,12 +235,12 @@ public final class HaloController {
 
     // MARK: - User actions
 
-    /// User clicked the Halo glyph. Opens the panel for the current domain.
+    /// User clicked the Halo glyph. Opens the notes-only recall panel.
     public func openPanel() {
         switch state {
         case .available:
             refreshGraphProjectionReport()
-            transition(to: .open(domain: domain))
+            transition(to: .open(domain: .notes))
         case .errorRecoverable:
             refreshGraphProjectionReport()
         case .dormant, .sensing:
@@ -277,7 +248,7 @@ public final class HaloController {
             // even with zero hits (it shows the "no matches yet" empty state) so recall is
             // discoverable instead of a dead affordance.
             refreshGraphProjectionReport()
-            transition(to: .open(domain: domain))
+            transition(to: .open(domain: .notes))
         default:
             return
         }
@@ -301,18 +272,11 @@ public final class HaloController {
         transition(to: .editingNote(id: id))
     }
 
-    /// User right-clicked a chat result → "Summarise this".
-    public func beginSummarizingChat(id: String) {
-        guard case .open = state else { return }
-        transition(to: .summarizingChat(id: id))
-    }
-
-    /// Inline edit / summarisation finished or cancelled. Returns to
-    /// `.open` for the current domain.
+    /// Inline edit finished or cancelled. Returns to the notes-only panel.
     public func endNestedAction() {
         switch state {
-        case .editingNote, .summarizingChat:
-            transition(to: .open(domain: domain))
+        case .editingNote:
+            transition(to: .open(domain: .notes))
         default:
             break
         }

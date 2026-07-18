@@ -3,6 +3,15 @@ import SwiftData
 import SwiftUI
 import os
 
+@MainActor
+enum ProseEditorScrollRestoration {
+    static func restore(_ origin: NSPoint, in scrollView: NSScrollView?) {
+        guard let scrollView else { return }
+        scrollView.contentView.scroll(to: origin)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+}
+
 // MARK: - ProseEditorRepresentable2
 // TextKit 2 note editor bridge.
 // Uses NSTextContentStorage + NSTextLayoutManager for editing.
@@ -38,17 +47,18 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     var onWikilinkClick: ((String) -> Void)?
     var onBlockRefClick: ((String) -> Void)?
     var onPageFlush: ((String, String) -> Void)?
+    var onPersistedHostMutation: ((String) -> Void)?
     var graphState: GraphState?
     var outlineFoldMode: OutlineFoldMode = .expanded
     var usesTransparentEditorBackground: Bool = false
+    var contentWidthMode: NoteWidthMode = .normal
 
     static let verticalInset: CGFloat = 40
 
-    static func horizontalInset(for availableWidth: CGFloat, markdown: String) -> CGFloat {
-        NoteDualPreviewLayout.centeredTextInset(
-            for: availableWidth,
-            markdown: markdown,
-            maxReadableWidth: NoteDualPreviewLayout.editorTextReadableMaxWidth
+    static func horizontalInset(for availableWidth: CGFloat, mode: NoteWidthMode) -> CGFloat {
+        EditorContentWidthPolicy.horizontalInset(
+            availableWidth: availableWidth,
+            mode: mode
         )
     }
 
@@ -88,10 +98,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         tv.delegate = coord
         tv.usesRenderedTableOverlays = false
         tv.markdownDelegate.usesRenderedTableOverlays = false
-        tv.textContainerInset = NSSize(
-            width: NoteDualPreviewLayout.minimumTextHorizontalInset,
-            height: Self.verticalInset
-        )
+        tv.textContainerInset = NSSize(width: Self.verticalInset, height: Self.verticalInset)
 
         tv.applyTheme(theme)
         applyEditorBackgroundMode(to: tv, in: scrollView)
@@ -118,6 +125,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         coord.lastIsFocusMode = isFocusMode
         coord.lastIsEditable = isEditable
         coord.lastOutlineFoldMode = outlineFoldMode
+        coord.lastContentWidthMode = contentWidthMode.normalized
         // Apply outline fold mode to initial content
         coord.applyOutlineFoldMode(outlineFoldMode)
 
@@ -135,7 +143,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
             coord?.toggleFold(headingOffset: offset)
         }
         tv.onOpenInGraph = { pid in
-            HologramController.shared.revealPage(pid)
+            KnowledgeGraphShortcutDispatcher.revealPage(pid)
         }
         tv.onMarkedTextStart = { [weak coord] in
             coord?.blockRefAutocomplete?.dismiss()
@@ -164,19 +172,6 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
                 tv.showFindIndicator(for: lineRange)
             }
         }
-        coord.writingToolsObserver = NotificationCenter.default.addObserver(
-            forName: WritingToolsBridge.showNotification,
-            object: nil,
-            queue: .main
-        ) { [weak tv, weak coord] note in
-            guard let pid = note.userInfo?["pageId"] as? String else { return }
-            MainActor.assumeIsolated {
-                guard let tv,
-                      let coord,
-                      pid == coord.currentPageId else { return }
-                WritingToolsBridge.present(in: tv)
-            }
-        }
         coord.replaceRangeObserver = NotificationCenter.default.addObserver(
             forName: NoteEditorNotifications.replaceRange,
             object: nil,
@@ -186,20 +181,79 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
             let pid = userInfo?["pageId"] as? String
             let replacementRange = (userInfo?["range"] as? NSValue)?.rangeValue
             let replacement = userInfo?["replacement"] as? String
+            let selectedRange = (userInfo?["selectedRange"] as? NSValue)?.rangeValue
+            let expectedText = userInfo?["expectedText"] as? String
+            let mapSelection = userInfo?["mapSelection"] as? Bool ?? false
+            let persistedHostMutation = userInfo?["persistedHostMutation"] as? Bool ?? false
+            let preserveViewport = userInfo?["preserveViewport"] as? Bool ?? false
+            let requestFocus = userInfo?["requestFocus"] as? Bool ?? true
             MainActor.assumeIsolated {
                 guard let tv,
                       let coord,
                       let pid,
                       pid == coord.currentPageId,
                       let replacementRange,
-                      let replacement,
+                      let replacement else { return }
+                let liveText = tv.string as NSString
+                guard NSMaxRange(replacementRange) <= liveText.length else { return }
+                if let expectedText,
+                   liveText.substring(with: replacementRange) != expectedText {
+                    return
+                }
+                let effectiveSelectedRange: NSRange?
+                if let selectedRange {
+                    effectiveSelectedRange = selectedRange
+                } else if mapSelection {
+                    effectiveSelectedRange = MarkdownEditorCommands.mappedSelection(
+                        tv.selectedRange(),
+                        replacing: replacementRange,
+                        replacementUTF16Length: replacement.utf16.count
+                    )
+                } else {
+                    effectiveSelectedRange = nil
+                }
+                let scrollOrigin = tv.enclosingScrollView?.contentView.bounds.origin ?? .zero
+                let undoManager = tv.undoManager
+                let restoreUndoRegistration = persistedHostMutation
+                    && (undoManager?.isUndoRegistrationEnabled ?? false)
+                if persistedHostMutation {
+                    coord.isFlushingTokens = true
+                    if restoreUndoRegistration {
+                        undoManager?.disableUndoRegistration()
+                    }
+                }
+                defer {
+                    if restoreUndoRegistration {
+                        undoManager?.enableUndoRegistration()
+                    }
+                    if persistedHostMutation {
+                        coord.isFlushingTokens = false
+                    }
+                }
+                guard
                       let edit = MarkdownEditorCommands.replace(
                         in: tv.string,
                         range: replacementRange,
-                        replacement: replacement
-                      ) else { return }
-                _ = MarkdownEditorCommands.apply(edit, to: tv)
-                tv.window?.makeFirstResponder(tv)
+                        replacement: replacement,
+                        selectedRange: effectiveSelectedRange
+                      ),
+                      MarkdownEditorCommands.apply(edit, to: tv)
+                else { return }
+                if persistedHostMutation {
+                    coord.acceptPersistedHostMutation(tv.string)
+                }
+                if preserveViewport {
+                    coord.updateCentering()
+                    ProseEditorScrollRestoration.restore(scrollOrigin, in: tv.enclosingScrollView)
+                    Task { @MainActor [weak tv] in
+                        await Task.yield()
+                        guard let tv, tv.pageId == pid else { return }
+                        ProseEditorScrollRestoration.restore(scrollOrigin, in: tv.enclosingScrollView)
+                    }
+                }
+                if requestFocus {
+                    tv.window?.makeFirstResponder(tv)
+                }
             }
         }
 
@@ -220,6 +274,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
 
         // Reposition transclusion overlays on scroll
         scrollView.contentView.postsBoundsChangedNotifications = true
+        scrollView.contentView.postsFrameChangedNotifications = true
         coord.scrollObserver = NotificationCenter.default.addObserver(
             forName: NSView.boundsDidChangeNotification,
             object: scrollView.contentView,
@@ -227,6 +282,15 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         ) { [weak coord] _ in
             MainActor.assumeIsolated {
                 coord?.scheduleScrollOverlayRefresh()
+            }
+        }
+        coord.frameObserver = NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak coord] _ in
+            MainActor.assumeIsolated {
+                coord?.updateCentering()
             }
         }
 
@@ -289,6 +353,7 @@ extension ProseEditorRepresentable2 {
         var lastIsFocusMode: Bool = false
         var lastIsEditable: Bool = true
         var lastOutlineFoldMode: OutlineFoldMode = .expanded
+        var lastContentWidthMode: NoteWidthMode = .normal
         var lastAvailableWidth: CGFloat = 0
         let scrollOverlayRefreshCoalescer = ScrollWorkCoalescer(
             delay: NoteEditorPerformancePolicy.scrollWorkCoalescingDelay
@@ -323,9 +388,6 @@ extension ProseEditorRepresentable2 {
         // Scroll-to-offset observer for TOC section navigator.
         var scrollToOffsetObserver: (any NSObjectProtocol)?
 
-        // Ask-bar bridge for native Apple Writing Tools.
-        var writingToolsObserver: (any NSObjectProtocol)?
-
         // External range replacement bridge (block properties, future editor mutations).
         var replaceRangeObserver: (any NSObjectProtocol)?
 
@@ -334,6 +396,7 @@ extension ProseEditorRepresentable2 {
         var transclusionManager: TransclusionOverlayManager2?
         var renderedTableOverlayManager: RenderedTableOverlayManager2?
         var scrollObserver: (any NSObjectProtocol)?
+        var frameObserver: (any NSObjectProtocol)?
         // Per-page state
         struct PageState {
             var scrollY: CGFloat = 0
@@ -391,6 +454,11 @@ extension ProseEditorRepresentable2 {
                 applyOutlineFoldMode(parent.outlineFoldMode)
             }
 
+            if parent.contentWidthMode.normalized != lastContentWidthMode.normalized {
+                lastContentWidthMode = parent.contentWidthMode.normalized
+                updateCentering()
+            }
+
             if parent.isFocused != lastIsFocused {
                 lastIsFocused = parent.isFocused
                 focusEditorIfNeeded()
@@ -421,6 +489,7 @@ extension ProseEditorRepresentable2 {
             {
                 let newBody = parent.pageBody
                 let sel = tv.selectedRange()
+                let scrollOrigin = scrollView?.contentView.bounds.origin ?? .zero
                 tv.markdownDelegate.reparse(text: newBody)
                 guard let textStorage = tv.textStorage else { return }
                 isFlushingTokens = true
@@ -436,6 +505,8 @@ extension ProseEditorRepresentable2 {
                 lastPersistedText = newBody
                 let safeLoc = min(sel.location, (tv.string as NSString).length)
                 tv.setSelectedRange(NSRange(location: safeLoc, length: 0))
+                updateCentering()
+                ProseEditorScrollRestoration.restore(scrollOrigin, in: scrollView)
                 renderedTableOverlayManager?.refreshAfterTextChange()
             }
         }
@@ -502,7 +573,13 @@ extension ProseEditorRepresentable2 {
             lastPersistedText = newBody
             tv.pageId = newPageId
 
-            // 6. Restore state for new page.
+            // 6. Finalize the incoming text geometry before restoring its
+            // saved viewport. Restoring before the readable-width inset is
+            // applied lets the final layout re-clamp the origin and visibly
+            // jumps a note that the user had already scrolled.
+            updateCentering()
+
+            // 7. Restore state for new page.
             // CLAMP the restored selection to the (possibly shorter) new body — a page's
             // body can shrink while it was off-screen (vault sync / restore-to-version),
             // and setSelectedRange with a stale range raises NSRangeException and crashes
@@ -511,41 +588,47 @@ extension ProseEditorRepresentable2 {
             if let state = pageStates[newPageId] {
                 let loc = min(max(0, state.selection.location), bodyLength)
                 tv.setSelectedRange(NSRange(location: loc, length: min(state.selection.length, bodyLength - loc)))
-                scrollView?.contentView.scroll(to: NSPoint(x: 0, y: state.scrollY))
+                ProseEditorScrollRestoration.restore(
+                    NSPoint(x: 0, y: state.scrollY),
+                    in: scrollView
+                )
             } else if let diskState = DiskStyleCache.shared.restore(
                 pageId: newPageId, currentBodyText: newBody
             ) {
                 let loc = min(max(0, diskState.selection.location), bodyLength)
                 tv.setSelectedRange(NSRange(location: loc, length: min(diskState.selection.length, bodyLength - loc)))
-                scrollView?.contentView.scroll(to: NSPoint(x: 0, y: diskState.scrollY))
+                ProseEditorScrollRestoration.restore(
+                    NSPoint(x: 0, y: diskState.scrollY),
+                    in: scrollView
+                )
             } else {
                 tv.setSelectedRange(NSRange(location: 0, length: 0))
-                scrollView?.contentView.scroll(to: .zero)
+                ProseEditorScrollRestoration.restore(.zero, in: scrollView)
             }
 
-            // 7. Per-page undo manager
+            // 8. Per-page undo manager
             if let state = pageStates[newPageId] {
                 tv.pageUndoManager = state.undoManager
             } else {
                 tv.pageUndoManager = UndoManager()
             }
 
-            // 8. Update derived state
+            // 9. Update derived state
             lastTheme = parent.theme
             lastThemeSyncKey = parent.themeSyncKey
             lastIsFocusMode = parent.isFocusMode
             lastIsEditable = parent.isEditable
             lastOutlineFoldMode = parent.outlineFoldMode
+            lastContentWidthMode = parent.contentWidthMode.normalized
             tv.isEditable = parent.isEditable
-            updateCentering()
 
-            // 9. Apply outline fold mode to new page
+            // 10. Apply outline fold mode to new page
             applyOutlineFoldMode(parent.outlineFoldMode)
             renderedTableOverlayManager?.setTheme(tv.resolvedTheme)
             renderedTableOverlayManager?.refreshAfterTextChange()
             focusEditorIfNeeded()
 
-            // 9. BTK: Initialize block edit translator for new page
+            // 11. BTK: Initialize block edit translator for new page
             if let graphState = parent.graphState {
                 let translator = BlockEditTranslator(
                     pageId: newPageId, graphState: graphState
@@ -588,7 +671,7 @@ extension ProseEditorRepresentable2 {
             let viewWidth = sv.contentSize.width
             let finalInset = ProseEditorRepresentable2.horizontalInset(
                 for: viewWidth,
-                markdown: tv.string
+                mode: parent.contentWidthMode
             )
             let newInset = NSSize(
                 width: finalInset,
@@ -658,13 +741,13 @@ extension ProseEditorRepresentable2 {
                 NotificationCenter.default.removeObserver(obs)
                 scrollObserver = nil
             }
+            if let obs = frameObserver {
+                NotificationCenter.default.removeObserver(obs)
+                frameObserver = nil
+            }
             if let obs = scrollToOffsetObserver {
                 NotificationCenter.default.removeObserver(obs)
                 scrollToOffsetObserver = nil
-            }
-            if let obs = writingToolsObserver {
-                NotificationCenter.default.removeObserver(obs)
-                writingToolsObserver = nil
             }
             if let obs = replaceRangeObserver {
                 NotificationCenter.default.removeObserver(obs)
@@ -1425,6 +1508,15 @@ extension ProseEditorRepresentable2 {
             textBinding.wrappedValue = text
             lastSyncedText = text
             hasPendingBindingSync = false
+        }
+
+        func acceptPersistedHostMutation(_ text: String) {
+            bindingSyncRevision &+= 1
+            cancelBindingSyncWorker()
+            hasPendingBindingSync = false
+            lastSyncedText = text
+            lastPersistedText = text
+            parent.onPersistedHostMutation?(text)
         }
 
     }

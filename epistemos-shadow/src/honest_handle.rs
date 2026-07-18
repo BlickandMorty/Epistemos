@@ -46,15 +46,15 @@
 //! `ShadowBackend` trait the legacy global API uses — so semantics
 //! are identical, only ownership changes.
 
-use std::ffi::{CStr, CString, c_char};
+use std::ffi::{c_char, CStr, CString};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::Path;
 use std::ptr;
 use std::sync::Arc;
 
-use crate::ShadowDocument;
 use crate::backend::{RealBackend, ShadowBackend};
 use crate::error::ShadowError;
+use crate::ShadowDocument;
 
 /// Opaque handle to a real backend. The Rust side never exposes
 /// the inner `RealBackend` to Swift directly — only `*const
@@ -187,6 +187,7 @@ unsafe fn read_c_str<'a>(ptr: *const c_char, label: &str) -> Result<&'a str, Sha
 /// `handle`, `query_c`, and `domain_c` must all be valid pointers.
 /// The returned C string (when non-null) must be freed via
 /// `shadow_handle_free_string`.
+#[cfg(feature = "semantic")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_handle_search(
     handle: *const ShadowEngineHandle,
@@ -256,6 +257,80 @@ pub unsafe extern "C" fn shadow_handle_search(
     }));
     match result {
         Ok(p) => p,
+        Err(_) => {
+            if !out_error.is_null() {
+                // SAFETY: caller pointer.
+                unsafe { *out_error = ShadowError::Panic.as_code() };
+            }
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Search the Free lexical note index via the handle. The caller has no
+/// domain selector: Free accepts and returns notes only.
+///
+/// # Safety
+/// `handle` and `query_c` must be valid pointers. The returned C string
+/// (when non-null) must be freed via `shadow_handle_free_string`.
+#[cfg(feature = "free-lexical")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shadow_handle_search_notes(
+    handle: *const ShadowEngineHandle,
+    query_c: *const c_char,
+    limit: usize,
+    out_error: *mut i32,
+) -> *mut c_char {
+    let result = panic::catch_unwind(AssertUnwindSafe(|| -> *mut c_char {
+        // SAFETY: caller contract above.
+        let backend = match unsafe { borrow_backend(handle) } {
+            Some(backend) => backend,
+            None => {
+                if !out_error.is_null() {
+                    // SAFETY: caller pointer.
+                    unsafe {
+                        *out_error = ShadowError::InvalidInput {
+                            detail: "handle was null".into(),
+                        }
+                        .as_code()
+                    };
+                }
+                return ptr::null_mut();
+            }
+        };
+        // SAFETY: caller contract above.
+        let query = match unsafe { read_c_str(query_c, "query") } {
+            Ok(query) => query,
+            Err(error) => {
+                if !out_error.is_null() {
+                    // SAFETY: caller pointer.
+                    unsafe { *out_error = encode_error(&error) };
+                }
+                return ptr::null_mut();
+            }
+        };
+        match backend.search_notes(query, limit) {
+            Ok(hits) => {
+                if !out_error.is_null() {
+                    // SAFETY: caller pointer.
+                    unsafe { *out_error = 0 };
+                }
+                let json = serde_json::to_string(&hits).unwrap_or_else(|_| "[]".to_string());
+                CString::new(json)
+                    .map(|cstring| cstring.into_raw())
+                    .unwrap_or(ptr::null_mut())
+            }
+            Err(error) => {
+                if !out_error.is_null() {
+                    // SAFETY: caller pointer.
+                    unsafe { *out_error = encode_error(&error) };
+                }
+                ptr::null_mut()
+            }
+        }
+    }));
+    match result {
+        Ok(pointer) => pointer,
         Err(_) => {
             if !out_error.is_null() {
                 // SAFETY: caller pointer.
@@ -446,84 +521,8 @@ pub unsafe extern "C" fn shadow_handle_stats(
     }
 }
 
-/// Per-stage timings of the most recent `shadow_handle_search` call,
-/// returned as a JSON-encoded `SearchTimings` struct (caller-owned C
-/// string; null on error with `out_error` populated).
-///
-/// Schema:
-/// ```json
-/// {"embed_us":12345,"ann_us":1234,"bm25_us":5678,"fusion_us":12,"total_us":19234}
-/// ```
-///
-/// All-zero output means "no search has run yet on this handle" —
-/// Swift treats that as "no signal" and skips OSSignposter emission
-/// for the cold call. Concurrent searches use last-write-wins; this
-/// is diagnostic data for the AMBIENT_RECALL_HALO_MASTER_PLAN §4
-/// performance budget, not a strict barrier.
-///
-/// # Safety
-/// `handle` must be a valid handle pointer. The returned C string
-/// (when non-null) must be freed via `shadow_handle_free_string`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn shadow_handle_last_timings_json(
-    handle: *const ShadowEngineHandle,
-    out_error: *mut i32,
-) -> *mut c_char {
-    let result = panic::catch_unwind(AssertUnwindSafe(|| -> *mut c_char {
-        // SAFETY: caller contract above.
-        let backend = match unsafe { borrow_backend(handle) } {
-            Some(b) => b,
-            None => {
-                if !out_error.is_null() {
-                    // SAFETY: caller pointer.
-                    unsafe {
-                        *out_error = ShadowError::InvalidInput {
-                            detail: "handle was null".into(),
-                        }
-                        .as_code()
-                    };
-                }
-                return ptr::null_mut();
-            }
-        };
-        let timings = backend.last_timings();
-        if !out_error.is_null() {
-            // SAFETY: caller pointer.
-            unsafe { *out_error = 0 };
-        }
-        let json = match serde_json::to_string(&timings) {
-            Ok(j) => j,
-            Err(error) => {
-                if !out_error.is_null() {
-                    // SAFETY: caller pointer.
-                    unsafe {
-                        *out_error = ShadowError::Backend {
-                            detail: format!("timings encode failed: {error}"),
-                        }
-                        .as_code()
-                    };
-                }
-                return ptr::null_mut();
-            }
-        };
-        CString::new(json)
-            .map(|c| c.into_raw())
-            .unwrap_or(ptr::null_mut())
-    }));
-    match result {
-        Ok(p) => p,
-        Err(_) => {
-            if !out_error.is_null() {
-                // SAFETY: caller pointer.
-                unsafe { *out_error = ShadowError::Panic.as_code() };
-            }
-            ptr::null_mut()
-        }
-    }
-}
-
-/// Free a C string returned by `shadow_handle_search`,
-/// `shadow_handle_stats`, or `shadow_handle_last_timings_json`.
+/// Free a C string returned by `shadow_handle_search_notes`,
+/// or `shadow_handle_stats`.
 /// Idempotent on null.
 ///
 /// # Safety

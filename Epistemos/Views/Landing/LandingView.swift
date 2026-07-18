@@ -11,12 +11,8 @@ enum LandingCoordinateSpace {
 enum LandingViewStateSync {
     static func sanitizedHomeContent(_ homeContent: UIState.HomeContent) -> UIState.HomeContent {
         switch homeContent {
-        case .agent:
-            ProductCapabilityPolicy.isAvailable(.june) ? .agent : .greeting
-        case .arxiv:
-            ProductCapabilityPolicy.isAvailable(.researchHub) ? .arxiv : .greeting
-        case .browser:
-            ProductCapabilityPolicy.isAvailable(.browser) ? .browser : .greeting
+        case .document(let selection):
+            .document(selection)
         case .greeting, .graph, .meeting:
             homeContent
         }
@@ -46,6 +42,75 @@ private enum LandingInlineCommand: Equatable {
     }
 }
 
+private struct LandingGraphDestinationTile: View {
+    let theme: EpistemosTheme
+    let reduceMotion: Bool
+    @State private var isHovering = false
+
+    private let accent = Color(hex: 0xD96B7E)
+
+    var body: some View {
+        PixelLandingCommandTile(
+            title: "graph",
+            shortcut: "\u{2318}G",
+            glyph: .graph,
+            theme: theme,
+            accent: accent,
+            haptic: .graph,
+            help: "Hover to choose Home Graph or Multitask Graph."
+        ) {
+            KnowledgeGraphShortcutDispatcher.showHomeGraph(reduceMotion: reduceMotion)
+        }
+        .overlay(alignment: .topLeading) {
+            if isHovering {
+                VStack(spacing: 4) {
+                    PixelLandingCommandTile(
+                        title: "Home Graph",
+                        shortcut: "\u{2318}G",
+                        glyph: .graph,
+                        theme: theme,
+                        accent: accent,
+                        haptic: .graph,
+                        help: "Open the graph embedded in Home."
+                    ) {
+                        KnowledgeGraphShortcutDispatcher.showHomeGraph(reduceMotion: reduceMotion)
+                    }
+                    PixelLandingCommandTile(
+                        title: "Multitask Graph",
+                        shortcut: "\u{21E7}\u{2318}G",
+                        glyph: .graph,
+                        theme: theme,
+                        accent: accent,
+                        haptic: .graph,
+                        help: "Open the graph in the Notes multitask tabs."
+                    ) {
+                        KnowledgeGraphShortcutDispatcher.openMultitaskGraph()
+                    }
+                }
+                .padding(6)
+                .frame(width: 228)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .strokeBorder(theme.glassBorder.opacity(0.55), lineWidth: 0.7)
+                }
+                .offset(y: 42)
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+                .zIndex(20)
+            }
+        }
+        .onHover { hovering in
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.14)) {
+                isHovering = hovering
+            }
+        }
+        .zIndex(isHovering ? 20 : 0)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Graph destinations")
+        .accessibilityHint("Choose Home Graph with Command G or Multitask Graph with Shift Command G")
+    }
+}
+
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with deliberate command tiles.
 
@@ -55,7 +120,7 @@ struct LandingView: View {
     private static let maxLandingPDFImportStatusRows = 12
     private static let maxLandingPDFImportStatusLineCharacters = 160
 
-    /// Shared blur-fade for surfaces embedded as home pages (Meeting/arXiv/Browser/…),
+    /// Shared blur-fade for surfaces embedded as home pages (Meeting/arXiv/…),
     /// matching the landing↔graph transition language.
     private static let homePageTransition: AnyTransition = .asymmetric(
         insertion: .modifier(
@@ -69,7 +134,6 @@ struct LandingView: View {
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(WorkspaceService.self) private var workspaceService
-    @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(GraphState.self) private var graphState
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(AmbientFrequencyPlaybackState.self) private var ambientPlayback
@@ -81,26 +145,12 @@ struct LandingView: View {
     @State private var welcomeBackDismissTask: Task<Void, Never>?
     @State private var welcomeBackSyncTask: Task<Void, Never>?
 
-    /// Simulation Mode v1.6 — sheet presentation state for the Farm
-    /// (creation wizard, delete confirmation, restore from trash).
-    /// Each is nil when not presented; non-nil triggers a `.sheet`
-    /// modifier on the body.
-    @State private var farmShowingCreate: Bool = false
-    @State private var farmEditTarget: CompanionRosterEntry? = nil
-    @State private var farmDeleteTarget: CompanionRosterEntry? = nil
-    @State private var farmShowingRestore: Bool = false
-
-    // Recent data for Daily Brief context
-    @Query(SDPage.recentDescriptor(limit: 50))
-    private var allPages: [SDPage]
-
     @State private var landingStageRevealFrame = 0
     @State private var landingStageRevealTask: Task<Void, Never>?
     @State private var landingGreetingReturnFrame = 4
     @State private var landingGreetingReturnTask: Task<Void, Never>?
     @State private var activeLandingInlineCommand: LandingInlineCommand?
     @State private var showingNewCodeFileSheet = false
-    @State private var showingArxivSearch = false
     @State private var landingFeatureStatusMessage: String?
     @State private var showingLandingFeatureStatus = false
     /// Owner 2026-07-03: live cursor position (landing-local) so the backdrop + greeting
@@ -112,25 +162,12 @@ struct LandingView: View {
     private var landingInlineCommandSurfaceTheme: EpistemosTheme {
         LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
     }
-    private var showingBrief: Bool { dailyBrief.showDailyBrief }
-    private var showingOverlay: Bool { showingBrief || showWelcomeBack }
+    private var showingOverlay: Bool { showWelcomeBack }
     private var showingLandingStageCommand: Bool {
         activeLandingInlineCommand != nil
     }
-    private var agentPageTitle: String {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        "June"
-        #else
-        "Agent"
-        #endif
-    }
     private var landingStageMinHeight: CGFloat {
         return activeLandingInlineCommand?.minStageHeight ?? 220
-    }
-
-    @ViewBuilder
-    private var agentSurface: some View {
-        JuneAgentSurfaceView()
     }
 
     // MARK: - Body
@@ -145,7 +182,12 @@ struct LandingView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     guard !showingOverlay else { return }
-                    if showingLandingStageCommand {
+                    if activeLandingInlineCommand == .quickCapture {
+                        NotificationCenter.default.post(
+                            name: .requestQuickCaptureDismissal,
+                            object: QuickCapturePresentationSlot.landingInline
+                        )
+                    } else if showingLandingStageCommand {
                         dismissLandingStageCommand()
                     }
                 }
@@ -155,8 +197,7 @@ struct LandingView: View {
             // ── Home Content Router (Phase 1 — embed-in-home) ──
             // When `ui.homeContent == .greeting` (default), the landing
             // shows the LiquidGreeting + command-hint dock as it always
-            // has. When the user presses Cmd+G AND
-            // `GraphState.graphViewLocation == .embedded`, this flips to
+            // has. When the user chooses Home Graph (Cmd+G), this flips to
             // `.graph` and we cross-fade the greeting OUT and the
             // embedded graph IN. Same Apple-spring used for both.
             switch ui.homeContent {
@@ -187,33 +228,16 @@ struct LandingView: View {
                         )
                     )
                     .zIndex(1)
+            case .document(let selection):
+                HomeDocumentWorkspaceView(selection: selection)
+                    .id(selection.identity)
+                    .transition(Self.homePageTransition)
+                    .zIndex(1)
             case .meeting:
                 // Feature surfaces embedded as home PAGES (owner: animate to a
                 // page in the home window, like the old chat) — not utility windows.
                 HomeEmbeddedPage(title: "Meeting") { MeetingNoteView() }
                     .transition(Self.homePageTransition).zIndex(1)
-            case .arxiv:
-                HomeEmbeddedPage(title: "arXiv") { ArxivSearchView() }
-                    .transition(Self.homePageTransition).zIndex(1)
-            case .browser:
-                HomeEmbeddedPage(title: "Browser") { BrowserView(initialAddress: ui.browserInitialURL) }
-                    .id(ui.browserInitialURL)
-                    .transition(Self.homePageTransition).zIndex(1)
-            case .agent:
-                HomeEmbeddedPage(title: agentPageTitle) {
-                    agentSurface
-                }
-                .transition(Self.homePageTransition).zIndex(1)
-            }
-
-            // Companion dock — hidden when the embedded graph is up so it
-            // doesn't compete with the graph's right-side inspector.
-            if ui.homeContent == .greeting && !showingLandingStageCommand {
-                landingCompanionDock
-                    .opacity(showingOverlay ? 0.45 : 1)
-                    .allowsHitTesting(!showingOverlay)
-                    .transition(.opacity)
-                    .zIndex(2)
             }
 
             if ui.homeContent == .greeting, ambientPlayback.isRunning {
@@ -233,33 +257,6 @@ struct LandingView: View {
                 .zIndex(2.5)
             }
 
-            if (farmShowingCreate || farmEditTarget != nil), let bootstrap = AppBootstrap.shared {
-                Color.clear
-                    .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture { dismissFarmCompanionEditor() }
-                    .zIndex(3.5)
-
-                CompanionCreationFlow(
-                    companionState: bootstrap.companionState,
-                    theme: theme,
-                    editingEntry: farmEditTarget,
-                    onDismiss: dismissFarmCompanionEditor
-                )
-                .transition(.opacity)
-                .zIndex(4)
-            }
-
-            // ── Daily Brief Mode ──
-            // Fades in on top of the blurred greeting.
-            if showingBrief {
-                dailyBriefContent
-                    // SS-ALIVE: blur-fade overlay (no .scale fold) — cohesive with the
-                    // app's one transition language (RootView Landing↔Chat / SS-AN homepage).
-                    .transition(.blurFade())
-                .zIndex(3)
-            }
-
             // ── Welcome Back Mode ──
             // Shows after workspace auto-restore with session summary.
             if showWelcomeBack, let info = presentedWelcomeBack {
@@ -273,7 +270,6 @@ struct LandingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .coordinateSpace(name: LandingCoordinateSpace.root)
         // SS-ALIVE: flat easeOut driver (no spring overshoot) to match the blur-fade feel.
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showingBrief)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: showWelcomeBack)
         // SS-AN: one flat, fast easeOut owns the home↔graph timing — no spring overshoot
         // (which popped) and no .scale (which folded the page). The greeting/buttons blur
@@ -287,34 +283,6 @@ struct LandingView: View {
             LandingViewStateSync.reassertHomeSurface(ui)
             registerLandingReadAloudProvider()
             scheduleWelcomeBackPresentationIfNeeded()
-            #if DEBUG && !EPISTEMOS_APP_STORE
-            // Repeatable agent-surface acceptance runs (Plan 1-PRO R7 phase
-            // checkpoints): jump straight to the Agent page when launched with
-            // EPISTEMOS_OPEN_AGENT_ON_LAUNCH=1. Debug-only, Pro-only.
-            if ProcessInfo.processInfo.environment["EPISTEMOS_OPEN_AGENT_ON_LAUNCH"] == "1",
-               ui.homeContent != .agent {
-                ui.homeContent = .agent
-            }
-            #endif
-        }
-        // Phase 1 — graphViewLocation mid-session flip handler. When the
-        // user changes Settings → Graph → Graph view location while the
-        // embedded graph is up, snap `ui.homeContent` back to `.greeting`
-        // so the next ⌘G press opens the newly-chosen host from a clean
-        // state. (If they flipped TO `.miniPanel`, the embedded graph
-        // would otherwise stay visible behind a new floating panel.)
-        .onReceive(
-            NotificationCenter.default.publisher(for: .graphViewLocationDidChange)
-        ) { _ in
-            if ui.homeContent == .graph {
-                withAnimation(
-                    reduceMotion
-                        ? nil
-                        : .spring(response: 0.42, dampingFraction: 0.84, blendDuration: 0.1)
-                ) {
-                    ui.homeContent = .greeting
-                }
-            }
         }
         .onChange(of: workspaceService.welcomeBack?.displayText ?? "") { _, _ in
             scheduleWelcomeBackSync()
@@ -358,11 +326,7 @@ struct LandingView: View {
                 .opacity(0)
                 .allowsHitTesting(false)
 
-            // Hidden ⌘G shortcut — graph toggle. Branches on
-            // `graphState.graphViewLocation`:
-            //   - `.miniPanel`: existing behavior (floating panel toggle)
-            //   - `.embedded`: flips `ui.homeContent` between
-            //     `.greeting` and `.graph` for the inline embed.
+            // Hidden ⌘G shortcut — explicit Home Graph toggle.
             Button(action: {
                 HapticHelper.homeCommand(.graph)
                 toggleGraphForCurrentLocation()
@@ -384,6 +348,13 @@ struct LandingView: View {
 
         }
         .onKeyPress(.escape) {
+            if activeLandingInlineCommand == .quickCapture {
+                NotificationCenter.default.post(
+                    name: .requestQuickCaptureDismissal,
+                    object: QuickCapturePresentationSlot.landingInline
+                )
+                return .handled
+            }
             if showingLandingStageCommand {
                 dismissLandingStageCommand()
                 return .handled
@@ -392,42 +363,12 @@ struct LandingView: View {
                 dismissWelcomeBack()
                 return .handled
             }
-            if showingBrief {
-                dailyBrief.dismissDailyBrief()
-                return .handled
-            }
             return .ignored
-        }
-        // Companion Farm sheets — destructive/restore actions still route through their own
-        // canonical state surface (CompanionState + SovereignGate).
-        .sheet(item: $farmDeleteTarget) { entry in
-            if let bootstrap = AppBootstrap.shared {
-                CompanionDeleteSheet(
-                    entry: entry,
-                    companionState: bootstrap.companionState,
-                    sovereignGate: bootstrap.sovereignGate,
-                    theme: theme,
-                    onDismiss: { farmDeleteTarget = nil }
-                )
-            }
-        }
-        .sheet(isPresented: $farmShowingRestore) {
-            if let bootstrap = AppBootstrap.shared {
-                CompanionRestoreSheet(
-                    companionState: bootstrap.companionState,
-                    sovereignGate: bootstrap.sovereignGate,
-                    theme: theme,
-                    onDismiss: { farmShowingRestore = false }
-                )
-            }
         }
         .sheet(isPresented: $showingNewCodeFileSheet) {
             CodeFileCreationSheet(theme: theme) { request in
                 createAndOpenCodeFile(request)
             }
-        }
-        .sheet(isPresented: $showingArxivSearch) {
-            ArxivSearchView()
         }
         .alert("Plan 3 Feature", isPresented: $showingLandingFeatureStatus) {
             Button("OK", role: .cancel) {}
@@ -444,36 +385,26 @@ struct LandingView: View {
 
     private func landingVisibleReadAloudText() -> String? {
         if showWelcomeBack, let info = presentedWelcomeBack {
-            let graph = info.graphWasOpen ? "open" : "off"
             return [
                 "Welcome Back.",
-                "\(info.noteCount) notes, \(info.chatCount) chats, graph \(graph), \(info.sessionMinutes) minute session.",
+                info.spokenSessionSummary,
                 info.displayText
             ]
             .joined(separator: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        if showingBrief {
-            let brief = dailyBrief.dailyBriefContent.trimmingCharacters(in: .whitespacesAndNewlines)
-            return brief.isEmpty ? "Daily Brief is loading." : "Daily Brief. \(brief)"
-        }
-
         var parts: [String] = []
         switch ui.homeContent {
         case .greeting:
             parts.append("Greetings, researcher.")
-            parts.append("Home shortcuts: PDF import, meeting, quick capture, workspaces, save workspace, time machine, notes, new note, new code, HTML workspace, and graph.")
+            parts.append("Home shortcuts: PDF import, meeting, quick capture, workspaces, save workspace, time machine, notes, Markdown dot m d, JSON document dot epdoc, new code, HTML workspace, and graph.")
         case .graph:
             parts.append("Knowledge graph home view. Explore note relationships, graph search, and node inspection.")
+        case .document:
+            parts.append("Home document view. The selected file is open in the Home workspace.")
         case .meeting:
             parts.append("Meeting notes view. Start recording to capture a live transcript.")
-        case .arxiv:
-            parts.append("arXiv search view. Search papers and save research into notes.")
-        case .browser:
-            parts.append("Browser view. Open a page and save it into notes.")
-        case .agent:
-            return nil
         }
 
         if let status = landingFeatureStatusMessage, showingLandingFeatureStatus {
@@ -643,7 +574,10 @@ struct LandingView: View {
         Group {
             switch command {
             case .quickCapture:
-                QuickCaptureView(isPresented: landingInlineCommandBinding(for: .quickCapture))
+                QuickCaptureView(
+                    isPresented: landingInlineCommandBinding(for: .quickCapture),
+                    presentationSlot: .landingInline
+                )
                     .frame(width: 560, height: 340)
             case .workspaces:
                 WorkspaceSwitcherOverlay(
@@ -664,7 +598,7 @@ struct LandingView: View {
 
     private var landingPixelCommands: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)],
+            columns: [GridItem(.adaptive(minimum: 188, maximum: 228), spacing: 8)],
             spacing: 8
         ) {
             PixelLandingCommandTile(
@@ -726,7 +660,7 @@ struct LandingView: View {
                 UtilityWindowManager.shared.show(.notes)
             }
             PixelLandingCommandTile(
-                title: "new note",
+                title: "Markdown (.md)",
                 shortcut: "\u{2318}N",
                 glyph: .document,
                 theme: theme,
@@ -735,6 +669,18 @@ struct LandingView: View {
                 help: "Create and open a new Markdown note.",
                 action: createAndOpenNote
             )
+            PixelLandingCommandTile(
+                title: "JSON Document (.epdoc)",
+                shortcut: "\u{2325}\u{2318}N",
+                glyph: .document,
+                theme: theme,
+                accent: Color(hex: 0x58A6A6),
+                haptic: .document,
+                help: "Create a standalone .epdoc package with canonical JSON content.",
+                action: createAndOpenEpdocDocument
+            )
+            .accessibilityLabel("New JSON Document (.epdoc)")
+            .accessibilityHint("Creates and opens a standalone JSON-backed Epdoc package")
             PixelLandingCommandTile(
                 title: "new code",
                 shortcut: "\u{2325}\u{2318}C",
@@ -756,16 +702,7 @@ struct LandingView: View {
                 help: "Build and live-preview an HTML/JS mini-app — no server needed.",
                 action: createAndOpenHTMLWorkspace
             )
-            PixelLandingCommandTile(
-                title: graphState.graphViewLocation == .embedded ? "home graph" : "graph",
-                shortcut: "\u{2318}G",
-                glyph: .graph,
-                theme: theme,
-                accent: Color(hex: 0xD96B7E),
-                haptic: .graph,
-                help: "See how your notes connect in an interactive knowledge graph.",
-                action: toggleGraphForCurrentLocation
-            )
+            LandingGraphDestinationTile(theme: theme, reduceMotion: reduceMotion)
         }
         .frame(maxWidth: 900)
     }
@@ -793,19 +730,9 @@ struct LandingView: View {
         switch feature {
         case .pdfImport:
             runLandingPDFImport()
-        case .arxiv:
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { ui.homeContent = .arxiv }
-        case .browser:
-            // Browser opens as a TAB sharing the note-workspace window (like
-            // HTMLWorkspace / code editor), not a home page. Owner 2026-07-03.
-            NoteWindowManager.shared.openBrowserTab()
         case .meetingNote:
             withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
                 ui.homeContent = .meeting
-            }
-        case .agent:
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                ui.homeContent = .agent
             }
         }
     }
@@ -918,31 +845,8 @@ struct LandingView: View {
         }
     }
 
-    private var landingCompanionDock: some View {
-        VStack {
-            HStack(alignment: .top) {
-                Spacer(minLength: 0)
-                if let bootstrap = AppBootstrap.shared {
-                    LandingFarmView(
-                        companionState: bootstrap.companionState,
-                        theme: theme,
-                        isAnimationActive: false,
-                        onCreate: presentFarmCompanionCreate,
-                        onOpenTrash: { farmShowingRestore = true },
-                        onRequestEdit: presentFarmCompanionEdit,
-                        onRequestDelete: { entry in farmDeleteTarget = entry }
-                    )
-                    .padding(.top, 24)
-                    .padding(.trailing, 28)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-    }
-
     private func showLandingInlineCommand(_ command: LandingInlineCommand) {
-        guard !showingBrief && !showWelcomeBack else { return }
+        guard !showWelcomeBack else { return }
         landingStageRevealFrame = 0
         landingGreetingReturnTask?.cancel()
         landingGreetingReturnTask = nil
@@ -1075,21 +979,6 @@ struct LandingView: View {
         }
     }
 
-    private func presentFarmCompanionCreate() {
-        farmEditTarget = nil
-        farmShowingCreate = true
-    }
-
-    private func presentFarmCompanionEdit(_ entry: CompanionRosterEntry) {
-        farmShowingCreate = false
-        farmEditTarget = entry
-    }
-
-    private func dismissFarmCompanionEditor() {
-        farmShowingCreate = false
-        farmEditTarget = nil
-    }
-
     // MARK: - Welcome Back Content
 
     private func welcomeBackContent(info: WelcomeBackInfo) -> some View {
@@ -1129,11 +1018,13 @@ struct LandingView: View {
                             value: "\(info.noteCount)",
                             title: "notes"
                         )
-                        welcomeBackStatPill(
-                            systemImage: "message",
-                            value: "\(info.chatCount)",
-                            title: "chats"
-                        )
+                        if let presentedChatCount = info.presentedChatCount {
+                            welcomeBackStatPill(
+                                systemImage: "message",
+                                value: "\(presentedChatCount)",
+                                title: "chats"
+                            )
+                        }
                         welcomeBackStatPill(
                             systemImage: "network",
                             value: info.graphWasOpen ? "on" : "off",
@@ -1301,7 +1192,9 @@ struct LandingView: View {
             }
             body += "## Stats\n"
             if info.noteCount > 0 { body += "- \(info.noteCount) notes open\n" }
-            if info.chatCount > 0 { body += "- \(info.chatCount) chats\n" }
+            if let presentedChatCount = info.presentedChatCount, presentedChatCount > 0 {
+                body += "- \(presentedChatCount) chats\n"
+            }
             if info.sessionMinutes > 0 { body += "- \(info.sessionMinutes) minutes\n" }
 
             if let pageId = await bootstrap.vaultSync.createPage(
@@ -1339,109 +1232,12 @@ struct LandingView: View {
         }
     }
 
-    // MARK: - Daily Brief Content (replaces greeting in-place)
-
-    private var dailyBriefContent: some View {
-        VStack(spacing: 0) {
-            // Title — app display font, centered under nav bar
-            Text("daily brief")
-                .font(AppDisplayTypography.font(size: 24))
-                .foregroundStyle(theme.fontAccent)
-                .shadow(color: theme.isDark ? theme.fontAccent.opacity(0.12) : .clear, radius: 8)
-                .padding(.top, 28)
-                .padding(.bottom, 4)
-
-            // Subtitle date
-            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(theme.mutedForeground.opacity(0.5))
-                .padding(.bottom, 16)
-
-            // Scrollable brief content
-            if dailyBrief.isDailyBriefLoading {
-                Spacer()
-                VStack(spacing: 14) {
-                    ProgressView()
-                        .controlSize(.regular)
-                        .tint(theme.fontAccent.opacity(0.6))
-                    Text("Scanning your notes & conversations…")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(theme.mutedForeground.opacity(0.4))
-                }
-                Spacer()
-            } else {
-                ScrollView {
-                    GenUIDispatcher.shared.render(dailyBriefPayload)
-                        .frame(maxWidth: 580, alignment: .leading)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 16)
-                }
-                .mask {
-                    VStack(spacing: 0) {
-                        LinearGradient(
-                            colors: [.clear, .black], startPoint: .top, endPoint: .bottom
-                        )
-                        .frame(height: 16)
-                        Rectangle()
-                        LinearGradient(
-                            colors: [.black, .clear], startPoint: .top, endPoint: .bottom
-                        )
-                        .frame(height: 24)
-                    }
-                }
-            }
-
-            // Action buttons row
-            HStack(spacing: 12) {
-                // Back button
-                Button {
-                    dailyBrief.dismissDailyBrief()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.left")
-                            .font(.system(size: 11, weight: .medium))
-                        Text("Back")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .foregroundStyle(theme.mutedForeground.opacity(0.5))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(theme.resolved.foreground.color.opacity(0.06)))
-                }
-                .buttonStyle(.plain)
-
-            }
-            .padding(.bottom, 24)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var dailyBriefPayload: GenUIPayload {
-        GenUIPayload.markdownCard(
-            title: "Daily Brief",
-            dailyBrief.dailyBriefContent,
-            id: "landing-daily-brief",
-            metadata: ["surface": "landing-daily-brief"]
-        )
-    }
-
     // MARK: - Actions
 
-    /// Cmd+G dispatcher. Branches on `graphState.graphViewLocation` so
-    /// the same hotkey opens whichever graph host the user has chosen
-    /// in Settings → Graph → Graph view location:
-    ///
-    ///   - `.miniPanel`: existing behavior — toggles the floating
-    ///     hologram overlay via `HologramController`.
-    ///   - `.embedded`: toggles `ui.homeContent` between `.greeting`
-    ///     and `.graph`, with a spring cross-fade animation.
-    ///
-    /// Phase 1 — when the user switches the setting mid-session, the
-    /// `graphViewLocationDidChange` notification observer wired in
-    /// `onAppear` snaps `ui.homeContent` back to `.greeting` so the
-    /// home window is in a known state before the next press.
+    /// Command-G is the explicit Home Graph shortcut. Shift-Command-G
+    /// opens Multitask Graph in the Notes tab workspace.
     private func toggleGraphForCurrentLocation() {
-        KnowledgeGraphShortcutDispatcher.toggle(reduceMotion: reduceMotion)
+        KnowledgeGraphShortcutDispatcher.openHomeGraph(reduceMotion: reduceMotion)
     }
 
     private func createAndOpenNote() {
@@ -1450,6 +1246,14 @@ struct LandingView: View {
                 vaultSync: vaultSync,
                 title: "New Note"
             )
+        }
+    }
+
+    private func createAndOpenEpdocDocument() {
+        do {
+            try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
+        } catch {
+            NSApplication.shared.presentError(error)
         }
     }
 
@@ -1484,9 +1288,4 @@ struct LandingView: View {
         showLandingInlineCommand(.quickCapture)
     }
 
-    // MARK: - Daily Brief Prompt
-
-    private func buildDailyBriefPrompt() -> String {
-        DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: [])
-    }
 }

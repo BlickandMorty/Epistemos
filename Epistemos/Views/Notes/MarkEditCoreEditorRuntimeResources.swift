@@ -7,7 +7,17 @@ enum MarkEditCoreEditorDocument {
               let configJSON = state.configJSON else {
             return fallbackHTML
         }
-        return template
+        let templateWithSourceTypography: String
+        if state.mode.usesMarkdownTypography {
+            templateWithSourceTypography = template.replacingOccurrences(
+                of: "</head>",
+                with: "\(MarkEditCoreEditorSourceTypography.bootstrapHTML)</head>"
+            )
+        } else {
+            templateWithSourceTypography = template
+        }
+
+        return templateWithSourceTypography
             .replacingOccurrences(of: "/chunk-loader/", with: "\(MarkEditCoreEditorBridge.chunkScheme)://")
             .replacingOccurrences(of: "\"{{EDITOR_CONFIG}}\"", with: configJSON)
             .replacingOccurrences(of: "\"{{USER_SETTINGS}}\"", with: "{}")
@@ -41,6 +51,8 @@ enum MarkEditCoreEditorDocument {
 }
 
 final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler {
+    private static let fontHost = "fonts"
+
     func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
         guard let url = urlSchemeTask.request.url,
               let relativePath = Self.relativePath(for: url),
@@ -73,13 +85,21 @@ final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler {
 
     private static func relativePath(for url: URL) -> String? {
         guard url.scheme == MarkEditCoreEditorBridge.chunkScheme,
-              let host = url.host,
-              host == "chunks" else { return nil }
+              let host = url.host else { return nil }
+        let resourceDirectory: String
+        switch host {
+        case "chunks":
+            resourceDirectory = "chunks"
+        case fontHost:
+            resourceDirectory = "Fonts"
+        default:
+            return nil
+        }
         let pathComponents = url.pathComponents
             .filter { $0 != "/" }
         guard !pathComponents.isEmpty,
               pathComponents.allSatisfy(Self.isSafeRelativePathComponent) else { return nil }
-        return ([host] + pathComponents).joined(separator: "/")
+        return ([resourceDirectory] + pathComponents).joined(separator: "/")
     }
 
     private static func fileURL(relativePath: String, filename: String) -> URL? {
@@ -150,6 +170,8 @@ final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler {
     private static let mimeTypes = [
         "js": "text/javascript",
         "css": "text/css",
+        "otf": "font/otf",
+        "ttf": "font/ttf",
         "woff2": "font/woff2",
     ]
 

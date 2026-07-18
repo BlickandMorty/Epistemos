@@ -225,7 +225,7 @@ struct VaultLifecycleResetTests {
 }
 
 private actor EmptyShadowSearch: ShadowSearchServicing {
-    func search(text: String, domain: ShadowDomain, limit: Int) async -> [ShadowHit] {
+    func search(text: String, limit: Int) async -> [ShadowHit] {
         []
     }
 }

@@ -398,7 +398,6 @@ extension ActivityTracker {
 
     /// Activity score for a specific page (0.0 to 1.0).
     /// Combines edit frequency, visit frequency, and recency of activity.
-    /// Used by WeightedContextEngine to boost nodes the user actively works on.
     func activityScore(for pageId: String) -> Double {
         let now = Date()
         let thirtyDaysAgo = now.addingTimeInterval(-30 * 24 * 3600)

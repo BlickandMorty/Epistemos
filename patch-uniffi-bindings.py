@@ -1,18 +1,51 @@
 #!/usr/bin/env python3
 """Patch UniFFI-generated Swift for SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor.
 
-Only four fixes needed:
+Only four general fixes are needed:
 1. pointer property -> nonisolated(unsafe) (deinit accesses it from nonisolated context)
 2. deinit body -> keep direct rustCall now that generated helpers are nonisolated,
    and snapshot the object pointer into a nonisolated(unsafe) local before free
 3. errorDescription -> nonisolated (generated LocalizedError conformances are otherwise main-actor isolated)
 4. declarations -> nonisolated/nonisolated(unsafe) so generated wrappers compile under Swift 6 default MainActor isolation
+
+Free V1 builds additionally neutralize the unused generated RuntimeKind case
+names. The Free V1 Swift backend is compiled out, but Swift otherwise retains
+those paid-runtime case names in executable reflection metadata.
 """
 
 import sys
 import re
 
-def patch_file(path):
+def neutralize_free_v1_runtime_kind(content):
+    pattern = re.compile(
+        r'nonisolated public enum RuntimeKind \{.*?'
+        r'nonisolated extension RuntimeKind: Equatable, Hashable \{\}',
+        flags=re.DOTALL,
+    )
+    match = pattern.search(content)
+    if match is None:
+        raise RuntimeError('generated RuntimeKind binding was not found')
+
+    section = match.group(0)
+    replacements = (
+        ('gguf', 'unavailable'),
+        ('mlx', 'reservedLocal'),
+        ('remote', 'reservedExternal'),
+    )
+    for original, replacement in replacements:
+        original_count = len(re.findall(rf'\b{original}\b', section))
+        replacement_count = len(re.findall(rf'\b{replacement}\b', section))
+        if original_count == 3 and replacement_count == 0:
+            section = re.sub(rf'\b{original}\b', replacement, section)
+        elif original_count != 0 or replacement_count != 3:
+            raise RuntimeError(
+                f'generated RuntimeKind.{original} binding shape changed'
+            )
+
+    return content[:match.start()] + section + content[match.end():]
+
+
+def patch_file(path, free_v1=False):
     with open(path) as f:
         content = f.read()
 
@@ -126,10 +159,17 @@ def patch_file(path):
                 flags=re.MULTILINE
             )
 
+    if free_v1:
+        content = neutralize_free_v1_runtime_kind(content)
+
     with open(path, 'w') as f:
         f.write(content)
 
 if __name__ == '__main__':
-    for path in sys.argv[1:]:
-        patch_file(path)
+    free_v1 = '--free-v1' in sys.argv[1:]
+    paths = [argument for argument in sys.argv[1:] if argument != '--free-v1']
+    if not paths:
+        raise SystemExit('usage: patch-uniffi-bindings.py [--free-v1] PATH...')
+    for path in paths:
+        patch_file(path, free_v1=free_v1)
         print(f'Patched: {path}')

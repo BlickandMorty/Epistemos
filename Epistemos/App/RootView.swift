@@ -213,6 +213,12 @@ struct RootView: View {
         ui.homeTab == .home && ui.homeContent == .graph
     }
 
+    private var homeDocumentContentVisible: Bool {
+        guard ui.homeTab == .home else { return false }
+        if case .document = ui.homeContent { return true }
+        return false
+    }
+
     private var embeddedHomeGraphCanvasVisible: Bool {
         embeddedHomeGraphContentVisible && graphState.currentRoute.isCanvas
     }
@@ -233,17 +239,6 @@ struct RootView: View {
         embeddedHomeGraphCanvasVisible
     }
 
-    /// MAS Agent-room pill (Plan 1-MAS §7).
-    private var showJuneAgentToolbarControls: Bool {
-        #if EPISTEMOS_APP_STORE
-        return ProductCapabilityPolicy.isAvailable(.june)
-            && ui.homeTab == .home
-            && ui.homeContent == .agent
-        #else
-        return false
-        #endif
-    }
-
     /// Canonical toolbar glass visibility — deterministic from app state.
     /// For non-Home tabs: always visible.
     /// For Home landing: always hidden.
@@ -253,6 +248,7 @@ struct RootView: View {
         if embeddedHomeGraphContentVisible {
             return embeddedHomeGraphNoteVisible
         }
+        if homeDocumentContentVisible { return true }
         return activeHomeChat && homeChatToolbarReady
     }
 
@@ -308,7 +304,6 @@ struct RootView: View {
             }
             if showLandingToolbarControls
                 || showEmbeddedGraphToolbarControls
-                || showJuneAgentToolbarControls
                 || (!embeddedHomeGraphContentVisible && activeHomeChat)
             {
                 ToolbarItem(placement: .principal) {
@@ -457,18 +452,6 @@ struct RootView: View {
 
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
-            #if EPISTEMOS_APP_STORE
-            if showJuneAgentToolbarControls {
-                JuneAgentNavBar(
-                    theme: ui.theme,
-                    onReturnHome: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                            ui.homeContent = .greeting
-                        }
-                    }
-                )
-            }
-            #endif
             if showLandingToolbarControls || showEmbeddedGraphToolbarControls {
                 // Keep the pill mounted on the graph — a principal ToolbarItem is load-bearing
                 // for the window's curved corners. Settings and greeting controls remain on
@@ -818,7 +801,7 @@ struct SetupView: View {
                 // "press me to start" — fades in after typing completes
                 Button {
                     withAnimation(Motion.smooth) {
-                        UserDefaults.standard.set(true, forKey: "epistemos.setupComplete")
+                        FoundationSafety.runtimeUserDefaults.set(true, forKey: "epistemos.setupComplete")
                         ui.needsSetup = false
                     }
                 } label: {
@@ -968,7 +951,13 @@ private struct RootWorkspaceEvents: ViewModifier {
     }
 
     private func handleEscapeKeyPress() -> KeyPress.Result {
-        if showQuickCapture { showQuickCapture = false; HomeWindowInputFocus.restoreAfterOverlayDismiss(); return .handled }
+        if showQuickCapture {
+            NotificationCenter.default.post(
+                name: .requestQuickCaptureDismissal,
+                object: QuickCapturePresentationSlot.rootOverlay
+            )
+            return .handled
+        }
         if showWorkspaceSwitcher { showWorkspaceSwitcher = false; return .handled }
         if showTimeMachine { showTimeMachine = false; return .handled }
         return .ignored
@@ -983,7 +972,10 @@ private struct RootWorkspaceEvents: ViewModifier {
             TimeMachineView(isPresented: $showTimeMachine)
         }
         if showQuickCapture {
-            QuickCaptureView(isPresented: $showQuickCapture)
+            QuickCaptureView(
+                isPresented: $showQuickCapture,
+                presentationSlot: .rootOverlay
+            )
         }
     }
 

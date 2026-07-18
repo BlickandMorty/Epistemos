@@ -32,7 +32,7 @@ nonisolated enum KokoroVoicePackageInstaller {
         from selectedURL: URL,
         modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
         fileManager: FileManager = .default,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = FoundationSafety.runtimeUserDefaults
     ) throws -> InstallResult {
         KokoroVoiceGateStatus.invalidateDefaultStatusCache()
         let previousOverride = FeatureGateOverride.value(forKey: KokoroVoiceGateStatus.flagName, defaults: defaults)

@@ -16,6 +16,7 @@ final class AppGroupContainer {
     private let fileManager: FileManager
     private let legacyBaseURL: URL
     private let containerURLProvider: (String) -> URL?
+    private let processInfoEnvironment: [String: String]
 
     init(
         groupIdentifier: String = AppGroupContainer.canonicalGroupIdentifier,
@@ -23,12 +24,14 @@ final class AppGroupContainer {
         legacyBaseURL: URL? = nil,
         containerURLProvider: @escaping (String) -> URL? = {
             FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0)
-        }
+        },
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) {
         self.groupIdentifier = groupIdentifier
         self.fileManager = fileManager
         self.legacyBaseURL = legacyBaseURL ?? Self.defaultLegacyBaseURL(fileManager: fileManager)
         self.containerURLProvider = containerURLProvider
+        self.processInfoEnvironment = processInfoEnvironment
     }
 
     private static func defaultLegacyBaseURL(fileManager: FileManager) -> URL {
@@ -38,11 +41,36 @@ final class AppGroupContainer {
     }
 
     var containerURL: URL? {
-        containerURLProvider(groupIdentifier)
+        if let auditRuntimeRootURL {
+            return auditRuntimeRootURL
+        }
+        guard !FoundationSafety.isRunningTests(
+            processInfoEnvironment: processInfoEnvironment
+        ) else {
+            return nil
+        }
+        return containerURLProvider(groupIdentifier)
     }
 
     var rootURL: URL {
         containerURL ?? legacyBaseURL
+    }
+
+    private var auditRuntimeRootURL: URL? {
+        switch FoundationSafety.auditRuntimeIsolationRequestState(
+            fileManager: fileManager,
+            processInfoEnvironment: processInfoEnvironment
+        ) {
+        case .notRequested:
+            return nil
+        case .requestedButInvalid:
+            preconditionFailure("Runtime-audit App Group isolation is incomplete or invalid")
+        case .active:
+            return FoundationSafety.auditRuntimeAppGroupDirectory(
+                fileManager: fileManager,
+                processInfoEnvironment: processInfoEnvironment
+            )
+        }
     }
 
     var arenaURL: URL {
@@ -127,6 +155,10 @@ final class AppGroupContainer {
     }
 
     func migrateLegacyDatabasesIfNeeded() throws {
+        if auditRuntimeRootURL != nil {
+            try ensureLayout()
+            return
+        }
         guard containerURL != nil else { return }
         try ensureLayout()
 

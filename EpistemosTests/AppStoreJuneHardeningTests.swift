@@ -3,45 +3,6 @@ import Testing
 
 @Suite("App Store June hardening")
 struct AppStoreJuneHardeningTests {
-    @Test("App Store Goose agent_core stream uses bounded buffering")
-    func appStoreGooseAgentCoreStreamUsesBoundedBuffering() throws {
-        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
-        let acpServer = try loadMirroredSourceTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
-        let runnerBody = try #require(AppStoreJuneSourceGuard.sourceSection(
-            in: runner,
-            startingAt: "func streamGooseMASAgentCoreRun(",
-            endingBefore: "private final class GooseMASAgentCoreDelegate"
-        ))
-        let acpVaultPath = try #require(AppStoreJuneSourceGuard.sourceSection(
-            in: acpServer,
-            startingAt: "private func vaultPathForAgentCore() -> String",
-            endingBefore: "private func ensureThirdPartyAIConsentForPrompt"
-        ))
-
-        #expect(
-            runner.contains("GooseMASAgentCoreVaultPaths.fallbackScratchPath")
-                && runner.contains(".applicationSupportDirectory")
-                && runner.contains("agent-core-scratch")
-                && !runner.contains("NSHomeDirectory()"),
-            "MAS agent_core must never default an empty vault path to the user's home directory."
-        )
-        #expect(
-            acpVaultPath.contains("GooseMASAgentCoreVaultPaths.fallbackScratchPath"),
-            "The older Goose ACP path must share the same Application Support scratch fallback as the MAS runner."
-        )
-        #expect(
-            runnerBody.contains("AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256))"),
-            "MAS agent_core event streams must be bounded; unbounded streams can retain hostile or runaway cloud/tool deltas."
-        )
-        #expect(runner.contains("case outputBackpressure"))
-        #expect(runnerBody.contains("case .dropped:"))
-        #expect(runnerBody.contains("GooseMASAgentCoreStreamError.outputBackpressure"))
-        #expect(runnerBody.contains("cancelAgentSession(sessionId: sessionID)"))
-        #expect(runner.contains("private var streamTerminated = false"))
-        #expect(runner.contains("private let emitEvent: @Sendable (GooseMASAgentCoreRunEvent) -> Bool"))
-        #expect(runner.contains("func emit(_ event: GooseMASAgentCoreRunEvent) -> Bool"))
-    }
-
     @Test("June WebView recovery gates bridge JavaScript and cancels orphaned turns")
     func juneWebContentRecoveryIsLoadAndNavigationGuarded() throws {
         let surface = try loadMirroredSourceTextFile(
@@ -86,43 +47,6 @@ struct AppStoreJuneHardeningTests {
         #expect(surface.contains("generation == self.bridgeJavaScriptDispatchGeneration"))
         #expect(surface.contains("resetBridgeJavaScriptDispatch()"))
         #expect(surface.contains("recoverAfterBridgeJavaScriptFailure(in: webView"))
-    }
-
-    @Test("App Store June parks legacy AgentWorkspace session but keeps shared approval gate")
-    func appStoreJuneParksLegacyAgentWorkspaceSession() throws {
-        let agentWorkspace = try loadMirroredSourceTextFile("Epistemos/AgentWorkspace/AgentWorkspaceSession.swift")
-        let agentRuntimeSupport = try loadMirroredSourceTextFile("Epistemos/AgentSurface/AgentSurfaceRuntimeSupport.swift")
-        let juneApproval = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentApprovalRegistry.swift")
-        let legacyGuard = try #require(agentWorkspace.range(of: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
-        let legacyGuardEnd = try #require(agentWorkspace.range(
-            of: "#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- legacy AgentWorkspaceSession parked in MAS"
-        ))
-        let approvalGate = try #require(agentWorkspace.range(of: "nonisolated final class AgentApprovalGate"))
-        let guardedLegacySession = String(agentWorkspace[legacyGuard.lowerBound..<legacyGuardEnd.lowerBound])
-
-        #expect(
-            guardedLegacySession.contains("final class AgentWorkspaceSession")
-                && guardedLegacySession.contains("GooseMASAgentCoreRunner()")
-                && guardedLegacySession.contains("func start(objective rawObjective: String, vaultPath: String)")
-                && guardedLegacySession.contains("transcripts.json"),
-            "The old native AgentWorkspace transcript/runner surface must be compiled out of MAS builds."
-        )
-        #expect(
-            legacyGuardEnd.lowerBound < approvalGate.lowerBound,
-            "The small approval gate must remain outside the legacy-session guard so MAS June can still block on tool approvals."
-        )
-        #expect(
-            juneApproval.contains("private let gate = AgentApprovalGate()")
-                && juneApproval.hasPrefix("#if EPISTEMOS_APP_STORE"),
-            "MAS June should be the only App Store surface using the shared approval gate."
-        )
-        #expect(
-            agentRuntimeSupport.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\nimport Darwin")
-                && agentRuntimeSupport.contains("AgentSurfaceRuntimeSupport")
-                && agentRuntimeSupport.contains("allocateLoopbackPort")
-                && agentRuntimeSupport.contains("resolvedNodeBinary"),
-            "Shared agent-surface runtime support allocates loopback ports and resolves node; it must be parked for either MAS compile flag."
-        )
     }
 
     @Test("App Store June parks Google OAuth loopback callback server")
@@ -541,7 +465,6 @@ struct AppStoreJuneHardeningTests {
     func appStoreJuneMASToolPolicyIsSingleSwiftAllowlistAuthority() throws {
         let policy = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneMASToolPolicy.swift")
         let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
-        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
         let allowlist = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: policy,
             startingAt: "static let allowedAgentToolNames: [String] = {",
@@ -590,12 +513,6 @@ struct AppStoreJuneHardeningTests {
             "The MAS June tool policy must fail closed if a future allowlist edit adds parked runtime/tool names without materializing prohibited artifact strings."
         )
         #expect(
-            runner.contains("private static let allowedMASTools = JuneMASToolPolicy.allowedAgentToolNames")
-                && runner.contains("allowedToolNames: Self.allowedMASTools")
-                && !runner.contains(#"private static let allowedMASTools = ["#),
-            "The in-process agent_core runner must consume the shared MAS June tool policy instead of carrying its own literal list."
-        )
-        #expect(
             gateway.contains("private nonisolated static let observableCompositionTools = JuneMASToolPolicy.allowedObservableCompositionToolNames")
                 && gateway.contains("JuneMASToolPolicy.isAllowedAgentToolName(name)")
                 && !gateway.contains(#"private nonisolated static let observableCompositionTools: Set<String> = ["#),
@@ -603,14 +520,9 @@ struct AppStoreJuneHardeningTests {
         )
     }
 
-    @Test("App Store Settings hides extension installer and hosted MCP preset routes")
-    func appStoreSettingsHideExtensionInstallerAndHostedMCPPresets() throws {
+    @Test("App Store Settings has no extension installer or hosted MCP route")
+    func appStoreSettingsHasNoExtensionInstallerOrHostedMCPRoute() throws {
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        let extensions = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
-        let skills = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SkillsSettingsView.swift")
-        let cliDiscovery = try loadMirroredSourceTextFile("Epistemos/Views/Settings/CLIDiscoveryHealthRow.swift")
-        let preset = try loadMirroredSourceTextFile("Epistemos/Omega/BestOfPreset.swift")
-        let presetManifest = try loadMirroredSourceTextFile("Epistemos/Resources/best_of_preset.json")
 
         let visibleSections = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: settings,
@@ -627,54 +539,19 @@ struct AppStoreJuneHardeningTests {
             startingAt: "private var settingsDetail: some View",
             endingBefore: "private func toggleSidebar"
         ))
-        let context7Fallback = try #require(AppStoreJuneSourceGuard.sourceSection(
-            in: preset,
-            startingAt: #"id: "context7""#,
-            endingBefore: #"id: "anthropic-skills""#
-        ))
-        let context7Manifest = try #require(AppStoreJuneSourceGuard.sourceSection(
-            in: presetManifest,
-            startingAt: #""id": "context7""#,
-            endingBefore: #""id": "anthropic-skills""#
-        ))
 
         #expect(
-            visibleSections.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
-                && visibleSections.contains("sections.insert(.skills, at: 3)")
-                && !visibleSections.contains(#"                .skills,"#),
+            !visibleSections.contains(".skills"),
             "App Store Settings must not include Extensions in the unconditional sidebar list."
         )
         #expect(
-            safeSelection.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX")
-                && safeSelection.contains("if section == .skills")
-                && safeSelection.contains("return .general"),
+            safeSelection.contains("return visibleSections.contains(section) ? section : .general"),
             "Deep links to Extensions must resolve to a MAS-safe settings section in App Store builds."
         )
         #expect(
-            settingsDetail.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX")
-                && settingsDetail.contains("case .skills: GeneralDetailView()")
-                && settingsDetail.contains("#else")
-                && settingsDetail.contains("case .skills: ExtensionsDetailView()"),
+            settingsDetail.contains("case .skills: GeneralDetailView()")
+                && !settingsDetail.contains("ExtensionsDetailView"),
             "The MAS settings detail switch must not reference the extension installer view as the active .skills destination."
-        )
-        #expect(
-            extensions.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
-                && skills.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
-            "Extension and skill installer settings views must be compile-excluded from MAS builds."
-        )
-        #expect(
-            cliDiscovery.hasPrefix("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
-                && cliDiscovery.contains("/usr/local/bin/codex")
-                && cliDiscovery.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .hasSuffix("#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
-            "CLI discovery settings probes must be compile-excluded for either MAS flag so CLI paths do not enter MAS artifacts."
-        )
-        #expect(
-            context7Fallback.contains("minDistribution: .proResearch")
-                && !context7Fallback.contains("minDistribution: .coreAppStore")
-                && context7Manifest.contains(#""minDistribution": "proResearch""#)
-                && !context7Manifest.contains(#""minDistribution": "coreAppStore""#),
-            "Hosted URL MCP presets must stay Pro-only so App Store builds cannot install a second tool authority."
         )
     }
 
@@ -922,13 +799,10 @@ struct AppStoreJuneHardeningTests {
     @Test("App Store compile-parks Goose ACP local server but keeps June agent_core runner")
     func appStoreCompileParksGooseACPLocalServer() throws {
         let goose = try loadMirroredSourceTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
-        let runner = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreRunner.swift")
         let acpClient = try loadMirroredSourceTextFile("Epistemos/Goose/GooseACPClient.swift")
         let providerKeyBridge = try loadMirroredSourceTextFile("Epistemos/Goose/GooseProviderKeyBridge.swift")
         let masSupervisor = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASRuntimeSupervisor.swift")
         let directSupervisor = try loadMirroredSourceTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
-        let gateway = try loadMirroredSourceTextFile("Epistemos/JuneAgent/JuneAgentGateway.swift")
-        let slug = try loadMirroredSourceTextFile("Epistemos/Goose/GooseMASAgentCoreProviderSlug.swift")
         let serverGuard = try #require(goose.range(of: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
         let serverClass = try #require(goose.range(
             of: "nonisolated final class GooseInProcessACPServer",
@@ -940,17 +814,6 @@ struct AppStoreJuneHardeningTests {
             endingBefore: "#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"
         ))
 
-        #expect(
-            runner.contains("nonisolated final class GooseMASAgentCoreRunner")
-                && runner.contains("allowedToolNames: Self.allowedMASTools")
-                && runner.contains("runAgentSession(")
-                && !runner.contains("import Network")
-                && !runner.contains("NWListener")
-                && !runner.contains("GooseInProcessACPHTTPRequest")
-                && !runner.contains("GooseInProcessACPFraming")
-                && !runner.contains("nonisolated final class GooseInProcessACPServer"),
-            "MAS June must keep the agent_core runner in a MAS-safe source file, not the ACP local HTTP/WebSocket server file."
-        )
         #expect(
             serverGuard.lowerBound < serverClass.lowerBound
                 && goose.contains("nonisolated enum GooseInProcessACPFraming")
@@ -987,29 +850,27 @@ struct AppStoreJuneHardeningTests {
                 && directSupervisorBranch.contains("Process()"),
             "Direct Goose subprocess and ACP URL construction must stay behind the non-MAS supervisor branch."
         )
-        #expect(
-            slug.contains("nonisolated enum GooseMASAgentCoreProviderSlug")
-                && slug.contains("ACP loopback server")
-                && gateway.contains("GooseMASAgentCoreProviderSlug.resolve")
-                && !gateway.contains("GooseInProcessACPServer.agentCoreSlug"),
-            "June must use the MAS-safe provider slug helper instead of depending on the parked ACP server class."
-        )
     }
 
-    @Test("App Store HTML Workspace regenerate remains parked away from Goose runtime")
-    func appStoreHTMLWorkspaceRegenerateRemainsParkedAwayFromGooseRuntime() throws {
+    @Test("Free V1 HTML Workspace regenerate stays hidden and cannot execute")
+    func freeV1HTMLWorkspaceRegenerateStaysHiddenAndCannotExecute() throws {
         let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
         let regeneration = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorRegeneration.swift")
 
         let toolbarRegenerate = try #require(AppStoreJuneSourceGuard.sourceSection(
             in: editor,
-            startingAt: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n            Button {\n                openRegenerateSheet()",
+            startingAt: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n            if ProductCapabilityPolicy.allowsHTMLWorkspaceRegeneration {\n                Button {\n                    openRegenerateSheet()",
             endingBefore: "Menu {"
         ))
         #expect(
-            toolbarRegenerate.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)")
+            toolbarRegenerate.contains("if ProductCapabilityPolicy.allowsHTMLWorkspaceRegeneration {")
                 && toolbarRegenerate.contains("Label(\"Regenerate\", systemImage: isRegenerating ? \"hourglass\" : \"wand.and.sparkles\")"),
-            "The HTML Workspace Regenerate button must stay out of App Store/MAS Sandbox builds."
+            "The HTML Workspace Regenerate button must stay out of Free V1 even outside the App Store compile lane."
+        )
+        #expect(
+            editor.contains("private var regenerateSheetBinding: Binding<Bool>")
+                && editor.contains(".sheet(isPresented: regenerateSheetBinding)"),
+            "A stale programmatic state change must not present the paid regenerate sheet in Free V1."
         )
 
         for marker in [
@@ -1018,6 +879,10 @@ struct AppStoreJuneHardeningTests {
             "func runRegeneratePreset(",
             "func beginRegenerateSurfaceAttachingContextIfNeeded(",
             "func beginRegenerateSurface(instructionOverride:",
+            "func copyRegeneratePrompt()",
+            "func previewRegenerateStreamText()",
+            "func applyPendingRegeneratePreview()",
+            "func applyRegenerateStreamText()",
         ] {
             let body = try #require(AppStoreJuneSourceGuard.sourceSection(
                 in: regeneration,
@@ -1025,10 +890,9 @@ struct AppStoreJuneHardeningTests {
                 endingBefore: "\n    func "
             ))
             #expect(
-                body.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX")
-                    && body.contains("parkRegenerateForAppStoreBuild()")
-                    && body.contains("#else"),
-                "\(marker) must park immediately in App Store/MAS Sandbox builds before any Goose-backed regenerate work can run."
+                body.contains("guard ProductCapabilityPolicy.allowsHTMLWorkspaceRegeneration else {")
+                    && body.contains("parkRegenerateForUnavailableEdition()"),
+                "\(marker) must park immediately when the paid regeneration capability is unavailable."
             )
         }
 
@@ -1037,15 +901,32 @@ struct AppStoreJuneHardeningTests {
             startingAt: "func beginRegenerateSurface(instructionOverride:",
             endingBefore: "func clearPendingRegeneratePreview()"
         ))
-        let parkRange = try #require(beginSurface.range(of: "parkRegenerateForAppStoreBuild()"))
+        let parkRange = try #require(beginSurface.range(of: "parkRegenerateForUnavailableEdition()"))
         let streamRange = try #require(beginSurface.range(of: "gooseRegenerator.streamRegeneration("))
         #expect(
             parkRange.lowerBound < streamRange.lowerBound,
-            "The MAS parking branch must precede the Goose-backed stream path in beginRegenerateSurface."
+            "The Free V1 capability guard must precede the Goose-backed stream path in beginRegenerateSurface."
         )
         #expect(
-            regeneration.contains("HTML Workspace regenerate is parked in the App Store build. Use MAS June / Epdoc Assist."),
-            "Parking copy should explicitly point App Store users back to the MAS June surface."
+            regeneration.contains("HTML Workspace regenerate is reserved for a future paid edition."),
+            "Free V1 should state the honest paid-edition boundary without pointing users to another hidden AI surface."
+        )
+    }
+
+    @Test("Free V1 debug launch cannot request the hidden agent page")
+    func freeV1DebugLaunchCannotRequestHiddenAgentPage() throws {
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let debugLaunch = try #require(AppStoreJuneSourceGuard.sourceSection(
+            in: landing,
+            startingAt: "#if DEBUG && !EPISTEMOS_APP_STORE",
+            endingBefore: "#endif"
+        ))
+
+        #expect(
+            debugLaunch.contains("if ProductCapabilityPolicy.isAvailable(.june),")
+                && debugLaunch.contains("EPISTEMOS_OPEN_AGENT_ON_LAUNCH")
+                && debugLaunch.contains("ui.homeContent = .agent"),
+            "The debug-only agent launch switch must obey the same paid June policy as the landing route."
         )
     }
 
@@ -1084,12 +965,14 @@ struct AppStoreJuneHardeningTests {
                 && !nav.contains("UtilityWindowManager.shared.show(.notes)"),
             "June should use the AppKit NSPopover path for this toolbar affordance, not the detached utility NSPanel."
         )
-        let mainChatMentions = try loadMirroredSourceTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
+        let retiredMainChatMentionsURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/Views/Chat/NotesMentionDropdown.swift")
         #expect(
-            mainChatMentions.contains("private let popover = NSPopover()")
-                && mainChatMentions.contains("popover.behavior = .semitransient")
+            !FileManager.default.fileExists(atPath: retiredMainChatMentionsURL.path)
                 && nav.contains("behavior: .semitransient"),
-            "The June Notes popover should match the regular chat native NSPopover dismissal behavior."
+            "The retired chat reference popover must stay absent while the independent June Notes popover keeps its native dismissal behavior."
         )
         #expect(
             nav.contains("@State private var speech = EpistemosSpeechSynthesizer.shared")

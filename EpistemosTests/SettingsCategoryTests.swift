@@ -9,7 +9,6 @@ struct SettingsCategoryTests {
         var labels = [
             "Capture",
             "Graph",
-            "Automation",
         ]
         labels += [
             "Privacy & Storage",
@@ -23,14 +22,10 @@ struct SettingsCategoryTests {
             .general,
             .ambientFrequencies,
             .voice,
-            .skills,
-            .cloudModels,
             .landing,
             .appearance,
             .vault,
             .privacy,
-            .provenance,
-            .substrateHealth,
         ]
         return sections
     }
@@ -65,22 +60,20 @@ struct SettingsCategoryTests {
             .ambientFrequencies: .capture,
             .voice: .capture,
             .appearance: .graph,
-            .skills: .automation,
-            .cloudModels: .automation,
             .vault: .privacyStore,
             .privacy: .privacyStore,
-            .provenance: .privacyStore,
             .general: .advanced,
-            .substrateHealth: .advanced,
         ]
         for (section, category) in expected {
             #expect(section.category == category, "\(section.rawValue) should map to \(category.rawValue)")
         }
     }
 
-    @Test("old native AI settings do not leak back into visible settings")
-    func oldNativeAISettingsDoNotLeakBackIntoVisibleSettings() throws {
+    @Test("stale agent, substrate, and deferred settings do not leak back into Settings")
+    func staleSettingsDoNotLeakBackIntoSettings() throws {
         let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let powerGuard = try loadMirroredSourceTextFile("Epistemos/State/PowerGuard.swift")
+        let config = try loadMirroredSourceTextFile("Epistemos/State/EpistemosConfig.swift")
         #expect(!settingsSource.contains("ExperimentalFeaturesSettingsPanel"))
         #expect(!settingsSource.contains("case experimentalFeatures"))
         #expect(!settingsSource.contains("ModelVaultsSettingsView"))
@@ -90,16 +83,26 @@ struct SettingsCategoryTests {
         #expect(!settingsSource.contains("CognitiveSettingsSection"))
         #expect(!settingsSource.contains("ChannelsSettingsView"))
         #expect(!settingsSource.contains("NightBrain"))
+        #expect(!settingsSource.contains("SubstrateHealthPanel()"))
+        #expect(!settingsSource.contains("RuntimeLanesSection()"))
+        #expect(!settingsSource.contains("PerformanceSettingsSection()"))
+        #expect(!settingsSource.contains("Section(\"Diagnostics\")"))
+        #expect(!settingsSource.contains("Eco Mode"))
+        #expect(!powerGuard.contains("ecoModeEnabled"))
+        #expect(!powerGuard.contains("case eco"))
+        #expect(!config.contains("epistemos.ecoMode"))
     }
 
-    @Test("foundation panel is the only advanced native-IP diagnostics surface")
-    func foundationPanelIsOnlyAdvancedNativeIPDiagnosticsSurface() throws {
-        let panel = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
-        #expect(panel.contains("Epistemos Foundation"))
-        #expect(panel.contains("MAS-safe June bridges"))
-        #expect(panel.contains("June Tools and Safety"))
-        #expect(panel.contains("Skills, Tools, and MCP"))
-        #expect(panel.contains("Halo, Shadow, and Fast Search"))
+    @Test("legacy deep links resolve to General instead of exposing retired settings")
+    func legacySettingsDeepLinksResolveToGeneral() {
+        for section in [
+            SettingsView.SettingsSection.skills,
+            .cloudModels,
+            .provenance,
+            .substrateHealth,
+        ] {
+            #expect(SettingsView.SettingsSection.safeDetailSelection(for: section) == .general)
+        }
     }
 
     @Test("disconnected vault diagnostics close Halo and label cached rows honestly")

@@ -336,8 +336,8 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
-    @Test("Note window theme refresh keeps native chrome when custom themes are disabled")
-    func noteWindowThemeRefreshKeepsNativeChromeWhenThemesDisabled() throws {
+    @Test("Note window theme refresh keeps native chrome for preset themes")
+    func noteWindowThemeRefreshKeepsNativeChromeForPresetThemes() throws {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -430,7 +430,7 @@ struct NoteWindowManagerTests {
                 })
             )
 
-            uiState.setCustomThemesEnabled(false)
+            uiState.setPair(.classic)
             NoteWindowThemeStyler.apply(to: window, uiState: uiState)
 
             #expect(window.appearance == nil)

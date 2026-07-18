@@ -14,12 +14,10 @@ struct TOCItem: Identifiable, Equatable, Sendable {
         case citation
         case source
         case block   // KnowledgeCore block-outline row (every block, not just headings)
-        case notebookTab(tabID: String)
-        case embed(referenceID: String, type: String)
 
         var isPrimaryOutlineItem: Bool {
             switch self {
-            case .heading, .notebookTab, .embed:
+            case .heading:
                 true
             case .citation, .source, .block:
                 false
@@ -36,10 +34,6 @@ struct TOCItem: Identifiable, Equatable, Sendable {
                 "link"
             case .block:
                 "square.stack.3d.up"
-            case .notebookTab:
-                "rectangle.on.rectangle"
-            case .embed:
-                "point.3.connected.trianglepath.dotted"
             }
         }
     }
@@ -76,49 +70,10 @@ enum TOCParser {
             charOffset += line.utf16.count + 1 // +1 for newline
         }
 
-        items.append(contentsOf: notebookNavigationItems(in: markdown))
         return items.sorted { lhs, rhs in
             if lhs.charOffset == rhs.charOffset { return lhs.level < rhs.level }
             return lhs.charOffset < rhs.charOffset
         }
-    }
-
-    nonisolated static func notebookNavigationItems(in markdown: String) -> [TOCItem] {
-        var items: [TOCItem] = []
-        let manifest = EpdocNotebookManifest.parse(in: markdown)
-        if manifest.hasReferenceTabs {
-            items.append(
-                TOCItem(
-                    level: 1,
-                    title: EpdocNotebookManifest.bodyTab.title,
-                    charOffset: 0,
-                    kind: .notebookTab(tabID: EpdocNotebookManifest.bodyTabID)
-                )
-            )
-            for tab in manifest.tabs {
-                items.append(
-                    TOCItem(
-                        level: 1,
-                        title: tab.title,
-                        charOffset: tab.charOffset,
-                        kind: .notebookTab(tabID: tab.id)
-                    )
-                )
-            }
-        }
-
-        for embed in EpdocNotebookReferenceParser.blockEmbeds(in: markdown) {
-            items.append(
-                TOCItem(
-                    level: 2,
-                    title: embed.title,
-                    charOffset: embed.charOffset,
-                    kind: .embed(referenceID: embed.id, type: embed.kind.rawValue)
-                )
-            )
-        }
-
-        return items
     }
 
     /// Extract headings from rich text by scanning font sizes.

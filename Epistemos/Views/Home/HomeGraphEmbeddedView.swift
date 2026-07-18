@@ -10,11 +10,10 @@ import SwiftUI
 // search sidebar + node inspector + floating controls + FPS HUD) inline
 // inside the home/landing window, replacing the LiquidGreeting whenever:
 //
-//   - `GraphState.graphViewLocation == .embedded` AND
-//   - `UIState.homeContent == .graph`
+//   - the user explicitly chooses Home Graph, setting `UIState.homeContent == .graph`
 //
-// Both conditions are toggled together by the `Cmd+G` hotkey when the
-// user has chosen embedded mode via Settings → Graph → Graph performance.
+// Command-G selects this Home destination; Shift-Command-G selects the
+// Multitask host in the Notes tab group.
 //
 // Why this lives in `Views/Home/` not `Views/Graph/`:
 // `Views/Graph/*` is the floating-panel chrome (HologramOverlay-owned
@@ -30,9 +29,6 @@ import SwiftUI
 //   - `GraphState` is the singleton — physics, routes, force config,
 //     cursor force, FPS measurements all flow through the same instance.
 //   - The Metal engine is created per-instance of `MetalGraphNSView`.
-//     Because `GraphState.graphViewLocation` picks exactly one mode at a
-//     time and the inactive mode is torn down, only one engine is ever
-//     allocated + rendering at any moment.
 //
 // What's TAILORED for the embedded surface:
 //   - The resolved background token fills the backdrop (NOT NSVisualEffectView).
@@ -46,14 +42,20 @@ import SwiftUI
 //
 // See `Epistemos/Views/Landing/LandingView.swift` for the content
 // router that mounts this view, and `Epistemos/Graph/GraphState.swift`
-// for the `GraphViewLocation` enum + persistence.
+// for explicit Home Graph and Multitask Graph commands.
 
 @MainActor
 struct HomeGraphEmbeddedView: View {
+    enum Host: Equatable {
+        case home
+        case multitask
+    }
+
+    let host: Host
+
     @Environment(GraphState.self) private var graphState
     @Environment(QueryEngine.self) private var queryEngine
     @Environment(UIState.self) private var ui
-    @Environment(InferenceState.self) private var inference
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -69,7 +71,13 @@ struct HomeGraphEmbeddedView: View {
     @State private var embeddedCanvasReady = false
     @State private var embeddedCanvasStartTask: Task<Void, Never>?
 
-    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
+    init(host: Host = .home) {
+        self.host = host
+    }
+
+    private var theme: EpistemosTheme {
+        host == .home ? ui.theme.surfaceVariant(.landing) : ui.theme.surfaceVariant(.other)
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -141,12 +149,17 @@ struct HomeGraphEmbeddedView: View {
             }
 
         }
-        .environment(\.graphSurfacePresentation, .embeddedHome)
+        .environment(\.graphSurfacePresentation, host == .home ? .embeddedHome : .overlay)
         .animation(
             reduceMotion ? nil : .smooth(duration: 0.25),
             value: graphState.selectedNodeId
         )
         .onKeyPress(.escape) {
+            if !graphState.currentRoute.isCanvas {
+                graphState.returnToCanvas()
+                return .handled
+            }
+            guard host == .home else { return .ignored }
             returnToGreeting()
             return .handled
         }
@@ -388,8 +401,7 @@ private final class EmbeddedGraphMetalBridge {
 
 /// `NSViewRepresentable` wrapper around `MetalGraphNSView`. Each instance
 /// of this view owns its own engine — exclusive with the floating mini
-/// panel's instance because `GraphState.graphViewLocation` picks exactly
-/// one host at a time.
+/// panel's instance. Dispatchers keep graph destinations mutually exclusive.
 @MainActor
 private struct MetalGraphRepresentable: NSViewRepresentable {
     let graphState: GraphState

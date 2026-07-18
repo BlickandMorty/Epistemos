@@ -19,6 +19,16 @@ use crate::backend::{RealBackend, ShadowBackend};
 use crate::error::ShadowError;
 use crate::{ShadowDocument, ShadowHit, ShadowStats};
 
+#[cfg(feature = "free-lexical")]
+fn accepts_domain(domain: &str) -> bool {
+    domain == "note"
+}
+
+#[cfg(feature = "semantic")]
+fn accepts_domain(domain: &str) -> bool {
+    domain == "note" || domain == "chat"
+}
+
 impl Default for ShadowState {
     /// Build a fresh in-memory backend. The trait-conformance test in
     /// `backend::tests` uses this to verify the W8.4.a contract; the
@@ -95,12 +105,9 @@ impl ShadowState {
                 detail: "doc_id was empty".into(),
             });
         }
-        if doc.domain != "note" && doc.domain != "chat" {
+        if !accepts_domain(&doc.domain) {
             return Err(ShadowError::InvalidInput {
-                detail: format!(
-                    "unknown domain '{}' (expected 'note' or 'chat')",
-                    doc.domain
-                ),
+                detail: format!("unsupported domain '{}'", doc.domain),
             });
         }
         let mut guard = self.inner.write();
@@ -134,9 +141,9 @@ impl ShadowState {
         domain: &str,
         limit: usize,
     ) -> Result<Vec<ShadowHit>, ShadowError> {
-        if domain != "note" && domain != "chat" {
+        if !accepts_domain(domain) {
             return Err(ShadowError::InvalidInput {
-                detail: format!("unknown search domain '{domain}' (expected 'note' or 'chat')"),
+                detail: format!("unsupported search domain '{domain}'"),
             });
         }
         let query_lower = query.to_lowercase();
@@ -516,6 +523,7 @@ mod tests {
         assert!(matches!(err, ShadowError::InvalidInput { .. }));
     }
 
+    #[cfg(feature = "semantic")]
     #[test]
     fn search_filters_by_domain() {
         let state = fresh_state();
@@ -586,6 +594,7 @@ mod tests {
         assert!(matches!(err, ShadowError::NotFound { .. }));
     }
 
+    #[cfg(feature = "semantic")]
     #[test]
     fn stats_track_counts_per_domain() {
         let state = fresh_state();

@@ -2,7 +2,7 @@ import Foundation
 
 enum SystemAppearanceState {
     nonisolated static func isDark(
-        globalDomain: [String: Any]? = UserDefaults.standard.persistentDomain(
+        globalDomain: [String: Any]? = FoundationSafety.runtimeUserDefaults.persistentDomain(
             forName: UserDefaults.globalDomain
         )
     ) -> Bool {

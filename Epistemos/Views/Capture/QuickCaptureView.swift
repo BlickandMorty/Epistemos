@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 import SwiftData
 import SwiftUI
 
@@ -59,6 +60,258 @@ nonisolated enum QuickCaptureDiagnostics {
     }
 }
 
+nonisolated enum QuickCapturePresentationSlot: String, Codable, Sendable {
+    case rootOverlay = "root-overlay"
+    case landingInline = "landing-inline"
+}
+
+extension Notification.Name {
+    static let requestQuickCaptureDismissal = Notification.Name("epistemos.requestQuickCaptureDismissal")
+}
+
+nonisolated enum QuickCaptureDraftStore {
+    static let maxDraftCharacters = 2_000_000
+    private static let maxEncodedDraftBytes = (maxDraftCharacters * 8) + 4_096
+    private static let legacySessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+
+    struct Draft: Codable, Equatable, Sendable {
+        let slot: QuickCapturePresentationSlot
+        let sessionID: UUID
+        let committedText: String
+        let partialTranscript: String
+        let revision: UInt64
+
+        init(
+            slot: QuickCapturePresentationSlot,
+            sessionID: UUID = legacySessionID,
+            committedText: String,
+            partialTranscript: String,
+            revision: UInt64
+        ) {
+            self.slot = slot
+            self.sessionID = sessionID
+            self.committedText = committedText
+            self.partialTranscript = partialTranscript
+            self.revision = revision
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case slot
+            case sessionID
+            case committedText
+            case partialTranscript
+            case revision
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            slot = try container.decode(QuickCapturePresentationSlot.self, forKey: .slot)
+            sessionID = try container.decodeIfPresent(UUID.self, forKey: .sessionID) ?? legacySessionID
+            committedText = try container.decode(String.self, forKey: .committedText)
+            partialTranscript = try container.decode(String.self, forKey: .partialTranscript)
+            revision = try container.decode(UInt64.self, forKey: .revision)
+        }
+
+        var isEmpty: Bool {
+            committedText.isEmpty && partialTranscript.isEmpty
+        }
+    }
+
+    private static let directoryName = "Epistemos/QuickCaptureDrafts"
+    private static let fileName = "active.json"
+    private static let fileLock = NSLock()
+
+    static func restoredCommittedText(from draft: Draft) -> String {
+        draft.committedText
+    }
+
+    static func recoveredPartialTranscript(from draft: Draft) -> String {
+        draft.partialTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func claim(
+        slot: QuickCapturePresentationSlot,
+        sessionID: UUID,
+        baseDirectory: URL? = nil
+    ) -> Draft? {
+        guard let url = draftURL(
+            for: slot,
+            createDirectory: true,
+            baseDirectory: baseDirectory
+        ) else {
+            return nil
+        }
+        return fileLock.withLock {
+            let existing = decodeDraft(at: url, expectedSlot: slot)
+            let nextRevision: UInt64
+            if let existing, existing.revision < .max {
+                nextRevision = existing.revision + 1
+            } else {
+                nextRevision = existing?.revision ?? 1
+            }
+            let claimed = Draft(
+                slot: slot,
+                sessionID: sessionID,
+                committedText: existing?.committedText ?? "",
+                partialTranscript: existing?.partialTranscript ?? "",
+                revision: nextRevision
+            )
+            return persist(claimed, at: url) ? claimed : nil
+        }
+    }
+
+    @discardableResult
+    static func write(_ draft: Draft, baseDirectory: URL? = nil) -> Bool {
+        guard isWithinBounds(draft) else {
+            Log.notes.error("quick capture crash-draft exceeds its recovery limit")
+            return false
+        }
+        guard let url = draftURL(
+            for: draft.slot,
+            createDirectory: true,
+            baseDirectory: baseDirectory
+        ) else {
+            return false
+        }
+        return fileLock.withLock {
+            if let existing = decodeDraft(at: url, expectedSlot: draft.slot) {
+                guard existing.sessionID == draft.sessionID else { return false }
+                if existing.revision >= draft.revision {
+                    return existing == draft
+                }
+            }
+            return persist(draft, at: url)
+        }
+    }
+
+    static func load(
+        slot: QuickCapturePresentationSlot,
+        baseDirectory: URL? = nil
+    ) -> Draft? {
+        guard let url = draftURL(
+            for: slot,
+            createDirectory: false,
+            baseDirectory: baseDirectory
+        ) else {
+            return nil
+        }
+        return fileLock.withLock { decodeDraft(at: url, expectedSlot: slot) }
+    }
+
+    @discardableResult
+    static func deleteIfMatching(
+        _ expectedDraft: Draft,
+        baseDirectory: URL? = nil
+    ) -> Bool {
+        guard let url = draftURL(
+            for: expectedDraft.slot,
+            createDirectory: false,
+            baseDirectory: baseDirectory
+        ) else {
+            return false
+        }
+        return fileLock.withLock {
+            guard decodeDraft(at: url, expectedSlot: expectedDraft.slot) == expectedDraft else {
+                return false
+            }
+            let tombstone = Draft(
+                slot: expectedDraft.slot,
+                sessionID: expectedDraft.sessionID,
+                committedText: "",
+                partialTranscript: "",
+                revision: expectedDraft.revision
+            )
+            return persist(tombstone, at: url)
+        }
+    }
+
+    private static func decodeDraft(
+        at url: URL,
+        expectedSlot: QuickCapturePresentationSlot
+    ) -> Draft? {
+        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+              let encodedSize = values.fileSize,
+              encodedSize >= 0,
+              encodedSize <= maxEncodedDraftBytes,
+              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              data.count <= maxEncodedDraftBytes,
+              let draft = try? JSONDecoder().decode(Draft.self, from: data),
+              draft.slot == expectedSlot,
+              isWithinBounds(draft) else {
+            return nil
+        }
+        return draft
+    }
+
+    private static func isWithinBounds(_ draft: Draft) -> Bool {
+        let committedCount = draft.committedText.count
+        guard committedCount <= maxDraftCharacters else { return false }
+        return draft.partialTranscript.count <= maxDraftCharacters - committedCount
+    }
+
+    private static func persist(_ draft: Draft, at url: URL) -> Bool {
+        do {
+            let data = try JSONEncoder().encode(draft)
+            guard data.count <= maxEncodedDraftBytes else {
+                Log.notes.error("quick capture crash-draft exceeds its encoded recovery limit")
+                return false
+            }
+            try AtomicVaultWriter.writeSynchronously(data, to: url)
+            return true
+        } catch {
+            Log.notes.error("quick capture crash-draft write failed — recovery may be unavailable")
+            return false
+        }
+    }
+
+    private static func draftURL(
+        for slot: QuickCapturePresentationSlot,
+        createDirectory: Bool,
+        baseDirectory: URL?
+    ) -> URL? {
+        let base = baseDirectory ?? FoundationSafety.userApplicationSupportDirectory()
+        let directory = base.appendingPathComponent(directoryName, isDirectory: true)
+        if createDirectory {
+            do {
+                try FileManager.default.createDirectory(
+                    at: directory,
+                    withIntermediateDirectories: true
+                )
+            } catch {
+                Log.notes.error("quick capture crash-draft directory is unavailable")
+                return nil
+            }
+        }
+        return directory.appendingPathComponent("\(slot.rawValue)-\(fileName)", isDirectory: false)
+    }
+}
+
+@MainActor
+final class QuickCapturePresentationRegistry {
+    static let shared = QuickCapturePresentationRegistry()
+
+    private var activeOwnerID: UUID?
+
+    init() {}
+
+    func acquire(_ ownerID: UUID) -> Bool {
+        guard let activeOwnerID else {
+            self.activeOwnerID = ownerID
+            return true
+        }
+        return activeOwnerID == ownerID
+    }
+
+    func owns(_ ownerID: UUID) -> Bool {
+        activeOwnerID == ownerID
+    }
+
+    func release(_ ownerID: UUID) {
+        guard activeOwnerID == ownerID else { return }
+        activeOwnerID = nil
+    }
+}
+
 // MARK: - Phase 6.5: Quick Capture View
 //
 // Keyboard-first landing command overlay that routes text through TextCapturePipeline.
@@ -72,12 +325,22 @@ nonisolated enum QuickCaptureDiagnostics {
 @MainActor
 struct QuickCaptureView: View {
     private static let previewSignalQuietWindow: Duration = .milliseconds(120)
+    private static let draftWriteQuietWindow: Duration = .milliseconds(350)
 
     @Environment(UIState.self) private var ui
     @Environment(TextCapturePipeline.self) private var pipeline
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isPresented: Bool
+    private let presentationSlot: QuickCapturePresentationSlot
+
+    init(
+        isPresented: Binding<Bool>,
+        presentationSlot: QuickCapturePresentationSlot
+    ) {
+        _isPresented = isPresented
+        self.presentationSlot = presentationSlot
+    }
 
     @State private var captureText = ""
     /// GAP-27: clipboard text detected on appear (opt-in paste); nil when empty/too long.
@@ -87,9 +350,18 @@ struct QuickCaptureView: View {
     @State private var errorMessage: String?
     @FocusState private var isTextFieldFocused: Bool
 
-    @State private var audioRecorder = AudioRecorder()
-    @State private var transcriber = AudioTranscriber()
-    @State private var isTranscribing = false
+    @State private var dictationPartial = ""
+    @State private var recoveredDictationFragment = ""
+    @State private var isDictationActive = false
+    @State private var presentationOwnerID = UUID()
+    @State private var ownsPresentation = false
+    @State private var draftSessionReady = false
+    @State private var voiceSessionHandle = VoiceInputSessionHandle()
+    @State private var draftRevision: UInt64 = 0
+    @State private var draftWriteTask: Task<Void, Never>?
+    @State private var draftRestoreTask: Task<Void, Never>?
+    @State private var draftFlushedForDismissal = false
+    @State private var isDismissing = false
     @State private var isTraceInspectorPresented = false
     @State private var appearFrame = 0
     // SS-QC (D) auto read-back: debounce task + last-spoken dedup (so a paused-typing
@@ -104,11 +376,8 @@ struct QuickCaptureView: View {
         if isProcessing {
             return "Structuring your thought…"
         }
-        if isTranscribing {
-            return "Transcribing dictation…"
-        }
-        if audioRecorder.isRecording {
-            return "Recording — speak naturally"
+        if !dictationPartial.isEmpty {
+            return "Listening — speak naturally"
         }
         if captureText.isEmpty {
             return "Brain dump → structured note + entities + tasks"
@@ -179,34 +448,61 @@ struct QuickCaptureView: View {
         .animation(reduceMotion ? .none : .smooth(duration: 0.32), value: captureResult != nil)
         .animation(reduceMotion ? .none : .smooth(duration: 0.24), value: isTraceInspectorPresented)
         .onAppear {
-            registerQuickCaptureReadAloudProvider()
+            draftFlushedForDismissal = false
+            isDismissing = false
+            ownsPresentation = false
+            draftSessionReady = false
+            presentationOwnerID = UUID()
+            guard QuickCapturePresentationRegistry.shared.acquire(presentationOwnerID) else {
+                errorMessage = "Quick Capture is already open in another window."
+                isPresented = false
+                return
+            }
+            ownsPresentation = true
+            restoreQuickCaptureDraftIfNeeded()
             Task { @MainActor in
                 await PixelStepMotion.play(reduceMotion: reduceMotion) { frame in
                     appearFrame = frame
                 }
             }
-            isTextFieldFocused = true
-            // GAP-27: detect clipboard text once, for the opt-in paste affordance.
-            if let clip = NSPasteboard.general.string(forType: .string),
-               !clip.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-               clip.count <= 20_000 {
-                clipboardText = clip
-            } else {
-                clipboardText = nil
-            }
         }
         .onDisappear {
-            EpistemosVisibleReadAloudRegistry.shared.unregister(.quickCapture)
+            if let interruptedTranscript = voiceSessionHandle.interrupt() {
+                recoverInterruptedDictation(interruptedTranscript)
+            }
+            // Prevent cleanup state changes from scheduling a newer recovery
+            // snapshot after the disappearance snapshot has captured the last
+            // committed and partial text.
+            isDismissing = true
+            if ownsPresentation {
+                persistQuickCaptureDraftForDisappearance()
+                EpistemosVisibleReadAloudRegistry.shared.unregister(.quickCapture)
+            }
             cleanupTransientCaptureState()
         }
         .onChange(of: captureText) { _, newValue in
             registerQuickCaptureReadAloudProvider()
             scheduleQuickCaptureReadBack(for: newValue)
             schedulePreviewSignals(for: newValue)
+            scheduleQuickCaptureDraftWrite()
+        }
+        .onChange(of: dictationPartial) { _, _ in
+            scheduleQuickCaptureDraftWrite()
+        }
+        .onChange(of: recoveredDictationFragment) { _, _ in
+            scheduleQuickCaptureDraftWrite()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .requestQuickCaptureDismissal)) { notification in
+            guard let requestedSlot = notification.object as? QuickCapturePresentationSlot,
+                  requestedSlot == presentationSlot else { return }
+            close()
         }
     }
 
     private func registerQuickCaptureReadAloudProvider() {
+        guard ownsPresentation,
+              draftSessionReady,
+              QuickCapturePresentationRegistry.shared.owns(presentationOwnerID) else { return }
         EpistemosVisibleReadAloudRegistry.shared.register(.quickCapture) {
             EpistemosSpeechSynthesizer.plainTextForSpeech(fromMarkdown: captureText)
         }
@@ -274,6 +570,7 @@ struct QuickCaptureView: View {
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.escape, modifiers: [])
+            .disabled(isProcessing || isDismissing)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -302,6 +599,12 @@ struct QuickCaptureView: View {
                 }
                 .focused($isTextFieldFocused)
                 .frame(maxHeight: .infinity)
+                .disabled(
+                    isProcessing
+                        || isDismissing
+                        || !ownsPresentation
+                        || !draftSessionReady
+                )
                 .overlay(alignment: .topLeading) {
                     if captureText.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
@@ -326,6 +629,10 @@ struct QuickCaptureView: View {
                         .padding(.top, 14)
                     }
                 }
+
+            if !recoveredDictationFragment.isEmpty {
+                recoveredDictationBanner
+            }
 
             // Error message
             if let error = errorMessage {
@@ -363,50 +670,30 @@ struct QuickCaptureView: View {
 
                 Spacer()
 
-                // Audio Capture Button — pulses red while recording so
-                // the user has an unmistakable visual signal beyond
-                // text. SF Symbols' .symbolEffect(.pulse) ships native
-                // on macOS 14+ so no custom CA work needed.
-                Button {
-                    Task { await toggleAudioRecording() }
-                } label: {
-                    HStack(spacing: 6) {
-                        if isTranscribing {
-                            ProgressView().controlSize(.small)
-                            Text("Transcribing...")
-                        } else if audioRecorder.isRecording {
-                            Image(systemName: "waveform.circle.fill")
-                                .foregroundStyle(.red)
-                                .symbolEffect(
-                                    .variableColor.iterative.reversing,
-                                    options: reduceMotion ? .nonRepeating : .repeating
-                                )
-                            Text("Stop")
-                        } else {
-                            Image(systemName: "mic.circle.fill")
-                                .foregroundStyle(.tint)
-                            Text("Dictate")
-                        }
+                VoiceInputButton(
+                    style: .labeled,
+                    purpose: .quickCapture,
+                    sessionHandle: voiceSessionHandle,
+                    onPartial: { partial in
+                        dictationPartial = LiveVoiceInputService.boundedTranscript(partial)
+                    },
+                    onActivityChange: { isActive in
+                        isDictationActive = isActive
+                    },
+                    onInterrupted: { transcript in
+                        recoverInterruptedDictation(transcript)
+                    },
+                    onFinal: { transcript in
+                        appendDictation(transcript)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background {
-                        ZStack {
-                            Rectangle()
-                                .fill(.regularMaterial)
-                            Rectangle()
-                                .fill(audioRecorder.isRecording
-                                      ? Color.red.opacity(0.16)
-                                      : PixelPanelBackground.actionSurface(for: theme).opacity(0.84))
-                        }
-                    }
-                    .overlay {
-                        Rectangle()
-                            .stroke(theme.border.opacity(theme.isDark ? 0.24 : 0.34), lineWidth: 1)
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(isProcessing || isTranscribing)
+                )
+                .disabled(
+                    isProcessing
+                        || isDismissing
+                        || !ownsPresentation
+                        || !draftSessionReady
+                        || !recoveredDictationFragment.isEmpty
+                )
 
                 // Plan 3 owner update 2026-06-30: TTS is Kokoro-only. The
                 // read-aloud affordance remains visible and opens the Kokoro
@@ -461,12 +748,60 @@ struct QuickCaptureView: View {
                     .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
-                .disabled(captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isProcessing)
+                .disabled(
+                    captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || isProcessing
+                        || isDismissing
+                        || !ownsPresentation
+                        || !draftSessionReady
+                        || isDictationActive
+                        || !dictationPartial.isEmpty
+                        || !recoveredDictationFragment.isEmpty
+                )
                 .keyboardShortcut(.return, modifiers: .command)
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
+    }
+
+    private var recoveredDictationBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "waveform.badge.exclamationmark")
+                .foregroundStyle(.orange)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Recovered unfinished dictation")
+                    .font(.caption.weight(.semibold))
+                Text(recoveredDictationFragment)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            Button("Discard") {
+                recoveredDictationFragment = ""
+            }
+            .buttonStyle(.borderless)
+
+            Button("Add to Draft") {
+                let recovered = recoveredDictationFragment
+                recoveredDictationFragment = ""
+                appendDictation(recovered)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(.regularMaterial)
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.orange.opacity(0.45), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Confirmation Card
@@ -558,6 +893,29 @@ struct QuickCaptureView: View {
     }
 
     private func close(restoreHomeFocus: Bool = true) {
+        guard !isProcessing else {
+            errorMessage = "Wait for this capture to finish saving before closing."
+            return
+        }
+        guard !isDictationActive else {
+            errorMessage = "Stop dictation before closing so the final words can be preserved."
+            return
+        }
+        guard !isDismissing else { return }
+        isDismissing = true
+        Task { @MainActor in
+            let didPersist = await persistQuickCaptureDraftBeforeDismissal()
+            guard didPersist else {
+                errorMessage = "Quick Capture could not preserve this draft. Keep this window open and try again."
+                isDismissing = false
+                return
+            }
+            finishDismissal(restoreHomeFocus: restoreHomeFocus)
+        }
+    }
+
+    private func finishDismissal(restoreHomeFocus: Bool) {
+        draftFlushedForDismissal = true
         cleanupTransientCaptureState()
         isTextFieldFocused = false
         isPresented = false
@@ -567,9 +925,10 @@ struct QuickCaptureView: View {
     }
 
     private func cleanupTransientCaptureState() {
-        if audioRecorder.isRecording {
-            _ = audioRecorder.stopRecording()
-        }
+        dictationPartial = ""
+        isDictationActive = false
+        draftWriteTask?.cancel()
+        draftWriteTask = nil
         readBackTask?.cancel()
         previewSignalTask?.cancel()
         EpistemosSpeechSynthesizer.shared.stop()
@@ -712,23 +1071,67 @@ struct QuickCaptureView: View {
         // two fast Cmd-Return events (key auto-repeat / double-press) can both
         // enter before it flips — each would run the pipeline and mint a
         // duplicate note without this early-out.
-        guard !isProcessing else { return }
-        let trimmed = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
+        guard !isProcessing,
+              !isDismissing,
+              ownsPresentation,
+              draftSessionReady,
+              QuickCapturePresentationRegistry.shared.owns(presentationOwnerID),
+              !isDictationActive,
+              dictationPartial.isEmpty,
+              recoveredDictationFragment.isEmpty else { return }
         isProcessing = true
+        defer { isProcessing = false }
+        if let restoreTask = draftRestoreTask {
+            await restoreTask.value
+        }
+        guard !isDictationActive,
+              dictationPartial.isEmpty,
+              recoveredDictationFragment.isEmpty,
+              !captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
         errorMessage = nil
+        draftWriteTask?.cancel()
+        draftWriteTask = nil
+        advanceDraftRevision()
+        let slot = presentationSlot
+        let sessionID = presentationOwnerID
+        let committedText = captureText
+        let revision = draftRevision
+
+        let submittedDraft = await Task.detached(priority: .utility) {
+            let draft = QuickCaptureDraftStore.Draft(
+                slot: slot,
+                sessionID: sessionID,
+                committedText: committedText,
+                partialTranscript: "",
+                revision: revision
+            )
+            return QuickCaptureDraftStore.write(draft) ? draft : nil
+        }.value
+        guard let submittedDraft else {
+            errorMessage = "Quick Capture could not preserve this draft before saving. Reduce its size or try again."
+            return
+        }
 
         do {
             let result = try await pipeline.run(
-                rawText: captureText,
-                modelContext: modelContext
+                rawText: submittedDraft.committedText,
+                modelContext: modelContext,
+                maxBodyCharacters: QuickCaptureDraftStore.maxDraftCharacters
             )
-            guard result.createdNoteID != nil else {
+            guard result.rawText == submittedDraft.committedText,
+                  result.createdNoteID != nil else {
                 throw TextCaptureError.persistenceFailed(
                     result.graphWriteSummary.skippedReason ?? "note was not persisted"
                 )
             }
+            let removedSubmittedDraft = await Task.detached(priority: .utility) {
+                QuickCaptureDraftStore.deleteIfMatching(submittedDraft)
+            }.value
+            if !removedSubmittedDraft {
+                Log.notes.notice("saved Quick Capture note retained a nonmatching recovery draft")
+            }
+            draftFlushedForDismissal = true
             // Note is durably saved (createdNoteID set above); a miss on the
             // SECONDARY mutation-envelope audit-log write (EventStore is optional
             // and returns false on a nil store or a transient SQLite error) must
@@ -740,58 +1143,189 @@ struct QuickCaptureView: View {
         } catch {
             errorMessage = QuickCaptureDiagnostics.statusMessage(for: error)
         }
-
-        isProcessing = false
     }
 
-    // MARK: - Audio Processing
-    private func toggleAudioRecording() async {
-        // Reentrancy guard: a second toggle while a prior transcription+persist
-        // is still in flight (isTranscribing flips async) could double-process
-        // one recording into duplicate notes.
-        guard !isTranscribing else { return }
-        if audioRecorder.isRecording {
-            guard let url = audioRecorder.stopRecording() else { return }
-            isTranscribing = true
-            errorMessage = nil
-            do {
-                let transcription = try await transcriber.transcribe(audioURL: url)
-                let result = try await pipeline.runFromAudio(transcription: transcription, modelContext: modelContext)
-                guard result.createdNoteID != nil else {
-                    throw TextCaptureError.persistenceFailed(
-                        result.graphWriteSummary.skippedReason ?? "note was not persisted"
-                    )
-                }
-                // Note is durably saved (createdNoteID set above); a miss on the
-                // SECONDARY mutation-envelope audit-log write must NOT report
-                // failure — else the user retries a saved capture and mints a
-                // duplicate note. Benign audit degradation.
-                withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
-                    captureResult = result
-                }
-            } catch {
-                errorMessage = QuickCaptureDiagnostics.statusMessage(
-                    for: error,
-                    fallback: "Transcription failed"
-                )
-            }
-            isTranscribing = false
+    private func appendDictation(_ transcript: String) {
+        guard ownsPresentation, draftSessionReady else { return }
+        let cleaned = LiveVoiceInputService.cleanedFinalTranscript(transcript)
+        guard !cleaned.isEmpty else { return }
+        if captureText.isEmpty || captureText.last?.isWhitespace == true {
+            captureText.append(cleaned)
         } else {
-            if !audioRecorder.isMicrophoneAuthorized {
-                let granted = await audioRecorder.requestPermission()
-                if !granted {
-                    errorMessage = "Microphone access is required to dictate."
-                    return
+            captureText.append("\n")
+            captureText.append(cleaned)
+        }
+        dictationPartial = ""
+        isTextFieldFocused = true
+    }
+
+    private func recoverInterruptedDictation(_ transcript: String) {
+        let cleaned = LiveVoiceInputService.cleanedFinalTranscript(transcript)
+        guard !cleaned.isEmpty else {
+            dictationPartial = ""
+            isDictationActive = false
+            return
+        }
+        if recoveredDictationFragment.isEmpty {
+            recoveredDictationFragment = cleaned
+        } else if recoveredDictationFragment != cleaned,
+                  !recoveredDictationFragment.hasSuffix(cleaned) {
+            recoveredDictationFragment.append("\n")
+            recoveredDictationFragment.append(cleaned)
+        }
+        dictationPartial = ""
+        isDictationActive = false
+    }
+
+    private func restoreQuickCaptureDraftIfNeeded() {
+        draftRestoreTask?.cancel()
+        let slot = presentationSlot
+        let sessionID = presentationOwnerID
+        draftSessionReady = false
+        draftRestoreTask = Task { @MainActor in
+            let draft = await Task.detached(priority: .utility) {
+                QuickCaptureDraftStore.claim(slot: slot, sessionID: sessionID)
+            }.value
+            guard !Task.isCancelled,
+                  !isDismissing,
+                  ownsPresentation,
+                  QuickCapturePresentationRegistry.shared.owns(sessionID),
+                  let draft else {
+                if !isDismissing {
+                    errorMessage = "Quick Capture could not open its recovery draft."
+                }
+                draftRestoreTask = nil
+                return
+            }
+            draftRevision = draft.revision
+            captureText = QuickCaptureDraftStore.restoredCommittedText(from: draft)
+            recoveredDictationFragment = QuickCaptureDraftStore.recoveredPartialTranscript(from: draft)
+            dictationPartial = ""
+            draftSessionReady = true
+            registerQuickCaptureReadAloudProvider()
+            if let clip = NSPasteboard.general.string(forType: .string),
+               !clip.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               clip.count <= 20_000 {
+                clipboardText = clip
+            } else {
+                clipboardText = nil
+            }
+            isTextFieldFocused = true
+            draftRestoreTask = nil
+        }
+    }
+
+    private func scheduleQuickCaptureDraftWrite() {
+        guard captureResult == nil,
+              !draftFlushedForDismissal,
+              !isDismissing,
+              ownsPresentation,
+              draftSessionReady,
+              QuickCapturePresentationRegistry.shared.owns(presentationOwnerID) else { return }
+        advanceDraftRevision()
+        let slot = presentationSlot
+        let sessionID = presentationOwnerID
+        let committedText = captureText
+        let partialTranscript = pendingPartialTranscriptForRecovery
+        let revision = draftRevision
+        draftWriteTask?.cancel()
+        draftWriteTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.draftWriteQuietWindow)
+            guard !Task.isCancelled else { return }
+            let didWrite = await Task.detached(priority: .utility) {
+                let draft = QuickCaptureDraftStore.Draft(
+                    slot: slot,
+                    sessionID: sessionID,
+                    committedText: committedText,
+                    partialTranscript: partialTranscript,
+                    revision: revision
+                )
+                return QuickCaptureDraftStore.write(draft)
+            }.value
+            guard !Task.isCancelled, draftRevision == revision else { return }
+            if didWrite {
+                if errorMessage == "Quick Capture could not preserve its recovery draft." {
+                    errorMessage = nil
+                }
+            } else {
+                errorMessage = "Quick Capture could not preserve its recovery draft."
+            }
+            draftWriteTask = nil
+        }
+    }
+
+    private func persistQuickCaptureDraftBeforeDismissal() async -> Bool {
+        draftWriteTask?.cancel()
+        draftWriteTask = nil
+        guard captureResult == nil else { return true }
+        if let restoreTask = draftRestoreTask {
+            await restoreTask.value
+        }
+        guard ownsPresentation,
+              QuickCapturePresentationRegistry.shared.owns(presentationOwnerID) else { return true }
+        guard draftSessionReady else {
+            return captureText.isEmpty && pendingPartialTranscriptForRecovery.isEmpty
+        }
+        advanceDraftRevision()
+        let slot = presentationSlot
+        let sessionID = presentationOwnerID
+        let committedText = captureText
+        let partialTranscript = pendingPartialTranscriptForRecovery
+        let revision = draftRevision
+        return await Task.detached(priority: .utility) {
+            QuickCaptureDraftStore.write(
+                QuickCaptureDraftStore.Draft(
+                    slot: slot,
+                    sessionID: sessionID,
+                    committedText: committedText,
+                    partialTranscript: partialTranscript,
+                    revision: revision
+                )
+            )
+        }.value
+    }
+
+    private func persistQuickCaptureDraftForDisappearance() {
+        draftWriteTask?.cancel()
+        draftWriteTask = nil
+        let ownerID = presentationOwnerID
+        let restoreTask = draftRestoreTask
+        let snapshot: QuickCaptureDraftStore.Draft?
+        if captureResult == nil, !draftFlushedForDismissal, draftSessionReady {
+            advanceDraftRevision()
+            snapshot = QuickCaptureDraftStore.Draft(
+                slot: presentationSlot,
+                sessionID: ownerID,
+                committedText: captureText,
+                partialTranscript: pendingPartialTranscriptForRecovery,
+                revision: draftRevision
+            )
+        } else {
+            snapshot = nil
+        }
+        Task { @MainActor in
+            if let restoreTask {
+                await restoreTask.value
+            }
+            if let snapshot {
+                let didWrite = await Task.detached(priority: .utility) {
+                    QuickCaptureDraftStore.write(snapshot)
+                }.value
+                if !didWrite {
+                    Log.notes.error("Quick Capture disappeared before its recovery draft was preserved")
                 }
             }
-            do {
-                try audioRecorder.startRecording()
-            } catch {
-                errorMessage = QuickCaptureDiagnostics.statusMessage(
-                    for: error,
-                    fallback: "Failed to start recording"
-                )
-            }
+            QuickCapturePresentationRegistry.shared.release(ownerID)
+        }
+    }
+
+    private var pendingPartialTranscriptForRecovery: String {
+        recoveredDictationFragment.isEmpty ? dictationPartial : recoveredDictationFragment
+    }
+
+    private func advanceDraftRevision() {
+        if draftRevision < .max {
+            draftRevision += 1
         }
     }
 }

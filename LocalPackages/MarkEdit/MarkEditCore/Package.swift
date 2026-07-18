@@ -20,6 +20,9 @@ let package = Package(
     .target(
       name: "MarkEditCore",
       path: "Sources",
+      exclude: [
+        "Extensions/WebKit+Extension.swift",
+      ],
       swiftSettings: [
         .enableExperimentalFeature("StrictConcurrency")
       ]

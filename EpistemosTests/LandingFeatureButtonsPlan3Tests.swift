@@ -1,4 +1,3 @@
-import AVFoundation
 import Foundation
 import Testing
 
@@ -84,7 +83,8 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(buttons.contains("ArxivPullGateStatus.status().isActive"))
         #expect(buttons.contains("MeetingNoteLandingGateStatus.status().isActive"))
         #expect(buttons.contains("MeetingNoteLandingGateStatus.status().detail"))
-        #expect(buttons.contains("AVCaptureDevice.authorizationStatus(for: .audio)"))
+        #expect(!buttons.contains("AVCaptureDevice.authorizationStatus(for: .audio)"))
+        #expect(buttons.contains("Microphone permission is requested when recording starts."))
         #expect(buttons.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
         #expect(buttons.contains("case .browser:"))
         #expect(buttons.contains("case .meetingNote:"))
@@ -112,37 +112,20 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(LandingFeatureButtonTextPolicy.helpText("Open\nfeature\tsettings\u{0007}") == "Open feature settings")
     }
 
-    @Test("meeting landing gate honors SpeechAnalyzer and microphone authorization")
-    func meetingLandingGateHonorsSpeechAnalyzerAndMicrophoneAuthorization() {
+    @Test("meeting landing gate checks SpeechAnalyzer and defers microphone authorization")
+    func meetingLandingGateChecksSpeechAnalyzerAndDefersMicrophoneAuthorization() {
         let sdkUnavailable = MeetingNoteLandingGateStatus.status(
-            speechAnalyzerAvailable: false,
-            audioAuthorizationStatus: .authorized
+            speechAnalyzerAvailable: false
         )
         #expect(!sdkUnavailable.isActive)
         #expect(sdkUnavailable.detail.contains("macOS 26 SpeechAnalyzer"))
 
-        let denied = MeetingNoteLandingGateStatus.status(
-            speechAnalyzerAvailable: true,
-            audioAuthorizationStatus: .denied
+        let available = MeetingNoteLandingGateStatus.status(
+            speechAnalyzerAvailable: true
         )
-        #expect(!denied.isActive)
-        #expect(denied.detail.contains("microphone access"))
-
-        let restricted = MeetingNoteLandingGateStatus.status(
-            speechAnalyzerAvailable: true,
-            audioAuthorizationStatus: .restricted
-        )
-        #expect(!restricted.isActive)
-        #expect(restricted.headline.contains("microphone unavailable"))
-
-        #expect(MeetingNoteLandingGateStatus.status(
-            speechAnalyzerAvailable: true,
-            audioAuthorizationStatus: .notDetermined
-        ).isActive)
-        #expect(MeetingNoteLandingGateStatus.status(
-            speechAnalyzerAvailable: true,
-            audioAuthorizationStatus: .authorized
-        ).isActive)
+        #expect(available.isActive)
+        #expect(available.headline == "Meeting notes: ready")
+        #expect(available.detail.contains("Microphone permission is requested when recording starts."))
     }
 
     @Test("voice landing shortcut opens the real voice settings pane")

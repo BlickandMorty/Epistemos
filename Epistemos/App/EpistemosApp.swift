@@ -58,6 +58,11 @@ private enum RuntimeAuditFlags {
     }
 }
 
+private let isEpistemosTestHost =
+    ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        || NSClassFromString("XCTestCase") != nil
+        || Bundle.main.bundleURL.pathExtension == "xctest"
+
 private struct AuditMinimalHomeSceneView: View {
     var body: some View {
         VStack {
@@ -70,13 +75,12 @@ private struct AuditMinimalHomeSceneView: View {
 }
 
 private struct HomeSceneRootContent: View {
-    private static let isRunningTests =
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private static let isRunningTests = isEpistemosTestHost
     private static let setupCompleteKey = "epistemos.setupComplete"
 
     let bootstrap: AppBootstrap
     @Binding var showQuickCapture: Bool
-    @State private var setupComplete = UserDefaults.standard.bool(forKey: setupCompleteKey)
+    @State private var setupComplete = FoundationSafety.runtimeUserDefaults.bool(forKey: setupCompleteKey)
     @State private var didRunKokoroLaunchProof = false
     // ISSUE-2026-05-12-002 — post-setup vault re-prompt. Per-launch
     // flag that resets when the app cold-starts; lets the user dismiss
@@ -124,9 +128,9 @@ private struct HomeSceneRootContent: View {
                         // intentionally and knows how to re-connect
                         // through Settings. The sheet's purpose is
                         // onboarding (truly-fresh users), not nagging.
-                        let bookmarkPending = UserDefaults.standard
+                        let bookmarkPending = FoundationSafety.runtimeUserDefaults
                             .data(forKey: "epistemos.vaultBookmark") != nil
-                        let hasEverConnected = UserDefaults.standard
+                        let hasEverConnected = FoundationSafety.runtimeUserDefaults
                             .bool(forKey: "epistemos.hasEverConnectedAVault")
                         return setupComplete
                             && bootstrap.vaultSync.vaultURL == nil
@@ -156,54 +160,6 @@ private struct HomeSceneRootContent: View {
                         }
                     )
                     .withAppEnvironment(bootstrap)
-                }
-                .sheet(isPresented: Binding(
-                    get: { bootstrap.vaultChatMutator.stagedDiff != nil },
-                    set: { isPresented in
-                        if !isPresented {
-                            bootstrap.vaultChatMutator.rejectPendingDiff()
-                        }
-                    }
-                )) {
-                    if let diff = bootstrap.vaultChatMutator.stagedDiff {
-                        DiffApprovalSheet(
-                            diffResult: diff,
-                            onApprove: {
-                                Task { @MainActor in
-                                    do {
-                                        _ = try await bootstrap.vaultChatMutator.approvePendingDiff()
-                                        bootstrap.uiState.showToast(
-                                            "Vault change committed.",
-                                            type: .success
-                                        )
-                                    } catch {
-                                        bootstrap.uiState.showToast(
-                                            error.localizedDescription,
-                                            type: .error
-                                        )
-                                    }
-                                }
-                            },
-                            onReject: {
-                                bootstrap.vaultChatMutator.rejectPendingDiff()
-                            }
-                        )
-                    }
-                }
-                .sheet(item: Binding<ApprovalModalView.PendingApproval?>(
-                    get: { bootstrap.chatApprovalQueue.pendingApproval },
-                    set: { _ in }
-                )) { pendingApproval in
-                    ApprovalModalView(
-                        approval: pendingApproval,
-                        onResolve: { decision in
-                            bootstrap.chatApprovalQueue.resolve(
-                                pendingApproval,
-                                decision: decision
-                            )
-                        }
-                    )
-                    .interactiveDismissDisabled(true)
                 }
                 .onReceive(
                     NotificationCenter.default.publisher(for: .showQuickCapture)
@@ -259,7 +215,7 @@ private struct HomeSceneRootContent: View {
 
     private func markSetupComplete() {
         guard !setupComplete else { return }
-        UserDefaults.standard.set(true, forKey: Self.setupCompleteKey)
+        FoundationSafety.runtimeUserDefaults.set(true, forKey: Self.setupCompleteKey)
         bootstrap.uiState.needsSetup = false
         setupComplete = true
     }
@@ -284,18 +240,18 @@ private enum KokoroLaunchProof {
 
     static func shouldRun(
         arguments: [String] = ProcessInfo.processInfo.arguments,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = FoundationSafety.runtimeUserDefaults
     ) -> Bool {
         arguments.contains(argument) || defaults.bool(forKey: defaultsKey)
     }
 
-    static func run(defaults: UserDefaults = .standard) {
+    static func run(defaults: UserDefaults = FoundationSafety.runtimeUserDefaults) {
         if defaults.bool(forKey: defaultsKey) {
             defaults.set(false, forKey: defaultsKey)
         }
         log.notice("Kokoro launch proof requested phraseLanguage=en")
         EpistemosSpeechSynthesizer.logTextToSpeechReadiness(context: "launch-voice-proof")
-        let utteranceID = EpistemosAgentReadAloud.speak(phrase)
+        let utteranceID = EpistemosReadAloud.speak(phrase)
         if let utteranceID {
             log.notice("Kokoro launch proof queued utteranceID=\(utteranceID, privacy: .public)")
         } else {
@@ -320,7 +276,7 @@ private final class HomeWindowFallbackPresenter {
     private static let log = Logger(subsystem: "com.epistemos", category: "HomeWindowFallback")
     private var fallbackWindow: NSWindow?
     private weak var bootstrap: AppBootstrap?
-    private var didSchedule = false
+    private var pendingRecoveryTask: Task<Void, Never>?
 
     private init() {}
 
@@ -332,36 +288,24 @@ private final class HomeWindowFallbackPresenter {
         }
     }
 
-    func schedule(bootstrap: AppBootstrap? = AppBootstrap.shared) {
-        if let bootstrap {
-            self.bootstrap = bootstrap
-        }
-        guard !didSchedule else { return }
-        didSchedule = true
-
-        Task { @MainActor in
-            do {
-                try await Task.sleep(for: .milliseconds(800))
-            } catch {
-                return
-            }
-            surfaceOrCreateHomeWindow()
-        }
-    }
-
-    func scheduleAfterLaunch(bootstrap: AppBootstrap? = AppBootstrap.shared) {
-        if let bootstrap {
-            self.bootstrap = bootstrap
-        }
-        didSchedule = false
-        schedule(bootstrap: bootstrap ?? self.bootstrap)
-    }
-
     func ensureHomeWindow(bootstrap: AppBootstrap? = AppBootstrap.shared) {
         if let bootstrap {
             self.bootstrap = bootstrap
         }
-        didSchedule = false
+
+        // AppKit can deliver multiple reopen events before the deferred
+        // recovery gets a turn. Coalesce them so the first recovery either
+        // surfaces the SwiftUI scene that appeared in the meantime or creates
+        // exactly one fallback window.
+        guard pendingRecoveryTask == nil else { return }
+        pendingRecoveryTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            self?.performPendingRecovery()
+        }
+    }
+
+    private func performPendingRecovery() {
+        pendingRecoveryTask = nil
         surfaceOrCreateHomeWindow()
     }
 
@@ -372,8 +316,6 @@ private final class HomeWindowFallbackPresenter {
         }
 
         guard let bootstrap = bootstrap ?? AppBootstrap.shared else {
-            didSchedule = false
-            schedule()
             return
         }
 
@@ -394,125 +336,16 @@ private final class HomeWindowFallbackPresenter {
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
         fallbackWindow = window
 
-        Self.log.info("Created fallback home window after launch produced no viable scene window")
+        Self.log.info("Created fallback home window because no viable scene window existed")
         surface(window)
     }
 
     private func surface(_ window: NSWindow) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        window.orderFrontRegardless()
         window.makeKeyAndOrderFront(nil)
     }
 }
-
-#if EPISTEMOS_APP_STORE
-private struct AppStoreFallbackHomeWindowContent: View {
-    let bootstrap: AppBootstrap
-    @State private var showQuickCapture = false
-
-    var body: some View {
-        HomeSceneRootContent(bootstrap: bootstrap, showQuickCapture: $showQuickCapture)
-    }
-}
-
-@MainActor
-private final class AppStoreFirstWindowPresenter {
-    static let shared = AppStoreFirstWindowPresenter()
-
-    private static let log = Logger(subsystem: "com.epistemos", category: "AppStoreFirstWindow")
-    private var fallbackWindow: NSWindow?
-    private weak var bootstrap: AppBootstrap?
-    private var didSchedule = false
-
-    private init() {}
-
-    private static func viableHomeWindow() -> NSWindow? {
-        NSApp.windows.first { window in
-            HomeWindowIdentity.matches(window)
-                && window.frame.width >= WindowPresentationPolicy.mainWindowMinimumSize.width
-                && window.frame.height >= WindowPresentationPolicy.mainWindowMinimumSize.height
-        }
-    }
-
-    func schedule(bootstrap: AppBootstrap? = AppBootstrap.shared) {
-        if let bootstrap {
-            self.bootstrap = bootstrap
-        }
-        guard !didSchedule else { return }
-        didSchedule = true
-        Self.log.info("App Store first-window fallback scheduled")
-
-        Task { @MainActor in
-            do {
-                try await Task.sleep(for: .milliseconds(700))
-            } catch {
-                return
-            }
-            surfaceOrCreateHomeWindow()
-        }
-    }
-
-    func scheduleAfterLaunch(bootstrap: AppBootstrap? = AppBootstrap.shared) {
-        if let bootstrap {
-            self.bootstrap = bootstrap
-        }
-        didSchedule = false
-        schedule(bootstrap: bootstrap ?? self.bootstrap)
-    }
-
-    func ensureHomeWindow(bootstrap: AppBootstrap? = AppBootstrap.shared) {
-        if let bootstrap {
-            self.bootstrap = bootstrap
-        }
-        didSchedule = false
-        surfaceOrCreateHomeWindow()
-    }
-
-    private func surfaceOrCreateHomeWindow() {
-        if let existingWindow = Self.viableHomeWindow() {
-            Self.log.info("App Store first-window fallback surfaced existing window")
-            surface(existingWindow)
-            return
-        }
-
-        guard let bootstrap = bootstrap ?? AppBootstrap.shared else {
-            Self.log.info("App Store first-window fallback waiting for AppBootstrap")
-            didSchedule = false
-            schedule()
-            return
-        }
-
-        let controller = NSHostingController(
-            rootView: AppStoreFallbackHomeWindowContent(bootstrap: bootstrap)
-        )
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = HomeWindowIdentity.title
-        window.isReleasedWhenClosed = false
-        window.contentViewController = controller
-        window.center()
-        HomeWindowIdentity.apply(to: window)
-        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
-        fallbackWindow = window
-
-        Self.log.info("App Store first-window fallback created NSWindow")
-        surface(window)
-    }
-
-    private func surface(_ window: NSWindow) {
-        Self.log.info("App Store first-window fallback ordering window front")
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        window.orderFrontRegardless()
-        window.makeKeyAndOrderFront(nil)
-    }
-}
-#endif
 
 enum SavedApplicationStatePurger {
     private static let log = Logger(subsystem: "com.epistemos", category: "SavedApplicationState")
@@ -520,16 +353,51 @@ enum SavedApplicationStatePurger {
     static func shouldPurgeAtLaunch(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
-        !VaultSyncService.shouldRestoreVaultFromBookmark(
+        switch FoundationSafety.auditRuntimeIsolationRequestState(
             processInfoEnvironment: processInfoEnvironment
-        )
+        ) {
+        case .active:
+            return false
+        case .requestedButInvalid:
+            preconditionFailure("Runtime-audit saved-state isolation is incomplete or invalid")
+        case .notRequested:
+            return !VaultSyncService.shouldRestoreVaultFromBookmark(
+                processInfoEnvironment: processInfoEnvironment
+            )
+        }
     }
 
-    static func purgeIfNeeded(bundleIdentifier: String? = Bundle.main.bundleIdentifier) {
-        guard let bundleIdentifier, !bundleIdentifier.isEmpty else { return }
-        let fileManager = FileManager.default
+    static func shouldSuppressRestorableStateAtLaunch(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        shouldPurgeAtLaunch(processInfoEnvironment: processInfoEnvironment)
+            || FoundationSafety.isAuditRuntimeIsolationActive(
+                processInfoEnvironment: processInfoEnvironment
+            )
+    }
 
-        for directory in candidateDirectories(for: bundleIdentifier) {
+    static func purgeIfNeeded(
+        bundleIdentifier: String? = Bundle.main.bundleIdentifier,
+        fileManager: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
+        switch FoundationSafety.auditRuntimeIsolationRequestState(
+            fileManager: fileManager,
+            processInfoEnvironment: processInfoEnvironment
+        ) {
+        case .active:
+            return
+        case .requestedButInvalid:
+            preconditionFailure("Runtime-audit saved-state isolation is incomplete or invalid")
+        case .notRequested:
+            break
+        }
+        guard let bundleIdentifier, !bundleIdentifier.isEmpty else { return }
+
+        for directory in candidateDirectories(
+            for: bundleIdentifier,
+            fileManager: fileManager
+        ) {
             guard fileManager.fileExists(atPath: directory.path) else { continue }
             do {
                 try fileManager.removeItem(at: directory)
@@ -541,13 +409,16 @@ enum SavedApplicationStatePurger {
         }
     }
 
-    private static func candidateDirectories(for bundleIdentifier: String) -> [URL] {
+    private static func candidateDirectories(
+        for bundleIdentifier: String,
+        fileManager: FileManager
+    ) -> [URL] {
         var directories: [URL] = [
-            URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            fileManager.temporaryDirectory
                 .appendingPathComponent("\(bundleIdentifier).savedState", isDirectory: true)
         ]
 
-        if let libraryDirectory = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first {
+        if let libraryDirectory = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first {
             directories.append(
                 libraryDirectory
                     .appendingPathComponent("Saved Application State", isDirectory: true)
@@ -844,26 +715,15 @@ final class RuntimeIssueMonitor {
         isAppActive: Bool
     ) async {
         var metadata = initialMetadata
-        let relief = respondToMemoryPressure(level: level == .critical ? 2 : 1)
-        metadata["rustSegmentsEvicted"] = String(relief.segmentsEvicted)
-        metadata["rustSegmentBytesFreedMB"] = String(relief.segmentBytesFreed / (1024 * 1024))
-        metadata["rustSessionsPruned"] = String(relief.sessionsPruned)
+        metadata["rustSegmentsEvicted"] = "0"
+        metadata["rustSegmentBytesFreedMB"] = "0"
+        metadata["rustSessionsPruned"] = "0"
 
         if let searchService {
             searchService.releaseMemoryPressureCaches()
             metadata["searchIndexCachesReleased"] = "true"
         }
         metadata["webViewIdle"] = webViewIdle ? "true" : "false"
-
-        // MAS-agent (Plan 1-MAS, sibling note): release the resident GGUF model
-        // behind the June agent surface under CRITICAL pressure only — the sole
-        // sanctioned unload (§12 #5 keeps it warm otherwise). The method existed
-        // but had NO caller; a multi-GB model was never released under pressure.
-        // No-op when nothing loaded it.
-        if level == .critical {
-            LocalGGUFQuickChatBackend.shared.unloadForMemoryPressure()
-            metadata["ggufModelUnloaded"] = "true"
-        }
 
         RuntimeDiagnostics.record(
             level == .critical ? .fault : .warning,
@@ -962,9 +822,26 @@ final class RuntimeIssueMonitor {
     private func currentEnvironmentMetadata() -> [String: String] {
         let application = NSApplication.shared
         let windows = application.windows
+        var visibleWindowCount = 0
+        var homeWindowCount = 0
+        var visibleHomeWindowCount = 0
+        for window in windows {
+            let isVisible = window.isVisible
+            if isVisible {
+                visibleWindowCount += 1
+            }
+            if HomeWindowIdentity.matches(window) {
+                homeWindowCount += 1
+                if isVisible {
+                    visibleHomeWindowCount += 1
+                }
+            }
+        }
         return [
             "windowCount": "\(windows.count)",
-            "visibleWindowCount": "\(windows.filter(\.isVisible).count)",
+            "visibleWindowCount": "\(visibleWindowCount)",
+            "homeWindowCount": "\(homeWindowCount)",
+            "visibleHomeWindowCount": "\(visibleHomeWindowCount)",
             "isActive": boolLabel(application.isActive),
             "thermalState": thermalStateLabel(ProcessInfo.processInfo.thermalState),
             "lowPowerMode": boolLabel(ProcessInfo.processInfo.isLowPowerModeEnabled),
@@ -988,13 +865,13 @@ final class RuntimeIssueMonitor {
 
 @main
 struct EpistemosApp: App {
-    private static let isRunningTests =
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private static let isRunningTests = isEpistemosTestHost
     @NSApplicationDelegateAdaptor(EpistemosAppDelegate.self) private var appDelegate
     @State private var bootstrap: AppBootstrap
     @State private var showQuickCapture = false
 
     init() {
+        FoundationSafety.requireValidAuditRuntimeIsolationIfRequested()
         let bootstrap = AppBootstrap()
         _bootstrap = State(initialValue: bootstrap)
 
@@ -1011,10 +888,6 @@ struct EpistemosApp: App {
             ])
             RuntimeIssueMonitor.shared.start()
             HomeWindowInputDiagnostics.shared.startIfNeeded()
-            HomeWindowFallbackPresenter.shared.schedule(bootstrap: bootstrap)
-            #if EPISTEMOS_APP_STORE
-                AppStoreFirstWindowPresenter.shared.schedule(bootstrap: bootstrap)
-            #endif
         }
     }
 
@@ -1032,8 +905,8 @@ struct EpistemosApp: App {
                 vaultSync: bootstrap.vaultSync)
         }
 
-        // Knowledge Graph uses a full-screen hologram overlay (HologramController),
-        // not a SwiftUI Window scene. Toggle with Cmd+Shift+G.
+        // Graph destinations are hosted by Home and the Notes multitask tab
+        // group, so no separate SwiftUI Window scene is declared here.
     }
 
     @ViewBuilder
@@ -1057,23 +930,25 @@ enum KnowledgeGraphShortcutDispatcher {
 
     private static var lastToggleUptime: TimeInterval = 0
     private static var pendingDeferredOpenTask: Task<Void, Never>?
+    private static var pendingRevealTask: Task<Void, Never>?
 
     static func toggle(reduceMotion: Bool = false) {
+        openHomeGraph(reduceMotion: reduceMotion)
+    }
+
+    static func openHomeGraph(reduceMotion: Bool = false) {
         let now = ProcessInfo.processInfo.systemUptime
         guard now - lastToggleUptime > duplicateToggleWindow else { return }
         lastToggleUptime = now
 
-        guard let bootstrap = AppBootstrap.shared else {
-            HologramController.shared.toggle()
-            return
-        }
+        guard let bootstrap = AppBootstrap.shared else { return }
 
-        // Closing an already-open graph is safe and should remain immediate.
+        pendingRevealTask?.cancel()
+        pendingRevealTask = nil
+        NoteWindowManager.shared.closeGraphTab()
+
         if HologramController.shared.isVisible {
-            pendingDeferredOpenTask?.cancel()
-            pendingDeferredOpenTask = nil
             HologramController.shared.hide()
-            return
         }
 
         if bootstrap.uiState.homeContent == .graph {
@@ -1095,7 +970,48 @@ enum KnowledgeGraphShortcutDispatcher {
             return
         }
 
-        openGraph(bootstrap: bootstrap, reduceMotion: reduceMotion)
+        presentHomeGraph(bootstrap: bootstrap, reduceMotion: reduceMotion)
+    }
+
+    static func showHomeGraph(reduceMotion: Bool = false) {
+        guard let bootstrap = AppBootstrap.shared else { return }
+        pendingDeferredOpenTask?.cancel()
+        pendingDeferredOpenTask = nil
+        pendingRevealTask?.cancel()
+        pendingRevealTask = nil
+        pendingRevealTask?.cancel()
+        pendingRevealTask = nil
+        NoteWindowManager.shared.closeGraphTab()
+        if HologramController.shared.isVisible {
+            HologramController.shared.hide()
+        }
+        presentHomeGraph(bootstrap: bootstrap, reduceMotion: reduceMotion)
+    }
+
+    static func openMultitaskGraph() {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastToggleUptime > duplicateToggleWindow else { return }
+        lastToggleUptime = now
+
+        guard let bootstrap = AppBootstrap.shared else { return }
+        pendingDeferredOpenTask?.cancel()
+        pendingDeferredOpenTask = nil
+        if HologramController.shared.isVisible {
+            HologramController.shared.hide()
+        }
+        if bootstrap.uiState.homeContent == .graph {
+            setEmbeddedGraphVisible(false, bootstrap: bootstrap, reduceMotion: false)
+        }
+        ensureEmbeddedGraphLoadStarted(bootstrap: bootstrap)
+        NoteWindowManager.shared.openGraphTab()
+    }
+
+    static func revealPage(_ pageID: String) {
+        reveal(sourceID: pageID, type: .note)
+    }
+
+    static func revealDocument(_ documentID: String) {
+        reveal(sourceID: documentID, type: .document)
     }
 
     private static func isLocalGenerationActive(_: AppBootstrap) -> Bool {
@@ -1111,7 +1027,7 @@ enum KnowledgeGraphShortcutDispatcher {
             for _ in 0..<deferredOpenMaxPolls {
                 guard !Task.isCancelled else { return }
                 if !isLocalGenerationActive(bootstrap) {
-                    openGraph(bootstrap: bootstrap, reduceMotion: reduceMotion)
+                    presentHomeGraph(bootstrap: bootstrap, reduceMotion: reduceMotion)
                     return
                 }
                 try? await Task.sleep(nanoseconds: deferredOpenPollNanoseconds)
@@ -1120,23 +1036,37 @@ enum KnowledgeGraphShortcutDispatcher {
         }
     }
 
-    private static func openGraph(bootstrap: AppBootstrap, reduceMotion: Bool) {
-        switch bootstrap.graphState.graphViewLocation {
-        case .miniPanel:
-            if bootstrap.uiState.homeContent == .graph {
-                bootstrap.uiState.homeContent = .greeting
-            }
-            HologramController.shared.toggle()
+    private static func presentHomeGraph(bootstrap: AppBootstrap, reduceMotion: Bool) {
+        ensureEmbeddedGraphLoadStarted(bootstrap: bootstrap)
+        bootstrap.uiState.homeTab = .home
+        bootstrap.uiState.setActivePanel(.home)
+        HomeWindowIdentity.surfaceHomeWindow()
+        setEmbeddedGraphVisible(true, bootstrap: bootstrap, reduceMotion: reduceMotion)
+    }
 
-        case .embedded:
-            if HologramController.shared.isVisible {
-                HologramController.shared.hide()
+    private static func reveal(sourceID: String, type: GraphNodeType) {
+        guard let bootstrap = AppBootstrap.shared else { return }
+        showHomeGraph()
+        pendingRevealTask?.cancel()
+        pendingRevealTask = Task { @MainActor in
+            defer { pendingRevealTask = nil }
+            for _ in 0..<deferredOpenMaxPolls {
+                guard !Task.isCancelled else { return }
+                let graphState = bootstrap.graphState
+                if let node = graphState.store.node(bySourceId: sourceID, type: type) {
+                    graphState.cleanupEphemeralNodes()
+                    graphState.mode = .global
+                    graphState.requestModeSync()
+                    graphState.clearFocus()
+                    graphState.requestFilterSync()
+                    graphState.selectNode(node.id)
+                    graphState.pendingCenterNodeId = node.id
+                    graphState.requestRecommit()
+                    return
+                }
+                try? await Task.sleep(nanoseconds: deferredOpenPollNanoseconds)
             }
-            ensureEmbeddedGraphLoadStarted(bootstrap: bootstrap)
-            bootstrap.uiState.homeTab = .home
-            bootstrap.uiState.setActivePanel(.home)
-            HomeWindowIdentity.surfaceHomeWindow()
-            setEmbeddedGraphVisible(true, bootstrap: bootstrap, reduceMotion: reduceMotion)
+            log.warning("Could not resolve requested graph source after graph load")
         }
     }
 
@@ -1175,15 +1105,20 @@ enum KnowledgeGraphShortcutDispatcher {
 
 private enum KnowledgeGraphKeyEventMonitor {
     nonisolated static func handle(_ event: NSEvent) -> NSEvent? {
-        let cmdOnly = event.modifierFlags
-            .intersection([.command, .shift, .option, .control]) == .command
-        guard cmdOnly,
-              event.charactersIgnoringModifiers?.lowercased() == "g"
+        let modifiers = event.modifierFlags
+            .intersection([.command, .shift, .option, .control])
+        guard event.charactersIgnoringModifiers?.lowercased() == "g",
+              modifiers == .command || modifiers == [.command, .shift]
         else { return event }
 
+        let opensMultitaskGraph = modifiers.contains(.shift)
         DispatchQueue.main.async {
             Task { @MainActor in
-                KnowledgeGraphShortcutDispatcher.toggle()
+                if opensMultitaskGraph {
+                    KnowledgeGraphShortcutDispatcher.openMultitaskGraph()
+                } else {
+                    KnowledgeGraphShortcutDispatcher.openHomeGraph()
+                }
             }
         }
         return nil
@@ -1210,9 +1145,9 @@ private final class TerminationDataFlushDeadline {
 }
 
 final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
-    private static let isRunningTests =
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private static let isRunningTests = isEpistemosTestHost
     private var didTeardown = false
+    private var hasCompletedInitialLaunch = false
     private var terminationFlushTask: Task<Void, Never>?
     private static let showQuitDialogKey = "epistemos.showSaveOnQuitDialog"
 
@@ -1230,7 +1165,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     }
 
     var showSaveOnQuitDialogEnabled: Bool {
-        let defaults = UserDefaults.standard
+        let defaults = FoundationSafety.runtimeUserDefaults
         return defaults.object(forKey: Self.showQuitDialogKey) == nil
             ? true
             : defaults.bool(forKey: Self.showQuitDialogKey)
@@ -1319,25 +1254,16 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             matching: .keyDown,
             handler: KnowledgeGraphKeyEventMonitor.handle
         )
+        hasCompletedInitialLaunch = true
         guard !Self.isRunningTests else { return }
-
-        #if EPISTEMOS_APP_STORE
-            Logger(subsystem: "com.epistemos", category: "AppStoreFirstWindow")
-                .info("App Store applicationDidFinishLaunching reached")
-            AppStoreFirstWindowPresenter.shared.scheduleAfterLaunch()
-        #else
-            HomeWindowFallbackPresenter.shared.scheduleAfterLaunch()
-        #endif
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard !Self.isRunningTests else { return true }
+        guard hasCompletedInitialLaunch else { return true }
         guard !flag else { return true }
-        #if EPISTEMOS_APP_STORE
-            AppStoreFirstWindowPresenter.shared.ensureHomeWindow()
-        #else
-            HomeWindowFallbackPresenter.shared.ensureHomeWindow()
-        #endif
-        return true
+        HomeWindowFallbackPresenter.shared.ensureHomeWindow()
+        return false
     }
 
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
@@ -1458,6 +1384,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         // the staged note-body cache synchronously here too, mirroring the Epdoc flush.
         NoteFileStorage.flushAllPendingBodiesForShutdown()
         guard !Self.isRunningTests else {
+            FoundationSafety.clearTestRuntimeDefaultsIfNeeded()
             StatusBar.shared.remove()
             HologramController.shared.teardown()
             HomeWindowInputDiagnostics.shared.stop()
@@ -1469,7 +1396,9 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         bootstrap.teardownRuntimeObservers()
         bootstrap.activityTracker.stopTracking()
         bootstrap.activityTracker.flushToDisk()
+        #if !EPISTEMOS_FREE_V1
         bootstrap.workspaceSummaryService.stopAutoSummaryLoop()
+        #endif
         bootstrap.workspaceService.stopAutoSave()
         if !bootstrap.workspaceService.consumeSkipAutoSaveRequest() {
             bootstrap.workspaceService.autoSave()
@@ -1499,13 +1428,19 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     }
 
     private func installKnowledgeGraphMenuFallback() {
-        guard let viewMenu = NSApp.mainMenu?.item(withTitle: "View")?.submenu,
-              let item = viewMenu.items.first(where: { $0.title == "Knowledge Graph" })
-        else { return }
-        item.target = self
-        item.action = #selector(toggleKnowledgeGraphFromMenu(_:))
-        item.keyEquivalent = "g"
-        item.keyEquivalentModifierMask = [.command]
+        guard let viewMenu = NSApp.mainMenu?.item(withTitle: "View")?.submenu else { return }
+        if let homeItem = viewMenu.items.first(where: { $0.title == "Home Graph" }) {
+            homeItem.target = self
+            homeItem.action = #selector(openHomeGraphFromMenu(_:))
+            homeItem.keyEquivalent = "g"
+            homeItem.keyEquivalentModifierMask = [.command]
+        }
+        if let multitaskItem = viewMenu.items.first(where: { $0.title == "Multitask Graph" }) {
+            multitaskItem.target = self
+            multitaskItem.action = #selector(openMultitaskGraphFromMenu(_:))
+            multitaskItem.keyEquivalent = "g"
+            multitaskItem.keyEquivalentModifierMask = [.command, .shift]
+        }
 
         if let revealItem = viewMenu.items.first(where: { $0.title == "Reveal Current Document in Graph" }) {
             revealItem.target = self
@@ -1513,16 +1448,20 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
     }
 
-    @objc private func toggleKnowledgeGraphFromMenu(_ sender: NSMenuItem) {
-        HologramController.shared.toggle()
+    @objc private func openHomeGraphFromMenu(_ sender: NSMenuItem) {
+        KnowledgeGraphShortcutDispatcher.showHomeGraph()
+    }
+
+    @objc private func openMultitaskGraphFromMenu(_ sender: NSMenuItem) {
+        KnowledgeGraphShortcutDispatcher.openMultitaskGraph()
     }
 
     @objc func revealCurrentDocumentInKnowledgeGraph(_ sender: Any?) {
         guard let epdoc = activeEpdocDocument() else {
-            KnowledgeGraphShortcutDispatcher.toggle()
+            KnowledgeGraphShortcutDispatcher.showHomeGraph()
             return
         }
-        HologramController.shared.revealDocument(epdoc.package.manifest.id)
+        KnowledgeGraphShortcutDispatcher.revealDocument(epdoc.package.manifest.id)
     }
 
     private func activeEpdocDocument() -> EpdocDocument? {
@@ -1623,17 +1562,15 @@ struct EpistemosCommands: Commands {
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
 
-            Button("Knowledge Graph") {
-                KnowledgeGraphShortcutDispatcher.toggle()
+            Button("Home Graph") {
+                KnowledgeGraphShortcutDispatcher.showHomeGraph()
             }
             .keyboardShortcut("g", modifiers: .command)
 
-            if ProductCapabilityPolicy.isAvailable(.browser) {
-                Button("Browser") {
-                    UtilityWindowManager.shared.show(.browser)
-                }
-                .keyboardShortcut("b", modifiers: [.command, .shift])
+            Button("Multitask Graph") {
+                KnowledgeGraphShortcutDispatcher.openMultitaskGraph()
             }
+            .keyboardShortcut("g", modifiers: [.command, .shift])
 
             Button("Reveal Current Document in Graph") {
                 (NSApp.delegate as? EpistemosAppDelegate)?
@@ -1655,7 +1592,7 @@ struct EpistemosCommands: Commands {
 
             Button("Read Visible Surface") {
                 Task { @MainActor in
-                    _ = EpistemosAgentReadAloud.readVisibleSurface()
+                    _ = EpistemosReadAloud.readVisibleSurface()
                 }
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
@@ -1669,12 +1606,19 @@ struct EpistemosCommands: Commands {
             }
             .keyboardShortcut("n", modifiers: [.command, .option, .shift])
 
-            Button("New Note") {
+            Button("New Markdown Document (.md)") {
                 Task { @MainActor in
                     await NoteCreationCoordinator.createAndOpen(vaultSync: vaultSync)
                 }
             }
             .keyboardShortcut("n", modifiers: .command)
+
+            Button("New JSON Document (.epdoc)") {
+                Task { @MainActor in
+                    createEpdocDocument()
+                }
+            }
+            .keyboardShortcut("n", modifiers: [.command, .option])
 
             Button("Quick Capture") {
                 NotificationCenter.default.post(name: .showQuickCapture, object: nil)
@@ -1698,6 +1642,15 @@ struct EpistemosCommands: Commands {
             Button("Show All") {
                 NSApp.unhideAllApplications(nil)
             }
+        }
+    }
+
+    @MainActor
+    private func createEpdocDocument() {
+        do {
+            try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
+        } catch {
+            NSApplication.shared.presentError(error)
         }
     }
 

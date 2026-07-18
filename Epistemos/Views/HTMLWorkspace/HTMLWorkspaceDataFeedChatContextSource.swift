@@ -7,6 +7,9 @@ extension HTMLWorkspaceDataFeedContextSources {
         modelContainer: ModelContainer?,
         limit: Int
     ) -> [HTMLWorkspaceDataFeedResult] {
+        guard ProductCapabilityPolicy.allowsWorkspaceContextPresentation(kind: "recent_chat") else {
+            return []
+        }
         guard let modelContainer else { return [] }
 
         let context = ModelContext(modelContainer)

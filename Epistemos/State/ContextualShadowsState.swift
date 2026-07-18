@@ -22,7 +22,7 @@ final class ContextualShadowsState {
     /// so the off-MainActor query path can hand the converted result back to
     /// MainActor via `await MainActor.run`.
     nonisolated struct RecallHit: Identifiable, Hashable, Sendable {
-        let id: String  // note/chat id (doc_id)
+        let id: String  // durable document id
         let title: String
         let snippet: String
         let kind: RecallContextKind
@@ -121,7 +121,7 @@ final class ContextualShadowsState {
         if ProcessInfo.processInfo.environment[Self.userDefaultsKey] == "1" {
             return true
         }
-        if let persisted = UserDefaults.standard.object(forKey: Self.userDefaultsKey) as? Bool {
+        if let persisted = FoundationSafety.runtimeUserDefaults.object(forKey: Self.userDefaultsKey) as? Bool {
             return persisted
         }
         return Self.defaultEnabled
@@ -202,7 +202,7 @@ final class ContextualShadowsState {
     /// Schedule an off-MainActor recall query for the supplied snapshot.
     /// Cancels any in-flight task for the same surface before launching a new
     /// one (backpressure per plan §7 — never queue, always supersede). Other
-    /// open notes/chats keep their own recall payload instead of inheriting or
+    /// open note surfaces keep their own recall payload instead of inheriting or
     /// cancelling the caller's current query.
     ///
     /// Prefers the configured Shadow backend when available; otherwise falls
@@ -226,6 +226,11 @@ final class ContextualShadowsState {
         latestScopeKey = scopeKey
         cancelPendingTask(scopeKey: scopeKey)
 
+        guard ProductCapabilityPolicy.allowsContextualShadowPresentation(of: snapshot.kind) else {
+            clearResults(scopeKey: scopeKey)
+            return
+        }
+
         // Minimum query length keeps input surfaces quiet during quick
         // acks; note editing also benefits from skipping very short
         // partial words.
@@ -239,23 +244,12 @@ final class ContextualShadowsState {
         publishPendingPayload(scopeKey: scopeKey, queryText: queryText)
 
         if let shadowSearch {
-            let domains = Self.shadowDomains(for: snapshot.kind)
             let task = Task { [weak self, shadowSearch, searchIndexService, instantRecall] in
-                async let first = shadowSearch.searchReportingErrors(
+                let outcome = await shadowSearch.searchReportingErrors(
                     text: queryText,
-                    domain: domains.first,
                     limit: Self.backendSearchLimit
                 )
-                async let second = shadowSearch.searchReportingErrors(
-                    text: queryText,
-                    domain: domains.second,
-                    limit: Self.backendSearchLimit
-                )
-                let firstOutcome = await first
-                let secondOutcome = await second
-                let raw = firstOutcome.hits + secondOutcome.hits
-                let errorMessage = firstOutcome.errorMessage ?? secondOutcome.errorMessage
-                let shadowHits = Self.convert(raw: raw, originDocId: originDocId)
+                let shadowHits = Self.convert(raw: outcome.hits, originDocId: originDocId)
 
                 let fallbackHits: [RecallHit]
                 if shadowHits.count < Self.defaultTopK {
@@ -279,7 +273,7 @@ final class ContextualShadowsState {
                     await MainActor.run {
                         guard let self else { return }
                         guard !Task.isCancelled else { return }
-                        if let errorMessage {
+                        if let errorMessage = outcome.errorMessage {
                             self.publishPayload(
                                 scopeKey: scopeKey,
                                 queryText: queryText,
@@ -459,7 +453,8 @@ final class ContextualShadowsState {
         errorMessage: String?,
         isVisible: Bool
     ) {
-        currentResults = results
+        let visibleResults = Self.freeV1VisibleRecallHits(results)
+        currentResults = visibleResults
         lastQueryText = queryText
         lastErrorMessage = errorMessage
         // SS-IR (owner 2026-06-20): never AUTO-OPEN the panel from a query result — that was the
@@ -467,7 +462,8 @@ final class ContextualShadowsState {
         // payload (which LIGHTS the button via hasPanelPayload), but only KEEPS the panel visible
         // if the user had ALREADY opened it; `isVisible:false` (empty/error) still closes. The
         // explicit openPanel() (button click) is now the sole path that opens the panel.
-        isPanelVisible = isVisible && isPanelVisible
+        let hasVisiblePayload = !visibleResults.isEmpty || errorMessage != nil
+        isPanelVisible = isVisible && hasVisiblePayload && isPanelVisible
         latestScopeKey = scopeKey
 
         guard let scopeKey else {
@@ -476,12 +472,12 @@ final class ContextualShadowsState {
         }
         let scopeWasOpen = scopedPanelVisibility[scopeKey] == true
         scopedPayloads[scopeKey] = RecallPayload(
-            results: results,
+            results: visibleResults,
             queryText: queryText,
             errorMessage: errorMessage,
             isSearching: false
         )
-        scopedPanelVisibility[scopeKey] = isVisible && scopeWasOpen
+        scopedPanelVisibility[scopeKey] = isVisible && hasVisiblePayload && scopeWasOpen
         scopedPendingTasks[scopeKey] = nil
         pendingTask = scopedPendingTasks.values.first
     }
@@ -510,14 +506,18 @@ final class ContextualShadowsState {
 
     /// Convert raw `InstantRecallResult` values to `RecallHit`. Kept as a
     /// `nonisolated static` so it can be invoked from either actor side
-    /// without a hop. Filters out the originating note/chat to avoid
-    /// suggesting the very note the user is composing into.
+    /// without a hop. Filters out the originating document to avoid suggesting
+    /// the very note the user is composing into.
     nonisolated static func convert(
         raw: [InstantRecallResult],
         resultKind: RecallContextKind,
         originId: UUID
     ) -> [RecallHit] {
         convert(raw: raw, resultKind: resultKind, originDocId: originId.uuidString)
+    }
+
+    nonisolated static func freeV1VisibleRecallHits(_ hits: [RecallHit]) -> [RecallHit] {
+        hits.filter { ProductCapabilityPolicy.allowsContextualShadowPresentation(of: $0.kind) }
     }
 
     nonisolated static func convert(
@@ -552,12 +552,12 @@ final class ContextualShadowsState {
         originDocId: String
     ) -> [RecallHit] {
         return raw.compactMap { hit -> RecallHit? in
-            guard hit.id != originDocId else { return nil }
+            guard hit.id != originDocId, hit.domain == .notes else { return nil }
             return RecallHit(
                 id: hit.id,
                 title: hit.title,
                 snippet: hit.snippet,
-                kind: recallKind(for: hit.domain),
+                kind: .note,
                 similarity: hit.score,
                 source: hit.source.isEmpty ? "shadow" : hit.source
             )
@@ -606,7 +606,6 @@ final class ContextualShadowsState {
         searchIndexService: SearchIndexService?
     ) async -> [RecallHit] {
         if let searchIndexService {
-            let started = Date()
             do {
                 let titleIntent = explicitTitleIntent(from: queryText)
                 let searchQueries = explicitTitleSearchQueries(
@@ -624,14 +623,6 @@ final class ContextualShadowsState {
                     )
                     results.append(contentsOf: queryResults)
                 }
-                let latencyMs = Date().timeIntervalSince(started) * 1000
-                let trace = SearchIndexService.vaultRecallTrace(
-                    query: queryText,
-                    limit: Self.backendSearchLimit,
-                    results: results
-                )
-                VaultRecallBridge.recordProductionTrace(trace, latencyMs: latencyMs)
-
                 let hits = Self.convert(raw: results, originDocId: originDocId)
                 if !hits.isEmpty {
                     return Self.rankedUniqueHits(
@@ -642,7 +633,7 @@ final class ContextualShadowsState {
                 }
             } catch {
                 log.warning(
-                    "Contextual Shadows vault-search fallback failed: \(String(describing: error), privacy: .public)"
+                    "Contextual Shadows vault-search fallback failed."
                 )
             }
         }
@@ -707,7 +698,7 @@ final class ContextualShadowsState {
             .joined(separator: ". ")
         let baseWindow = sentenceWindow.isEmpty ? String(focusWindow.suffix(520)) : sentenceWindow
         // Keep explicit note-title lookup local to the active writing window.
-        // Pulling a "look for note titled ..." command from the whole note/chat
+        // Pulling a "look for note titled ..." command from the whole note
         // makes later unrelated sentences keep recalling the old target.
         let titleIntent = explicitTitleIntent(from: focusWindow)
             ?? (normalizedRecallField(focusWindow) == normalizedRecallField(compactNormalized)
@@ -868,47 +859,33 @@ final class ContextualShadowsState {
         _ hit: RecallHit,
         normalizedTitleIntent: String?
     ) -> Float {
-        let noteFirstBoost = recallKindBoost(hit)
         guard let normalizedTitleIntent, !normalizedTitleIntent.isEmpty else {
-            return hit.similarity + noteFirstBoost
+            return hit.similarity
         }
         let normalizedTitle = normalizedRecallField(hit.title)
-        guard !normalizedTitle.isEmpty else { return hit.similarity + noteFirstBoost }
+        guard !normalizedTitle.isEmpty else { return hit.similarity }
         let titleLooksLikeLookupCommand = recallTitleLooksLikeLookupCommand(normalizedTitle)
 
         if normalizedTitle == normalizedTitleIntent {
-            return hit.similarity + noteFirstBoost + 4.0
+            return hit.similarity + 4.0
         }
         if normalizedTitle.contains(normalizedTitleIntent) {
-            return hit.similarity + noteFirstBoost + (titleLooksLikeLookupCommand ? 0.35 : 3.0)
+            return hit.similarity + (titleLooksLikeLookupCommand ? 0.35 : 3.0)
         }
         let titleTokens = Set(normalizedTitle.split(separator: " ").map(String.init))
         let intentTokens = normalizedTitleIntent
             .split(separator: " ")
             .map(String.init)
             .filter { !$0.isEmpty }
-        guard !intentTokens.isEmpty else { return hit.similarity + noteFirstBoost }
+        guard !intentTokens.isEmpty else { return hit.similarity }
         let overlap = intentTokens.reduce(0) { partial, token in
             partial + (titleTokens.contains(token) ? 1 : 0)
         }
         if overlap == intentTokens.count {
-            return hit.similarity + noteFirstBoost + (titleLooksLikeLookupCommand ? 0.20 : 2.0)
+            return hit.similarity + (titleLooksLikeLookupCommand ? 0.20 : 2.0)
         }
         let commandPenalty: Float = titleLooksLikeLookupCommand ? 0.35 : 0
-        return hit.similarity + noteFirstBoost + Float(overlap) * 0.25 - commandPenalty
-    }
-
-    /// Ambient recall is mostly a note-finding affordance even when typed
-    /// inside chat. Keep chats available as useful session memory, but prefer
-    /// vault notes on near-ties so old conversation text does not pin the
-    /// visible list while the user is trying to find related notes.
-    nonisolated private static func recallKindBoost(_ hit: RecallHit) -> Float {
-        switch hit.kind {
-        case .note:
-            return 0.08
-        case .chat:
-            return 0
-        }
+        return hit.similarity + Float(overlap) * 0.25 - commandPenalty
     }
 
     nonisolated private static func normalizedRecallField(_ value: String) -> String {
@@ -974,24 +951,6 @@ final class ContextualShadowsState {
         }
         let positionScore = 1.0 / Double(index + 1)
         return Float(min(1.0, max(0.05, max(rankScore, positionScore))))
-    }
-
-    nonisolated private static func shadowDomains(for kind: RecallContextKind) -> (first: ShadowDomain, second: ShadowDomain) {
-        switch kind {
-        case .note:
-            return (.notes, .chats)
-        case .chat:
-            return (.notes, .chats)
-        }
-    }
-
-    nonisolated private static func recallKind(for domain: ShadowDomain) -> RecallContextKind {
-        switch domain {
-        case .notes:
-            return .note
-        case .chats:
-            return .chat
-        }
     }
 
     nonisolated static func scopeKey(kind: RecallContextKind?, originDocId: String?) -> String? {

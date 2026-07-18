@@ -93,6 +93,11 @@ final class ReactiveQuery {
     }
 
     func shouldInvalidate(for notification: Notification) -> Bool {
+        if notification.name == .searchIndexDidUpdate,
+           let source = notification.object as? SearchIndexService,
+           !runtime.matchesSearchNotificationSource(source) {
+            return false
+        }
         guard let changedKeys = QueryDependencyKey.from(notification) else {
             return true
         }

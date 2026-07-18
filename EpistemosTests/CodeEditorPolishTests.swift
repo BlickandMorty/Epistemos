@@ -616,11 +616,19 @@ nonisolated struct CodeEditorPolishTests {
         #expect(adapter.contains("MarkEditCoreEditorThemeOverlay.script("),
                 "CoreEditor should apply the Epistemos token overlay in-place with the existing no-reload theme switch.")
         #expect(adapter.contains("let surfaceTheme = theme"),
-                "The CoreEditor palette must use the already-selected app surface; applying .surfaceVariant(.other) again drifts Ember/Platinum/custom themes.")
+                "The CoreEditor palette must use the already-selected app surface; applying .surfaceVariant(.other) again drifts the preset themes.")
         #expect(!adapter.contains("let surfaceTheme = theme.surfaceVariant(.other)"),
                 "The CoreEditor palette must not double-variant the active theme surface.")
         #expect(adapter.contains("window.__epistemosCoreEditorThemePalette"),
                 "The web editor should expose the applied token payload for visual/debug verification.")
+        #expect(adapter.contains(".cm-scroller::-webkit-scrollbar,"),
+                "The CoreEditor scroll rail must be explicitly bound to the active Epistemos surface instead of WebKit's generic gray track.")
+        #expect(adapter.contains(".cm-scroller::-webkit-scrollbar-track,"),
+                "The CoreEditor scrollbar track must remain part of the editor canvas.")
+        #expect(adapter.contains(".cm-scroller::-webkit-scrollbar-corner"),
+                "The CoreEditor scrollbar corner must not reveal a separate embedded-panel color.")
+        #expect(adapter.contains(".cm-scroller::-webkit-scrollbar-thumb"),
+                "The CoreEditor scrollbar thumb must use an explicit Epistemos token rather than a browser default.")
         #expect(coordinator.contains("self.applyTheme(themeName: state.themeName, palette: state.themePalette, to: webView)"),
                 "CoreEditor reset can repaint the built-in source theme; the Epistemos token overlay must be reapplied after reset succeeds.")
         #expect(adapter.contains(#"theme.isDark ? "xcode-dark" : "xcode-light""#),

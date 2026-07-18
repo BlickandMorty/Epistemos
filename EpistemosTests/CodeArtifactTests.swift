@@ -7,14 +7,12 @@ import Testing
 /// (`docs/audits/EXTENDED_PROGRAM_PLAN_2026_04_25.md` Wave 9,
 ///  cross-ref `epistemos_code_verdict.md` + brain dump 2026-04-26).
 ///
-/// Three concerns covered here:
+/// Two concerns covered here:
 ///   1. CodeArtifactKind catalog (W9.1) — extension round-trip,
 ///      tree-sitter grammar mapping, new-file template render
 ///   2. CodeArtifactSidecar + CodeProvenance + CodeSidecarPath
 ///      (W9.2 + W9.3) — Codable round-trip, sidecar path resolver,
 ///      provenance shape parity with EpdocProvenance
-///   3. ChatCodeExtractor (W9.4) — markdown fence parsing into
-///      typed candidate code blocks
 @Suite("Code artifact substrate (Wave 9 base)")
 nonisolated struct CodeArtifactTests {
 
@@ -181,100 +179,4 @@ nonisolated struct CodeArtifactTests {
                 "Empty-path SHA-256 must match the well-known empty digest")
     }
 
-    // MARK: - W9.4 ChatCodeExtractor
-
-    @Test("ChatCodeExtractor finds a single fenced block")
-    func extractsSingleFence() {
-        let text = """
-        Here's the code:
-
-        ```swift
-        func hello() { print("hi") }
-        ```
-
-        That's it.
-        """
-        let blocks = ChatCodeExtractor.extract(from: text)
-        #expect(blocks.count == 1)
-        #expect(blocks[0].kind == .swift)
-        #expect(blocks[0].rawLanguageTag == "swift")
-        #expect(blocks[0].body.contains("func hello()"))
-    }
-
-    @Test("ChatCodeExtractor finds multiple fenced blocks in source order")
-    func extractsMultipleInOrder() {
-        let text = """
-        First:
-        ```rust
-        fn one() {}
-        ```
-
-        Second:
-        ```python
-        def two(): pass
-        ```
-        """
-        let blocks = ChatCodeExtractor.extract(from: text)
-        #expect(blocks.count == 2)
-        #expect(blocks[0].kind == .rust)
-        #expect(blocks[1].kind == .python)
-        #expect(blocks[0].openingFenceOffset < blocks[1].openingFenceOffset,
-                "blocks must be returned in source order")
-    }
-
-    @Test("ChatCodeExtractor handles language aliases (js, ts, py, sh, etc.)")
-    func extractorHandlesAliases() {
-        let cases: [(tag: String, expected: CodeArtifactKind)] = [
-            ("js", .javascript),
-            ("ts", .typescript),
-            ("py", .python),
-            ("rb", .ruby),
-            ("sh", .shell),
-            ("bash", .shell),
-            ("zsh", .shell),
-            ("yml", .yaml),
-            ("md", .markdown),
-            ("rs", .rust),
-            ("golang", .go),
-        ]
-        for (tag, expected) in cases {
-            let text = "```\(tag)\nbody\n```"
-            let blocks = ChatCodeExtractor.extract(from: text)
-            #expect(blocks.count == 1, "tag '\(tag)' must produce 1 block")
-            #expect(blocks.first?.kind == expected,
-                    "tag '\(tag)' must classify as \(expected); got \(String(describing: blocks.first?.kind))")
-        }
-    }
-
-    @Test("ChatCodeExtractor falls back to .plain on missing or unknown tag")
-    func extractorFallsBackToPlain() {
-        let untagged = "```\nplain body\n```"
-        let unknown = "```martian\nplain body\n```"
-        #expect(ChatCodeExtractor.extract(from: untagged).first?.kind == .plain)
-        #expect(ChatCodeExtractor.extract(from: unknown).first?.kind == .plain)
-    }
-
-    @Test("ChatCodeExtractor drops unterminated fences instead of recovering")
-    func extractorDropsUnterminated() {
-        let text = """
-        ```swift
-        unterminated body never closes
-        """
-        let blocks = ChatCodeExtractor.extract(from: text)
-        #expect(blocks.isEmpty,
-                "unterminated fences must be dropped — recovery is ambiguous and agents rarely emit them")
-    }
-
-    @Test("ChatCodeExtractor returns empty array for plain text")
-    func extractorEmptyForPlainText() {
-        let blocks = ChatCodeExtractor.extract(from: "no code in this message")
-        #expect(blocks.isEmpty)
-    }
-
-    @Test("ChatCodeExtractor.kind(forLanguageTag:) is case-insensitive")
-    func kindCaseInsensitive() {
-        #expect(ChatCodeExtractor.kind(forLanguageTag: "Swift") == .swift)
-        #expect(ChatCodeExtractor.kind(forLanguageTag: "RUST") == .rust)
-        #expect(ChatCodeExtractor.kind(forLanguageTag: "JavaScript") == .javascript)
-    }
 }

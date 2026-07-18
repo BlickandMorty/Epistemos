@@ -35,6 +35,7 @@ interface Window {
     setContent(json: string, epoch?: number): void;
     getMarkdown(): string;
     setMarkdown(markdown: string, epoch?: number): void;
+    replaceDocumentTitle(title: string, epoch?: number): boolean;
     setContentWidth(value: string): void;
     flushDocumentSnapshot(): void;
     setFindQuery(query: string, caseSensitive?: boolean): boolean;

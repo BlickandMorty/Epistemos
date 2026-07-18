@@ -6,32 +6,13 @@ import Testing
 
 @Suite("ThemePair Dock Icon")
 struct ThemePairTests {
-    private var customThemeDefaultsKeys: [String] {
-        AppCustomThemeColorSlot.allCases.flatMap { slot in
-            [
-                slot.defaultsKey,
-                slot.defaultsKey(isDark: false),
-                slot.defaultsKey(isDark: true),
-            ]
-        }
-    }
-
     @MainActor
     private func withPreservedThemeDefaults(_ body: () -> Void) {
         let defaults = UserDefaults.standard
         let keys = [
             ThemeMode.defaultsKey,
             UIState.themePairDefaultsKey,
-            // updated 2026-07-03: preserve the experimental custom-theme flag so
-            // tests that enable it (custom fonts/colors now gate on it) restore cleanly.
-            AppCustomTheme.experimentalDefaultsKey,
-            AppDisplayTypography.headingLevel1FontDefaultsKey,
-            AppDisplayTypography.headingLevel2FontDefaultsKey,
-            AppDisplayTypography.headingLevel3FontDefaultsKey,
-            AppDisplayTypography.headingLevel1ScaleDefaultsKey,
-            AppDisplayTypography.headingLevel2ScaleDefaultsKey,
-            AppDisplayTypography.headingLevel3ScaleDefaultsKey,
-        ] + customThemeDefaultsKeys
+        ]
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
             for (key, value) in previousValues {
@@ -42,11 +23,6 @@ struct ThemePairTests {
                 }
             }
         }
-        AppDisplayTypography.resetHeadingTypography(defaults: defaults)
-        // updated 2026-07-03: custom theme is experimental + OFF by default now; start
-        // each preserved-defaults test from a known-off baseline so preset assertions
-        // never see a leaked custom engagement from a prior test.
-        AppCustomTheme.setExperimentalEnabled(false, defaults: defaults)
         body()
     }
 
@@ -79,213 +55,6 @@ struct ThemePairTests {
         #expect(postScriptNames.contains("Coder's-Crux"))
         #expect(filenames.contains("CodersCrux.ttf"))
         #expect(filenames.contains("VTFMisterPixel-Tools.otf"))
-    }
-
-    @Test("Heading typography overrides route through the shared theme resolver")
-    func headingTypographyOverridesRouteThroughThemeResolver() {
-        let defaults = UserDefaults.standard
-        let keys = [
-            UIState.themePairDefaultsKey,
-            // updated 2026-07-03: heading overrides only engage when the custom pair is
-            // actually active, which now requires the experimental flag — preserve it.
-            AppCustomTheme.experimentalDefaultsKey,
-            AppDisplayTypography.headingLevel1FontDefaultsKey,
-            AppDisplayTypography.headingLevel2FontDefaultsKey,
-            AppDisplayTypography.headingLevel3FontDefaultsKey,
-            AppDisplayTypography.headingLevel1ScaleDefaultsKey,
-            AppDisplayTypography.headingLevel2ScaleDefaultsKey,
-            AppDisplayTypography.headingLevel3ScaleDefaultsKey,
-        ]
-        let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
-        defer {
-            for (key, value) in previousValues {
-                if let value {
-                    defaults.set(value, forKey: key)
-                } else {
-                    defaults.removeObject(forKey: key)
-                }
-            }
-        }
-
-        AppDisplayTypography.resetHeadingTypography(defaults: defaults)
-        // updated 2026-07-03: custom theme is experimental + off by default; enable it so
-        // the .custom branch below actually routes the stored H2 override/scale (the whole
-        // point of this test). Preset (.classic) still ignores overrides regardless.
-        AppCustomTheme.setExperimentalEnabled(true, defaults: defaults)
-        AppDisplayTypography.setHeadingFontOverride("Coder's-Crux", level: 2, defaults: defaults)
-        AppDisplayTypography.setHeadingSizeScale(1.2, level: 2, defaults: defaults)
-
-        defaults.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
-        // updated 2026-07-03: classic now shares Ember's heading face (ChonkyPixels); the
-        // stored override does NOT leak into the preset classic pair.
-        #expect(EpistemosTheme.oledSoft.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
-        #expect(abs(EpistemosTheme.oledSoft.headingSizeMultiplier(level: 2) - 1.0) < 0.001)
-
-        defaults.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
-        #expect(EpistemosTheme.platinumVioletDark.headingFontName(level: 2) == "Coder's-Crux")
-        #expect(abs(EpistemosTheme.platinumVioletDark.headingSizeMultiplier(level: 2) - 1.2) < 0.001)
-
-        AppDisplayTypography.resetHeadingTypography(defaults: defaults)
-        #expect(EpistemosTheme.platinumVioletDark.headingFontName(level: 2) == AppDisplayTypography.matrixBoldDisplayFontName)
-        #expect(abs(EpistemosTheme.platinumVioletDark.headingSizeMultiplier(level: 2) - 1.0) < 0.001)
-    }
-
-    @Test("Custom appearance colors are isolated from preset theme cards")
-    func customAppearanceColorsAreIsolatedFromPresetThemes() {
-        let defaults = UserDefaults.standard
-        // updated 2026-07-03: custom theme now gates on the experimental flag — preserve it.
-        let keys = [UIState.themePairDefaultsKey, AppCustomTheme.experimentalDefaultsKey] + customThemeDefaultsKeys
-        let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
-        defer {
-            for (key, value) in previousValues {
-                if let value {
-                    defaults.set(value, forKey: key)
-                } else {
-                    defaults.removeObject(forKey: key)
-                }
-            }
-        }
-
-        AppCustomTheme.reset(defaults: defaults)
-        // updated 2026-07-03: custom theme is experimental + off by default; enable it so a
-        // .custom selection actually engages the stored palette (preset pairs stay isolated).
-        AppCustomTheme.setExperimentalEnabled(true, defaults: defaults)
-        AppCustomTheme.setHex(0x123456, for: .background, isDark: true, defaults: defaults)
-        AppCustomTheme.setHex(0xABCDEF, for: .accent, isDark: true, defaults: defaults)
-
-        defaults.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
-        #expect(!AppCustomTheme.isActive(defaults: defaults))
-        #expect(rgbHex(EpistemosTheme.oledSoft.resolved.background.nsColor) != 0x123456)
-
-        defaults.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
-        #expect(AppCustomTheme.isActive(defaults: defaults))
-        #expect(rgbHex(EpistemosTheme.platinumVioletDark.resolved.background.nsColor) == 0x123456)
-        #expect(rgbHex(EpistemosTheme.platinumVioletDark.presetResolved.background.nsColor) != 0x123456)
-        #expect(rgbHex(EpistemosTheme.platinumVioletDark.resolved.accent.nsColor) == 0xABCDEF)
-        #expect(rgbHex(EpistemosTheme.platinumViolet.resolved.background.nsColor) != 0x123456)
-    }
-
-    @MainActor
-    @Test("Custom note surface has an explicit editor canvas token")
-    func customNoteSurfaceHasExplicitEditorCanvasToken() {
-        withPreservedThemeDefaults {
-            let defaults = UserDefaults.standard
-            defaults.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
-            AppCustomTheme.reset(defaults: defaults)
-            // updated 2026-07-03: canvas/solid-flat note surface resolves the custom token only
-            // when the custom theme is active, which now requires the experimental flag.
-            AppCustomTheme.setExperimentalEnabled(true, defaults: defaults)
-
-            AppCustomTheme.setHex(0xABCDEF, for: .card, isDark: false, defaults: defaults)
-            #expect(AppCustomTheme.noteSurfaceHex(isDark: false, defaults: defaults) == 0xABCDEF)
-
-            AppCustomTheme.setHex(0x224466, for: .noteSurface, isDark: false, defaults: defaults)
-            #expect(AppCustomTheme.noteSurfaceHex(isDark: false, defaults: defaults) == 0x224466)
-            #expect(
-                rgbHex(
-                    MarkdownPreviewSurfaceStyle.solidFlatBackgroundNSColor(for: EpistemosTheme.platinumViolet)
-                ) == 0x224466
-            )
-            #expect(
-                rgbHex(
-                    MarkdownPreviewSurfaceStyle.canvasNSColor(for: EpistemosTheme.platinumViolet)
-                ) == 0x224466
-            )
-        }
-    }
-
-    @Test("Stored custom values never mutate preset themes")
-    func storedCustomValuesNeverMutatePresetThemes() {
-        withPreservedThemeDefaults {
-            let defaults = UserDefaults.standard
-            AppCustomTheme.setHex(0x112233, for: .background, isDark: false, defaults: defaults)
-            AppCustomTheme.setHex(0x445566, for: .text, isDark: false, defaults: defaults)
-            AppCustomTheme.setHex(0x778899, for: .accent, isDark: true, defaults: defaults)
-            AppCustomTheme.setHex(0xAABBCC, for: .heading, isDark: true, defaults: defaults)
-            AppDisplayTypography.setHeadingFontOverride("Charybdis", level: 1, defaults: defaults)
-            AppDisplayTypography.setHeadingFontOverride("Coder's-Crux", level: 2, defaults: defaults)
-            AppDisplayTypography.setHeadingSizeScale(1.3, level: 3, defaults: defaults)
-
-            let lockedPairs: [ThemePair] = [.platinumViolet, .classic, .ember]
-            for pair in lockedPairs {
-                defaults.set(pair.rawValue, forKey: UIState.themePairDefaultsKey)
-                #expect(!AppCustomTheme.isActive(defaults: defaults))
-
-                for theme in [pair.lightTheme, pair.darkTheme] {
-                    #expect(rgbHex(theme.resolved.background.nsColor) == rgbHex(theme.presetResolved.background.nsColor))
-                    #expect(theme.resolved.foregroundHex == theme.presetResolved.foregroundHex)
-                    #expect(theme.resolved.headingAccentHex == theme.presetResolved.headingAccentHex)
-                    #expect(theme.resolved.markdownHeadingAccentHex == theme.presetResolved.markdownHeadingAccentHex)
-                    #expect(theme.resolved.userBubbleBackgroundHex == theme.presetResolved.userBubbleBackgroundHex)
-                }
-            }
-
-            // updated 2026-07-03: all non-custom themes now share Ember's heading face
-            // (ChonkyPixels); classic's landing hero shares Ember's display face
-            // (theme.displayFontName == "ColorBasic-Regular"). Presets still ignore the
-            // stored custom overrides set above — that isolation is the point of this test.
-            defaults.set(ThemePair.platinumViolet.rawValue, forKey: UIState.themePairDefaultsKey)
-            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
-            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
-            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 3) == AppDisplayTypography.chonkyDisplayFontName)
-
-            defaults.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
-            #expect(EpistemosTheme.light.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
-            #expect(EpistemosTheme.light.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
-            #expect(EpistemosTheme.light.headingFontName(level: 3) == AppDisplayTypography.chonkyDisplayFontName)
-            #expect(LandingCommandTypography.heroFontName(for: .light) == EpistemosTheme.light.displayFontName)
-
-            defaults.set(ThemePair.ember.rawValue, forKey: UIState.themePairDefaultsKey)
-            #expect(EpistemosTheme.tan.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
-            #expect(EpistemosTheme.tan.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
-            #expect(EpistemosTheme.tan.headingFontName(level: 3) == AppDisplayTypography.chonkyDisplayFontName)
-        }
-    }
-
-    @Test("Custom theme exposes color controls and labeled font previews")
-    func customThemeExposesColorControlsAndLabeledFontPreviews() throws {
-        let settings = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        let themeSource = try loadTextFile("Epistemos/Theme/EpistemosTheme.swift")
-
-        #expect(settings.contains("AppearanceCustomThemeSection(ui: ui)"))
-        #expect(settings.contains("if ui.themeMode == .custom && ui.activePair == .custom"))
-        #expect(settings.contains("CustomThemeColorTile("))
-        #expect(themeSource.contains("Note Surface"))
-        #expect(settings.contains("Picker(\"Variant\", selection: $editingDarkVariant)"))
-        #expect(settings.contains("CustomThemeLivePreview(isDark: editingDarkVariant)"))
-        #expect(settings.contains("AppCustomTheme.noteSurfaceHex(isDark: isDark)"))
-        #expect(settings.contains("case .noteSurface"))
-        #expect(settings.contains("FontLibraryPreviewGrid()"))
-        #expect(settings.contains("Every bundled display face is labeled with its own preview."))
-        #expect(settings.contains("Preset themes stay locked."))
-        #expect(settings.contains("Heading font and scale apply only to Custom."))
-        #expect(settings.contains("if pair == .custom"))
-        #expect(settings.contains("let resolved = theme.presetResolved"))
-    }
-
-    @Test("Custom landing typography uses the stored H1 override while presets stay locked")
-    func customLandingTypographyUsesStoredH1OverrideWhilePresetsStayLocked() {
-        withPreservedThemeDefaults {
-            UserDefaults.standard.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
-            // updated 2026-07-03: custom theme is experimental + off by default; enable it so the
-            // stored H1 override drives the custom landing hero (the point of this test).
-            AppCustomTheme.setExperimentalEnabled(true)
-            AppDisplayTypography.setHeadingFontOverride("Charybdis", level: 1)
-            #expect(LandingCommandTypography.heroFontName(for: .platinumVioletDark) == "Charybdis")
-
-            UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
-            // updated 2026-07-03: classic landing hero now shares Ember's display face
-            // (theme.displayFontName == "ColorBasic-Regular"); preset ignores the H1 override.
-            #expect(LandingCommandTypography.heroFontName(for: .light) == EpistemosTheme.light.displayFontName)
-        }
-    }
-
-    private func rgbHex(_ color: NSColor) -> UInt32? {
-        guard let color = color.usingColorSpace(.sRGB) else { return nil }
-        let red = UInt32((color.redComponent * 255).rounded())
-        let green = UInt32((color.greenComponent * 255).rounded())
-        let blue = UInt32((color.blueComponent * 255).rounded())
-        return (red << 16) | (green << 8) | blue
     }
 
     @Test("Classic does not require a runtime dock icon override")
@@ -327,7 +96,6 @@ struct ThemePairTests {
         let uiState = UIState()
 
         #expect(uiState.themeMode == .custom)
-        #expect(uiState.customThemesEnabled)
         #expect(uiState.activePair == .platinumViolet)
         uiState.isSystemDark = false
         #expect(uiState.theme == .platinumViolet)
@@ -365,7 +133,6 @@ struct ThemePairTests {
         let uiState = UIState()
 
         #expect(uiState.activePair == .ember)
-        #expect(uiState.customThemesEnabled)
         #expect(uiState.themeMode == .custom)
         #expect(uiState.shouldUseThemeWorkarounds == false)
         #expect(uiState.preferredColorScheme == nil)
@@ -399,8 +166,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("Theme mutators restore semantic themes without custom chrome")
-    func themeMutatorsRestoreSemanticThemesWithoutCustomChrome() {
+    @Test("Theme mutators restore preset themes without forcing window chrome")
+    func themeMutatorsRestorePresetThemesWithoutForcingWindowChrome() {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -410,9 +177,7 @@ struct ThemePairTests {
 
             uiState.setPair(.platinumViolet)
             uiState.setThemeMode(.custom)
-            uiState.setCustomThemesEnabled(true)
 
-            #expect(uiState.customThemesEnabled)
             #expect(uiState.activePair == .platinumViolet)
             #expect(uiState.themeMode == .custom)
             #expect(uiState.preferredColorScheme == nil)
@@ -422,8 +187,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("Custom semantic themes keep window appearance unforced")
-    func customSemanticThemesKeepWindowAppearanceNative() {
+    @Test("Preset themes keep window appearance unforced")
+    func presetThemesKeepWindowAppearanceNative() {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -438,7 +203,6 @@ struct ThemePairTests {
 
             uiState.setPair(.platinumViolet)
             uiState.setThemeMode(.custom)
-            uiState.setCustomThemesEnabled(true)
             uiState.isSystemDark = true
 
             #expect(uiState.themeMode == .custom)
@@ -668,7 +432,7 @@ struct ThemePairTests {
             #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
             #expect(AppDisplayTypography.matrixBoldDisplayFontName == "MatrixTypeDisplay-Bold")
             #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
-            // updated 2026-07-03: all non-custom themes share Ember's typography — classic's
+            // updated 2026-07-03: all preset themes share Ember's typography — classic's
             // display face is now "ColorBasic-Regular" and its H1-H3 heading face is ChonkyPixels.
             #expect(AppDisplayTypography.displayFontName(isDark: false) == "ColorBasic-Regular")
             #expect(AppDisplayTypography.displayFontName(isDark: true) == "ColorBasic-Regular")
@@ -1143,17 +907,14 @@ struct ThemePairTests {
         )
     }
 
-    @Test("Reference popover search field owns keyboard selection commands")
-    func referencePopoverSearchFieldOwnsKeyboardSelectionCommands() throws {
-        let source = try loadTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
+    @Test("Retired chat reference popover is physically absent")
+    func retiredChatReferencePopoverIsPhysicallyAbsent() {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/Views/Chat/NotesMentionDropdown.swift")
 
-        #expect(source.contains("private struct ComposerReferenceSearchField: NSViewRepresentable"))
-        #expect(source.contains("controlTextDidChange"))
-        #expect(source.contains("doCommandBy commandSelector"))
-        #expect(source.contains("ChatComposerKeyHandling.overlayCommand("))
-        #expect(source.contains("case .confirm:"))
-        #expect(source.contains("onSelect(selectedChoice)"))
-        #expect(source.contains("selectedChoiceID: selectedChoice?.id"))
+        #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
     }
 
     @Test("Landing no longer carries inline mention attachments")
@@ -1373,7 +1134,6 @@ struct ThemePairTests {
         let pipeline = try loadTextFile("Epistemos/Engine/PipelineService.swift")
         let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
         let environment = try loadTextFile("Epistemos/App/AppEnvironment.swift")
-        let appCoordinator = try loadTextFile("Epistemos/App/AppCoordinator.swift")
         let engineTypes = try loadTextFile("Epistemos/Models/EngineTypes.swift")
         let eventBus = try loadTextFile("Epistemos/State/EventBus.swift")
 
@@ -1387,8 +1147,6 @@ struct ThemePairTests {
         #expect(!bootstrap.contains("let soarService"))
         #expect(!bootstrap.contains("cancelAllEnrichment()"))
         #expect(!environment.contains(".environment(bootstrap.soarState)"))
-        #expect(!appCoordinator.contains(".epistemicLens"))
-        #expect(!appCoordinator.contains("cancelAllEnrichment()"))
         #expect(!engineTypes.contains("case enriched("))
         #expect(!engineTypes.contains("case soarEvent("))
         #expect(!eventBus.contains("case soarEvent("))
@@ -1986,7 +1744,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains("@State private var activeLandingInlineCommand: LandingInlineCommand?"))
         #expect(landingView.contains("private var showingLandingStageCommand: Bool"))
         #expect(landingView.contains("landingInlineCommandStage(for: command)"))
-        #expect(landingView.contains("QuickCaptureView(isPresented: landingInlineCommandBinding(for: .quickCapture))"))
+        #expect(landingView.contains("presentationSlot: .landingInline"))
         #expect(landingView.contains("WorkspaceSwitcherOverlay("))
         #expect(landingView.contains("isPresented: landingInlineCommandBinding(for: .workspaces)"))
         #expect(landingView.contains("presentation: .inline"))
@@ -2110,14 +1868,12 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(settingsView.contains("toggleSidebar()"))
     }
 
-    @Test("landing view does not fetch old chat history for daily brief generation")
-    func landingViewDoesNotFetchOldChatHistoryForDailyBriefGeneration() throws {
+    @Test("landing view contains no Daily Brief generation route")
+    func landingViewContainsNoDailyBriefGenerationRoute() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landingView.contains("@Environment(\\.modelContext) private var modelContext"))
-        #expect(!landingView.contains("@Query(sort: \\\\.updatedAt, order: .reverse)\n    private var allChats: [SDChat]"))
+        #expect(!landingView.contains("DailyBrief"))
         #expect(!landingView.contains("private func recentChats(limit: Int) -> [SDChat]"))
-        #expect(landingView.contains("DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: [])"))
     }
 
     @Test("bootstrap runs disk style cache eviction at utility priority")
@@ -2329,36 +2085,31 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(source.contains("openIMessageSettings()"))
     }
 
-    @Test("daily brief stays single pass without deep analysis scaffolding")
-    func dailyBriefDropsSecondPassScaffolding() throws {
-        let state = try loadTextFile("Epistemos/State/DailyBriefState.swift")
-        let landing = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let coordinator = try loadTextFile("Epistemos/App/AppCoordinator.swift")
-        let intent = try loadTextFile("Epistemos/Intents/Custom/DailyBriefingIntent.swift")
+    @Test("Free V1 physically removes the generative daily-brief intent")
+    func freeV1RemovesGenerativeDailyBriefIntent() throws {
+        let intentURL = try sourceMirrorURL(for: "Epistemos/Intents/Custom/DailyBriefingIntent.swift")
 
-        #expect(!state.contains("isDeepBrief"))
-        #expect(!state.contains("onGoDeepGenerate"))
-        #expect(!state.contains("requestGoDeep"))
-        #expect(!state.contains("deep actionable intelligence report"))
-        #expect(!state.contains("research analyst's morning brief"))
-        #expect(!landing.contains("Go Deeper"))
-        #expect(!landing.contains("buildGoDeepPrompt"))
-        #expect(!landing.contains("deep multi-perspective analysis"))
-        #expect(!coordinator.contains("onGoDeepGenerate"))
-        #expect(!intent.contains("daily intelligence brief"))
+        #expect(
+            !FileManager.default.fileExists(atPath: intentURL.path),
+            "Free V1 must not restore the generative daily-brief intent."
+        )
     }
 
-    @Test("user-facing AI surfaces avoid hidden research personas and system wrappers")
-    func userFacingAISurfacesDropHiddenPersonas() throws {
-        let analysisIntents = try loadTextFile("Epistemos/Intents/Custom/AnalysisIntents.swift")
+    @Test("retained user-facing note surfaces avoid hidden research personas and system wrappers")
+    func retainedUserFacingSurfacesDropHiddenPersonas() throws {
+        let analysisIntentURL = try sourceMirrorURL(for: "Epistemos/Intents/Custom/AnalysisIntents.swift")
+        let triageURL = try sourceMirrorURL(for: "Epistemos/Engine/TriageService.swift")
         let noteActions = try loadTextFile("Epistemos/Intents/Custom/NoteActionIntents.swift")
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         let nodeInspector = try loadTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
         let hologramInspector = try loadTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
-        let vaultOrganizer = try loadTextFile("Epistemos/Views/Notes/VaultOrganizerView.swift")
-        let triage = try loadTextFile("Epistemos/Engine/TriageService.swift")
+        let vaultOrganizerURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/Views/Notes/VaultOrganizerView.swift")
 
-        #expect(!analysisIntents.contains("research assistant"))
+        #expect(!FileManager.default.fileExists(atPath: analysisIntentURL.path))
+        #expect(!FileManager.default.fileExists(atPath: triageURL.path))
         #expect(!noteActions.contains("research assistant"))
         #expect(!noteWorkspace.contains("systemPrompt: mapping.systemPrompt"))
         #expect(!noteWorkspace.contains("You are a writing assistant."))
@@ -2367,8 +2118,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!hologramInspector.contains("p.care.mood.displayName"))
         #expect(!hologramInspector.contains("p.portrait.symbol"))
         #expect(!hologramInspector.contains("statMeter(label: \"Focus\""))
-        #expect(!vaultOrganizer.contains("You are a note organization assistant."))
-        #expect(!triage.contains("let simpleSystem ="))
+        #expect(!FileManager.default.fileExists(atPath: vaultOrganizerURL.path))
     }
 
     private func loadIconComposerJSON() throws -> String {

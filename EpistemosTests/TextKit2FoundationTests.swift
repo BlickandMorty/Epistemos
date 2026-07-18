@@ -93,10 +93,10 @@ struct ProseTextView2Tests {
         #expect(textView.backgroundColor == ProseTextView2.editorBackgroundColor(for: .systemLight))
     }
 
-    @Test("Writing tools enabled")
-    func writingTools() {
+    @Test("Writing tools are disabled")
+    func writingToolsAreDisabled() {
         let (_, textView) = ProseTextView2.makeTextKit2()
-        #expect(textView.writingToolsBehavior == .default)
+        #expect(textView.writingToolsBehavior == .none)
     }
 
     @Test("Find bar enabled")

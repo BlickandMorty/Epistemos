@@ -88,20 +88,72 @@ private enum EpdocContextMenuSanitizer {
     }
 }
 
+nonisolated enum EpdocEditorPerformancePolicy {
+    /// Live editor status is chrome, not a durability boundary. Keep any
+    /// fallback JSON walk bounded so large Markdown/Epdoc documents do not pay
+    /// a full ProseMirror traversal just to update old inspector/status state.
+    static let smallDocumentStatusJSONByteLimit = 64 * 1024
+}
+
+nonisolated struct EpdocDerivedStatusSnapshot: Sendable {
+    let wordCount: Int
+    let characterCount: Int
+
+    static func resolve(from json: Data) -> Self? {
+        guard json.count <= EpdocEditorPerformancePolicy.smallDocumentStatusJSONByteLimit else {
+            return nil
+        }
+        guard let document = try? JSONDecoder().decode(ProseMirrorNode.self, from: json) else {
+            return nil
+        }
+        return Self(
+            wordCount: wordCount(in: document),
+            characterCount: characterCount(in: document)
+        )
+    }
+
+    private static func wordCount(in node: ProseMirrorNode) -> Int {
+        let childCount = node.content?.reduce(0) { partial, child in
+            partial + wordCount(in: child)
+        } ?? 0
+        guard let text = node.text else { return childCount }
+
+        var count = 0
+        var insideWord = false
+        for scalar in text.unicodeScalars {
+            if CharacterSet.alphanumerics.contains(scalar) {
+                if !insideWord {
+                    count += 1
+                    insideWord = true
+                }
+            } else {
+                insideWord = false
+            }
+        }
+        return count + childCount
+    }
+
+    private static func characterCount(in node: ProseMirrorNode) -> Int {
+        let childCount = node.content?.reduce(0) { partial, child in
+            partial + characterCount(in: child)
+        } ?? 0
+        return (node.text?.count ?? 0) + childCount
+    }
+}
+
 // MARK: - Controller (Observable view-state)
 
 /// The view-state + command-dispatch surface the chrome view binds
-/// to. Exposes the live word/char counts, complexity scalar, and
-/// the floating-panel show/hide state.
+/// to. Exposes live word/char counts and floating-panel show/hide state.
 @MainActor
 @Observable
 public final class EpdocEditorChromeController {
 
     // MARK: - Live document state
     public var documentTitle: String = "Untitled"
+    public var documentIdentity: String = "epdoc"
+    public var editorIsEditable: Bool = true
     public var attachedRunIDs: [String] = []          // W7.15 surfacing
-    public var complexity: Double = 0.0                // W7.12 surfacing
-    public var complexityBreakdown: DocComplexityBreakdown?
     /// Latest full-fidelity Markdown emitted by the JS `getMarkdown()`
     /// bridge. JSON remains the default canonical save path until
     /// `EpdocSourceOfTruthMode` advances, but the Swift host must retain
@@ -128,6 +180,8 @@ public final class EpdocEditorChromeController {
     public var katexDisplayMode: EpdocKaTeXPreview.DisplayMode = .display
     public var katexPreviewAnchor: EpdocBridgeRect? = nil
     private var initialContentJSON: Data?
+    private var durableEditGeneration: UInt64 = 0
+    private var durableSavedGeneration: UInt64 = 0
     private var initialMarkdownSource: String?
     private var initialWidthMode: NoteWidthMode?
     private var editorIsReady = false
@@ -138,8 +192,11 @@ public final class EpdocEditorChromeController {
     private var pendingInitialMarkdownBridgeEcho: String?
     private var pendingInitialMarkdownEmptyEchoRetries = 0
     private var pendingCleanReactivationMarkdownProbe: String?
+    private var pendingCleanHostTitleSync: (title: String, markdown: String)?
     private var verifiedCleanReactivationMarkdown: String?
     public private(set) var currentLoadEpoch: Int = 0
+    private var derivedStatusTask: Task<Void, Never>?
+    private var derivedStatusGeneration: UInt64 = 0
 
     private static let log = Logger(
         subsystem: "com.epistemos",
@@ -172,6 +229,10 @@ public final class EpdocEditorChromeController {
     /// it into vault `.md` writes only when the source-of-truth mode
     /// explicitly enables that path.
     public var onMarkdownChanged: @Sendable @MainActor (String, EpdocMarkdownWritebackRegion?) -> Void
+    /// CodeMirror edit notification that intentionally carries no document
+    /// payload. The Markdown surface uses this edge to start its existing
+    /// quiet-window autosave, then asks CodeMirror for one exact checkpoint.
+    public var onCodeMirrorContentDirty: @Sendable @MainActor () -> Void
     /// Tracked-suggestion span from JS. Posted after the suggest-changes
     /// adapter successfully applies an agent edit to the document.
     public var onSuggestionApplied: @Sendable @MainActor (EpdocSuggestionSpanPayload) -> Void
@@ -211,6 +272,7 @@ public final class EpdocEditorChromeController {
         self.onSave = { }
         self.onContentChanged = { _ in }
         self.onMarkdownChanged = { _, _ in }
+        self.onCodeMirrorContentDirty = { }
         self.onSuggestionApplied = { _ in }
         self.onSuggestionResolved = { _ in }
         self.onContentWidthChanged = { _ in }
@@ -247,6 +309,7 @@ public final class EpdocEditorChromeController {
         markdownSource: String? = nil,
         widthMode: NoteWidthMode? = nil
     ) {
+        invalidateDerivedStatusRefresh()
         initialContentJSON = json
         initialMarkdownSource = markdownSource
         initialWidthMode = widthMode?.normalized
@@ -254,10 +317,13 @@ public final class EpdocEditorChromeController {
         canonicalWidthMode = widthMode?.normalized
         toolbarModel.widthMode = widthMode?.normalized ?? .normal
         toolbarModel.isDirty = false
+        durableEditGeneration = 0
+        durableSavedGeneration = 0
         pendingInitialContentBridgeEcho = false
         pendingInitialMarkdownBridgeEcho = nil
         pendingInitialMarkdownEmptyEchoRetries = 0
         pendingCleanReactivationMarkdownProbe = nil
+        pendingCleanHostTitleSync = nil
         verifiedCleanReactivationMarkdown = nil
         currentLoadEpoch &+= 1
         documentTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -280,6 +346,7 @@ public final class EpdocEditorChromeController {
     }
 
     public func detachEditorDispatch() {
+        invalidateDerivedStatusRefresh()
         bridgeDispatchInstalled = false
         dispatch = { _ in }
         editorIsReady = false
@@ -289,6 +356,7 @@ public final class EpdocEditorChromeController {
         pendingInitialMarkdownBridgeEcho = nil
         pendingInitialMarkdownEmptyEchoRetries = 0
         pendingCleanReactivationMarkdownProbe = nil
+        pendingCleanHostTitleSync = nil
         verifiedCleanReactivationMarkdown = nil
         currentLoadEpoch &+= 1
     }
@@ -310,9 +378,57 @@ public final class EpdocEditorChromeController {
         return bridgeDispatchInstalled ? nil : latestMarkdownSnapshot
     }
 
+    /// CodeMirror reports the dirty edge separately from its bounded full-text
+    /// checkpoint. Marking dirty immediately prevents clean host reload logic
+    /// from overwriting a deletion while the snapshot debounce is still open.
+    public func markCodeMirrorContentDirty() {
+        markDurableEdit()
+        onCodeMirrorContentDirty()
+    }
+
+    public func markDurableEdit() {
+        durableEditGeneration &+= 1
+        toolbarModel.isDirty = true
+    }
+
+    @discardableResult
+    public func beginDurableSave(showsProgress: Bool = true) -> UInt64 {
+        if showsProgress {
+            toolbarModel.isSaving = true
+        }
+        return durableEditGeneration
+    }
+
+    public func completeDurableSave(_ generation: UInt64, succeeded: Bool) {
+        toolbarModel.isSaving = false
+        guard succeeded else {
+            toolbarModel.isDirty = durableEditGeneration > durableSavedGeneration
+            return
+        }
+        durableSavedGeneration = max(durableSavedGeneration, generation)
+        toolbarModel.isDirty = durableEditGeneration > durableSavedGeneration
+    }
+
+    /// Accepts a raw-Markdown checkpoint from the replacement CodeMirror
+    /// canvas. The Markdown string remains the only document authority; no
+    /// ProseMirror JSON mirror is produced for this path.
+    public func acceptCodeMirrorMarkdownSnapshot(_ markdown: String) {
+        guard markdown != latestMarkdownSnapshot else { return }
+        latestMarkdownSnapshot = markdown
+        onMarkdownChanged(markdown, nil)
+    }
+
+    /// Advances the controller's remembered Markdown after an explicit
+    /// CodeMirror checkpoint without emitting a second save event. The owning
+    /// surface that requested the checkpoint already serializes that write.
+    public func reconcileCodeMirrorMarkdownCheckpoint(_ markdown: String) {
+        latestMarkdownSnapshot = markdown
+    }
+
     @discardableResult
     public func prepareForWebContentProcessRecovery() -> Bool {
         guard initialContentJSON != nil else { return false }
+        invalidateDerivedStatusRefresh()
         let preferredMarkdownSource = [
             latestMarkdownSnapshot,
             initialMarkdownSource,
@@ -331,6 +447,7 @@ public final class EpdocEditorChromeController {
         pendingInitialMarkdownBridgeEcho = nil
         pendingInitialMarkdownEmptyEchoRetries = 0
         pendingCleanReactivationMarkdownProbe = nil
+        pendingCleanHostTitleSync = nil
         verifiedCleanReactivationMarkdown = nil
         currentLoadEpoch &+= 1
         return true
@@ -368,9 +485,6 @@ public final class EpdocEditorChromeController {
         case .setContentWidth(let mode):
             let normalized = mode.normalized
             toolbarModel.widthMode = normalized
-            canonicalWidthMode = normalized
-            guard !isFlushingInitialContent else { return }
-            onContentWidthChanged(normalized)
         case .runCommand(name: "insertEpdocFrontmatter", argsJSON: _):
             guard !isFlushingInitialContent else { return }
             onEnsureFrontmatterMetadata()
@@ -417,12 +531,14 @@ public final class EpdocEditorChromeController {
     }
 
     private func reloadMarkdownSourceForCleanReactivation(_ markdown: String) {
+        invalidateDerivedStatusRefresh()
         initialMarkdownSource = markdown
         latestMarkdownSnapshot = markdown
         pendingInitialContentBridgeEcho = false
         pendingInitialMarkdownBridgeEcho = markdown
         pendingInitialMarkdownEmptyEchoRetries = 0
         verifiedCleanReactivationMarkdown = nil
+        pendingCleanHostTitleSync = nil
         toolbarModel.isDirty = false
         currentLoadEpoch &+= 1
         guard editorIsReady, bridgeDispatchInstalled else {
@@ -431,6 +547,57 @@ public final class EpdocEditorChromeController {
         }
         dispatch(.setMarkdownForLoad(markdown: markdown, epoch: currentLoadEpoch))
         dispatch(.focusStart)
+    }
+
+    func synchronizeCleanHostTitle(_ title: String, markdown: String) -> Bool {
+        guard !toolbarModel.isDirty else {
+            return false
+        }
+        invalidateDerivedStatusRefresh()
+        initialMarkdownSource = markdown
+        latestMarkdownSnapshot = markdown
+        pendingCleanReactivationMarkdownProbe = nil
+        verifiedCleanReactivationMarkdown = nil
+        pendingInitialMarkdownEmptyEchoRetries = 0
+        toolbarModel.isDirty = false
+        guard didPushInitialContent else {
+            pendingCleanHostTitleSync = nil
+            return true
+        }
+        guard editorIsReady,
+              bridgeDispatchInstalled,
+              !pendingInitialContentBridgeEcho,
+              pendingInitialMarkdownBridgeEcho == nil else {
+            pendingCleanHostTitleSync = (title, markdown)
+            return true
+        }
+        dispatchCleanHostTitle(title, markdown: markdown)
+        return true
+    }
+
+    private func dispatchCleanHostTitle(_ title: String, markdown: String) {
+        pendingCleanHostTitleSync = nil
+        initialMarkdownSource = markdown
+        latestMarkdownSnapshot = markdown
+        verifiedCleanReactivationMarkdown = nil
+        currentLoadEpoch &+= 1
+        dispatch(.replaceDocumentTitle(title: title, epoch: currentLoadEpoch))
+    }
+
+    private func flushPendingCleanHostTitleIfPossible() {
+        guard let pendingCleanHostTitleSync,
+              editorIsReady,
+              bridgeDispatchInstalled,
+              didPushInitialContent,
+              !pendingInitialContentBridgeEcho,
+              pendingInitialMarkdownBridgeEcho == nil,
+              !toolbarModel.isDirty else {
+            return
+        }
+        dispatchCleanHostTitle(
+            pendingCleanHostTitleSync.title,
+            markdown: pendingCleanHostTitleSync.markdown
+        )
     }
 
     /// Audit gap F5 close-out - opt-in autosave wiring. Constructs an
@@ -482,6 +649,7 @@ public final class EpdocEditorChromeController {
             flushInitialContentIfPossible()
         case let .contentDidChange(json):
             if pendingCleanReactivationMarkdownProbe != nil {
+                invalidateDerivedStatusRefresh()
                 refreshDerivedStatus(from: json)
                 return
             }
@@ -501,21 +669,36 @@ public final class EpdocEditorChromeController {
                 // first change as dirty. A matching initial Markdown echo
                 // below clears the flag synchronously; a real early user edit
                 // therefore remains flushable during an immediate lens switch.
-                toolbarModel.isDirty = true
+                markDurableEdit()
+                invalidateDerivedStatusRefresh()
                 refreshDerivedStatus(from: json)
                 return
             }
             onContentChanged(json)
-            toolbarModel.isDirty = true
-            refreshDerivedStatus(from: json)
+            markDurableEdit()
+            scheduleDerivedStatusRefresh(from: json)
         case let .markdownDidChange(markdown, writeback):
             if let expectedMarkdown = pendingCleanReactivationMarkdownProbe {
                 pendingCleanReactivationMarkdownProbe = nil
-                if Self.markdownBodyIsEmpty(markdown),
-                   !Self.markdownBodyIsEmpty(expectedMarkdown) {
-                    Self.log.error(
-                        "Epdoc clean reactivation probe returned empty content; re-pushing non-empty host Markdown source"
-                    )
+                if markdown != expectedMarkdown {
+                    if Self.cleanReactivationMarkdownMatches(
+                        observed: markdown,
+                        expected: expectedMarkdown
+                    ) {
+                        latestMarkdownSnapshot = markdown
+                        verifiedCleanReactivationMarkdown = expectedMarkdown
+                        return
+                    }
+                    if Self.markdownBodyIsEmpty(markdown),
+                       !Self.markdownBodyIsEmpty(expectedMarkdown) {
+                        Self.log.error(
+                            "Epdoc clean reactivation probe returned empty content; re-pushing non-empty host Markdown source"
+                        )
+                    } else {
+                        Self.log.error(
+                            "Epdoc clean reactivation probe diverged from host Markdown; re-pushing the host source"
+                        )
+                    }
                     reloadMarkdownSourceForCleanReactivation(expectedMarkdown)
                     return
                 }
@@ -525,7 +708,9 @@ public final class EpdocEditorChromeController {
             }
             if let pendingEcho = pendingInitialMarkdownBridgeEcho {
                 if markdown == pendingEcho {
-                    latestMarkdownSnapshot = markdown
+                    if pendingCleanHostTitleSync == nil {
+                        latestMarkdownSnapshot = markdown
+                    }
                     pendingInitialMarkdownBridgeEcho = nil
                     pendingInitialMarkdownEmptyEchoRetries = 0
                     toolbarModel.isDirty = false
@@ -559,7 +744,9 @@ public final class EpdocEditorChromeController {
                 reloadMarkdownSourceForCleanReactivation(recoveryMarkdownSource)
                 return
             }
-            latestMarkdownSnapshot = markdown
+            if writeback == nil || !Self.markdownBodyIsEmpty(markdown) {
+                latestMarkdownSnapshot = markdown
+            }
             verifiedCleanReactivationMarkdown = nil
             onMarkdownChanged(markdown, writeback)
         case let .documentStatsChanged(wordCount, characterCount):
@@ -570,6 +757,7 @@ public final class EpdocEditorChromeController {
             pendingInitialMarkdownBridgeEcho = nil
             pendingInitialMarkdownEmptyEchoRetries = 0
             pendingCleanReactivationMarkdownProbe = nil
+            flushPendingCleanHostTitleIfPossible()
         case .error:
             break  // host logs; chrome just keeps rendering
         case let .caretChanged(_, selection, marks):
@@ -634,6 +822,64 @@ public final class EpdocEditorChromeController {
         return body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private static func cleanReactivationMarkdownMatches(
+        observed: String,
+        expected: String
+    ) -> Bool {
+        guard !markdownBodyIsEmpty(observed) else { return false }
+        return normalizedCleanReactivationMarkdown(observed)
+            == normalizedCleanReactivationMarkdown(expected)
+    }
+
+    private static func normalizedCleanReactivationMarkdown(_ markdown: String) -> String {
+        markdown
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { line -> String in
+                let text = String(line)
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard trimmed.hasPrefix("|"),
+                      trimmed.hasSuffix("|") else {
+                    return text
+                }
+                let cells = trimmed
+                    .dropFirst()
+                    .dropLast()
+                    .split(separator: "|", omittingEmptySubsequences: false)
+                    .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                guard !cells.isEmpty,
+                      cells.allSatisfy({ cell in
+                          let normalized = cell.replacingOccurrences(of: " ", with: "")
+                          return !normalized.isEmpty
+                              && normalized.allSatisfy { $0 == "-" || $0 == ":" }
+                              && normalized.contains("-")
+                      }) else {
+                    return text
+                }
+                return "| "
+                    + cells.map(Self.normalizedMarkdownTableDelimiterCell).joined(separator: " | ")
+                    + " |"
+            }
+            .joined(separator: "\n")
+    }
+
+    private static func normalizedMarkdownTableDelimiterCell(_ cell: String) -> String {
+        let normalized = cell.replacingOccurrences(of: " ", with: "")
+        let hasLeadingColon = normalized.first == ":"
+        let hasTrailingColon = normalized.last == ":"
+        switch (hasLeadingColon, hasTrailingColon) {
+        case (true, true):
+            return ":---:"
+        case (true, false):
+            return ":---"
+        case (false, true):
+            return "---:"
+        case (false, false):
+            return "---"
+        }
+    }
+
     private func preferredNonEmptyMarkdownSource() -> String? {
         [latestMarkdownSnapshot, initialMarkdownSource]
             .compactMap { $0 }
@@ -668,21 +914,28 @@ public final class EpdocEditorChromeController {
     }
 
     private func refreshDerivedStatus(from json: Data) {
-        guard let doc = try? JSONDecoder().decode(ProseMirrorNode.self, from: json) else {
-            return
-        }
-        let nextBreakdown = EpdocComplexityCalculator.breakdown(for: doc)
-        complexity = nextBreakdown.complexity
-        complexityBreakdown = nextBreakdown
-        toolbarModel.wordCount = nextBreakdown.wordCount
-        toolbarModel.characterCount = Self.characterCount(in: doc)
+        guard let snapshot = EpdocDerivedStatusSnapshot.resolve(from: json) else { return }
+        applyDerivedStatus(snapshot)
     }
 
-    private static func characterCount(in node: ProseMirrorNode) -> Int {
-        let childCount = node.content?.reduce(0) { partial, child in
-            partial + characterCount(in: child)
-        } ?? 0
-        return (node.text?.count ?? 0) + childCount
+    private func scheduleDerivedStatusRefresh(from json: Data) {
+        // Live `documentStatsChanged` from the JS CharacterCount extension is
+        // the hot-path status source. Do not decode/walk full ProseMirror JSON
+        // from ordinary typing; large docs can be 50k-70k words. Keep bounded
+        // document stats off the native typing cadence.
+        _ = json
+        invalidateDerivedStatusRefresh()
+    }
+
+    private func invalidateDerivedStatusRefresh() {
+        derivedStatusGeneration &+= 1
+        derivedStatusTask?.cancel()
+        derivedStatusTask = nil
+    }
+
+    private func applyDerivedStatus(_ snapshot: EpdocDerivedStatusSnapshot) {
+        toolbarModel.wordCount = snapshot.wordCount
+        toolbarModel.characterCount = snapshot.characterCount
     }
 
     // MARK: - Floating-panel dismissals
@@ -711,32 +964,95 @@ public final class EpdocEditorChromeController {
 
 // MARK: - Chrome view
 
+nonisolated public enum EpdocEditorCanvasEngine: Sendable, Equatable {
+    case nativeTextKit2
+    case codeMirror
+    case legacyTiptap
+
+    public static let productionDefault: Self = .codeMirror
+    public static let standaloneEpdocDefault: Self = .nativeTextKit2
+    public static let legacyFallback: Self = .legacyTiptap
+}
+
 @MainActor
 public struct EpdocEditorChromeView: View {
 
     @Bindable public var controller: EpdocEditorChromeController
     @Environment(UIState.self) private var ui: UIState?
     private let surfaceToolbarAccessory: AnyView?
+    private let canvasEngine: EpdocEditorCanvasEngine
+    private let nativeSession: EpdocTextKit2EditorSession?
+    private let onNativeCheckpoint: (@MainActor (Data) -> Void)?
+    @State private var titleRevealGeneration: UInt64 = 0
+    #if !EPISTEMOS_FREE_V1
     private let assistContextProvider: (@MainActor () -> JuneEpdocAssistContext?)?
+    #endif
 
     private var theme: EpistemosTheme {
         ui?.theme ?? controller.theme
     }
 
+    #if EPISTEMOS_FREE_V1
     public init(
         controller: EpdocEditorChromeController,
         surfaceToolbarAccessory: AnyView? = nil,
-        assistContextProvider: (@MainActor () -> JuneEpdocAssistContext?)? = nil
+        canvasEngine: EpdocEditorCanvasEngine = .productionDefault,
+        nativeSession: EpdocTextKit2EditorSession? = nil,
+        onNativeCheckpoint: (@MainActor (Data) -> Void)? = nil
+    ) {
+        self.controller = controller
+        self.surfaceToolbarAccessory = surfaceToolbarAccessory
+        self.canvasEngine = canvasEngine
+        self.nativeSession = nativeSession
+        self.onNativeCheckpoint = onNativeCheckpoint
+    }
+    #else
+    public init(
+        controller: EpdocEditorChromeController,
+        surfaceToolbarAccessory: AnyView? = nil,
+        assistContextProvider: (@MainActor () -> JuneEpdocAssistContext?)? = nil,
+        canvasEngine: EpdocEditorCanvasEngine = .productionDefault,
+        nativeSession: EpdocTextKit2EditorSession? = nil,
+        onNativeCheckpoint: (@MainActor (Data) -> Void)? = nil
     ) {
         self.controller = controller
         self.surfaceToolbarAccessory = surfaceToolbarAccessory
         self.assistContextProvider = assistContextProvider
+        self.canvasEngine = canvasEngine
+        self.nativeSession = nativeSession
+        self.onNativeCheckpoint = onNativeCheckpoint
     }
+    #endif
 
     public var body: some View {
         ZStack(alignment: .topLeading) {
-            EpdocTiptapWebView(controller: controller, theme: theme)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Group {
+                switch canvasEngine {
+                case .nativeTextKit2:
+                    if let nativeSession, let onNativeCheckpoint {
+                        EpdocTextKit2EditorRepresentable(
+                            session: nativeSession,
+                            controller: controller,
+                            theme: theme,
+                            onCheckpoint: onNativeCheckpoint
+                        )
+                    } else {
+                        ContentUnavailableView(
+                            "Epdoc Content Unavailable",
+                            systemImage: "doc.badge.gearshape",
+                            description: Text("The native JSON editor session could not be created.")
+                        )
+                    }
+                case .codeMirror:
+                    MarkEditEpdocEditorRepresentable(
+                        controller: controller,
+                        theme: theme
+                    )
+                case .legacyTiptap:
+                    EpdocTiptapWebView(controller: controller, theme: theme)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Slash menu (W7.17.b)
             if let query = controller.slashMenuQuery,
@@ -783,23 +1099,6 @@ public struct EpdocEditorChromeView: View {
                 .padding(.bottom, 18)
                 .allowsHitTesting(false)
         }
-        .overlay(alignment: .bottomTrailing) {
-            if ProductCapabilityPolicy.isAvailable(.epdocAssist) {
-                EpdocCopilotDockView(
-                    wordCount: controller.toolbarModel.wordCount,
-                    dispatch: controller.dispatch,
-                    assistContext: assistContextProvider?(),
-                    submitAssist: { prompt, context in
-                        JuneEpdocAssistBridge.submit(prompt: prompt, context: context, theme: theme)
-                    },
-                    stageAssistSuggestion: { sessionID, context in
-                        JuneEpdocAssistBridge.latestNoteSuggestion(sessionID: sessionID, context: context)
-                    }
-                )
-                .padding(.trailing, 24)
-                .padding(.bottom, 18)
-            }
-        }
         .overlay(alignment: .topTrailing) {
             if let surfaceToolbarAccessory {
                 surfaceToolbarAccessory
@@ -813,19 +1112,36 @@ public struct EpdocEditorChromeView: View {
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
-                EpdocEditorToolbar(model: controller.toolbarModel, onSave: controller.onSave)
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                if ProductCapabilityPolicy.isAvailable(.epdocAssist) {
-                    EpdocAgentTokenCounter(
-                        estimate: EpdocAgentTokenEstimate.estimate(
-                            markdown: controller.latestMarkdownSnapshot,
-                            fallbackWordCount: controller.toolbarModel.wordCount,
-                            fallbackCharacterCount: controller.toolbarModel.characterCount
-                        ),
-                        label: controller.documentTitle
+                HStack(spacing: 12) {
+                    MotionTitle(
+                        text: controller.documentTitle,
+                        font: .system(size: 15, weight: .semibold, design: .rounded),
+                        color: theme.textPrimary
+                    )
+                    .id(
+                        EditorTitleRevealKey(
+                            documentID: controller.documentIdentity,
+                            surface: "epdoc",
+                            activationGeneration: titleRevealGeneration
+                        )
+                    )
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 220)
+
+                    Divider()
+                        .frame(height: 18)
+
+                    EpdocEditorToolbar(
+                        model: controller.toolbarModel,
+                        capabilities: canvasEngine == .nativeTextKit2
+                            ? .nativeTextKit2
+                            : .full
                     )
                 }
+            }
+            .sharedBackgroundVisibility(.hidden)
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     controller.onShowProjectionInfo()
                 } label: {
@@ -836,12 +1152,15 @@ public struct EpdocEditorChromeView: View {
                 epdocSaveButton
             }
         }
-        .background {
-            Button("") {
-                controller.onSave()
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)
+        ) { notification in
+            guard let window = notification.object as? NSWindow,
+                  let document = window.windowController?.document as? EpdocDocument,
+                  document.package.manifest.id == controller.documentIdentity else {
+                return
             }
-            .keyboardShortcut("s", modifiers: .command)
-            .hidden()
+            titleRevealGeneration &+= 1
         }
         .background {
             EpdocCommandSurfaceActivation(controller: controller)
@@ -879,18 +1198,21 @@ public struct EpdocEditorChromeView: View {
     private var epdocSaveButton: some View {
         Button {
             controller.onSave()
-            controller.toolbarModel.isDirty = false
         } label: {
             if controller.toolbarModel.isSaving {
                 ProgressView()
                     .controlSize(.small)
                     .frame(width: 14, height: 14)
             } else {
-                Label("Save", systemImage: "tray.and.arrow.down")
+                Label("Save Now", systemImage: "tray.and.arrow.down")
             }
         }
         .keyboardShortcut("s", modifiers: .command)
-        .help(controller.toolbarModel.isDirty ? "Save (Command-S)" : "All changes saved")
+        .help(
+            controller.toolbarModel.isDirty
+                ? "Save Now (Command-S). Epdoc also autosaves."
+                : "Saved. Epdoc also autosaves."
+        )
         .disabled(controller.toolbarModel.isSaving)
     }
 }
@@ -899,11 +1221,11 @@ public struct EpdocEditorChromeView: View {
 enum EpdocProjectionInfoPresenter {
     static func present() {
         let alert = NSAlert()
-        alert.messageText = "Document Projection"
+        alert.messageText = "Epdoc Document"
         alert.informativeText = """
-        Document mode is a rich editing surface over Markdown. In note windows, saves write back to the same .md file used by Prose, Preview, and Source.
+        Epdoc is a native rich document with versioned JSON inside its .epdoc package. Its autosave never writes or overwrites a Markdown note.
 
-        Standalone .epdoc packages keep their package data and derived Markdown projection for compatibility.
+        Publish Markdown Copy and PDF snapshot are explicit exports. A published Markdown copy is independent and can then use Prose, Preview, and Source without synchronizing back to this Epdoc.
         """
         alert.addButton(withTitle: "OK")
         alert.runModal()
@@ -1301,13 +1623,12 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
             }
         }
 
-        // MARK: - Inbound (AP1 batch decode + AR5 classifyPaste)
+        // MARK: - Inbound (AP1 batch decode)
 
         /// Decode a single inbound payload, transparently unpacking the
         /// `{ type: 'batch', messages: [...] }` envelope the JS-side
         /// outbound batcher (`js-editor/src/bridge/outbound.ts`) emits
-        /// once per animation frame, and intercepting the `classifyPaste`
-        /// message (AR5) before falling through to EpdocBridgeMessage.
+        /// once per animation frame before falling through to EpdocBridgeMessage.
         private func handleInbound(body: Any) {
             // AP1 — batch envelope.
             if let dict = body as? [String: Any],
@@ -1316,14 +1637,6 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
                 for entry in messages {
                     handleInbound(body: entry)
                 }
-                return
-            }
-            // AR5 — IntakeValve paste classification (out-of-band; the
-            // Tiptap side already inserted the paste into the editor).
-            if let dict = body as? [String: Any],
-               (dict["type"] as? String) == "classifyPaste",
-               let text = dict["text"] as? String {
-                routeClassifyPaste(text: text)
                 return
             }
             // Standard EpdocBridgeMessage path.
@@ -1336,33 +1649,6 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
             )
         }
 
-        /// AR5 — fire-and-forget hand-off to the IntakeValve. The
-        /// classifier runs on the MainActor (as IntakeValve is
-        /// MainActor-isolated) and side-effects into QuarantineArchive
-        /// when it routes to `.ambient`; we don't block the JS bridge
-        /// on its result. Errors are logged but not surfaced — the
-        /// paste still landed in the editor either way.
-        private func routeClassifyPaste(text: String) {
-            // The paste originated inside an .epdoc note; we don't yet
-            // have a stable per-note id to use as the QuarantineAnchor
-            // contextId, so we leave the anchor `nil` and let
-            // QuarantineArchive store it un-anchored. When the chrome
-            // controller carries a documentId in a later wave, plumb
-            // it through here.
-            Task { @MainActor in
-                do {
-                    _ = try await IntakeValve.shared.classifyAndRoute(
-                        text,
-                        anchor: nil
-                    )
-                } catch {
-                    Self.log.debug(
-                        "IntakeValve.classifyAndRoute skipped: \(String(describing: error), privacy: .public)"
-                    )
-                }
-            }
-        }
-
         private func evaluateCurrentMarkdownSnapshot() async -> String? {
             guard !isDetached, let webView else { return nil }
             guard !webView.isLoading else {
@@ -1373,10 +1659,6 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
               const bridge = window.epistemos;
               if (!bridge || typeof bridge.getMarkdown !== 'function') return null;
               const markdown = bridge.getMarkdown();
-              const editor = window.epdocEditor;
-              const visibleText = editor && editor.state && editor.state.doc
-                ? editor.state.doc.textBetween(0, editor.state.doc.content.size, '\\n\\n', '\\n\\n')
-                : '';
               const markdownBodyText = (value) => {
                 if (typeof value !== 'string') return '';
                 if (!value.startsWith('---')) return value;
@@ -1386,12 +1668,11 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
                 if (bodyStart === -1) return '';
                 return value.slice(bodyStart + 1);
               };
-              if (
-                typeof visibleText === 'string' &&
-                visibleText.trim().length > 0 &&
-                (!markdown || markdownBodyText(markdown).trim().length === 0)
-              ) return visibleText;
-              if (typeof markdown === 'string' && markdown.trim().length > 0) return markdown;
+              if (typeof markdown === 'string' && markdownBodyText(markdown).trim().length > 0) return markdown;
+              const editor = window.epdocEditor;
+              const visibleText = editor && editor.state && editor.state.doc
+                ? editor.state.doc.textBetween(0, editor.state.doc.content.size, '\\n\\n', '\\n\\n')
+                : '';
               if (typeof visibleText === 'string' && visibleText.trim().length > 0) return visibleText;
               return typeof markdown === 'string' ? markdown : null;
             })()
@@ -1508,7 +1789,6 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
 #Preview("EpdocEditorChromeView — empty") {
     let controller = EpdocEditorChromeController()
     controller.documentTitle = "My Notes"
-    controller.complexity = 0.25
     return EpdocEditorChromeView(controller: controller)
         .frame(width: 1100, height: 700)
 }
@@ -1516,7 +1796,6 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
 #Preview("EpdocEditorChromeView — slash menu showing") {
     let controller = EpdocEditorChromeController()
     controller.documentTitle = "Quarterly Review"
-    controller.complexity = 0.65
     controller.attachedRunIDs = ["run-01HMV5K2K9XJ4N0ABCDE"]
     controller.slashMenuQuery = "head"
     controller.slashMenuAnchor = EpdocBridgeRect(x: 200, y: 250, width: 1, height: 18)

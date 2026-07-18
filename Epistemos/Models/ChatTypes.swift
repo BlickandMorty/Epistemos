@@ -60,17 +60,6 @@ nonisolated enum JSONValue: Codable, Sendable, Equatable, Hashable {
     }
 }
 
-// MARK: - Cloud Stream Chunk
-// Typed stream events replacing flat `AsyncThrowingStream<String, Error>`.
-
-enum CloudStreamChunk: Sendable {
-    case textDelta(String)
-    case toolCallDelta(id: String, name: String, argumentsDelta: String)
-    case thinking(String)
-    case usage(inputTokens: Int, outputTokens: Int, cacheReadTokens: Int, cacheWriteTokens: Int)
-    case done(stopReason: String)
-}
-
 // MARK: - Content Block Helpers
 
 extension Array where Element == MessageContentBlock {
@@ -195,36 +184,22 @@ extension ContextAttachment {
         resourceURI != nil && resourceMode != nil
     }
 
-    /// Convert this attachment into a Rust `AttachedResource` suitable
-    /// for passing to agent tool-call sites. Returns `nil` when the
-    /// attachment does not yet carry Phase R.4 metadata (see
-    /// `hasResourceManifest`) — caller must then fall back to the
-    /// legacy inline-text path until the creation site migrates.
-    ///
-    /// Uses the R.4 bridge factories:
-    ///   - `.live`     → `attachedResourceFromUi`
-    ///   - `.snapshot` → `attachedResourceFromPaste` (snapshot body
-    ///     comes from `subtitle`, or empty string if missing)
-    func toAttachedResource() -> AttachedResource? {
-        guard let uri = resourceURI, let mode = resourceMode else {
-            return nil
-        }
-        switch mode {
-        case .live:
-            return attachedResourceFromUi(
-                resourceUri: uri,
-                displayName: title,
-                version: nil
-            )
-        case .snapshot:
-            let snapshotBody = subtitle ?? ""
-            return attachedResourceFromPaste(
-                resourceUri: uri,
-                displayName: title,
-                snapshotContent: snapshotBody
-            )
-        }
-    }
+}
+
+/// Persisted classification for a legacy or user-visible message error.
+///
+/// The Free build does not include a chat/provider runtime, but it must retain
+/// this Codable value type to decode existing message records without data
+/// loss. Classification and presentation policy remain outside this model.
+nonisolated enum UserFacingChatErrorKind: String, Codable, Equatable, Sendable, CaseIterable {
+    case authFailure
+    case rateLimited
+    case providerUnreachable
+    case timedOut
+    case contextOverflow
+    case modelNotReady
+    case cancelled
+    case generic
 }
 
 struct ChatMessage: Identifiable, Codable, Sendable {
@@ -255,7 +230,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     var authoredByModelID: String?
     /// Human-readable label of the model that actually produced this
     /// assistant reply (e.g. "Qwen 3 4B", "Claude Sonnet 4.6", "Apple
-    /// Intelligence"). Populated at turn completion from InferenceState.
+    /// Intelligence"). Populated at turn completion from product runtime state.
     /// Optional for backward compatibility with legacy persisted messages
     /// and user messages. When present, the UI renders a small badge so
     /// the user can see exactly which model answered — the Perplexity
@@ -292,20 +267,6 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// model label so the user can see the prompt-caching win land
     /// turn-to-turn.
     var cacheHitPercent: Double?
-    /// V6.2 audit-channel binding (Option B per
-    /// `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`).
-    /// References the AnswerPacket emitted at turn-completion for
-    /// this message. Stamped by the active transcript commit path from
-    /// the completion stream event's `answerPacketId` field —
-    /// guaranteed to be in `AnswerPacketEmitter.shared
-    /// .recentPackets()` if non-nil, because the packet was committed
-    /// to the ring BEFORE the stream event yielded. Nil for legacy
-    /// messages, user messages, or paths that bypass the audit emit
-    /// (errors, cancellations). Transcript consumers can render a
-    /// verification chip from this field; nil
-    /// means no chip.
-    var answerPacketId: String?
-
     init(
         id: String = UUID().uuidString,
         chatId: String = "",
@@ -331,8 +292,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         errorKind: UserFacingChatErrorKind? = nil,
         thinkingTrace: String? = nil,
         thinkingDurationSeconds: Double? = nil,
-        cacheHitPercent: Double? = nil,
-        answerPacketId: String? = nil
+        cacheHitPercent: Double? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -359,7 +319,6 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.thinkingTrace = thinkingTrace
         self.thinkingDurationSeconds = thinkingDurationSeconds
         self.cacheHitPercent = cacheHitPercent
-        self.answerPacketId = answerPacketId
     }
 
     /// Effective text content — from contentBlocks if present, otherwise from content.

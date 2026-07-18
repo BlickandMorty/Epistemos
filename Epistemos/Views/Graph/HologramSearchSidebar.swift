@@ -40,13 +40,27 @@ enum HologramSidebarNotesTreeBuilder {
         nodes: [GraphNodeRecord],
         edges: [GraphEdgeRecord]
     ) -> HologramSidebarCacheSnapshot {
-        HologramSidebarCacheSnapshot(
-            notesTree: build(nodes: nodes, edges: edges),
-            sortedSearchNodes: sortedNodeRecords(nodes)
+        let visibleNodes = projectableNodes(from: nodes)
+        return HologramSidebarCacheSnapshot(
+            notesTree: buildProjectedNodes(nodes: visibleNodes, edges: edges),
+            sortedSearchNodes: sortedNodeRecords(visibleNodes)
         )
     }
 
     nonisolated static func build(
+        nodes: [GraphNodeRecord],
+        edges: [GraphEdgeRecord]
+    ) -> HologramSidebarNotesTreeSnapshot {
+        buildProjectedNodes(nodes: projectableNodes(from: nodes), edges: edges)
+    }
+
+    nonisolated private static func projectableNodes(
+        from nodes: [GraphNodeRecord]
+    ) -> [GraphNodeRecord] {
+        nodes.filter { ProductCapabilityPolicy.allowsGraphProjection(of: $0.type) }
+    }
+
+    nonisolated private static func buildProjectedNodes(
         nodes: [GraphNodeRecord],
         edges: [GraphEdgeRecord]
     ) -> HologramSidebarNotesTreeSnapshot {
@@ -215,11 +229,11 @@ struct HologramSearchSidebar: View {
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @AppStorage("epistemos.graphSidebarCollapsed.notesQuery.v1")
+    @AppStorage("epistemos.graphSidebarCollapsed.notesQuery.v1", store: FoundationSafety.runtimeUserDefaults)
     private var isCollapsed = false
-    @AppStorage("epistemos.graphSidebarWidth.v1")
+    @AppStorage("epistemos.graphSidebarWidth.v1", store: FoundationSafety.runtimeUserDefaults)
     private var sidebarWidthStorage = GraphSidebarLayout.defaultWidth
-    @AppStorage("epistemos.graphSidebarHeight.v1")
+    @AppStorage("epistemos.graphSidebarHeight.v1", store: FoundationSafety.runtimeUserDefaults)
     private var sidebarHeightStorage = GraphSidebarLayout.defaultHeight
 
     @State private var activeTab: SidebarTab = .notes

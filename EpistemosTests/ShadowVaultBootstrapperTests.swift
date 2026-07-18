@@ -91,8 +91,8 @@ nonisolated struct ShadowVaultBootstrapperTests {
         await bootstrapper.bootstrap()
         await indexer.flushNow()
 
-        let prefixHits = try client.search(query: "prefix-needle", domain: .notes, limit: 10)
-        let tailHits = try client.search(query: "tail-needle", domain: .notes, limit: 10)
+        let prefixHits = try client.search(query: "prefix-needle", limit: 10)
+        let tailHits = try client.search(query: "tail-needle", limit: 10)
         #expect(prefixHits.count == 1)
         #expect(tailHits.isEmpty, "large-file shadow indexing should not read the entire body")
     }
@@ -123,35 +123,28 @@ nonisolated struct ShadowVaultBootstrapperTests {
         await bootstrapper.bootstrap()
         await indexer.flushNow()
 
-        let hits = try client.search(query: "halo", domain: .notes, limit: 10)
+        let hits = try client.search(query: "halo", limit: 10)
         #expect(hits.count == 1)
         #expect(hits.first?.originVaultKey == expectedVaultKey,
                 "ShadowVaultBootstrapper MUST tag every emitted doc with vault root's last path component as originVaultKey")
     }
 
-    @Test("Bootstrap-emitted chat hits also carry originVaultKey (covers .chats domain path)")
-    func bootstrapEmittedChatHitsCarryVaultDirectoryName() async throws {
-        // Companion test to `bootstrapEmittedHitsCarryVaultDirectoryName`:
-        // the bootstrapper has TWO domain code paths (`loadDocument`'s
-        // `.notes` arm reads markdown bodies; the `.chats` arm decodes
-        // ShadowVaultChatPayload JSON). Both populate originVaultKey;
-        // pin coverage of the chats arm so a regression that only
-        // strips the key in one branch trips immediately.
+    @Test("Bootstrap never opens or indexes historical chat JSON")
+    func bootstrapLeavesChatBytesOutsideTheIndex() async throws {
         let vault = try Self.tempVault()
         defer { try? FileManager.default.removeItem(at: vault) }
-        let expectedVaultKey = vault.lastPathComponent
         let chatsDir = vault.appendingPathComponent("chats")
 
-        // Write a minimal ShadowVaultChatPayload — just enough to
-        // decode and produce a non-empty body.
         let chatJSON = """
         {"title":"Sample Chat","messages":[{"role":"user","content":"hello halo"}]}
         """
+        let chatURL = chatsDir.appendingPathComponent("sample.json")
         try chatJSON.write(
-            to: chatsDir.appendingPathComponent("sample.json"),
+            to: chatURL,
             atomically: true,
             encoding: .utf8
         )
+        let originalBytes = try Data(contentsOf: chatURL)
 
         let client = InMemoryShadowFFIClient()
         let indexer = ShadowIndexingService(client: client)
@@ -159,10 +152,8 @@ nonisolated struct ShadowVaultBootstrapperTests {
         await bootstrapper.bootstrap()
         await indexer.flushNow()
 
-        let hits = try client.search(query: "halo", domain: .chats, limit: 10)
-        #expect(hits.count == 1)
-        #expect(hits.first?.originVaultKey == expectedVaultKey,
-                "chats-domain bootstrap MUST also tag with vault root's last path component")
+        #expect(try client.stats().chatCount == 0)
+        #expect(try Data(contentsOf: chatURL) == originalBytes)
     }
 
     @Test("Crawl ignores files with the wrong extension (cache files, hidden files, etc.)")
@@ -224,7 +215,6 @@ nonisolated struct ShadowVaultBootstrapperTests {
 
         // Should see at least:
         //   notes: 0/3 → 2/3 → 3/3 (complete)
-        //   chats: 0/0 (complete; vault has no chats)
         let notesTicks = ticks.filter { $0.domain == .notes }
         #expect(notesTicks.count >= 2,
                 "notes domain MUST emit at least scanning + final tick; got \(notesTicks.count)")

@@ -181,8 +181,9 @@ nonisolated public enum ProseMirrorMarkdownProjector {
     /// `nil` on JSON decode failure (callers should fall back to the
     /// previous shadow.md or skip the save with a warning).
     public static func project(jsonData: Data) -> String? {
-        let decoder = JSONDecoder()
-        guard let doc = try? decoder.decode(ProseMirrorNode.self, from: jsonData) else {
+        guard let doc = EpdocContentCompatibilityProjection.proseMirrorNode(
+            from: jsonData
+        ) else {
             return nil
         }
         return project(doc)

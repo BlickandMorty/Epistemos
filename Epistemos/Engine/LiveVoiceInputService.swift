@@ -89,6 +89,74 @@ nonisolated enum VoiceCaptureDiagnostics {
     }
 }
 
+public enum VoiceCapturePurpose: String, Sendable, Equatable {
+    case quickCapture
+    case meeting
+    case editor
+
+    var displayName: String {
+        switch self {
+        case .quickCapture:
+            return "Quick Capture"
+        case .meeting:
+            return "Meeting"
+        case .editor:
+            return "the editor"
+        }
+    }
+}
+
+public struct VoiceCaptureLease: Sendable, Hashable {
+    public let id: UUID
+    public let purpose: VoiceCapturePurpose
+
+    public init(id: UUID = UUID(), purpose: VoiceCapturePurpose) {
+        self.id = id
+        self.purpose = purpose
+    }
+}
+
+enum VoiceCaptureLeaseAdmission: Sendable, Equatable {
+    case acquired
+    case alreadyOwned
+    case busy(VoiceCapturePurpose)
+}
+
+struct VoiceCaptureLeaseRegistry: Sendable {
+    private(set) var activeLease: VoiceCaptureLease?
+
+    mutating func reserve(_ lease: VoiceCaptureLease) -> VoiceCaptureLeaseAdmission {
+        guard let activeLease else {
+            self.activeLease = lease
+            return .acquired
+        }
+        guard activeLease != lease else {
+            return .alreadyOwned
+        }
+        return .busy(activeLease.purpose)
+    }
+
+    func owns(_ lease: VoiceCaptureLease) -> Bool {
+        activeLease == lease
+    }
+
+    @discardableResult
+    mutating func release(_ lease: VoiceCaptureLease) -> Bool {
+        guard activeLease == lease else { return false }
+        activeLease = nil
+        return true
+    }
+}
+
+public enum VoiceCaptureStartResult: Sendable, Equatable {
+    case started
+    case busy(VoiceCapturePurpose)
+    case permissionDenied(String)
+    case unavailable(String)
+    case failed(String)
+    case cancelled
+}
+
 // MARK: - LiveVoiceInputService
 //
 // Small UI-facing facade over EpistemosSpeechAnalyzer. Views get a stable
@@ -114,10 +182,12 @@ public final class LiveVoiceInputService {
     public private(set) var partialTranscript = ""
     public private(set) var finalTranscript = ""
     public private(set) var modelDownloadProgress: Double?
+    public private(set) var microphoneAccessDenied = false
 
     private var streamTask: Task<Void, Never>?
     private var finalTranscriptBuffer: [String] = []
-    private var startGeneration = UUID()
+    private var leaseRegistry = VoiceCaptureLeaseRegistry()
+    private var activeSessionID: UUID?
 
     private init() {}
 
@@ -141,55 +211,79 @@ public final class LiveVoiceInputService {
         return false
     }
 
-    public func toggle() async {
-        if isRecording {
-            stop()
-        } else {
-            await start()
-        }
+    public func isOwner(_ owner: VoiceCaptureLease) -> Bool {
+        leaseRegistry.owns(owner)
     }
 
-    public func start() async {
-        stop()
-        let generation = UUID()
-        startGeneration = generation
+    public func start(owner: VoiceCaptureLease) async -> VoiceCaptureStartResult {
+        switch leaseRegistry.reserve(owner) {
+        case .busy(let activePurpose):
+            return .busy(activePurpose)
+        case .alreadyOwned:
+            switch state {
+            case .recording, .preparing:
+                return .started
+            case .unavailable(let message):
+                return .unavailable(message)
+            case .error(let message):
+                return .failed(message)
+            case .idle:
+                return .cancelled
+            }
+        case .acquired:
+            break
+        }
+
+        let sessionID = UUID()
+        activeSessionID = sessionID
         partialTranscript = ""
         finalTranscript = ""
         finalTranscriptBuffer.removeAll()
         modelDownloadProgress = nil
+        microphoneAccessDenied = false
         state = .preparing
 
         guard #available(macOS 26.0, *) else {
-            state = .unavailable("Voice input requires macOS 26 SpeechAnalyzer.")
-            return
+            let message = "Voice input requires macOS 26 SpeechAnalyzer."
+            state = .unavailable(message)
+            return .unavailable(message)
         }
 
         do {
             let readiness = await EpistemosSpeechAnalyzer.shared.readiness()
-            guard isCurrentStart(generation) else {
-                finishCancelledStartIfCurrent(generation)
-                return
+            guard isCurrentStart(sessionID: sessionID, owner: owner) else {
+                finishCancelledStartIfCurrent(sessionID: sessionID, owner: owner)
+                return .cancelled
             }
             guard readiness == .available || readiness == .modelDownloadRequired else {
-                state = .unavailable(Self.message(for: readiness))
-                return
+                microphoneAccessDenied = readiness == .microphonePermissionDenied
+                let message = Self.message(for: readiness)
+                state = .unavailable(message)
+                if readiness == .microphonePermissionDenied {
+                    return .permissionDenied(message)
+                }
+                return .unavailable(message)
             }
 
-            let stream = try await EpistemosSpeechAnalyzer.shared.startLive { [weak self] progress in
+            let stream = try await EpistemosSpeechAnalyzer.shared.startLive(sessionID: sessionID) { [weak self] progress in
                 Task { @MainActor [weak self] in
-                    guard self?.isCurrentStart(generation) == true else { return }
+                    guard self?.isCurrentStart(sessionID: sessionID, owner: owner) == true,
+                          self?.state == .preparing else { return }
                     self?.modelDownloadProgress = VoiceCapturePresentationBounds.modelDownloadProgress(progress)
                 }
             }
-            guard isCurrentStart(generation) else {
-                EpistemosSpeechAnalyzer.shared.stop()
-                finishCancelledStartIfCurrent(generation)
-                return
+            guard isCurrentStart(sessionID: sessionID, owner: owner) else {
+                EpistemosSpeechAnalyzer.shared.stop(sessionID: sessionID)
+                finishCancelledStartIfCurrent(sessionID: sessionID, owner: owner)
+                return .cancelled
             }
+            modelDownloadProgress = nil
             state = .recording
             streamTask = Task { @MainActor [weak self] in
                 defer {
-                    if let self, self.startGeneration == generation {
+                    if let self,
+                       self.activeSessionID == sessionID,
+                       self.leaseRegistry.owns(owner) {
                         if case .recording = self.state {
                             self.state = .idle
                         }
@@ -197,45 +291,64 @@ public final class LiveVoiceInputService {
                     }
                 }
                 for await result in stream {
-                    guard self?.isCurrentStart(generation) == true else { break }
+                    guard self?.isCurrentStart(sessionID: sessionID, owner: owner) == true else { break }
                     self?.handle(result)
                 }
             }
+            return .started
         } catch {
-            EpistemosSpeechAnalyzer.shared.stop()
-            guard isCurrentStart(generation) else {
-                finishCancelledStartIfCurrent(generation)
-                return
+            EpistemosSpeechAnalyzer.shared.stop(sessionID: sessionID)
+            guard isCurrentStart(sessionID: sessionID, owner: owner) else {
+                finishCancelledStartIfCurrent(sessionID: sessionID, owner: owner)
+                return .cancelled
             }
-            stop()
-            state = .error(Self.message(for: error))
+            let denied = Self.isMicrophonePermissionDenied(error)
+            streamTask?.cancel()
+            streamTask = nil
+            activeSessionID = nil
+            modelDownloadProgress = nil
+            microphoneAccessDenied = denied
+            let message = Self.message(for: error)
+            state = .error(message)
+            if denied {
+                return .permissionDenied(message)
+            }
+            return .failed(message)
         }
     }
 
-    public func stop() {
-        startGeneration = UUID()
+    public func stop(owner: VoiceCaptureLease) {
+        guard leaseRegistry.owns(owner) else { return }
+        promotePartialTranscriptForStop()
+        let sessionID = activeSessionID
+        activeSessionID = nil
         streamTask?.cancel()
         streamTask = nil
-        if #available(macOS 26.0, *) {
-            EpistemosSpeechAnalyzer.shared.stop()
+        if #available(macOS 26.0, *), let sessionID {
+            EpistemosSpeechAnalyzer.shared.stop(sessionID: sessionID)
         }
         modelDownloadProgress = nil
-        if case .recording = state {
+        switch state {
+        case .preparing, .recording, .unavailable, .error:
             state = .idle
-        } else if case .preparing = state {
-            state = .idle
+        case .idle:
+            break
         }
     }
 
-    public func tearDown() {
-        stop()
+    public func tearDown(owner: VoiceCaptureLease) {
+        guard leaseRegistry.owns(owner) else { return }
+        stop(owner: owner)
         partialTranscript = ""
         finalTranscript = ""
         finalTranscriptBuffer.removeAll()
+        microphoneAccessDenied = false
         state = .idle
+        leaseRegistry.release(owner)
     }
 
-    public func consumeTranscript() -> String? {
+    public func consumeTranscript(owner: VoiceCaptureLease) -> String? {
+        guard leaseRegistry.owns(owner) else { return nil }
         let pending = finalTranscriptBuffer
             .map(Self.cleanedFinalTranscript)
             .filter { !$0.isEmpty }
@@ -245,16 +358,31 @@ public final class LiveVoiceInputService {
         return Self.boundedTranscript(pending.joined(separator: "\n\n"))
     }
 
-    private func isCurrentStart(_ generation: UUID) -> Bool {
-        startGeneration == generation && !Task.isCancelled
+    private func isCurrentStart(sessionID: UUID, owner: VoiceCaptureLease) -> Bool {
+        activeSessionID == sessionID && leaseRegistry.owns(owner) && !Task.isCancelled
     }
 
-    private func finishCancelledStartIfCurrent(_ generation: UUID) {
-        guard startGeneration == generation else { return }
+    private func finishCancelledStartIfCurrent(sessionID: UUID, owner: VoiceCaptureLease) {
+        guard activeSessionID == sessionID, leaseRegistry.owns(owner) else { return }
+        if #available(macOS 26.0, *) {
+            EpistemosSpeechAnalyzer.shared.stop(sessionID: sessionID)
+        }
+        activeSessionID = nil
         modelDownloadProgress = nil
         if case .preparing = state {
             state = .idle
         }
+    }
+
+    private func promotePartialTranscriptForStop() {
+        let cleaned = Self.cleanedFinalTranscript(partialTranscript)
+        guard !cleaned.isEmpty else { return }
+        if finalTranscriptBuffer.last != cleaned {
+            finalTranscriptBuffer.append(cleaned)
+            compactFinalTranscriptBuffer()
+        }
+        finalTranscript = cleaned
+        partialTranscript = ""
     }
 
     @available(macOS 26.0, *)
@@ -319,5 +447,14 @@ public final class LiveVoiceInputService {
             }
         }
         return VoiceCaptureDiagnostics.externalStatusMessage("Voice input failed", error: error)
+    }
+
+    private static func isMicrophonePermissionDenied(_ error: Error) -> Bool {
+        if #available(macOS 26.0, *),
+           let speechError = error as? EpistemosSpeechAnalyzer.SpeechError,
+           case .notAvailable(.microphonePermissionDenied) = speechError {
+            return true
+        }
+        return false
     }
 }

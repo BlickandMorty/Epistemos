@@ -5,11 +5,9 @@ import SwiftUI
 //
 // Wave 9.1 — drop-in SwiftUI control any view can use to expose
 // Kokoro-only read-aloud control for a piece of text.
-// Wave 9.1.b — per-model voice + interactive playback (pause /
-// resume / stop, live progress).
+// Interactive playback supports pause, resume, stop, and live progress.
 //
 // Usage examples:
-//   - Agent chat response: `ReadAloudButton(text: m.content, voiceIdentifier: profile.voiceIdentifier)`
 //   - Note body: `ReadAloudButton(text: note.body)` in the note toolbar
 //   - Selection in the Tiptap editor: bubble menu adds a "Speak"
 //     command that materialises the selection text and pipes it
@@ -280,7 +278,7 @@ public struct ReadAloudButton: View {
 
         var speechText = cleaned
         if !EpistemosSpeechSynthesizer.isTextToSpeechInputSupported(cleaned) {
-            let prepared = EpistemosAgentReadAloud.responsiveReadVisibleText(
+            let prepared = EpistemosReadAloud.responsiveReadVisibleText(
                 cleaned,
                 surface: surface
             )

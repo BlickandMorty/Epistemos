@@ -10,35 +10,34 @@ import SwiftUI
 final class EpistemosConfig {
     private static let log = Logger(subsystem: "com.epistemos", category: "EpistemosConfig")
 
-    // MARK: - Power Management
-    @ObservationIgnored @AppStorage("epistemos.ecoMode") var ecoModeEnabled = true
-
     // MARK: - Cross-App Capture
-    @ObservationIgnored @AppStorage("capture.enabled") var captureEnabled = false
-    @ObservationIgnored @AppStorage("capture.ocrFallback") var ocrFallbackEnabled = true
-    @ObservationIgnored @AppStorage("capture.allowlistJSON") var allowlistJSON = "[]"
-    @ObservationIgnored @AppStorage("capture.blocklistJSON") var blocklistJSON = "[]"
+    @ObservationIgnored @AppStorage("capture.enabled", store: FoundationSafety.runtimeUserDefaults) var captureEnabled = false
+    @ObservationIgnored @AppStorage("capture.ocrFallback", store: FoundationSafety.runtimeUserDefaults) var ocrFallbackEnabled = true
+    @ObservationIgnored @AppStorage("capture.allowlistJSON", store: FoundationSafety.runtimeUserDefaults) var allowlistJSON = "[]"
+    @ObservationIgnored @AppStorage("capture.blocklistJSON", store: FoundationSafety.runtimeUserDefaults) var blocklistJSON = "[]"
 
     // MARK: - Friction Detection
-    @ObservationIgnored @AppStorage("friction.enabled") var frictionEnabled = true
-    @ObservationIgnored @AppStorage("friction.threshold") var frictionThreshold = 1.5
+    @ObservationIgnored @AppStorage("friction.enabled", store: FoundationSafety.runtimeUserDefaults) var frictionEnabled = true
+    @ObservationIgnored @AppStorage("friction.threshold", store: FoundationSafety.runtimeUserDefaults) var frictionThreshold = 1.5
 
+    #if !EPISTEMOS_FREE_V1
     // MARK: - SSM State Persistence (Mamba vault memory)
-    @ObservationIgnored @AppStorage("ssm.statePersistenceEnabled") var ssmStatePersistenceEnabled = false
-    @ObservationIgnored @AppStorage("ssm.autoSaveOnTurnEnd") var ssmAutoSaveOnTurnEnd = true
-    @ObservationIgnored @AppStorage("ssm.maxSnapshotsPerModel") var ssmMaxSnapshotsPerModel: Int = 5
+    @ObservationIgnored @AppStorage("ssm.statePersistenceEnabled", store: FoundationSafety.runtimeUserDefaults) var ssmStatePersistenceEnabled = false
+    @ObservationIgnored @AppStorage("ssm.autoSaveOnTurnEnd", store: FoundationSafety.runtimeUserDefaults) var ssmAutoSaveOnTurnEnd = true
+    @ObservationIgnored @AppStorage("ssm.maxSnapshotsPerModel", store: FoundationSafety.runtimeUserDefaults) var ssmMaxSnapshotsPerModel: Int = 5
 
     // MARK: - Claude Managed Sessions (Optional cloud agent backend)
-    @ObservationIgnored @AppStorage("cma.enabled") var claudeManagedSessionsEnabled = false
-    @ObservationIgnored @AppStorage("cma.defaultBudgetUSD") var defaultAgentBudgetUSD: Double = 0
+    @ObservationIgnored @AppStorage("cma.enabled", store: FoundationSafety.runtimeUserDefaults) var claudeManagedSessionsEnabled = false
+    @ObservationIgnored @AppStorage("cma.defaultBudgetUSD", store: FoundationSafety.runtimeUserDefaults) var defaultAgentBudgetUSD: Double = 0
     // 0 = unlimited; any positive value = hard cap per session
 
     // MARK: - Agent Heartbeat (Background scheduled agent runs)
-    @ObservationIgnored @AppStorage("heartbeat.enabled") var heartbeatEnabled = false
-    @ObservationIgnored @AppStorage("heartbeat.intervalSeconds") var heartbeatIntervalSeconds = 3600.0
-    @ObservationIgnored @AppStorage("heartbeat.requiresAC") var heartbeatRequiresAC = true
-    @ObservationIgnored @AppStorage("heartbeat.prompt") var heartbeatPrompt = "Review my vault for new items. Summarize anything added since last check."
-    @ObservationIgnored @AppStorage("heartbeat.budgetCapMicro") var heartbeatBudgetCapMicro: Int = 500_000
+    @ObservationIgnored @AppStorage("heartbeat.enabled", store: FoundationSafety.runtimeUserDefaults) var heartbeatEnabled = false
+    @ObservationIgnored @AppStorage("heartbeat.intervalSeconds", store: FoundationSafety.runtimeUserDefaults) var heartbeatIntervalSeconds = 3600.0
+    @ObservationIgnored @AppStorage("heartbeat.requiresAC", store: FoundationSafety.runtimeUserDefaults) var heartbeatRequiresAC = true
+    @ObservationIgnored @AppStorage("heartbeat.prompt", store: FoundationSafety.runtimeUserDefaults) var heartbeatPrompt = "Review my vault for new items. Summarize anything added since last check."
+    @ObservationIgnored @AppStorage("heartbeat.budgetCapMicro", store: FoundationSafety.runtimeUserDefaults) var heartbeatBudgetCapMicro: Int = 500_000
+    #endif
 
     // MARK: - Allowlist / Blocklist Helpers
 

@@ -2113,31 +2113,6 @@ struct ActivityTrackerTests {
     }
 }
 
-@Suite("Daily Brief State", .serialized)
-struct DailyBriefStateTests {
-    @MainActor
-    @Test("dismiss cleanup is cancelled when a new daily brief starts")
-    func dismissCleanupIsCancelledWhenNewBriefStarts() async throws {
-        let state = DailyBriefState()
-        state.onDailyBriefGenerate = { _ in
-            "Fresh brief"
-        }
-
-        state.showDailyBrief = true
-        state.dailyBriefContent = "Stale brief"
-        state.isDailyBriefLoading = false
-
-        state.dismissDailyBrief()
-        try await Task.sleep(for: .milliseconds(100))
-        state.requestDailyBrief(prompt: "Generate again")
-        try await Task.sleep(for: .milliseconds(650))
-
-        #expect(state.showDailyBrief)
-        #expect(!state.isDailyBriefLoading)
-        #expect(state.dailyBriefContent == "Fresh brief")
-    }
-}
-
 @Suite("Event Bus", .serialized)
 struct EventBusTests {
     @MainActor

@@ -42,7 +42,6 @@ struct SubstrateHealthClockTests {
             "Epistemos/Views/Settings/VaultRecallHealthRow.swift",
             "Epistemos/Views/Settings/EditorBundleHealthRow.swift",
             "Epistemos/Views/Settings/AnswerPacketHealthRow.swift",
-            "Epistemos/Views/Settings/FalsifierArtifactsHealthRow.swift",
         ]
         for path in migrated {
             let row = try loadMirroredSourceTextFile(path)

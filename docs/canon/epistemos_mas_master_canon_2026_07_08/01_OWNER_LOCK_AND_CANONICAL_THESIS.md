@@ -1,5 +1,17 @@
 # 01 - Owner Lock and Canonical MAS Thesis
 
+## Dated owner addendum - 2026-07-15 scope reduction and pause
+
+`14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md` is the latest
+authority where this document conflicts. LumenLens and all AI/agent/model/
+provider/generative work are canceled. Reckoner and its spreadsheet/database
+product surfaces are parked reversibly. Non-AI editor correctness is retained
+under the Epistemos Editor Core; all requested non-AI capability work remains
+active except Reckoner. Kokoro remains separately retained. Browser and
+ResearchHub remain deterministic future paid possibilities only, absent from
+Free V1. Implementation and builds are paused at the recorded checkpoint for
+owner review.
+
 ## Owner intent checkpoint
 
 Verbatim owner steer, distilled from the MAS pivot packet:
@@ -63,6 +75,34 @@ Operational interpretation:
 - `11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md` is required
   reading for the detailed information architecture and done bars.
 
+## Dated owner addendum - 2026-07-13 workspace surface and real-source recovery
+
+Later owner wording controls the free-V1 visible product surface:
+
+> there should eb no chats no ai other than kokoro ... i still see chats o the
+> grsph whe there shoud not be chats at alll ... lots of settings parts and
+> graph filters and just settigns nad things in general are stale and need to
+> be removed.
+
+> the source surface part of the app i want it to look like teh mark edit or
+> more like mark edit ... i still want to keep my theme palette ... the rigth
+> hand side ... should be the same color as the rest of the surface instead of
+> a grey color.
+
+> no the pla was to use the actual clone of the iron calc univer etc. but iron
+> calc as the fromt end why was that taken off
+
+Operational interpretation: graph query/rebuild/default/filter/restoration and
+Epdoc notebook tabs must use the same free-V1 policy as routes; the local
+MarkEdit vendor is an Epistemos-native reference rather than a copied shell;
+and RECKONER remains free-V1 work, with its newer IronCalc-front-end direction
+recorded in the actual pinned IronCalc and Univer source checkouts. IronCalc is
+the visible front end and sole calculation authority; Univer is a required
+bounded supporting source and cannot displace it or become a second engine.
+Those checkouts are isolated evidence, not installed app dependencies. Read
+`12_LIVE_REFERENCE_AND_FREE_V1_SURFACE_REGISTRY_2026_07_13.md` and
+`13_EXECUTIVE_CONTINUITY_AND_FREE_V1_REMEDIATION_2026_07_13.md`.
+
 ## Canonical thesis
 
 Epistemos ships as one MAS-native knowledge app whose product authority is simple:
@@ -96,6 +136,10 @@ Confidence: HIGH.
 6. **ResearchHub source policy: official APIs/RSS/OA/BYO only.** No illegal or ToS-violating sourcing.
 7. **Free-V1 workspace verdict.** Epdoc tasks/planning and Meeting use readable vault truth and derived projections; no task, planner, Meeting, transcript, calendar, or sync database becomes a second authority.
 8. **Paid visibility verdict.** Browser and ResearchHub remain MAS-safe future paid capabilities and are gated with June, including routes, shortcuts, deep links, restoration, provider startup, and background jobs.
+9. **Free graph and notebook verdict.** Chat, agent-run, raw-thought, tool-trace,
+   model, and paid-only artifacts are excluded from free-V1 graph and notebook
+   projections at query/build/default/filter/restoration boundaries; stored data
+   remains durable, not free-visible UI.
 
 ## Still open or repo-dependent
 

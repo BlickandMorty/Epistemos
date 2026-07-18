@@ -21,12 +21,7 @@ nonisolated enum NoteDraftStore {
     private static let fileLock = NSLock()
 
     private static func directory(create: Bool) -> URL? {
-        guard let base = try? FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: create
-        ) else { return nil }
+        let base = FoundationSafety.userApplicationSupportDirectory()
         let dir = base.appendingPathComponent(directoryName, isDirectory: true)
         if create {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

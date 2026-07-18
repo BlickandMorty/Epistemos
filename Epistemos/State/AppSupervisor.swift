@@ -235,7 +235,11 @@ final class AppSupervisor {
 
     // UI convenience (unchanged public API)
     var isAIAvailable: Bool {
+        #if EPISTEMOS_FREE_V1
+        false
+        #else
         healthMode == .full || healthMode == .degradedCloud
+        #endif
     }
     var isWriteAvailable: Bool {
         healthMode != .readOnly
@@ -247,7 +251,7 @@ final class AppSupervisor {
     /// Per-domain circuit breakers — use BreakerRegistry for direct access.
     let breakers = BreakerRegistry.shared
 
-    /// Legacy accessor for inference breaker (consumed by AppleIntelligenceService).
+    /// Legacy accessor retained for local state recovery.
     /// Maps to the foundationModels domain breaker.
     var inferenceCircuitBreaker: AgentCircuitBreaker { breakers.foundationModels }
 
@@ -310,7 +314,7 @@ final class AppSupervisor {
         }
 
         // Separate health check loop for subsystem status (network, store, etc.)
-        // Interval adapts to power mode: 30s full, 120s eco, stopped in lowPower.
+        // Interval adapts to power mode: 30s normally, paused only in low power.
         healthCheckTask = Task.detached(priority: .utility) { [weak self] in
             while !Task.isCancelled {
                 let interval = await PowerGuard.shared.healthCheckInterval
@@ -564,7 +568,6 @@ final class AppSupervisor {
         )
 
         subsystemStatus[spec.id] = false
-        AppBootstrap.shared?.orphanCleanup.cleanupAll()
 
         // rest_for_one: cancel all children registered AFTER the failed child
         if let failedIndex = childSpecs.firstIndex(where: { $0.id == spec.id }) {
@@ -646,6 +649,12 @@ final class AppSupervisor {
     // MARK: - Private Checks
 
     private func checkInference() async -> Bool {
+        #if EPISTEMOS_FREE_V1
+        // Free V1 deliberately compiles no inference runtime. Report that
+        // absence truthfully so health-derived UI cannot re-enable a removed
+        // capability through its generic "healthy" path.
+        return false
+        #else
         // Cloud-only: inference is healthy when the cloud provider path is up,
         // or Apple Intelligence is available. Local MLX inference removed.
         let cloudOpen = await breakers.cloud.isOpen
@@ -654,12 +663,13 @@ final class AppSupervisor {
         }
 
         if let bootstrap = AppBootstrap.shared {
-            if bootstrap.inferenceState.appleIntelligenceAvailable {
+            if bootstrap.runtimeState.appleIntelligenceAvailable {
                 return true
             }
         }
 
         return false
+        #endif
     }
 
     private func startNetworkMonitor() {

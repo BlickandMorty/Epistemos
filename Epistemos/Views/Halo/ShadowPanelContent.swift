@@ -8,7 +8,7 @@ import SwiftUI
 // SwiftUI content of the Halo's NSPanel. Per the V1 decision:
 //   - 360 × 480 fixed frame (caps blur cost ≤ 2 ms/frame)
 //   - `.ultraThinMaterial` background
-//   - Domain picker (Notes / Chats) at the top
+//   - Notes-only results with hover preview
 //   - Lazy results list with hover preview
 //   - Esc dismisses (via `.onExitCommand`)
 //
@@ -25,20 +25,14 @@ public struct ShadowPanelHandlers: Sendable {
     public var onBeginEditNote: @MainActor (ShadowHit) -> Void
     /// Called with the new body when the user commits an inline edit.
     public var onCommitEdit: @MainActor (_ id: String, _ body: String) -> Void
-    /// Called when the user picks "Summarise" from a chat row's
-    /// context menu.
-    public var onSummarizeChat: @MainActor (ShadowHit) -> Void
-
     public init(
         onOpenHit: @escaping @MainActor (ShadowHit) -> Void = { _ in },
         onBeginEditNote: @escaping @MainActor (ShadowHit) -> Void = { _ in },
-        onCommitEdit: @escaping @MainActor (String, String) -> Void = { _, _ in },
-        onSummarizeChat: @escaping @MainActor (ShadowHit) -> Void = { _ in }
+        onCommitEdit: @escaping @MainActor (String, String) -> Void = { _, _ in }
     ) {
         self.onOpenHit = onOpenHit
         self.onBeginEditNote = onBeginEditNote
         self.onCommitEdit = onCommitEdit
-        self.onSummarizeChat = onSummarizeChat
     }
 }
 
@@ -65,7 +59,6 @@ public struct ShadowPanelContent: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            domainPicker
             graphProjectionRibbon
             provenanceLedgerRibbon
             Divider()
@@ -86,23 +79,6 @@ public struct ShadowPanelContent: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Contextual shadows")
-    }
-
-    private var domainPicker: some View {
-        Picker(
-            "",
-            selection: Binding(
-                get: { controller.domain },
-                set: { newValue in
-                    controller.selectDomain(newValue)
-                }
-            )
-        ) {
-            Text("Notes").tag(ShadowDomain.notes)
-            Text("Chats").tag(ShadowDomain.chats)
-        }
-        .pickerStyle(.segmented)
-        .padding(8)
     }
 
     private var graphProjectionRibbon: some View {
@@ -193,7 +169,7 @@ public struct ShadowPanelContent: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-        } else if controller.matches.isEmpty {
+        } else if noteMatches.isEmpty {
             // SS-IR: the resting bubble can open with zero hits — show an honest empty state
             // instead of a blank panel ("I clicked it and nothing's here" → "no matches yet").
             VStack(alignment: .leading, spacing: 6) {
@@ -205,7 +181,7 @@ public struct ShadowPanelContent: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.primary)
                 }
-                Text("Keep typing — related notes & chats surface here as you write.")
+                Text("Keep typing — related notes surface here as you write.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
@@ -215,22 +191,16 @@ public struct ShadowPanelContent: View {
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(controller.matches) { hit in
+                    ForEach(noteMatches) { hit in
                         ShadowRow(
                             hit: hit,
                             onHover: { hovering in
                                 hoveredID = hovering ? hit.id : nil
                             },
                             onOpen: { handlers.onOpenHit(hit) },
-                            onEdit: { handlers.onBeginEditNote(hit) },
-                            onSummarize: { handlers.onSummarizeChat(hit) }
+                            onEdit: { handlers.onBeginEditNote(hit) }
                         )
                         .contextMenu {
-                            if hit.domain == .chats {
-                                Button("Summarise") {
-                                    handlers.onSummarizeChat(hit)
-                                }
-                            }
                             Button("Open") {
                                 handlers.onOpenHit(hit)
                             }
@@ -245,9 +215,13 @@ public struct ShadowPanelContent: View {
     @ViewBuilder
     private var hoveredPreview: some View {
         if let id = hoveredID,
-           let hit = controller.matches.first(where: { $0.id == id }) {
+           let hit = noteMatches.first(where: { $0.id == id }) {
             HoverPreview(hit: hit).frame(height: 180)
         }
+    }
+
+    private var noteMatches: [ShadowHit] {
+        controller.matches.filter { $0.domain == .notes }
     }
 
     private func graphProjectionLabel(for report: GraphEventAuditProjectionReport) -> String {
@@ -270,7 +244,6 @@ public struct ShadowRow: View {
     let onHover: (Bool) -> Void
     let onOpen: () -> Void
     let onEdit: () -> Void
-    let onSummarize: () -> Void
     @Environment(UIState.self) private var ui
 
     private var theme: EpistemosTheme { ui.theme }
@@ -282,16 +255,7 @@ public struct ShadowRow: View {
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                 Spacer()
-                // §B.6 W1 wiring: render the 4-tier cognitive-weight
-                // badge alongside the existing ScoreBar. Today we
-                // derive the weight from `hit.score` (raw retrieval
-                // confidence); when EpistemosSidecar metadata flows
-                // through the Shadow FFI (sidecar→hit field
-                // bridging, separate slice), this switches to a
-                // sidecar-sourced CognitiveWeight without changing
-                // the badge component. `policyAuthority` stays false
-                // here regardless — W1 silent-downgrade is enforced
-                // inside `CognitiveWeight.init(rawScore:)`.
+                // Retrieval confidence is shown directly alongside the score.
                 CognitiveWeightBadge(
                     weight: CognitiveWeight(rawScore: hit.score)
                 )
@@ -326,17 +290,12 @@ public struct ShadowRow: View {
 
             Spacer(minLength: 4)
             actionButton(title: "Open", action: onOpen)
-            if hit.domain == .notes {
-                actionButton(title: "Edit", action: onEdit)
-            }
-            if hit.domain == .chats {
-                actionButton(title: "Summarise", action: onSummarize)
-            }
+            actionButton(title: "Edit", action: onEdit)
         }
     }
 
     private var provenanceLabel: String {
-        hit.source.isEmpty ? hit.domain.rawValue : hit.source
+        hit.source.isEmpty ? "notes" : hit.source
     }
 
     private func actionButton(title: String, action: @escaping () -> Void) -> some View {
@@ -390,19 +349,14 @@ private struct VaultRecallHaloProvenance: View {
     let hit: ShadowHit
     let theme: EpistemosTheme
 
-    private var iconName: String {
-        switch hit.domain {
-        case .notes: "doc.text"
-        case .chats: "bubble.left.and.bubble.right"
-        }
-    }
+    private let iconName = "doc.text"
 
     private var label: String {
         let source = hit.source.trimmingCharacters(in: .whitespacesAndNewlines)
         let vault = hit.originVaultKey?.trimmingCharacters(in: .whitespacesAndNewlines)
         switch (source.isEmpty, vault?.isEmpty == false ? vault : nil) {
         case (true, nil):
-            return hit.domain.rawValue
+            return "notes"
         case (false, nil):
             return source
         case (true, let vault?):

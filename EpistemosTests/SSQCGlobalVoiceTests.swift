@@ -163,4 +163,133 @@ struct SSQCGlobalVoiceTests {
         #expect(!src.contains("EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)"))
         #expect(src.contains("EpistemosSpeechSynthesizer.isTextToSpeechAvailable()"))
     }
+
+    @Test("Quick Capture crash draft preserves typed and partial voice text without stale overwrite")
+    func quickCaptureCrashDraftRoundTrip() throws {
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quick-capture-draft-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        let initial = QuickCaptureDraftStore.Draft(
+            slot: .rootOverlay,
+            committedText: "Typed 🧠 text",
+            partialTranscript: "latest spoken fragment",
+            revision: 2
+        )
+        #expect(QuickCaptureDraftStore.write(initial, baseDirectory: base))
+        #expect(QuickCaptureDraftStore.load(slot: .rootOverlay, baseDirectory: base) == initial)
+        #expect(
+            QuickCaptureDraftStore.restoredCommittedText(from: initial)
+                == "Typed 🧠 text"
+        )
+        #expect(
+            QuickCaptureDraftStore.recoveredPartialTranscript(from: initial)
+                == "latest spoken fragment"
+        )
+
+        let independentLandingDraft = QuickCaptureDraftStore.Draft(
+            slot: .landingInline,
+            committedText: "Landing text",
+            partialTranscript: "",
+            revision: 2
+        )
+        #expect(QuickCaptureDraftStore.write(independentLandingDraft, baseDirectory: base))
+        #expect(
+            QuickCaptureDraftStore.load(slot: .landingInline, baseDirectory: base)
+                == independentLandingDraft
+        )
+        #expect(QuickCaptureDraftStore.load(slot: .rootOverlay, baseDirectory: base) == initial)
+
+        let newer = QuickCaptureDraftStore.Draft(
+            slot: .rootOverlay,
+            committedText: "newer committed text",
+            partialTranscript: "",
+            revision: 4
+        )
+        let stale = QuickCaptureDraftStore.Draft(
+            slot: .rootOverlay,
+            committedText: "stale text",
+            partialTranscript: "",
+            revision: 3
+        )
+        #expect(QuickCaptureDraftStore.write(newer, baseDirectory: base))
+        #expect(!QuickCaptureDraftStore.write(stale, baseDirectory: base))
+        #expect(QuickCaptureDraftStore.load(slot: .rootOverlay, baseDirectory: base) == newer)
+
+        let equalRevisionCollision = QuickCaptureDraftStore.Draft(
+            slot: .rootOverlay,
+            committedText: "must not replace the first revision-four draft",
+            partialTranscript: "",
+            revision: 4
+        )
+        #expect(!QuickCaptureDraftStore.write(equalRevisionCollision, baseDirectory: base))
+        #expect(QuickCaptureDraftStore.load(slot: .rootOverlay, baseDirectory: base) == newer)
+
+        #expect(!QuickCaptureDraftStore.deleteIfMatching(stale, baseDirectory: base))
+        #expect(QuickCaptureDraftStore.load(slot: .rootOverlay, baseDirectory: base) == newer)
+        #expect(QuickCaptureDraftStore.deleteIfMatching(newer, baseDirectory: base))
+        let retiredRootDraft = try #require(
+            QuickCaptureDraftStore.load(slot: .rootOverlay, baseDirectory: base)
+        )
+        #expect(retiredRootDraft.isEmpty)
+        #expect(retiredRootDraft.revision == newer.revision)
+        #expect(!QuickCaptureDraftStore.write(stale, baseDirectory: base))
+        #expect(QuickCaptureDraftStore.load(slot: .rootOverlay, baseDirectory: base) == retiredRootDraft)
+        #expect(
+            QuickCaptureDraftStore.load(slot: .landingInline, baseDirectory: base)
+                == independentLandingDraft
+        )
+    }
+
+    @Test("Quick Capture draft rejects pathological text and wires restore plus close flushing")
+    func quickCaptureCrashDraftBoundsAndWiring() throws {
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quick-capture-oversize-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        let oversized = String(
+            repeating: "x",
+            count: QuickCaptureDraftStore.maxDraftCharacters + 1
+        )
+        let rejected = QuickCaptureDraftStore.Draft(
+            slot: .rootOverlay,
+            committedText: oversized,
+            partialTranscript: "must not exceed the total cap",
+            revision: 1
+        )
+        #expect(rejected.committedText == oversized)
+        #expect(!QuickCaptureDraftStore.write(rejected, baseDirectory: base))
+        #expect(QuickCaptureDraftStore.load(slot: .rootOverlay, baseDirectory: base) == nil)
+
+        let exactCap = QuickCaptureDraftStore.Draft(
+            slot: .rootOverlay,
+            committedText: String(repeating: "x", count: QuickCaptureDraftStore.maxDraftCharacters),
+            partialTranscript: "",
+            revision: 2
+        )
+        #expect(QuickCaptureDraftStore.write(exactCap, baseDirectory: base))
+        #expect(QuickCaptureDraftStore.load(slot: .rootOverlay, baseDirectory: base) == exactCap)
+        #expect(QuickCaptureDraftStore.deleteIfMatching(exactCap, baseDirectory: base))
+
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
+        #expect(source.contains("AtomicVaultWriter.writeSynchronously(data, to: url)"))
+        #expect(source.contains("data.count <= maxEncodedDraftBytes"))
+        #expect(source.contains("let tombstone = Draft("))
+        #expect(source.contains("restoreQuickCaptureDraftIfNeeded()"))
+        #expect(source.contains("persistQuickCaptureDraftBeforeDismissal()"))
+        #expect(source.contains("persistQuickCaptureDraftForDisappearance()"))
+        #expect(source.contains(".onChange(of: captureText)"))
+        #expect(source.contains(".onChange(of: dictationPartial)"))
+        #expect(source.contains("Task.detached(priority: .utility)"))
+        #expect(source.contains("QuickCaptureDraftStore.write(draft)"))
+        #expect(source.contains("QuickCaptureDraftStore.deleteIfMatching(submittedDraft)"))
+        #expect(source.contains("maxBodyCharacters: QuickCaptureDraftStore.maxDraftCharacters"))
+        #expect(source.contains("recoveredDictationFragment"))
+        #expect(source.contains("Recovered unfinished dictation"))
+        #expect(source.contains("captureText = QuickCaptureDraftStore.restoredCommittedText(from: draft)"))
+        #expect(source.contains("recoveredDictationFragment = QuickCaptureDraftStore.recoveredPartialTranscript(from: draft)"))
+        #expect(!source.contains("QuickCaptureDraftStore.restoredText(from:"))
+    }
 }

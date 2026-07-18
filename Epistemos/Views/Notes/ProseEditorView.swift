@@ -40,6 +40,7 @@ struct ProseEditorView: View {
     let initialBodyOverride: String?
     let navigationContext: ProseEditorNavigationContext
     let themeOverride: EpistemosTheme?
+    let contentWidthMode: NoteWidthMode
     let onEditStarted: @MainActor () -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -76,6 +77,7 @@ struct ProseEditorView: View {
         initialBodyOverride: String? = nil,
         navigationContext: ProseEditorNavigationContext = .notes,
         themeOverride: EpistemosTheme? = nil,
+        contentWidthMode: NoteWidthMode = .normal,
         onEditStarted: @escaping @MainActor () -> Void = {}
     ) {
         self.page = page
@@ -83,6 +85,7 @@ struct ProseEditorView: View {
         self.initialBodyOverride = initialBodyOverride
         self.navigationContext = navigationContext
         self.themeOverride = themeOverride
+        self.contentWidthMode = contentWidthMode.normalized
         self.onEditStarted = onEditStarted
         if let initialBodyOverride {
             let body = Self.stripOrphanedInlineAIResponse(in: initialBodyOverride, page: page)
@@ -110,7 +113,7 @@ struct ProseEditorView: View {
         guard lastAutoReadNoteId != noteId else { return }
         lastAutoReadNoteId = noteId
         guard VoicePreferences.shared.noteReadAloud == .auto, body.count > 500 else { return }
-        _ = EpistemosAgentReadAloud.speak(
+        _ = EpistemosReadAloud.speak(
             MarkdownRippleTextExtractor.displayText(from: body),
             surface: .proseNoteBody
         )
@@ -197,11 +200,75 @@ struct ProseEditorView: View {
         }
     }
 
-    static func syncedNoteTitle(from body: String) -> String? {
-        var activeFence: Character?
-        var extractedTitle: String?
+    struct SyncedNoteTitleMutation: Equatable, Sendable {
+        let range: NSRange
+        let expectedText: String
+        let replacementText: String
 
-        body.enumerateLines { rawLine, stop in
+        func applying(to body: String) -> String? {
+            guard let bodyRange = Range(range, in: body),
+                  String(body[bodyRange]) == expectedText else {
+                return nil
+            }
+            var updated = body
+            updated.replaceSubrange(bodyRange, with: replacementText)
+            return updated
+        }
+    }
+
+    static func syncedNoteTitle(from body: String) -> String? {
+        guard let range = titleHeadingRange(in: body) else { return nil }
+        return syncedNoteTitle(inLine: String(body[range]))
+    }
+
+    static func syncedNoteTitleMutation(
+        in body: String,
+        with title: String
+    ) -> SyncedNoteTitleMutation? {
+        guard let range = titleHeadingRange(in: body),
+              let prefix = titleHeadingPrefix(in: String(body[range]))
+        else {
+            return nil
+        }
+        return SyncedNoteTitleMutation(
+            range: NSRange(range, in: body),
+            expectedText: String(body[range]),
+            replacementText: prefix + VaultIndexActor.sanitizeTitle(title)
+        )
+    }
+
+    static func syncedNoteTitleEdit(
+        in body: String,
+        with title: String,
+        selection: NSRange
+    ) -> MarkdownEditorCommands.TextEdit? {
+        guard let mutation = syncedNoteTitleMutation(in: body, with: title) else { return nil }
+        let mappedSelection = MarkdownEditorCommands.mappedSelection(
+            selection,
+            replacing: mutation.range,
+            replacementUTF16Length: mutation.replacementText.utf16.count
+        )
+        return MarkdownEditorCommands.replace(
+            in: body,
+            range: mutation.range,
+            replacement: mutation.replacementText,
+            selectedRange: mappedSelection
+        )
+    }
+
+    static func replacingSyncedNoteTitle(in body: String, with title: String) -> String? {
+        syncedNoteTitleMutation(in: body, with: title)?.applying(to: body)
+    }
+
+    private static func titleHeadingRange(in body: String) -> Range<String.Index>? {
+        var activeFence: Character?
+        var titleRange: Range<String.Index>?
+
+        body.enumerateSubstrings(
+            in: body.startIndex..<body.endIndex,
+            options: .byLines
+        ) { substring, substringRange, _, stop in
+            let rawLine = substring ?? ""
             let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
 
             if let fence = activeFence {
@@ -222,12 +289,12 @@ struct ProseEditorView: View {
                 return
             }
 
-            guard let title = syncedNoteTitle(inLine: rawLine) else { return }
-            extractedTitle = title
+            guard syncedNoteTitle(inLine: rawLine) != nil else { return }
+            titleRange = substringRange
             stop = true
         }
 
-        return extractedTitle
+        return titleRange
     }
 
     @MainActor
@@ -268,19 +335,9 @@ struct ProseEditorView: View {
     }
 
     private static func syncedNoteTitle(inLine rawLine: String) -> String? {
-        var line = rawLine[...]
-        var leadingSpaces = 0
-        while line.first == " " {
-            leadingSpaces += 1
-            guard leadingSpaces <= 3 else { return nil }
-            line = line.dropFirst()
-        }
-
-        guard line.first == "#" else { return nil }
-        line = line.dropFirst()
-        guard let separator = line.first, separator == " " || separator == "\t" else { return nil }
-
-        let heading = String(line)
+        guard let prefix = titleHeadingPrefix(in: rawLine) else { return nil }
+        let titleStart = rawLine.index(rawLine.startIndex, offsetBy: prefix.count)
+        let heading = String(rawLine[titleStart...])
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(
                 of: #"\s+#+\s*$"#,
@@ -290,6 +347,23 @@ struct ProseEditorView: View {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !heading.isEmpty else { return nil }
         return VaultIndexActor.sanitizeTitle(heading)
+    }
+
+    private static func titleHeadingPrefix(in rawLine: String) -> String? {
+        var index = rawLine.startIndex
+        var leadingSpaces = 0
+        while index < rawLine.endIndex, rawLine[index] == " " {
+            leadingSpaces += 1
+            guard leadingSpaces <= 3 else { return nil }
+            index = rawLine.index(after: index)
+        }
+
+        guard index < rawLine.endIndex, rawLine[index] == "#" else { return nil }
+        index = rawLine.index(after: index)
+        guard index < rawLine.endIndex,
+              rawLine[index] == " " || rawLine[index] == "\t"
+        else { return nil }
+        return String(rawLine[rawLine.startIndex...index])
     }
 
     var body: some View {
@@ -339,9 +413,19 @@ struct ProseEditorView: View {
                     onWikilinkClick: handleWikilinkClick,
                     onBlockRefClick: handleBlockRefClick,
                     onPageFlush: flush,
+                    onPersistedHostMutation: { persistedBody in
+                        saveTask?.cancel()
+                        lastPersistedBody = persistedBody
+                        bodyText = persistedBody
+                        _ = NoteDraftStore.deleteIfMatching(
+                            pageId: page.id,
+                            durableBody: persistedBody
+                        )
+                    },
                     graphState: graphState,
                     outlineFoldMode: notesUI.outlineFoldMode,
-                    usesTransparentEditorBackground: navigationContext == .graph
+                    usesTransparentEditorBackground: navigationContext == .graph,
+                    contentWidthMode: contentWidthMode
                 )
                 .onAppear {
                     syncBlocks(body: bodyText)

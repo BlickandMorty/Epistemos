@@ -10,20 +10,27 @@ import UniformTypeIdentifiers
 @MainActor
 private struct EpdocEditorDocumentRoot: View {
     @Bindable var controller: EpdocEditorChromeController
+    let session: EpdocTextKit2EditorSession
+    let onCheckpoint: @MainActor (Data) -> Void
 
     var body: some View {
         if let bootstrap = AppBootstrap.shared {
-            EpdocEditorChromeView(controller: controller)
+            EpdocEditorChromeView(
+                controller: controller,
+                canvasEngine: .standaloneEpdocDefault,
+                nativeSession: session,
+                onNativeCheckpoint: onCheckpoint
+            )
                 .withAppEnvironment(bootstrap)
         } else {
-            EpdocEditorChromeView(controller: controller)
+            EpdocEditorChromeView(
+                controller: controller,
+                canvasEngine: .standaloneEpdocDefault,
+                nativeSession: session,
+                onNativeCheckpoint: onCheckpoint
+            )
         }
     }
-}
-
-private struct EpdocMarkdownInitialSource {
-    let markdown: String
-    let widthMode: NoteWidthMode?
 }
 
 // MARK: - EpdocDocument
@@ -66,6 +73,13 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
     /// `read(from:ofType:)` when loading from disk.
     public var package: EpdocPackage
 
+    /// Synchronous live-editor commit edge used by every NSDocument write,
+    /// including autosave and close. The native editor installs this after its
+    /// coordinator attaches; a document with no live window simply leaves it nil.
+    private var liveEditorSnapshotFlush: (@MainActor () -> Void)?
+    private weak var activeChromeController: EpdocEditorChromeController?
+    private var derivedProjectionTask: Task<Void, Never>?
+
     /// Audit gap F8 close-out (`docs/audits/T+4_T+5_DEEP_AUDIT_2026-04-27.md`).
     /// Database writer used to refresh the readable-blocks FTS
     /// index on every save. Injected by
@@ -91,9 +105,8 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
 
     public override init() {
         // NSDocument's designated init for new documents. Build a
-        // tiny empty manifest + minimal ProseMirror JSON shell so
-        // the package is consumable by the Tiptap bridge (W7.2)
-        // immediately after creation.
+        // tiny empty manifest + versioned Epistemos rich JSON shell so the
+        // native TextKit 2 editor has one canonical authority immediately.
         let now = Int64(Date().timeIntervalSince1970 * 1000)
         let manifest = EpdocManifest(
             id: UUID().uuidString,
@@ -105,7 +118,9 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             contentHash: "",
             provenance: EpdocProvenance(producer: .human)
         )
-        let emptyDoc = Data(#"{"type":"doc","content":[{"type":"paragraph"}]}"#.utf8)
+        let emptyDoc = (try? JSONEncoder.epdocCanonical.encode(
+            EpdocContentEnvelope.empty(documentID: manifest.id)
+        )) ?? Data()
         self.package = EpdocPackage(manifest: manifest, contentJSON: emptyDoc)
         super.init()
     }
@@ -146,6 +161,27 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         ofType typeName: String,
         for saveOperation: NSDocument.SaveOperationType
     ) -> Bool { false }
+
+    public override func autosave(
+        withImplicitCancellability autosavingIsImplicitlyCancellable: Bool,
+        completionHandler: @escaping ((any Error)?) -> Void
+    ) {
+        let controller = activeChromeController
+        let generation = controller?.beginDurableSave(showsProgress: false)
+        super.autosave(
+            withImplicitCancellability: autosavingIsImplicitlyCancellable
+        ) { [weak controller] error in
+            Task { @MainActor in
+                if let generation {
+                    controller?.completeDurableSave(
+                        generation,
+                        succeeded: error == nil
+                    )
+                }
+                completionHandler(error)
+            }
+        }
+    }
 
     // MARK: - Read / write via FileWrapper
 
@@ -203,12 +239,13 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         // stay synchronous on the main thread. The assumeIsolated snapshot
         // is valid under that constraint; must be revisited if async writes
         // are ever enabled.
-        let pkgSnapshot = MainActor.assumeIsolated { self.package }
+        let pkgSnapshot = MainActor.assumeIsolated {
+            self.liveEditorSnapshotFlush?()
+            return self.package
+        }
         let contentHash = Self.contentHash(of: pkgSnapshot.contentJSON)
-        let metadata = Self.metadataByUpdatingComplexity(
-            pkgSnapshot.manifest.metadata,
-            contentJSON: pkgSnapshot.contentJSON
-        )
+        var metadata = pkgSnapshot.manifest.metadata
+        metadata?.removeValue(forKey: "complexity")
         let updated = EpdocManifest(
             id: pkgSnapshot.manifest.id,
             kind: pkgSnapshot.manifest.kind,
@@ -223,24 +260,10 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         var pkgCopy = pkgSnapshot
         pkgCopy.manifest = updated
 
-        // Audit gap F6 close-out
-        // (`docs/audits/T+4_T+5_DEEP_AUDIT_2026-04-27.md`) +
-        // implementation plan section 151 - "Markdown shadow regenerates
-        // from canonical on every save." Project the freshly-saved
-        // ProseMirror JSON into a Markdown shadow and stash it on
-        // the LOCAL package copy so `EpdocPackage.makeFileWrapper()`
-        // writes it under `projections/shadow.md`. Failure
-        // (unparseable ProseMirror JSON) clears the shadow rather
-        // than carrying stale bytes into the next save.
-        // Bidirectional sync is forbidden - external `shadow.md`
-        // edits are imported as a reviewable conversion, never
-        // silently overwriting `content.pm.json` (per implementation
-        // plan section 153). Mutates `pkgCopy` (local) - the document's
-        // own `package` stays MainActor-bound and untouched from
-        // this nonisolated method.
-        let regeneratedShadow =
-            ProseMirrorMarkdownProjector.project(jsonData: pkgCopy.contentJSON)
-        pkgCopy.shadowMarkdown = regeneratedShadow.flatMap { $0.data(using: .utf8) }
+        // Epdoc autosave writes JSON only. Markdown and PDF are explicit
+        // publish/export actions, so a legacy shadow must not be regenerated
+        // or retained as background save output.
+        pkgCopy.shadowMarkdown = nil
 
         let readableBlocks = ReadableBlocksProjector.project(
             contentJSON: pkgCopy.contentJSON,
@@ -263,26 +286,49 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    nonisolated static func metadataByUpdatingComplexity(
-        _ existing: [String: String]?,
-        contentJSON: Data
-    ) -> [String: String]? {
-        var metadata = existing ?? [:]
-        if let complexity = EpdocComplexityCalculator.complexity(jsonData: contentJSON) {
-            metadata["complexity"] = String(max(0.0, min(1.0, complexity)))
-        } else {
-            metadata.removeValue(forKey: "complexity")
-        }
-        return metadata.isEmpty ? nil : metadata
-    }
-
     // MARK: - Mutation helpers
 
-    /// Replace the canonical ProseMirror JSON. Triggers the standard
+    /// Replace the canonical versioned Epistemos JSON. Triggers the standard
     /// NSDocument dirty-tracking + autosave cadence.
-    public func setContentJSON(_ data: Data) {
+    @discardableResult
+    public func setContentJSON(_ data: Data) -> Bool {
+        guard let envelope = try? JSONDecoder.epdocCanonical.decode(
+            EpdocContentEnvelope.self,
+            from: data
+        ),
+        envelope.documentID == package.manifest.id,
+        (try? envelope.validate()) != nil else {
+            Self.log.error("rejected non-canonical Epdoc content checkpoint")
+            return false
+        }
+        return setValidatedNativeContentJSON(
+            data,
+            documentID: envelope.documentID
+        )
+    }
+
+    /// Accept a checkpoint produced by the document's native editor session.
+    /// The session validates the immutable envelope immediately before it
+    /// encodes these bytes; retaining the document-ID check here avoids a
+    /// second full decode/tree validation on every quiet-window checkpoint.
+    @discardableResult
+    func setValidatedNativeContentJSON(
+        _ data: Data,
+        documentID: String
+    ) -> Bool {
+        guard documentID == package.manifest.id else {
+            Self.log.error("rejected native Epdoc checkpoint for a different document")
+            return false
+        }
         package.contentJSON = data
         updateChangeCount(.changeDone)
+        return true
+    }
+
+    func bindLiveEditorSnapshotFlush(
+        _ flush: (@MainActor () -> Void)?
+    ) {
+        liveEditorSnapshotFlush = flush
     }
 
     /// Ensure the visible Epdoc frontmatter affordance also updates the
@@ -298,57 +344,6 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         metadata["frontmatter"] = "true"
         metadata["frontmatter_updated_at"] = String(Int64(Date().timeIntervalSince1970 * 1000))
         updateManifest(metadata: metadata)
-    }
-
-    @MainActor
-    private func markdownWriteThroughRequest(
-        markdownSnapshot: String?,
-        contentJSON: Data,
-        widthMode: NoteWidthMode? = nil
-    ) -> EpdocMarkdownWriteThroughRequest {
-        EpdocMarkdownWriteThroughRequest(
-            vaultURL: AppBootstrap.shared?.vaultSync.vaultURL,
-            manifest: package.manifest,
-            markdown: markdownSnapshot,
-            contentJSONHash: Self.contentHash(of: contentJSON),
-            widthMode: widthMode
-        )
-    }
-
-    @MainActor
-    private func markdownCanonicalInitialSource() -> EpdocMarkdownInitialSource? {
-        let result = EpdocMarkdownWriteThrough.loadCanonicalMarkdownIfEnabled(
-            vaultURL: AppBootstrap.shared?.vaultSync.vaultURL,
-            manifestID: package.manifest.id
-        )
-        switch result {
-        case let .loaded(markdown, _, widthMode):
-            return EpdocMarkdownInitialSource(markdown: markdown, widthMode: widthMode)
-        case let .failed(message):
-            Self.log.warning(
-                "epdoc markdown canonical load failed: \(message, privacy: .public)"
-            )
-            return nil
-        case .skipped:
-            return nil
-        }
-    }
-
-    @MainActor
-    private static func enqueueMarkdownWriteThroughIfNeeded(
-        _ request: EpdocMarkdownWriteThroughRequest
-    ) {
-        guard EpdocMarkdownWriteThrough.shouldAttemptWrite(request) else { return }
-        AppBootstrap.shared?.vaultSync.suppressNextFileWatcherChangeForSelfOriginatedWrite()
-        Task.detached(priority: .utility) {
-            let result = EpdocMarkdownWriteThrough.writeIfEnabled(request)
-            guard case let .failed(message) = result else { return }
-            await MainActor.run {
-                Self.log.warning(
-                    "epdoc markdown write-through failed: \(message, privacy: .public)"
-                )
-            }
-        }
     }
 
     /// Store a picked image inside the `.epdoc` package and return the
@@ -452,12 +447,15 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         let artifactID = package.manifest.id
         let artifactKind = package.manifest.kind
         let documentTitle = package.manifest.title
-        let blocks = ReadableBlocksProjector.project(
-            contentJSON: contentJSON,
-            artifactID: artifactID,
-            artifactKind: artifactKind,
-            documentTitle: documentTitle
-        )
+        let blocks = await Task.detached(priority: .utility) {
+            ReadableBlocksProjector.project(
+                contentJSON: contentJSON,
+                artifactID: artifactID,
+                artifactKind: artifactKind,
+                documentTitle: documentTitle
+            )
+        }.value
+        guard !Task.isCancelled else { return }
 
         do {
             try await writer.write { db in
@@ -478,14 +476,18 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
     /// No-op when `graphModelContainer` is nil.
     public func projectAndPersistGraph(contentJSON: Data) async {
         guard let graphModelContainer else { return }
-        let projection = EpdocGraphProjector.project(
-            manifest: package.manifest,
-            contentJSON: contentJSON
-        )
+        let manifest = package.manifest
+        let projection = await Task.detached(priority: .utility) {
+            EpdocGraphProjector.project(
+                manifest: manifest,
+                contentJSON: contentJSON
+            )
+        }.value
+        guard !Task.isCancelled else { return }
         let context = ModelContext(graphModelContainer)
         do {
             try EpdocGraphPersistence.upsert(projection: projection, context: context)
-            AppBootstrap.shared?.graphState.needsRefresh = true
+            AppBootstrap.shared?.graphState.deferStructuralRefreshUntilGraphIsVisible()
             NotificationCenter.default.post(
                 name: .graphStoreDidChange,
                 object: self,
@@ -495,6 +497,21 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             Self.log.warning(
                 "graph projection update failed for artifact \(projection.nodeID, privacy: .public): \(String(describing: error), privacy: .public)"
             )
+        }
+    }
+
+    private func scheduleDerivedProjection(
+        contentJSON: Data,
+        includeSearchIndex: Bool = true
+    ) {
+        derivedProjectionTask?.cancel()
+        derivedProjectionTask = Task { [weak self] in
+            guard let self, !Task.isCancelled else { return }
+            if includeSearchIndex {
+                await self.projectAndIndexBlocks(contentJSON: contentJSON)
+            }
+            guard !Task.isCancelled else { return }
+            await self.projectAndPersistGraph(contentJSON: contentJSON)
         }
     }
 
@@ -508,6 +525,8 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         metadata: [String: String]? = nil
     ) {
         let manifest = package.manifest
+        var supportedMetadata = metadata ?? manifest.metadata
+        supportedMetadata?.removeValue(forKey: "complexity")
         package.manifest = EpdocManifest(
             id: manifest.id,
             kind: manifest.kind,
@@ -517,7 +536,7 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             title: title ?? manifest.title,
             contentHash: manifest.contentHash,
             provenance: manifest.provenance,
-            metadata: metadata ?? manifest.metadata
+            metadata: supportedMetadata
         )
         updateChangeCount(.changeDone)
     }
@@ -553,13 +572,26 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         MainActor.assumeIsolated {
             let chromeController = EpdocEditorChromeController()
             chromeController.theme = AppBootstrap.shared?.uiState.theme ?? .nativeDefault
-            let markdownSource = self.markdownCanonicalInitialSource()
-            chromeController.loadInitialContent(
-                self.package.contentJSON,
-                title: self.package.manifest.title,
-                markdownSource: markdownSource?.markdown,
-                widthMode: markdownSource?.widthMode
-            )
+            guard let nativeSession = try? EpdocTextKit2EditorSession(
+                contentJSON: self.package.contentJSON
+            ) else {
+                NSApplication.shared.presentError(
+                    NSError(
+                        domain: NSCocoaErrorDomain,
+                        code: NSFileReadCorruptFileError,
+                        userInfo: [
+                            NSLocalizedDescriptionKey:
+                                "The Epdoc content.json could not be opened by the native editor.",
+                        ]
+                    )
+                )
+                return
+            }
+            chromeController.documentTitle = self.package.manifest.title
+            chromeController.documentIdentity = self.package.manifest.id
+            self.activeChromeController = chromeController
+            chromeController.toolbarModel.wordCount = nativeSession.wordCount
+            chromeController.toolbarModel.characterCount = nativeSession.characterCount
             chromeController.attachedRunIDs = self.immediateAttachedRunIDs()
             chromeController.toolbarModel.resolvePickedImageSource = { [weak self] url, data, mimeType in
                 guard let self else {
@@ -584,58 +616,55 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
                     mimeType: mimeType
                 )
             }
-            chromeController.onContentWidthChanged = { [weak self, weak chromeController] mode in
+            let acceptNativeCheckpoint: @MainActor (Data) -> Void = { [weak self] json in
                 guard let self else { return }
-                let request = self.markdownWriteThroughRequest(
-                    markdownSnapshot: chromeController?.latestMarkdownSnapshot,
-                    contentJSON: self.package.contentJSON,
-                    widthMode: mode
-                )
-                Self.enqueueMarkdownWriteThroughIfNeeded(request)
+                guard self.setValidatedNativeContentJSON(
+                    json,
+                    documentID: nativeSession.documentID
+                ) else { return }
+                self.scheduleDerivedProjection(contentJSON: json)
             }
-            chromeController.onEnsureFrontmatterMetadata = { [weak self, weak chromeController] in
-                guard let self else { return }
-                self.ensureFrontmatterMetadata()
-                let request = self.markdownWriteThroughRequest(
-                    markdownSnapshot: chromeController?.latestMarkdownSnapshot,
-                    contentJSON: self.package.contentJSON,
-                    widthMode: chromeController?.canonicalWidthMode
-                )
-                Self.enqueueMarkdownWriteThroughIfNeeded(request)
-            }
-
-            // Audit gap F4 + F5 close-out - every Tiptap onUpdate
-            // routed via the chrome controller's `onContentChanged`
-            // sink, debounced 300 ms by `EpdocEditorSavePipeline`,
-            // and delivered to `setContentJSON(_:)` which mutates
-            // `package.contentJSON` + flips the dirty flag.
-            //
-            // Audit gap F8 close-out - additionally fire the
-            // readable-blocks projection so the universal FTS
-            // index reflects the freshly-saved content. The Task
-            // spawn keeps the disk write off the @MainActor save
-            // path while the projection itself stays MainActor.
-            chromeController.attachAutosavePipeline { [weak self, weak chromeController] json in
-                guard let self else { return }
-                self.setContentJSON(json)
-                let markdownWriteThroughRequest = self.markdownWriteThroughRequest(
-                    markdownSnapshot: chromeController?.latestMarkdownSnapshot,
-                    contentJSON: json,
-                    widthMode: chromeController?.canonicalWidthMode
-                )
-                Self.enqueueMarkdownWriteThroughIfNeeded(markdownWriteThroughRequest)
-                Task { [weak self] in
-                    await self?.projectAndIndexBlocks(contentJSON: json)
-                    await self?.projectAndPersistGraph(contentJSON: json)
+            chromeController.onSave = { [weak self, weak chromeController] in
+                guard let self, let chromeController else { return }
+                let generation = chromeController.beginDurableSave()
+                guard let fileURL = self.fileURL else {
+                    chromeController.completeDurableSave(generation, succeeded: false)
+                    self.save(nil)
+                    return
                 }
+                let fileType = self.fileType ?? "com.epistemos.epdoc"
+                self.save(
+                    to: fileURL,
+                    ofType: fileType,
+                    for: .saveOperation,
+                    completionHandler: { [weak chromeController] error in
+                        Task { @MainActor in
+                            chromeController?.completeDurableSave(
+                                generation,
+                                succeeded: error == nil
+                            )
+                            if let error {
+                                NSApplication.shared.presentError(error)
+                            }
+                        }
+                    }
+                )
+            }
+            self.bindLiveEditorSnapshotFlush { [weak chromeController] in
+                chromeController?.dispatch(.flushDocumentSnapshot)
             }
 
             let initialContentJSON = self.package.contentJSON
-            Task { [weak self] in
-                await self?.projectAndPersistGraph(contentJSON: initialContentJSON)
-            }
+            self.scheduleDerivedProjection(
+                contentJSON: initialContentJSON,
+                includeSearchIndex: false
+            )
 
-            let chromeView = EpdocEditorDocumentRoot(controller: chromeController)
+            let chromeView = EpdocEditorDocumentRoot(
+                controller: chromeController,
+                session: nativeSession,
+                onCheckpoint: acceptNativeCheckpoint
+            )
             let hostingController = NSHostingController(rootView: chromeView)
             hostingController.sceneBridgingOptions = [.all]
             let contentController: NSViewController
@@ -679,9 +708,11 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             // Per-document autosave name keeps each .epdoc's window
             // frame separate. The id from the manifest is stable
             // across renames (per ArtifactHeader contract).
-            window.setFrameAutosaveName(
+            if let autosaveName = FoundationSafety.runtimeWindowFrameAutosaveName(
                 "EpdocDocumentWindow.\(self.package.manifest.id)"
-            )
+            ) {
+                window.setFrameAutosaveName(autosaveName)
+            }
 
             let windowController = NSWindowController(window: window)
             self.addWindowController(windowController)

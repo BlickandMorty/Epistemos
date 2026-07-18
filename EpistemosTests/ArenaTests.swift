@@ -212,6 +212,37 @@ struct ArenaTests {
         #expect(containerSource.contains("arena.dat"))
     }
 
+    @Test("runtime audit app group stays inside its disposable root")
+    @MainActor
+    func runtimeAuditAppGroupStaysInsideDisposableRoot() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("Epistemos-AuditAppGroup-\(UUID().uuidString)", isDirectory: true)
+        let productionGroup = root.appendingPathComponent("Production Group", isDirectory: true)
+        let auditGroup = root.appendingPathComponent("Audit Group", isDirectory: true)
+        let environment = [
+            FoundationSafety.applicationSupportOverrideEnvironmentKey:
+                root.appendingPathComponent("Application Support", isDirectory: true).path,
+            FoundationSafety.auditRuntimeAppGroupRootEnvironmentKey: auditGroup.path,
+            FoundationSafety.auditRuntimeDefaultsSuiteEnvironmentKey:
+                "com.epistemos.audit.runtime.\(UUID().uuidString)",
+        ]
+        defer { try? fileManager.removeItem(at: root) }
+
+        let container = AppGroupContainer(
+            fileManager: fileManager,
+            legacyBaseURL: root.appendingPathComponent("Legacy", isDirectory: true),
+            containerURLProvider: { _ in productionGroup },
+            processInfoEnvironment: environment
+        )
+
+        #expect(container.rootURL == auditGroup.standardizedFileURL)
+        try container.ensureLayout()
+        try container.migrateLegacyDatabasesIfNeeded()
+        #expect(fileManager.fileExists(atPath: auditGroup.path))
+        #expect(!fileManager.fileExists(atPath: productionGroup.path))
+    }
+
     @Test("AppBootstrap prepares shared substrate container at launch")
     func appBootstrapPreparesSharedSubstrateContainerAtLaunch() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")

@@ -474,6 +474,7 @@ struct EditorProvenanceStoreTests {
     func samePageMarkdownUpdatesDoNotRemountTheRichDocumentTree() {
         let coordinator = MarkdownDocumentSurfaceCoordinator()
         var commands: [EpdocEditorCommand] = []
+        let externalMarkdown = "| A | B |\n| --- | --- |\n| 1 | 2 |\n\nExternal line\n"
 
         coordinator.configure(
             pageId: "same-page-reload",
@@ -495,7 +496,7 @@ struct EditorProvenanceStoreTests {
         coordinator.configure(
             pageId: "same-page-reload",
             title: "Same Page Reload",
-            markdown: "| A | B |\n| --- | --- |\n| 1 | 2 |\n\nExternal line\n",
+            markdown: externalMarkdown,
             theme: .light,
             noteRelativePath: "notes/same-page.md",
             isEditable: true,
@@ -504,7 +505,12 @@ struct EditorProvenanceStoreTests {
             saveMarkdown: { _ in true }
         )
 
-        #expect(commands.isEmpty)
+        #expect(
+            commands == [
+                .setMarkdownForLoad(markdown: externalMarkdown, epoch: 2),
+                .focusStart,
+            ]
+        )
     }
 
     @MainActor

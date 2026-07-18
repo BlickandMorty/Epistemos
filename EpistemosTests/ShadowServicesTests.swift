@@ -3,16 +3,6 @@ import Testing
 
 @testable import Epistemos
 
-@MainActor
-private final class ShadowSearchAgentEventSink {
-    private(set) var events: [AgentProvenanceEvent] = []
-
-    func append(_ event: AgentProvenanceEvent) -> Bool {
-        events.append(event)
-        return true
-    }
-}
-
 nonisolated private final class ThrowingShadowFFIClient: ShadowFFIClient, @unchecked Sendable {
     private let error: ShadowFFIError
 
@@ -22,9 +12,8 @@ nonisolated private final class ThrowingShadowFFIClient: ShadowFFIClient, @unche
 
     func insert(document: ShadowDocumentDTO) throws {}
     func remove(docId: String) throws {}
-    func search(query: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit] { throw error }
+    func search(query: String, limit: Int) throws -> [ShadowHit] { throw error }
     func flush() throws {}
-    func warm() throws {}
     func stats() throws -> ShadowStatsDTO {
         ShadowStatsDTO(noteCount: 0, chatCount: 0, indexSizeBytes: 0, lastFlushMsAgo: UInt64.max)
     }
@@ -34,7 +23,7 @@ nonisolated private final class SlowShadowFFIClient: ShadowFFIClient, @unchecked
     func insert(document: ShadowDocumentDTO) throws {}
     func remove(docId: String) throws {}
 
-    func search(query: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit] {
+    func search(query: String, limit: Int) throws -> [ShadowHit] {
         Thread.sleep(forTimeInterval: 0.05)
         return [
             ShadowHit(
@@ -42,14 +31,13 @@ nonisolated private final class SlowShadowFFIClient: ShadowFFIClient, @unchecked
                 title: "Slow Secret Title",
                 snippet: "Slow secret snippet",
                 score: 1.0,
-                domain: domain,
+                domain: .notes,
                 source: "slow-test"
             )
         ]
     }
 
     func flush() throws {}
-    func warm() throws {}
     func stats() throws -> ShadowStatsDTO {
         ShadowStatsDTO(noteCount: 0, chatCount: 0, indexSizeBytes: 0, lastFlushMsAgo: UInt64.max)
     }
@@ -75,20 +63,13 @@ struct ShadowServicesTests {
         ShadowDocumentDTO(docId: id, title: title, body: body, domain: .notes)
     }
 
-    private static func recorder(sink: ShadowSearchAgentEventSink) -> AgentToolProvenanceRecorder {
-        AgentToolProvenanceRecorder(
-            nowMilliseconds: { 2_318 },
-            persist: { event in sink.append(event) }
-        )
-    }
-
     // MARK: - InMemoryShadowFFIClient sanity
 
     @Test("In-memory client round-trips a single document via insert + search")
     func inMemoryClientInsertSearchRoundTrip() throws {
         let client = Self.inMemoryClient()
         try client.insert(document: Self.note("n1", title: "Kant on duty", body: "Categorical imperative"))
-        let hits = try client.search(query: "kant", domain: .notes, limit: 10)
+        let hits = try client.search(query: "kant", limit: 10)
         #expect(hits.count == 1)
         #expect(hits.first?.id == "n1")
         #expect(hits.first?.score ?? 0 > 0)
@@ -127,17 +108,24 @@ struct ShadowServicesTests {
         #expect(haloState.contains("\"in-memory-substring\""))
     }
 
-    @Test("In-memory client filters search by domain")
-    func inMemoryClientDomainFilter() throws {
+    @Test("In-memory client rejects chat documents and searches notes only")
+    func inMemoryClientRejectsChatDocuments() throws {
         let client = Self.inMemoryClient()
         try client.insert(document: ShadowDocumentDTO(docId: "n1", title: "kant", body: "kant", domain: .notes))
-        try client.insert(document: ShadowDocumentDTO(docId: "c1", title: "kant", body: "kant", domain: .chats))
-        let notesHits = try client.search(query: "kant", domain: .notes, limit: 10)
-        let chatsHits = try client.search(query: "kant", domain: .chats, limit: 10)
-        #expect(notesHits.count == 1)
-        #expect(chatsHits.count == 1)
-        #expect(notesHits.first?.id == "n1")
-        #expect(chatsHits.first?.id == "c1")
+        do {
+            try client.insert(document: ShadowDocumentDTO(docId: "c1", title: "kant", body: "kant", domain: .chats))
+            #expect(Bool(false), "Free Shadow must reject chat documents")
+        } catch let error as ShadowFFIError {
+            guard case .invalidInput = error else {
+                #expect(Bool(false), "wrong error case: \(error)")
+                return
+            }
+        } catch {
+            #expect(Bool(false), "wrong error type: \(error)")
+        }
+        let hits = try client.search(query: "kant", limit: 10)
+        #expect(hits.count == 1)
+        #expect(hits.first?.id == "n1")
     }
 
     @Test("In-memory client throws .invalidInput on empty doc_id")
@@ -246,7 +234,7 @@ struct ShadowServicesTests {
             body: "duty alt",
             domain: .notes
         ))
-        let hits = try client.search(query: "kant", domain: .notes, limit: 10)
+        let hits = try client.search(query: "kant", limit: 10)
         #expect(hits.count == 2)
         let alphaHit = hits.first { $0.id == "vault-alpha-n1" }
         let nilKeyHit = hits.first { $0.id == "no-key-n2" }
@@ -293,152 +281,46 @@ struct ShadowServicesTests {
 
     // MARK: - ShadowSearchService
 
-    @Test("ShadowSearchService.search returns hits from the underlying client")
+    @Test("ShadowSearchService.search returns notes-only hits from the underlying client")
     func searchServiceReturnsHits() async throws {
-        let sink = ShadowSearchAgentEventSink()
         let client = Self.inMemoryClient()
         try client.insert(document: Self.note("n1", title: "Kant", body: "duty"))
-        let service = ShadowSearchService(client: client, agentProvenanceRecorder: Self.recorder(sink: sink))
-        let hits = await service.search(text: "kant", domain: .notes, limit: 10)
+        let service = ShadowSearchService(client: client)
+        let hits = await service.search(text: "kant", limit: 10)
         #expect(hits.count == 1)
         #expect(hits.first?.id == "n1")
+        #expect(hits.allSatisfy { $0.domain == .notes })
     }
 
-    @Test("ShadowSearchService.search swallows errors into an empty result")
-    func searchServiceSwallowsErrors() async {
-        let sink = ShadowSearchAgentEventSink()
-        // Domain mismatch in the client raises an error in the real
-        // backend; the service wrapper logs + returns []. The in-memory
-        // fallback doesn't error on unknown domain (our enum already
-        // constrains to the two allowed values), so this asserts the
-        // .notes happy-path stays consistent.
-        let client = Self.inMemoryClient()
-        let service = ShadowSearchService(client: client, agentProvenanceRecorder: Self.recorder(sink: sink))
-        let hits = await service.search(text: "anything", domain: .notes, limit: 10)
-        #expect(hits.isEmpty,
-                "empty index returns empty hits without throwing on the controller's hot path")
-    }
-
-    @Test("ShadowSearchService.searchOrThrow surfaces the underlying error")
-    func searchServiceSearchOrThrowSurfacesError() async throws {
-        let sink = ShadowSearchAgentEventSink()
-        // Force an empty-query case that returns an empty result;
-        // searchOrThrow should not throw, just return [].
-        let client = Self.inMemoryClient()
-        let service = ShadowSearchService(client: client, agentProvenanceRecorder: Self.recorder(sink: sink))
-        let hits = try await service.searchOrThrow(text: "", domain: .notes, limit: 5)
+    @Test("ShadowSearchService.search returns empty for an empty notes index")
+    func searchServiceReturnsEmptyForEmptyIndex() async {
+        let service = ShadowSearchService(client: Self.inMemoryClient())
+        let hits = await service.search(text: "anything", limit: 10)
         #expect(hits.isEmpty)
     }
 
-    @Test("ShadowSearchService.search records sanitized AgentEvents")
-    func searchServiceRecordsSanitizedAgentEvents() async throws {
-        let sink = ShadowSearchAgentEventSink()
+    @Test("ShadowSearchService.searchOrThrow and stats stay direct and notes-only")
+    func searchOrThrowAndStatsStayDirect() async throws {
         let client = Self.inMemoryClient()
-        try client.insert(document: Self.note(
-            "secret-shadow-doc",
-            title: "Hidden Orpheus Title",
-            body: "Forbidden shadow body with private recall prompt context"
-        ))
-        let service = ShadowSearchService(client: client, agentProvenanceRecorder: Self.recorder(sink: sink))
-
-        let hits = await service.search(text: "private recall prompt", domain: .notes, limit: 10)
-
-        #expect(hits.count == 1)
-        #expect(sink.events.map(\.kind) == [
-            .toolCallRequested,
-            .toolCallStarted,
-            .toolCallCompleted
-        ])
-        #expect(Set(sink.events.map(\.runID)).count == 1)
-        #expect(sink.events.first?.runID.hasPrefix("shadow-search-") == true)
-        #expect(sink.events.allSatisfy { $0.tool?.toolName == "shadow_search.search" })
-        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "shadow-search:1" })
-        #expect(sink.events.allSatisfy { $0.metadata["source"] == "shadow_search_service" })
-        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "shadow_search" })
-        #expect(sink.events.allSatisfy { $0.metadata["domain"] == "note" })
-        #expect(sink.events.allSatisfy { $0.metadata["limit"] == "10" })
-
-        let argumentsPayload = try shadowSearchPayload(from: sink.events.first?.tool?.argumentsJSON)
-        #expect(Set(argumentsPayload.keys) == ["domain", "limit", "query_char_count", "query_term_count"])
-        #expect(argumentsPayload["domain"] as? String == "note")
-        #expect(argumentsPayload["limit"] as? Int == 10)
-
-        let resultPayload = try shadowSearchPayload(from: sink.events.last?.tool?.resultJSON)
-        #expect(Set(resultPayload.keys) == ["domain", "hit_count", "elapsed_ms"])
-        #expect(resultPayload["domain"] as? String == "note")
-        #expect(resultPayload["hit_count"] as? Int == 1)
-        #expect(sink.events.last?.tool?.durationMs != nil)
-        #expect(sink.events.last?.metadata["failure_class"] == nil)
-        #expect(sink.events.last?.tool?.errorMessage == nil)
-
-        try assertNoShadowSearchSecretLeak(
-            in: sink.events,
-            forbidden: [
-                "private recall prompt",
-                "secret-shadow-doc",
-                "Hidden Orpheus Title",
-                "Forbidden shadow body",
-                "in-memory-substring"
-            ]
-        )
-    }
-
-    @Test("ShadowSearchService.search records completed AgentEvents for valid zero-hit results")
-    func searchServiceRecordsCompletedAgentEventsForZeroHitResults() async throws {
-        let sink = ShadowSearchAgentEventSink()
-        let service = ShadowSearchService(
-            client: Self.inMemoryClient(),
-            agentProvenanceRecorder: Self.recorder(sink: sink)
-        )
-
-        let hits = await service.search(text: "missing valid query", domain: .notes, limit: 5)
-
+        let service = ShadowSearchService(client: client)
+        let hits = try await service.searchOrThrow(text: "", limit: 5)
+        let stats = try await service.stats()
         #expect(hits.isEmpty)
-        #expect(sink.events.map(\.kind) == [
-            .toolCallRequested,
-            .toolCallStarted,
-            .toolCallCompleted
-        ])
-        let resultPayload = try shadowSearchPayload(from: sink.events.last?.tool?.resultJSON)
-        #expect(Set(resultPayload.keys) == ["domain", "hit_count", "elapsed_ms"])
-        #expect(resultPayload["hit_count"] as? Int == 0)
-        #expect(sink.events.last?.metadata["failure_class"] == nil)
+        #expect(stats.chatCount == 0)
     }
 
-    @Test("ShadowSearchService.search records failed AgentEvents with closed failure classes")
-    func searchServiceRecordsFailedAgentEventsWithClosedFailureClasses() async throws {
+    @Test("ShadowSearchService.search records closed failure diagnostics without agent events")
+    func searchServiceRecordsFailureDiagnostics() async {
         ShadowSearchDiagnostics.shared.reset()
         defer { ShadowSearchDiagnostics.shared.reset() }
 
-        let sink = ShadowSearchAgentEventSink()
         let service = ShadowSearchService(
-            client: ThrowingShadowFFIClient(error: .backendFailure(detail: "secret backend detail")),
-            agentProvenanceRecorder: Self.recorder(sink: sink)
+            client: ThrowingShadowFFIClient(error: .backendFailure(detail: "secret backend detail"))
         )
-
-        let hits = await service.search(text: "private recall prompt", domain: .notes, limit: 5)
-
-        #expect(hits.isEmpty)
-        #expect(sink.events.map(\.kind) == [
-            .toolCallRequested,
-            .toolCallStarted,
-            .toolCallFailed
-        ])
-        #expect(sink.events.last?.metadata["failure_class"] == "backend_failure")
-        #expect(sink.events.last?.tool?.status == .failed)
-        #expect(sink.events.last?.tool?.errorMessage == "backend_failure")
-        #expect(Self.allowedShadowSearchFailureClasses.contains(sink.events.last?.tool?.errorMessage ?? ""))
-
-        let resultPayload = try shadowSearchPayload(from: sink.events.last?.tool?.resultJSON)
-        #expect(Set(resultPayload.keys) == ["domain", "hit_count", "elapsed_ms"])
-        #expect(resultPayload["hit_count"] as? Int == 0)
-
-        try assertNoShadowSearchSecretLeak(
-            in: sink.events,
-            forbidden: ["private recall prompt", "secret backend detail", "backendFailure"]
-        )
+        let hits = await service.search(text: "private recall prompt", limit: 5)
 
         let snapshot = ShadowSearchDiagnostics.shared.snapshot()
+        #expect(hits.isEmpty)
         #expect(snapshot.isDegraded)
         #expect(snapshot.totalSearches == 1)
         #expect(snapshot.totalFailures == 1)
@@ -449,25 +331,20 @@ struct ShadowServicesTests {
         #expect(!String(describing: snapshot).contains("secret backend detail"))
     }
 
-    @Test("ShadowSearchDiagnostics recovers after a successful Shadow search")
+    @Test("ShadowSearchDiagnostics recovers after a successful notes search")
     func shadowSearchDiagnosticsRecoversAfterSuccessfulSearch() async throws {
         ShadowSearchDiagnostics.shared.reset()
         defer { ShadowSearchDiagnostics.shared.reset() }
 
         let failingService = ShadowSearchService(
-            client: ThrowingShadowFFIClient(error: .backendFailure(detail: "secret backend detail")),
-            agentProvenanceRecorder: Self.recorder(sink: ShadowSearchAgentEventSink())
+            client: ThrowingShadowFFIClient(error: .backendFailure(detail: "secret backend detail"))
         )
-        _ = await failingService.search(text: "private recall prompt", domain: .notes, limit: 5)
+        _ = await failingService.search(text: "private recall prompt", limit: 5)
         #expect(ShadowSearchDiagnostics.shared.snapshot().isDegraded)
 
         let client = Self.inMemoryClient()
         try client.insert(document: Self.note("n1", title: "Kant", body: "duty"))
-        let recoveringService = ShadowSearchService(
-            client: client,
-            agentProvenanceRecorder: Self.recorder(sink: ShadowSearchAgentEventSink())
-        )
-        let hits = await recoveringService.search(text: "kant", domain: .notes, limit: 5)
+        let hits = await ShadowSearchService(client: client).search(text: "kant", limit: 5)
 
         let snapshot = ShadowSearchDiagnostics.shared.snapshot()
         #expect(hits.count == 1)
@@ -480,93 +357,78 @@ struct ShadowServicesTests {
         #expect(snapshot.lastFailureClass == nil)
     }
 
-    @Test("Cancelled ShadowSearchService.search records terminal failed AgentEvent")
-    func cancelledSearchServiceRecordsTerminalFailedAgentEvent() async throws {
-        let sink = ShadowSearchAgentEventSink()
-        let service = ShadowSearchService(
-            client: SlowShadowFFIClient(),
-            agentProvenanceRecorder: Self.recorder(sink: sink)
-        )
+    @Test("Cancelled ShadowSearchService.search returns no result and records cancellation")
+    func cancelledSearchServiceRecordsCancellation() async throws {
+        ShadowSearchDiagnostics.shared.reset()
+        defer { ShadowSearchDiagnostics.shared.reset() }
 
+        let service = ShadowSearchService(client: SlowShadowFFIClient())
         let task = Task {
-            await service.search(text: "private recall prompt", domain: .notes, limit: 5)
+            await service.search(text: "private recall prompt", limit: 5)
         }
-        for _ in 0..<100 {
-            if sink.events.count >= 2 { break }
-            try await Task.sleep(nanoseconds: 1_000_000)
-        }
-        #expect(sink.events.count >= 2)
-
+        try await Task.sleep(nanoseconds: 5_000_000)
         task.cancel()
         let hits = await task.value
 
+        let snapshot = ShadowSearchDiagnostics.shared.snapshot()
         #expect(hits.isEmpty)
-        #expect(sink.events.map(\.kind) == [
-            .toolCallRequested,
-            .toolCallStarted,
-            .toolCallFailed
-        ])
-        #expect(sink.events.last?.metadata["failure_class"] == "cancelled")
-        #expect(sink.events.last?.tool?.status == .failed)
-        #expect(sink.events.last?.tool?.errorMessage == "cancelled")
+        #expect(snapshot.totalSearches == 1)
+        #expect(snapshot.totalFailures == 1)
+        #expect(snapshot.lastFailureClass == "cancelled")
     }
 
-    @Test("Invalid ShadowSearchService.search inputs do not record AgentEvents")
-    func invalidSearchServiceInputsDoNotRecordAgentEvents() async {
-        let sink = ShadowSearchAgentEventSink()
-        let service = ShadowSearchService(
-            client: Self.inMemoryClient(),
-            agentProvenanceRecorder: Self.recorder(sink: sink)
-        )
+    @Test("Invalid ShadowSearchService.search inputs avoid diagnostics work")
+    func invalidSearchServiceInputsAvoidDiagnosticsWork() async {
+        ShadowSearchDiagnostics.shared.reset()
+        defer { ShadowSearchDiagnostics.shared.reset() }
 
-        _ = await service.search(text: "", domain: .notes, limit: 5)
-        _ = await service.search(text: "   \n\t  ", domain: .notes, limit: 5)
-        _ = await service.search(text: "private recall prompt", domain: .notes, limit: 0)
-        _ = await service.search(text: "private recall prompt", domain: .notes, limit: -1)
+        let service = ShadowSearchService(client: Self.inMemoryClient())
+        _ = await service.search(text: "", limit: 5)
+        _ = await service.search(text: "   \n\t  ", limit: 5)
+        _ = await service.search(text: "private recall prompt", limit: 0)
+        _ = await service.search(text: "private recall prompt", limit: -1)
 
-        #expect(sink.events.isEmpty)
+        let snapshot = ShadowSearchDiagnostics.shared.snapshot()
+        #expect(snapshot.totalSearches == 0)
+        #expect(snapshot.totalFailures == 0)
     }
 
-    @Test("ShadowSearchService tool ids are monotonic per service instance")
-    func shadowSearchToolIDsAreMonotonicPerServiceInstance() async throws {
-        let sink = ShadowSearchAgentEventSink()
-        let recorder = Self.recorder(sink: sink)
-        let firstClient = Self.inMemoryClient()
-        let secondClient = Self.inMemoryClient()
-        try firstClient.insert(document: Self.note("first", title: "Alpha", body: "alpha body"))
-        try secondClient.insert(document: Self.note("second", title: "Beta", body: "beta body"))
-        let firstService = ShadowSearchService(client: firstClient, agentProvenanceRecorder: recorder)
-        let secondService = ShadowSearchService(client: secondClient, agentProvenanceRecorder: recorder)
-
-        _ = await firstService.search(text: "alpha", domain: .notes, limit: 5)
-        _ = await firstService.search(text: "alpha", domain: .notes, limit: 5)
-        _ = await secondService.search(text: "beta", domain: .notes, limit: 5)
-
-        let terminalToolIDs = sink.events
-            .filter { $0.kind == .toolCallCompleted }
-            .compactMap { $0.tool?.toolCallID }
-
-        #expect(terminalToolIDs == [
-            "shadow-search:1",
-            "shadow-search:2",
-            "shadow-search:1"
-        ])
-        #expect(Set(sink.events.map(\.runID)).count == 3)
-    }
-
-    @Test("ShadowSearchService.searchOrThrow and stats stay direct")
-    func searchOrThrowAndStatsStayDirect() throws {
+    @Test("ShadowSearchService source omits synthetic agent provenance")
+    func shadowSearchSourceOmitsSyntheticAgentProvenance() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/ShadowSearchService.swift")
-        #expect(source.contains("public func searchOrThrow(text: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit] {"))
-        #expect(source.contains("let hits = try client.search(query: text, domain: domain, limit: limit)"))
-        #expect(source.contains("ShadowSearchDiagnostics.shared.recordSuccess("))
-        #expect(source.contains("ShadowSearchDiagnostics.shared.recordFailure("))
-        #expect(!source.contains("searchOrThrow(text: String, domain: ShadowDomain, limit: Int) async"))
-        #expect(source.contains("""
-    public func stats() async throws -> ShadowStatsDTO {
-        try client.stats()
-    }
-"""))
+
+        for retiredSurface in [
+            "AgentToolProvenanceRecorder",
+            "AgentProvenanceActor",
+            "AgentProvenanceEventKind",
+            "AgentToolEventStatus",
+            "agentProvenanceRecorder",
+            "shadow-search-",
+            "recordShadowSearchEvent",
+            "recordShadowSearchFailure",
+            "recordToolEvent",
+            "shadowSearchArgumentsJSON",
+            "shadowSearchResultJSON",
+            "shadowSearchMetadata",
+            "shadowSearchDurationMilliseconds",
+            "shadowSearchJSONPayload",
+            "shadowSearchQueryTermCount",
+            "nextShadowSearchToolCallID",
+        ] {
+            #expect(!source.contains(retiredSurface))
+        }
+
+        for retainedSurface in [
+            "public func search(text: String, limit: Int) async -> [ShadowHit]",
+            "client.search(query: normalizedText, limit: limit)",
+            "ShadowSearchDiagnostics.shared.recordSuccess(",
+            "ShadowSearchDiagnostics.shared.recordFailure(",
+            "shadow.search.total.ms",
+            "public func searchOrThrow(text: String, limit: Int) throws -> [ShadowHit]",
+            "public func stats() async throws -> ShadowStatsDTO",
+        ] {
+            #expect(source.contains(retainedSurface))
+        }
     }
 
     // MARK: - ShadowIndexingService
@@ -666,42 +528,6 @@ struct ShadowServicesTests {
         #expect(totalFlushes >= 1)
     }
 
-    private static let allowedShadowSearchFailureClasses: Set<String> = [
-        "invalid_input",
-        "not_found",
-        "io_failure",
-        "backend_failure",
-        "rust_panic",
-        "unknown_code",
-        "cancelled",
-        "unknown_error"
-    ]
-
-    private func shadowSearchPayload(from json: String?) throws -> [String: Any] {
-        let json = try #require(json)
-        let data = try #require(json.data(using: .utf8))
-        return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-    }
-
-    private func assertNoShadowSearchSecretLeak(
-        in events: [AgentProvenanceEvent],
-        forbidden: [String]
-    ) throws {
-        for event in events {
-            let tool = try #require(event.tool)
-            let persisted = [
-                tool.argumentsJSON,
-                tool.resultJSON ?? "",
-                tool.errorMessage ?? "",
-                event.metadata.keys.joined(separator: " "),
-                event.metadata.values.joined(separator: " ")
-            ].joined(separator: "\n")
-
-            for value in forbidden where !value.isEmpty {
-                #expect(!persisted.contains(value), "AgentEvent persisted forbidden value: \(value)")
-            }
-        }
-    }
 }
 
 /// W9.21 PR4 guard: the Rust honest-handle foundation is only useful
@@ -719,12 +545,11 @@ struct ShadowHonestHandleSourceGuardTests {
         for symbol in [
             "shadow_handle_open_at",
             "shadow_handle_release",
-            "shadow_handle_search",
+            "shadow_handle_search_notes",
             "shadow_handle_insert",
             "shadow_handle_remove",
             "shadow_handle_flush",
             "shadow_handle_stats",
-            "shadow_handle_last_timings_json",
             "shadow_handle_free_string"
         ] {
             #expect(client.contains("@_silgen_name(\"\(symbol)\")"))
@@ -736,6 +561,8 @@ struct ShadowHonestHandleSourceGuardTests {
         #expect(!client.contains("public init() {}"))
         #expect(!client.contains("public static func openAt"))
         #expect(!client.contains("@_silgen_name(\"shadow_search_json\")"))
+        #expect(!client.contains("@_silgen_name(\"shadow_handle_search\")"))
+        #expect(!client.contains("shadow_handle_last_timings_json"))
 
         #expect(bootstrap.contains("RustShadowFFIClient(path: shadowRoot.path)"))
         #expect(!bootstrap.contains("RustShadowFFIClient.openAt(path: shadowRoot.path)"))
@@ -751,6 +578,7 @@ struct ShadowHonestHandleSourceGuardTests {
             "shadow_handle_retain",
             "shadow_handle_release",
             "shadow_handle_search",
+            "shadow_handle_search_notes",
             "shadow_handle_insert",
             "shadow_handle_remove",
             "shadow_handle_flush",

@@ -54,35 +54,4 @@ struct RustProvenanceLedgerClientTests {
         #expect(empty.eventCount == 0)
     }
 
-    @Test("ProvenanceConsoleSnapshot.empty includes the rustLedgerPayload slot")
-    func provenanceConsoleSnapshotEmptyIncludesRustLedgerPayload() {
-        let empty = ProvenanceConsoleSnapshot.empty
-        // The new V2 Lane 1 slot must be present + render through GenUI.
-        // The payloads array order matters because it drives UI section
-        // ordering; the rust ledger is the second card after the summary.
-        #expect(empty.payloads.count == 6)
-        // Spot-check that the rustLedgerPayload is one of the rendered
-        // payloads. Equating against the empty fallback is enough — if
-        // someone removed the slot or changed the empty wording, this
-        // catches it.
-        let rustPayloads = empty.payloads.filter { payload in
-            // GenUIPayload doesn't expose its title publicly in a typed
-            // way for matching, so we equate against the known empty
-            // fallback. Stable enough for a guard test.
-            payload == empty.rustLedgerPayload
-        }
-        #expect(rustPayloads.count == 1)
-    }
-
-    @Test("Provenance Console names the DAG-authoritative Rust provenance slot")
-    func provenanceConsoleNamesDagAuthoritativeRustSlot() {
-        let payload = ProvenanceConsoleSnapshot.empty.rustLedgerPayload
-        #expect(payload.title == "Cognitive DAG Provenance (Rust)")
-
-        guard case .keyValues(let rows) = payload.body else {
-            #expect(Bool(false), "Expected Rust provenance payload to render as key/value rows")
-            return
-        }
-        #expect(rows.contains { $0.key == "mode" && $0.value == "read-only" })
-    }
 }

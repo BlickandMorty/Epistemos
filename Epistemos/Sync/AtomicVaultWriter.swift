@@ -1,8 +1,16 @@
 import Foundation
 import os
 
+enum VaultFileBaseline: Sendable, Equatable {
+    case absent
+    case contents(Data)
+}
+
 enum AtomicVaultWriteError: Error, Sendable {
     case coordination(Error)
+    case coordinationCallbackNotInvoked
+    case baselineRead(Error)
+    case baselineMismatch
     case encodingFailed
     case scratchDirectory(Error)
     case scratchWrite(Error)
@@ -30,6 +38,32 @@ actor AtomicVaultWriter {
         try Self.writeSynchronously(data, to: targetURL)
     }
 
+    @discardableResult
+    func write(
+        _ content: String,
+        to targetURL: URL,
+        ifCurrentMatches expectedBaseline: VaultFileBaseline
+    ) throws -> VaultFileBaseline {
+        try Self.writeSynchronously(
+            content,
+            to: targetURL,
+            ifCurrentMatches: expectedBaseline
+        )
+    }
+
+    @discardableResult
+    func write(
+        _ data: Data,
+        to targetURL: URL,
+        ifCurrentMatches expectedBaseline: VaultFileBaseline
+    ) throws -> VaultFileBaseline {
+        try Self.writeSynchronously(
+            data,
+            to: targetURL,
+            ifCurrentMatches: expectedBaseline
+        )
+    }
+
     nonisolated static func writeSynchronously(_ content: String, to targetURL: URL) throws {
         guard let data = content.data(using: .utf8) else {
             throw AtomicVaultWriteError.encodingFailed
@@ -38,6 +72,40 @@ actor AtomicVaultWriter {
     }
 
     nonisolated static func writeSynchronously(_ data: Data, to targetURL: URL) throws {
+        _ = try writeSynchronously(data, to: targetURL, ifCurrentMatches: nil)
+    }
+
+    @discardableResult
+    nonisolated static func writeSynchronously(
+        _ content: String,
+        to targetURL: URL,
+        ifCurrentMatches expectedBaseline: VaultFileBaseline
+    ) throws -> VaultFileBaseline {
+        guard let data = content.data(using: .utf8) else {
+            throw AtomicVaultWriteError.encodingFailed
+        }
+        return try writeSynchronously(
+            data,
+            to: targetURL,
+            ifCurrentMatches: expectedBaseline
+        )
+    }
+
+    @discardableResult
+    nonisolated static func writeSynchronously(
+        _ data: Data,
+        to targetURL: URL,
+        ifCurrentMatches expectedBaseline: VaultFileBaseline
+    ) throws -> VaultFileBaseline {
+        try writeSynchronously(data, to: targetURL, ifCurrentMatches: expectedBaseline as VaultFileBaseline?)
+    }
+
+    @discardableResult
+    private nonisolated static func writeSynchronously(
+        _ data: Data,
+        to targetURL: URL,
+        ifCurrentMatches expectedBaseline: VaultFileBaseline?
+    ) throws -> VaultFileBaseline {
         let activity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiated, .idleSystemSleepDisabled],
             reason: "Epistemos atomic vault write"
@@ -46,7 +114,7 @@ actor AtomicVaultWriter {
 
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var coordinatorError: NSError?
-        var writeError: Error?
+        var callbackResult: Result<Void, Error>?
 
         coordinator.coordinate(
             writingItemAt: targetURL,
@@ -54,21 +122,32 @@ actor AtomicVaultWriter {
             error: &coordinatorError
         ) { coordinatedURL in
             do {
-                try Self.replace(data: data, at: coordinatedURL)
+                try Self.replace(
+                    data: data,
+                    at: coordinatedURL,
+                    ifCurrentMatches: expectedBaseline
+                )
+                callbackResult = .success(())
             } catch {
-                writeError = error
+                callbackResult = .failure(error)
             }
         }
 
         if let coordinatorError {
             throw AtomicVaultWriteError.coordination(coordinatorError)
         }
-        if let writeError {
-            throw writeError
+        guard let callbackResult else {
+            throw AtomicVaultWriteError.coordinationCallbackNotInvoked
         }
+        try callbackResult.get()
+        return .contents(data)
     }
 
-    private nonisolated static func replace(data: Data, at targetURL: URL) throws {
+    private nonisolated static func replace(
+        data: Data,
+        at targetURL: URL,
+        ifCurrentMatches expectedBaseline: VaultFileBaseline?
+    ) throws {
         let fm = FileManager.default
         let scratchDir: URL
         do {
@@ -117,24 +196,55 @@ actor AtomicVaultWriter {
                 at: targetURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
+            if let expectedBaseline {
+                try verify(expectedBaseline, at: targetURL, fileManager: fm)
+            }
             if fm.fileExists(atPath: targetURL.path) {
                 _ = try fm.replaceItemAt(
                     targetURL,
                     withItemAt: scratchURL,
                     backupItemName: nil,
-                    options: [.usingNewMetadataOnly]
+                    options: []
                 )
             } else {
                 try fm.moveItem(at: scratchURL, to: targetURL)
             }
+        } catch let error as AtomicVaultWriteError {
+            throw error
         } catch {
             throw AtomicVaultWriteError.replace(error)
         }
 
-        try syncParentDirectory(of: targetURL)
+        try synchronizeParentDirectory(of: targetURL)
     }
 
-    private nonisolated static func syncParentDirectory(of targetURL: URL) throws {
+    private nonisolated static func verify(
+        _ expectedBaseline: VaultFileBaseline,
+        at targetURL: URL,
+        fileManager: FileManager
+    ) throws {
+        switch expectedBaseline {
+        case .absent:
+            guard !fileManager.fileExists(atPath: targetURL.path) else {
+                throw AtomicVaultWriteError.baselineMismatch
+            }
+        case .contents(let expectedData):
+            guard fileManager.fileExists(atPath: targetURL.path) else {
+                throw AtomicVaultWriteError.baselineMismatch
+            }
+            let currentData: Data
+            do {
+                currentData = try Data(contentsOf: targetURL)
+            } catch {
+                throw AtomicVaultWriteError.baselineRead(error)
+            }
+            guard currentData == expectedData else {
+                throw AtomicVaultWriteError.baselineMismatch
+            }
+        }
+    }
+
+    nonisolated static func synchronizeParentDirectory(of targetURL: URL) throws {
         let parent = targetURL.deletingLastPathComponent()
         let fd = open(parent.path, O_RDONLY)
         guard fd >= 0 else {

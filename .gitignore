@@ -41,6 +41,7 @@ syntax-core-bridge/*.a
 build-rust/
 
 # Reference repos
+.research-clones/
 logseq/
 .superpowers/
 omega-mcp/target/
@@ -84,11 +85,6 @@ Epistemos/KnowledgeFusion/MOHAWK/epistemos_training_data_validated/last_upload_m
 .epistemos/
 *.htmlworkspace/
 
-# llama.cpp pinned XCFramework — fetched per-checkout by
-# scripts/fetch-llama-xcframework.sh (sha256-verified), never committed
-LocalPackages/EpistemosLlama/Binary/llama.xcframework/
-LocalPackages/EpistemosLlama/Binary/.llama-*.sha256-ok
-LocalPackages/EpistemosLlama/.gguf-probe-cache/
 .gguf-probe-cache/
 proxy-server/node_modules/
 

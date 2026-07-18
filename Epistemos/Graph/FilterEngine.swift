@@ -93,6 +93,7 @@ final class FilterEngine {
     @discardableResult
     func setType(_ type: GraphNodeType, isVisible: Bool) -> Bool {
         if isVisible {
+            guard ProductCapabilityPolicy.allowsGraphProjection(of: type) else { return false }
             let result = activeNodeTypes.insert(type)
             return result.inserted
         }
@@ -102,8 +103,9 @@ final class FilterEngine {
     /// Replace the active type mask in one atomic state update.
     @discardableResult
     func setActiveNodeTypes(_ types: Set<GraphNodeType>) -> Bool {
-        guard activeNodeTypes != types else { return false }
-        activeNodeTypes = types
+        let sanitizedTypes = ProductCapabilityPolicy.sanitizedGraphProjection(types)
+        guard activeNodeTypes != sanitizedTypes else { return false }
+        activeNodeTypes = sanitizedTypes
         return true
     }
 
@@ -135,7 +137,7 @@ final class FilterEngine {
     /// Source/quote nodes stay disconnected from production paths.
     func applyAgentVaultMode() {
         savedNodeTypes = activeNodeTypes
-        activeNodeTypes = [.idea, .tag]
+        activeNodeTypes = ProductCapabilityPolicy.sanitizedGraphProjection([.idea, .tag])
     }
 
     /// Restore human vault mode — show the canonical default-active
@@ -144,7 +146,9 @@ final class FilterEngine {
     /// fall back to `defaultActiveCases` (per user direction 2026-05-15
     /// — folders disabled by default).
     func applyHumanVaultMode() {
-        activeNodeTypes = savedNodeTypes ?? Set(GraphNodeType.defaultActiveCases)
+        activeNodeTypes = ProductCapabilityPolicy.sanitizedGraphProjection(
+            savedNodeTypes ?? Set(GraphNodeType.defaultActiveCases)
+        )
         savedNodeTypes = nil
     }
 
@@ -207,7 +211,8 @@ final class FilterEngine {
     /// vault filter is on. Once every node-creation site populates
     /// the field, the filter becomes fully effective.
     func isNodeVisible(_ node: GraphNodeRecord) -> Bool {
-        // 1. Type filter
+        // 1. Product projection and type filter
+        guard ProductCapabilityPolicy.allowsGraphProjection(of: node) else { return false }
         guard activeNodeTypes.contains(node.type) else { return false }
 
         // 2. Focus filter

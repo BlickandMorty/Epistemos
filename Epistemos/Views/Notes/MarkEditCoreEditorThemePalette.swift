@@ -23,10 +23,7 @@ struct MarkEditCoreEditorThemePalette: Equatable, Encodable {
         let background = MarkdownPreviewSurfaceStyle
             .solidFlatBackgroundNSColor(for: surfaceTheme)
             .withAlphaComponent(1.0)
-        let gutter = (background.blended(
-            withFraction: surfaceTheme.isDark ? 0.055 : 0.045,
-            of: surfaceTheme.isDark ? .white : .black
-        ) ?? background).withAlphaComponent(1.0)
+        let gutter = background
         let border = resolved.glassBorder.nsColor.withAlphaComponent(surfaceTheme.isDark ? 0.48 : 0.34)
         let accent = resolved.accent.nsColor
         let foreground = resolved.foreground.nsColor
@@ -51,15 +48,38 @@ struct MarkEditCoreEditorThemePalette: Equatable, Encodable {
     }
 }
 
+enum MarkEditCoreEditorSourceTypography {
+    static let heading1FontFace = "Epistemos Matrix Type Bold"
+
+    /// The initial document owns the font request so Markdown Source does not
+    /// wait until the CoreEditor bridge has finished before its H1 metrics can
+    /// settle. The document loader rewrites this bounded bundle URL to the
+    /// existing custom scheme before WebKit receives it.
+    static let bootstrapHTML = """
+    <link rel="preload" href="/chunk-loader/fonts/MatrixTypeDisplay-Bold.otf" as="font" type="font/otf" crossorigin>
+    <style id="epistemos-source-heading-font">
+      @font-face {
+        font-family: "Epistemos Matrix Type Bold";
+        src: url("/chunk-loader/fonts/MatrixTypeDisplay-Bold.otf") format("opentype");
+        font-display: optional;
+      }
+    </style>
+    """
+}
+
 enum MarkEditCoreEditorThemeOverlay {
     static func script(themeName: String?, palette: MarkEditCoreEditorThemePalette) -> String? {
         guard let paletteJSON = jsonString(palette) else { return nil }
         let themeNameJSON = themeName.flatMap { jsonString($0) } ?? "null"
+        let sourceHeading1FontFaceJSON = jsonString(
+            MarkEditCoreEditorSourceTypography.heading1FontFace
+        ) ?? "\"Epistemos Matrix Type Bold\""
 
         return """
         (() => {
           const themeName = \(themeNameJSON);
           const palette = \(paletteJSON);
+          const sourceHeading1FontFace = \(sourceHeading1FontFaceJSON);
           if (themeName && window.webModules?.config?.setTheme) {
             try {
               window.webModules.config.setTheme({ name: themeName });
@@ -106,6 +126,16 @@ enum MarkEditCoreEditorThemeOverlay {
               border-right-color: var(--epistemos-editor-border) !important;
               color: var(--epistemos-editor-line) !important;
             }
+            .cm-scroller::-webkit-scrollbar,
+            .cm-scroller::-webkit-scrollbar-track,
+            .cm-scroller::-webkit-scrollbar-corner {
+              background: var(--epistemos-editor-bg) !important;
+            }
+            .cm-scroller::-webkit-scrollbar-thumb {
+              background-color: var(--epistemos-editor-border) !important;
+              border: 2px solid var(--epistemos-editor-bg) !important;
+              border-radius: 999px;
+            }
             .cm-gutterElement,
             .cm-foldGutter,
             .cm-foldPlaceholder {
@@ -124,7 +154,11 @@ enum MarkEditCoreEditorThemeOverlay {
             .cm-searchMatch {
               background: var(--epistemos-editor-search) !important;
             }
-            .cm-md-heading1,
+            .cm-md-heading1 {
+              color: var(--epistemos-editor-heading) !important;
+              font-family: ${sourceHeading1FontFace}, ui-monospace, monospace !important;
+              font-weight: normal !important;
+            }
             .cm-md-heading2,
             .cm-md-heading3,
             .cm-md-heading4,

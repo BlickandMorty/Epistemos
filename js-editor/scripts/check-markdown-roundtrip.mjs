@@ -71,7 +71,6 @@ const { CalloutNode } = loadTSModule(resolve(sourceRoot, 'extensions/callout-nod
 const { EpdocLink, EpdocWikiLinkMarkdown } = loadTSModule(
   resolve(sourceRoot, 'markdown/epdoc-markdown-nodes.ts'),
 );
-const { EpdocSuggestionDocument } = loadTSModule(resolve(sourceRoot, 'suggestions/document.ts'));
 const {
   LensFidelityState,
   SerializerTier,
@@ -86,11 +85,9 @@ const manager = new MarkdownManager({
   indentation: { style: 'space', size: 2 },
   markedOptions: { breaks: false, gfm: true },
   extensions: [
-    EpdocSuggestionDocument,
     StarterKit.configure({
       blockquote: false,
       codeBlock: false,
-      document: false,
       link: false,
       listItem: false,
     }),

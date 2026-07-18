@@ -1,4 +1,6 @@
+#if !EPISTEMOS_FREE_V1
 import NaturalLanguage
+#endif
 import os
 
 // MARK: - NLAnalysisService
@@ -31,6 +33,9 @@ enum NLAnalysisService {
     nonisolated static func extractEntities(from text: String) -> [Entity] {
         guard !text.isEmpty else { return [] }
 
+        #if EPISTEMOS_FREE_V1
+        return []
+        #else
         let tagger = NLTagger(tagSchemes: [.nameType])
         tagger.string = text
 
@@ -65,6 +70,7 @@ enum NLAnalysisService {
         }
 
         return entities
+        #endif
     }
 
     // MARK: - Language Detection
@@ -72,9 +78,13 @@ enum NLAnalysisService {
     /// Detects the dominant language of the text. Returns BCP-47 code (e.g. "en", "es", "ja").
     nonisolated static func detectLanguage(_ text: String) -> String? {
         guard !text.isEmpty else { return nil }
+        #if EPISTEMOS_FREE_V1
+        return nil
+        #else
         let recognizer = NLLanguageRecognizer()
         recognizer.processString(text)
         return recognizer.dominantLanguage?.rawValue
+        #endif
     }
 
     // MARK: - Sentiment Analysis
@@ -84,6 +94,9 @@ enum NLAnalysisService {
     nonisolated static func sentiment(of text: String) -> Double {
         guard !text.isEmpty else { return 0 }
 
+        #if EPISTEMOS_FREE_V1
+        return 0
+        #else
         let tagger = NLTagger(tagSchemes: [.sentimentScore])
         tagger.string = text
 
@@ -104,6 +117,7 @@ enum NLAnalysisService {
         }
 
         return count > 0 ? totalScore / Double(count) : 0
+        #endif
     }
 
     // MARK: - Word Count (native tokenization)
@@ -112,6 +126,9 @@ enum NLAnalysisService {
     nonisolated static func wordCount(_ text: String) -> Int {
         guard !text.isEmpty else { return 0 }
 
+        #if EPISTEMOS_FREE_V1
+        return deterministicWordCount(text)
+        #else
         let tokenizer = NLTokenizer(unit: .word)
         tokenizer.string = text
 
@@ -121,5 +138,10 @@ enum NLAnalysisService {
             return true
         }
         return count
+        #endif
+    }
+
+    nonisolated private static func deterministicWordCount(_ text: String) -> Int {
+        text.split { !$0.isLetter && !$0.isNumber }.count
     }
 }

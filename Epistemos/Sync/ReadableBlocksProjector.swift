@@ -55,7 +55,10 @@ nonisolated public enum ReadableBlocksProjector {
         updatedAt: Date = Date()
     ) -> [ReadableBlock] {
         guard
-            let root = try? JSONSerialization.jsonObject(with: contentJSON)
+            let projectionJSON = EpdocContentCompatibilityProjection.proseMirrorJSON(
+                from: contentJSON
+            ),
+            let root = try? JSONSerialization.jsonObject(with: projectionJSON)
                 as? [String: Any],
             let topLevel = root["content"] as? [[String: Any]]
         else {

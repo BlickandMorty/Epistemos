@@ -3,7 +3,9 @@ import OSLog
 
 public enum EpistemosVisibleReadAloudSurface: String, CaseIterable, Sendable {
     case landingHome
+    #if !EPISTEMOS_FREE_V1
     case juneLatestAssistantReply
+    #endif
     case proseNoteBody
     case codeEditor
     case epdocSelection
@@ -15,8 +17,10 @@ public enum EpistemosVisibleReadAloudSurface: String, CaseIterable, Sendable {
         switch self {
         case .landingHome:
             return "home screen"
+        #if !EPISTEMOS_FREE_V1
         case .juneLatestAssistantReply:
             return "June latest assistant reply"
+        #endif
         case .proseNoteBody:
             return "note body"
         case .codeEditor:

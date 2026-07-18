@@ -91,7 +91,6 @@ struct HaloUITests {
         handlers.onOpenHit(sample)
         handlers.onBeginEditNote(sample)
         handlers.onCommitEdit("x", "body")
-        handlers.onSummarizeChat(sample)
         #expect(Bool(true))
     }
 
@@ -100,22 +99,18 @@ struct HaloUITests {
         var openCount = 0
         var editCount = 0
         var commitCount = 0
-        var summariseCount = 0
         let handlers = ShadowPanelHandlers(
             onOpenHit: { _ in openCount += 1 },
             onBeginEditNote: { _ in editCount += 1 },
-            onCommitEdit: { _, _ in commitCount += 1 },
-            onSummarizeChat: { _ in summariseCount += 1 }
+            onCommitEdit: { _, _ in commitCount += 1 }
         )
         let sample = ShadowHit(id: "x", title: "x", snippet: "x", score: 1.0, domain: .notes, source: "stub")
         handlers.onOpenHit(sample)
         handlers.onBeginEditNote(sample)
         handlers.onCommitEdit("x", "body")
-        handlers.onSummarizeChat(sample)
         #expect(openCount == 1)
         #expect(editCount == 1)
         #expect(commitCount == 1)
-        #expect(summariseCount == 1)
     }
 
     @Test("Shadow rows expose source provenance and visible primary actions")
@@ -126,9 +121,9 @@ struct HaloUITests {
         #expect(source.contains("VaultRecallHaloProvenance(hit: hit"))
         #expect(source.contains("actionButton(title: \"Open\""))
         #expect(source.contains("actionButton(title: \"Edit\""))
-        #expect(source.contains("actionButton(title: \"Summarise\""))
-        #expect(source.contains("if hit.domain == .notes"))
-        #expect(source.contains("if hit.domain == .chats"))
+        #expect(source.contains("private var noteMatches"))
+        #expect(!source.contains("onSummarizeChat"))
+        #expect(!source.contains("Text(\"Chats\")"))
     }
 
     @Test("Shadow panel exposes read-only GraphEvent projection ribbon")
@@ -295,7 +290,7 @@ enum HaloUITestSupport {
 
 @MainActor
 final class HaloUIMockSearch: ShadowSearchServicing, @unchecked Sendable {
-    nonisolated func search(text: String, domain: ShadowDomain, limit: Int) async -> [ShadowHit] {
+    nonisolated func search(text: String, limit: Int) async -> [ShadowHit] {
         []
     }
 }

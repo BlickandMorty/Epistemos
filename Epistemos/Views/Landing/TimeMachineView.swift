@@ -148,8 +148,9 @@ struct TimeMachineView: View {
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
 
-                if !meta.summary.isEmpty {
-                    Text(meta.summary)
+                let summary = ProductCapabilityPolicy.sanitizedAIOutput(meta.summary)
+                if !summary.isEmpty {
+                    Text(summary)
                         .font(.system(size: 10, weight: .regular, design: .rounded))
                         .foregroundStyle(theme.textSecondary)
                         .lineLimit(2)
@@ -176,8 +177,9 @@ struct TimeMachineView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 // Summary
-                if !state.summary.isEmpty {
-                    Text(state.summary)
+                let summary = ProductCapabilityPolicy.sanitizedAIOutput(state.summary)
+                if !summary.isEmpty {
+                    Text(summary)
                         .font(.system(size: 13, weight: .regular))
                         .foregroundStyle(theme.fontAccent.opacity(0.85))
                         .italic()

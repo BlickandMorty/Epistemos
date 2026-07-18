@@ -1,7 +1,7 @@
 // CognitiveWeight.swift
 //
 // Master Fusion Plan §B.6 W1 — Swift mirror of the Rust
-// `agent_core::cognitive_weight::CognitiveWeight` types.
+// local cognitive-weight types.
 //
 // Source: `docs/fusion/COGNITIVE_WEIGHT_CLASS_DOCTRINE_2026_05_04.md`
 // + `docs/fusion/research/FINAL_SYNTHESIS.md` §3.

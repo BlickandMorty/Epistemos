@@ -239,14 +239,6 @@ nonisolated public enum EpdocQueryEvaluator {
 ///       W7.15 ThoughtAttachmentBridge integration). Surfaces the
 ///       Notion-like "show me docs that have backlinks" filter.
 ///
-///   complexity-above <threshold>
-///       True iff `manifest.metadata["complexity"]` (W7.12 scalar) is
-///       greater than `threshold` (a Double in [0, 1]). Sugar over
-///       reading + parsing the metadata value.
-///
-///   complexity-below <threshold>
-///       True iff complexity scalar is less than `threshold`.
-///
 nonisolated public enum EpdocBuiltInRules {
 
     /// Every rule name the registry knows. Surfacing this list lets
@@ -258,8 +250,6 @@ nonisolated public enum EpdocBuiltInRules {
         "recently-updated",
         "older-than",
         "has-attached-thoughts",
-        "complexity-above",
-        "complexity-below",
     ]
 
     public static func evaluate(name: String, args: [EpdocQueryAST], row: EpdocDatabaseRow) -> Bool {
@@ -285,16 +275,6 @@ nonisolated public enum EpdocBuiltInRules {
             guard let raw = row.manifest.metadata?["attached-thoughts"] else { return false }
             return raw.split(separator: ",").contains(where: { !$0.isEmpty })
 
-        case "complexity-above":
-            guard let threshold = extractDoubleArg(args.first) else { return false }
-            guard let complexity = parseComplexity(from: row.manifest) else { return false }
-            return complexity > threshold
-
-        case "complexity-below":
-            guard let threshold = extractDoubleArg(args.first) else { return false }
-            guard let complexity = parseComplexity(from: row.manifest) else { return false }
-            return complexity < threshold
-
         default:
             return false
         }
@@ -317,27 +297,6 @@ nonisolated public enum EpdocBuiltInRules {
         default:
             return nil
         }
-    }
-
-    static func extractDoubleArg(_ node: EpdocQueryAST?) -> Double? {
-        guard let node else { return nil }
-        switch node {
-        case .titleContains(let s):
-            return Double(s)
-        case .property(_, .number(let d)):
-            return d
-        default:
-            return nil
-        }
-    }
-
-    /// Read the `manifest.metadata["complexity"]` value as a Double.
-    /// Returns nil when the key is missing or unparseable. The W7.12
-    /// EpdocComplexityCalculator writer emits a stringified
-    /// `String(scalar)` so `Double(_:)` round-trips it cleanly.
-    static func parseComplexity(from manifest: EpdocManifest) -> Double? {
-        guard let raw = manifest.metadata?["complexity"] else { return nil }
-        return Double(raw)
     }
 
     /// True iff `updatedAtMs` (Unix milliseconds) is within `days`

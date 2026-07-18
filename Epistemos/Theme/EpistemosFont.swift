@@ -7,12 +7,14 @@ import os
 enum EpistemosFont {
     private static let logger = Logger(subsystem: "com.epistemos", category: "Font")
     private final class BundleProbe {}
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private static let claudeFontCandidatePaths = [
         "/Applications/Claude.app/Contents/Resources/fonts/AnthropicSerif-Romans-Variable-25x258.ttf",
         "/Applications/Claude.app/Contents/Resources/fonts/AnthropicSerif-Italics-Variable-25x258.ttf",
         "/Applications/Claude.app/Contents/Resources/fonts/AnthropicSans-Romans-Variable-25x258.ttf",
         "/Applications/Claude.app/Contents/Resources/fonts/AnthropicSans-Italics-Variable-25x258.ttf",
     ]
+    #endif
 
     /// Call once at app launch to register custom fonts from the bundle.
     /// `Inter-Regular.ttf` is the variable Inter font (PSName
@@ -71,7 +73,21 @@ enum EpistemosFont {
         registerFont(named: "GNF", extension: "ttf")
         registerFont(named: "CodersCrux", extension: "ttf")
 
-        registerClaudeReferenceFontsIfAvailable()
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        if shouldRegisterExternalReferenceFonts() { registerClaudeReferenceFontsIfAvailable() }
+        #endif
+    }
+
+    static func shouldRegisterExternalReferenceFonts(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return false
+        #else
+        return FoundationSafety.auditRuntimeIsolationRequestState(
+            processInfoEnvironment: processInfoEnvironment
+        ) == .notRequested
+        #endif
     }
 
     static func isBenignRegistrationErrorDescription(_ description: String) -> Bool {
@@ -88,6 +104,7 @@ enum EpistemosFont {
         registerFont(at: url, label: "\(name).\(ext)")
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private static func registerClaudeReferenceFontsIfAvailable(
         fileManager: FileManager = .default
     ) {
@@ -95,6 +112,7 @@ enum EpistemosFont {
             registerFont(at: URL(fileURLWithPath: path), label: URL(fileURLWithPath: path).lastPathComponent)
         }
     }
+    #endif
 
     private static func registerFont(at url: URL, label: String) {
         var error: Unmanaged<CFError>?

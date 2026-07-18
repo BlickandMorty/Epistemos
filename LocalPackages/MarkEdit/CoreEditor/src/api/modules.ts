@@ -14,13 +14,7 @@ import * as lezerLr from '@lezer/lr';
 import * as customHistory from '../@vendor/commands/history';
 
 import { TextEditor } from './editor';
-import { Translator } from './translation';
-import { languageModel } from './languageModel';
-
-import { onAppReady, onEditorReady, saveDocument, closeDocument, addExtension, addMarkdownConfig, addCodeLanguage, runtimeInfo, terminateApp, relaunchApp } from './methods';
-import { addMainMenuItem, showContextMenu, showAlert, showTextBox, showSavePanel, runService } from './ui';
-import { openFile, createFile, deleteFile, moveFile, revealFile, listFiles, getFileContent, getFileObject, getFileInfo, getDirectoryPath } from './files';
-import { getPasteboardItems, getPasteboardString } from './pasteboard';
+import { onAppReady, onEditorReady, addExtension, addMarkdownConfig, addCodeLanguage, runtimeInfo } from './methods';
 
 export function initMarkEditModules() {
   const codemirror = {
@@ -44,46 +38,15 @@ export function initMarkEditModules() {
   };
 
   MarkEdit.editorAPI = new TextEditor();
-  MarkEdit.translationService = new Translator();
-  MarkEdit.languageModel = languageModel;
   MarkEdit.codemirror = codemirror;
   MarkEdit.lezer = lezer;
 
   MarkEdit.runtimeInfo = runtimeInfo;
-  MarkEdit.terminateApp = terminateApp;
-  MarkEdit.relaunchApp = relaunchApp;
   MarkEdit.onAppReady = onAppReady;
   MarkEdit.onEditorReady = onEditorReady;
-  MarkEdit.saveDocument = saveDocument;
-  MarkEdit.closeDocument = closeDocument;
   MarkEdit.addExtension = addExtension;
   MarkEdit.addMarkdownConfig = addMarkdownConfig;
   MarkEdit.addCodeLanguage = addCodeLanguage;
-  MarkEdit.addMainMenuItem = addMainMenuItem;
-  MarkEdit.showContextMenu = showContextMenu;
-  MarkEdit.showAlert = showAlert;
-  MarkEdit.showTextBox = showTextBox;
-  MarkEdit.showSavePanel = showSavePanel;
-  MarkEdit.runService = runService;
-  MarkEdit.openFile = openFile;
-  MarkEdit.createFile = createFile;
-  MarkEdit.deleteFile = deleteFile;
-  MarkEdit.moveFile = moveFile;
-  MarkEdit.revealFile = revealFile;
-  MarkEdit.listFiles = listFiles;
-  MarkEdit.getFileContent = getFileContent;
-  MarkEdit.getFileObject = getFileObject;
-  MarkEdit.getFileInfo = getFileInfo;
-  MarkEdit.getDirectoryPath = getDirectoryPath;
-  MarkEdit.getPasteboardItems = getPasteboardItems;
-  MarkEdit.getPasteboardString = getPasteboardString;
-
-  // Override the share method to provide a clear error message
-  navigator.share = (_: ShareData): Promise<void> => {
-    return Promise.reject(new Error(
-      'Navigator.share() is not allowed in this context. Use MarkEdit.showSavePanel() instead.',
-    ));
-  };
 
   const modules = {
     'markedit-api': { MarkEdit },

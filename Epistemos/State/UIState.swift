@@ -180,9 +180,9 @@ enum LandingGreetingResolver {
         do {
             if let ws = try context.fetch(
                 FetchDescriptor<SDWorkspace>(predicate: #Predicate<SDWorkspace> { $0.isAutoSave == true })
-            ).first, !ws.summary.isEmpty, ws.summary.count < 120 {
+            ).first, !ws.presentedSummary.isEmpty, ws.presentedSummary.count < 120 {
                 insights.append(LandingGreetingPhrase(
-                    text: ws.summary.lowercased(),
+                    text: ws.presentedSummary.lowercased(),
                     durationSeconds: 3.6
                 ))
             }
@@ -253,19 +253,24 @@ final class UIState {
     // MARK: - Theme
 
     nonisolated static let themePairDefaultsKey = "epistemos.theme.pair"
+    private static let retiredCustomThemeColorSlots = [
+        "background", "text", "accent", "heading", "card", "noteSurface",
+        "chatSurface", "userBubble", "userBubbleText", "secondaryText", "link",
+        "assistantBubbleBg", "border",
+    ]
 
     private var isNormalizingLandingGreetingLibrary = false
 
     var themeMode: ThemeMode = .custom {
         didSet {
-            UserDefaults.standard.set(themeMode.rawValue, forKey: ThemeMode.defaultsKey)
+            FoundationSafety.runtimeUserDefaults.set(themeMode.rawValue, forKey: ThemeMode.defaultsKey)
         }
     }
 
     /// The active theme pair. Drives both light and dark rendering.
     var activePair: ThemePair = .platinumViolet {
         didSet {
-            UserDefaults.standard.set(activePair.rawValue, forKey: Self.themePairDefaultsKey)
+            FoundationSafety.runtimeUserDefaults.set(activePair.rawValue, forKey: Self.themePairDefaultsKey)
         }
     }
 
@@ -274,15 +279,8 @@ final class UIState {
 
     /// The resolved theme for the current system mode — read this everywhere.
     var theme: EpistemosTheme {
-        // Observe the typography revision so a custom-theme FONT/scale override
-        // change (which writes to UserDefaults and bumps this counter via
-        // `refreshTypographySettings()`) actually re-derives the theme and
-        // re-renders every view that reads `ui.theme`. Without this read the
-        // override persisted but nothing re-rendered — the "picking a font does
-        // nothing" bug — because `theme` only depended on `activePair`/`themeMode`/
-        // `isSystemDark`, never on the typography counter. The theme's heading
-        // font getters read `AppDisplayTypography.headingFontOverride(...)` from
-        // UserDefaults at render time, so a fresh derivation picks up the new font.
+        // Keep the typography revision observable so changes to shared display
+        // preferences refresh surfaces that read the resolved theme.
         _ = typographySettingsRevision
         switch themeMode {
         case .systemDefault:
@@ -292,7 +290,6 @@ final class UIState {
         }
     }
 
-    var customThemesEnabled: Bool { themeMode == .custom }
     var preferredColorScheme: ColorScheme? { nil }
     var shouldUseThemeWorkarounds: Bool { false }
     var windowAppearance: NSAppearance? { nil }
@@ -348,8 +345,7 @@ final class UIState {
     //
     // When `homeContent == .greeting` (default), the home window shows
     // the existing LiquidGreeting + command-hint dock. When the user
-    // presses Cmd+G AND `GraphState.graphViewLocation == .embedded`,
-    // this flips to `.graph` and LandingView cross-fades the greeting
+    // chooses Home Graph (Cmd+G), this flips to `.graph` and LandingView cross-fades the greeting
     // out + the embedded graph in (HomeGraphEmbeddedView, with the
     // full graph chrome — canvas, workspace routes, sidebar, inspector,
     // floating controls, FPS HUD).
@@ -360,53 +356,22 @@ final class UIState {
     enum HomeContent: Equatable, Sendable {
         case greeting
         case graph
+        case document(HomeDocumentSelection)
         case meeting
-        case arxiv
-        case browser
-        /// Agent surface home page: each target mounts its native surface on
-        /// this same case.
-        case agent
     }
 
     var homeContent: HomeContent = .greeting
-
-    /// A URL requested from an embedded agent surface (the `epistemos:open-url` bridge) to open in the
-    /// in-app Browser instead of the external browser; the LandingView `.browser` case seeds BrowserView
-    /// with it. Set alongside `homeContent = .browser`.
-    var browserInitialURL: String? = nil
 
     // MARK: - Window Visibility
     /// True when the main window is minimized to the Dock.
     /// Animations (starfield, typewriter) should pause when this is true to save CPU.
     var windowOccluded = false
 
-    // MARK: - Shaped Graph (experimental)
-    //
-    // Per user direction 2026-05-19: opt-in alternative graph rendering
-    // where the graph canvas + inline note view live inside a soft
-    // shape-blur boundary instead of an obvious window. Toggle only —
-    // the current graph view is the default and stays unchanged when
-    // this is off. Default-value is the literal `false` so the @Observable
-    // synthesized init never reads UserDefaults during property layout
-    // (which was tripping "invalid reuse after initialization failure"
-    // in some run paths); the live value is restored in `init()` via
-    // `restoreShapedGraphExperimental()`.
-    nonisolated static let shapedGraphExperimentalDefaultsKey = "epistemos.graph.shapedExperimental"
-
-    var shapedGraphExperimental: Bool = false {
-        didSet {
-            UserDefaults.standard.set(
-                shapedGraphExperimental,
-                forKey: UIState.shapedGraphExperimentalDefaultsKey
-            )
-        }
-    }
-
     // MARK: - Landing Animation
 
     var landingGreetingTypewriterEnabled = LandingGreetingAnimationPolicy.defaultTypewriterEnabled {
         didSet {
-            UserDefaults.standard.set(
+            FoundationSafety.runtimeUserDefaults.set(
                 landingGreetingTypewriterEnabled,
                 forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
             )
@@ -416,7 +381,7 @@ final class UIState {
 
     var landingGreetingSourceMode = LandingGreetingSourceMode.defaultValue {
         didSet {
-            UserDefaults.standard.set(
+            FoundationSafety.runtimeUserDefaults.set(
                 landingGreetingSourceMode.rawValue,
                 forKey: LandingGreetingLibraryPolicy.sourceModeDefaultsKey
             )
@@ -453,19 +418,13 @@ final class UIState {
         restoreThemeDefaults()
         clearLegacyLandingGreetingDefaults()
         readableFontsEnabled = AppDisplayTypography.readableFontsEnabled()
-        // Shaped Graph experimental — read after baseline storage is up.
-        // didSet writes back to UserDefaults, but we set the in-memory flag
-        // directly here to avoid an unnecessary echo write on every launch.
-        shapedGraphExperimental = UserDefaults.standard.bool(
-            forKey: UIState.shapedGraphExperimentalDefaultsKey
-        )
-        if let storedGreetingSourceMode = UserDefaults.standard.string(
+        if let storedGreetingSourceMode = FoundationSafety.runtimeUserDefaults.string(
             forKey: LandingGreetingLibraryPolicy.sourceModeDefaultsKey
         ),
             let sourceMode = LandingGreetingSourceMode(rawValue: storedGreetingSourceMode) {
             landingGreetingSourceMode = sourceMode
         }
-        if let storedGreetings = UserDefaults.standard.data(
+        if let storedGreetings = FoundationSafety.runtimeUserDefaults.data(
             forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
         ) {
             do {
@@ -477,23 +436,23 @@ final class UIState {
                 Self.log.error(
                     "UIState: failed to decode custom landing greetings: \(error.localizedDescription, privacy: .public)"
                 )
-                UserDefaults.standard.removeObject(
+                FoundationSafety.runtimeUserDefaults.removeObject(
                     forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
                 )
             }
         }
-        let legacyGreetingAnimationEnabled: Bool? = if UserDefaults.standard.object(
+        let legacyGreetingAnimationEnabled: Bool? = if FoundationSafety.runtimeUserDefaults.object(
             forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
         ) != nil {
-            UserDefaults.standard.bool(forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey)
+            FoundationSafety.runtimeUserDefaults.bool(forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey)
         } else {
             nil
         }
 
-        if UserDefaults.standard.object(
+        if FoundationSafety.runtimeUserDefaults.object(
             forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
         ) != nil {
-            landingGreetingTypewriterEnabled = UserDefaults.standard.bool(
+            landingGreetingTypewriterEnabled = FoundationSafety.runtimeUserDefaults.bool(
                 forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
             )
         } else if let legacyGreetingAnimationEnabled {
@@ -505,7 +464,8 @@ final class UIState {
     // MARK: - Theme Methods
 
     private func restoreThemeDefaults() {
-        let defaults = UserDefaults.standard
+        let defaults = FoundationSafety.runtimeUserDefaults
+        clearRetiredCustomThemePreferences(defaults: defaults)
         if let rawMode = defaults.string(forKey: ThemeMode.defaultsKey),
             let storedMode = ThemeMode(rawValue: rawMode) {
             themeMode = storedMode == .systemDefault ? .custom : storedMode
@@ -514,12 +474,27 @@ final class UIState {
             themeMode = .custom
         }
 
-        if let rawPair = defaults.string(forKey: Self.themePairDefaultsKey),
+        if defaults.string(forKey: Self.themePairDefaultsKey) == "custom" {
+            activePair = .platinumViolet
+        } else if let rawPair = defaults.string(forKey: Self.themePairDefaultsKey),
             let storedPair = ThemePair(rawValue: rawPair) {
             activePair = storedPair
         } else {
             defaults.removeObject(forKey: Self.themePairDefaultsKey)
             activePair = .platinumViolet
+        }
+    }
+
+    private func clearRetiredCustomThemePreferences(defaults: UserDefaults) {
+        defaults.removeObject(forKey: "epistemos.theme.customExperimentalEnabled")
+        for slot in Self.retiredCustomThemeColorSlots {
+            defaults.removeObject(forKey: "epistemos.customTheme.\(slot)")
+            defaults.removeObject(forKey: "epistemos.customTheme.light.\(slot)")
+            defaults.removeObject(forKey: "epistemos.customTheme.dark.\(slot)")
+        }
+        for level in 1...3 {
+            defaults.removeObject(forKey: "epistemos.typography.heading.h\(level).fontName")
+            defaults.removeObject(forKey: "epistemos.typography.heading.h\(level).scale")
         }
     }
 
@@ -552,12 +527,12 @@ final class UIState {
             "epistemos.landingGreetingScale",
         ]
         for key in legacyKeys {
-            UserDefaults.standard.removeObject(forKey: key)
+            FoundationSafety.runtimeUserDefaults.removeObject(forKey: key)
         }
     }
 
     private func persistLegacyLandingGreetingAnimationToggle() {
-        UserDefaults.standard.set(
+        FoundationSafety.runtimeUserDefaults.set(
             landingGreetingTypewriterEnabled,
             forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
         )
@@ -569,10 +544,6 @@ final class UIState {
 
     func setThemeMode(_ mode: ThemeMode) {
         themeMode = mode
-    }
-
-    func setCustomThemesEnabled(_ enabled: Bool) {
-        themeMode = enabled ? .custom : .systemDefault
     }
 
     func setReadableFontsEnabled(_ enabled: Bool) {
@@ -678,7 +649,7 @@ final class UIState {
             )
             return
         }
-        UserDefaults.standard.set(
+        FoundationSafety.runtimeUserDefaults.set(
             encodedGreetings,
             forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
         )

@@ -139,9 +139,6 @@ struct LiquidGreeting: View {
     }
 
     private func landingHeroText(_ text: String, boxed: Bool) -> String {
-        if AppCustomTheme.isActive {
-            return text.uppercased()
-        }
         // Owner 2026-07-03: Classic AND Platinum greetings now match Ember's case
         // treatment — line 1 ("Greetings,") uppercased, line 2 ("Researcher")
         // lowercased. Scoped here (not the shared boxedLabelText/plainLabelText, which

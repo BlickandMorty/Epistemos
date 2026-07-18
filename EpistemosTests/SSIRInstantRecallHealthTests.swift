@@ -35,7 +35,7 @@ struct SSIRInstantRecallHealthTests {
     func installCarriesThroughInitFailure() {
         let diag = ShadowSearchDiagnostics()
         diag.recordInstall(vaultPresent: true, serviceInstalled: true, indexedDocumentCount: 7)
-        diag.recordInitFailure(class: .embedderWarm)
+        diag.recordInitFailure(class: .handleOpen)
         let s = diag.snapshot()
         #expect(s.vaultPresent)
         #expect(s.serviceInstalled)

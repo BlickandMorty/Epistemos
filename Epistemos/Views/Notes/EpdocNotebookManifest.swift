@@ -1,9 +1,7 @@
 import Foundation
-import SwiftUI
 
 nonisolated struct EpdocNotebookManifest: Equatable, Sendable {
     static let bodyTabID = "epdoc-notebook-body"
-    static let launcherTabID = "epdoc-notebook-launcher"
     static let fenceInfoString = "epistemos-notebook"
     static let frontmatterKey = "_epistemos_notebook"
     private static let manifestScanLimitUTF16 = 65_536
@@ -17,25 +15,9 @@ nonisolated struct EpdocNotebookManifest: Equatable, Sendable {
         case frontmatter(startLine: Int, charOffset: Int)
     }
 
-    var hasReferenceTabs: Bool {
-        !tabs.isEmpty
-    }
-
-    var selectableTabIDs: [String] {
-        [Self.bodyTabID] + tabs.map(\.id) + [Self.launcherTabID]
-    }
-
-    static var bodyTab: EpdocNotebookTab {
-        EpdocNotebookTab(
-            id: Self.bodyTabID,
-            kind: .body,
-            version: 1,
-            title: "Body",
-            reference: "note-body",
-            line: 1,
-            charOffset: 0,
-            rawLine: "body"
-        )
+    static func normalizedFreeV1SelectedTabID(_ selectedTabID: String) -> String {
+        guard selectedTabID == bodyTabID else { return bodyTabID }
+        return bodyTabID
     }
 
     nonisolated static func parse(in markdown: String) -> EpdocNotebookManifest {
@@ -216,6 +198,7 @@ nonisolated struct EpdocNotebookTab: Identifiable, Equatable, Sendable {
     var containsInlineRowData: Bool {
         EpdocNotebookInlineRowDataGuard.contains(in: rawLine)
     }
+
 }
 
 nonisolated enum EpdocNotebookTabKind: Equatable, Sendable {
@@ -263,19 +246,6 @@ nonisolated enum EpdocNotebookTabKind: Equatable, Sendable {
         }
     }
 
-    var symbolName: String {
-        switch self {
-        case .body:
-            "doc.text"
-        case .sheet:
-            "tablecells"
-        case .chat:
-            "bubble.left.and.bubble.right"
-        case .unknown:
-            "questionmark.square.dashed"
-        }
-    }
-
     var isKnown: Bool {
         switch self {
         case .body, .sheet, .chat:
@@ -311,6 +281,7 @@ nonisolated struct EpdocNotebookBlockReference: Equatable, Sendable {
     var containsInlineRowData: Bool {
         EpdocNotebookInlineRowDataGuard.contains(in: rawLine)
     }
+
 }
 
 nonisolated enum EpdocNotebookReferenceParser {
@@ -369,16 +340,6 @@ nonisolated private enum EpdocNotebookInlineRowDataGuard {
                     .lowercased()
             )
         }
-    }
-}
-
-nonisolated struct EpdocNotebookBuildCapabilities: Equatable, Sendable {
-    static var isChatTabContentAvailable: Bool {
-        #if KINDRED_ENABLED
-        true
-        #else
-        false
-        #endif
     }
 }
 
@@ -639,168 +600,5 @@ nonisolated private struct YAMLFrontmatterBlock: Equatable, Sendable {
     private static func markerLine(in text: String, bounds: LineBounds) -> String {
         String(text[bounds.contentStart..<bounds.contentEnd])
             .trimmingCharacters(in: .whitespaces)
-    }
-}
-
-struct EpdocNotebookTabStrip: View {
-    let manifest: EpdocNotebookManifest
-    let selectedTabID: String
-    let theme: EpistemosTheme
-    let selectTab: (String) -> Void
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                tabButton(EpdocNotebookManifest.bodyTab)
-                ForEach(manifest.tabs) { tab in
-                    tabButton(tab)
-                }
-                launcherButton
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-        }
-        .background(MarkdownPreviewSurfaceStyle.solidFlatBackground(for: theme.surfaceVariant(.other)))
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(theme.glassBorder.opacity(theme.isDark ? 0.42 : 0.55))
-                .frame(height: 0.75)
-        }
-    }
-
-    private func tabButton(_ tab: EpdocNotebookTab) -> some View {
-        let isActive = selectedTabID == tab.id
-        return Button {
-            selectTab(tab.id)
-        } label: {
-            Label(tab.title, systemImage: tab.kind.symbolName)
-                .font(.system(size: 12, weight: isActive ? .semibold : .medium))
-                .lineLimit(1)
-                .labelStyle(.titleAndIcon)
-                .padding(.horizontal, 9)
-                .frame(height: 28)
-                .foregroundStyle(isActive ? theme.resolved.accent.color : theme.resolved.foreground.color.opacity(0.78))
-                .background {
-                    Capsule()
-                        .fill(isActive ? theme.resolved.accent.color.opacity(0.14) : Color.clear)
-                }
-                .overlay {
-                    Capsule()
-                        .strokeBorder(
-                            isActive ? theme.resolved.accent.color.opacity(0.36) : theme.glassBorder.opacity(0.34),
-                            lineWidth: 0.75
-                        )
-                }
-        }
-        .buttonStyle(.plain)
-        .help(tab.title)
-    }
-
-    private var launcherButton: some View {
-        Button {
-            selectTab(EpdocNotebookManifest.launcherTabID)
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 12, weight: .semibold))
-                .frame(width: 28, height: 28)
-                .foregroundStyle(
-                    selectedTabID == EpdocNotebookManifest.launcherTabID
-                        ? theme.resolved.accent.color
-                        : theme.resolved.foreground.color.opacity(0.78)
-                )
-                .background {
-                    Circle()
-                        .fill(
-                            selectedTabID == EpdocNotebookManifest.launcherTabID
-                                ? theme.resolved.accent.color.opacity(0.14)
-                                : Color.clear
-                        )
-                }
-                .overlay {
-                    Circle()
-                        .strokeBorder(theme.glassBorder.opacity(0.42), lineWidth: 0.75)
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("New tab")
-        .help("New tab")
-    }
-}
-
-struct EpdocNotebookLauncherPane: View {
-    let theme: EpistemosTheme
-
-    var body: some View {
-        VStack(spacing: 18) {
-            Image(systemName: "plus.square.on.square")
-                .font(.system(size: 32, weight: .medium))
-                .foregroundStyle(theme.resolved.accent.color)
-            HStack(spacing: 10) {
-                launcherAction(title: "Sheet", symbol: "tablecells")
-                launcherAction(title: "Chat", symbol: "bubble.left.and.bubble.right")
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(MarkdownPreviewSurfaceStyle.solidFlatBackground(for: theme.surfaceVariant(.other)))
-    }
-
-    private func launcherAction(title: String, symbol: String) -> some View {
-        Button {} label: {
-            Label(title, systemImage: symbol)
-                .frame(width: 112, height: 34)
-        }
-        .buttonStyle(.bordered)
-        .disabled(true)
-        .help(title)
-    }
-}
-
-struct EpdocNotebookReferencePane: View {
-    let tab: EpdocNotebookTab
-    let theme: EpistemosTheme
-
-    var body: some View {
-        ContentUnavailableView {
-            Label(tab.title, systemImage: tab.kind.symbolName)
-        } description: {
-            Text(description)
-        } actions: {
-            Button {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(tab.canonicalReferenceLine, forType: .string)
-            } label: {
-                Label("Copy Reference", systemImage: "doc.on.doc")
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(MarkdownPreviewSurfaceStyle.solidFlatBackground(for: theme.surfaceVariant(.other)))
-    }
-
-    private var description: String {
-        if !tab.isStableID {
-            return "The tab reference has no stable UUID."
-        }
-        if tab.version != 1 {
-            return "This tab uses a newer reference version."
-        }
-        if !tab.kind.isKnown {
-            return "This tab type is not installed."
-        }
-        if tab.reference.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "The tab reference is empty."
-        }
-        switch tab.kind {
-        case .body:
-            return "The note body is open in the Body tab."
-        case .sheet:
-            return "The sheet mount is not available for this reference."
-        case .chat:
-            if EpdocNotebookBuildCapabilities.isChatTabContentAvailable {
-                return "The chat mount is not available for this reference."
-            }
-            return "Chat tabs are degraded on this build."
-        case .unknown:
-            return "This reference is preserved as a tombstone."
-        }
     }
 }

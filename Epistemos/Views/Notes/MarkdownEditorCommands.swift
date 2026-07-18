@@ -256,6 +256,38 @@ enum MarkdownEditorCommands {
         )
     }
 
+    static func mappedSelection(
+        _ selection: NSRange,
+        replacing replacementRange: NSRange,
+        replacementUTF16Length: Int
+    ) -> NSRange {
+        let replacementStart = max(0, replacementRange.location)
+        let replacedLength = max(0, replacementRange.length)
+        let replacementEnd = replacementStart + replacedLength
+        let newLength = max(0, replacementUTF16Length)
+        let delta = newLength - replacedLength
+
+        func mappedOffset(_ rawOffset: Int) -> Int {
+            let offset = max(0, rawOffset)
+            if offset <= replacementStart {
+                return offset
+            }
+            if offset >= replacementEnd {
+                return max(0, offset + delta)
+            }
+            return replacementStart + min(offset - replacementStart, newLength)
+        }
+
+        let selectionStart = max(0, selection.location)
+        let selectionEnd = selectionStart + max(0, selection.length)
+        let mappedStart = mappedOffset(selectionStart)
+        let mappedEnd = mappedOffset(selectionEnd)
+        return NSRange(
+            location: min(mappedStart, mappedEnd),
+            length: abs(mappedEnd - mappedStart)
+        )
+    }
+
     static func continuedInsertion(for line: String) -> Continuation? {
         let trimmedLine = line.replacingOccurrences(of: "\r", with: "")
         let lineBody = trimmedLine.hasSuffix("\n") ? String(trimmedLine.dropLast()) : trimmedLine

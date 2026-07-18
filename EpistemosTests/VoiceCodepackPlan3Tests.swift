@@ -183,7 +183,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(!readAloud.contains("Color.secondary.opacity"))
 
         #expect(facade.contains("EpistemosSpeechAnalyzer.shared.startLive"))
-        #expect(facade.contains("EpistemosSpeechAnalyzer.shared.stop()"))
+        #expect(facade.contains("EpistemosSpeechAnalyzer.shared.stop(sessionID:"))
         #expect(facade.contains("@available(macOS 26.0, *)"))
         #expect(facade.contains("modelDownloadProgress"))
         #expect(facade.contains("finalTranscriptBuffer"))
@@ -211,6 +211,88 @@ struct VoiceCodepackPlan3Tests {
         #expect(!analyzer.contains("error.localizedDescription"))
         #expect(!analyzer.contains("throw SpeechError.downloadFailed(error.localizedDescription)"))
         #expect(!analyzer.contains("throw SpeechError.audioEngineFailed(error.localizedDescription)"))
+    }
+
+    @Test("voice capture leases reject preemption and non-owner release")
+    func voiceCaptureLeaseRegistryIsExactOwnerOnly() throws {
+        var registry = VoiceCaptureLeaseRegistry()
+        let quickCaptureID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+        let meetingID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
+        let quickCapture = VoiceCaptureLease(
+            id: quickCaptureID,
+            purpose: .quickCapture
+        )
+        let meeting = VoiceCaptureLease(
+            id: meetingID,
+            purpose: .meeting
+        )
+
+        #expect(registry.reserve(quickCapture) == .acquired)
+        #expect(registry.reserve(quickCapture) == .alreadyOwned)
+        #expect(registry.reserve(meeting) == .busy(.quickCapture))
+        #expect(registry.owns(quickCapture))
+        #expect(!registry.owns(meeting))
+        #expect(!registry.release(meeting))
+        #expect(registry.owns(quickCapture))
+        #expect(registry.release(quickCapture))
+        #expect(registry.reserve(meeting) == .acquired)
+        #expect(registry.owns(meeting))
+    }
+
+    @Test("live voice stop, consume, and teardown reject non-owners before mutation")
+    func liveVoiceLifecycleMutationsAreExactOwnerOnly() throws {
+        let facade = try loadMirroredSourceTextFile("Epistemos/Engine/LiveVoiceInputService.swift")
+        let stopStart = try #require(facade.range(of: "public func stop(owner: VoiceCaptureLease)")?.lowerBound)
+        let tearDownStart = try #require(facade.range(of: "public func tearDown(owner: VoiceCaptureLease)")?.lowerBound)
+        let consumeStart = try #require(facade.range(of: "public func consumeTranscript(owner: VoiceCaptureLease)")?.lowerBound)
+        let privateStart = try #require(facade.range(of: "private func isCurrentStart(")?.lowerBound)
+
+        let stopBody = facade[stopStart..<tearDownStart]
+        let stopGuard = try #require(stopBody.range(of: "guard leaseRegistry.owns(owner) else { return }")?.lowerBound)
+        let stopMutation = try #require(stopBody.range(of: "promotePartialTranscriptForStop()")?.lowerBound)
+        #expect(stopGuard < stopMutation)
+
+        let tearDownBody = facade[tearDownStart..<consumeStart]
+        let tearDownGuard = try #require(tearDownBody.range(of: "guard leaseRegistry.owns(owner) else { return }")?.lowerBound)
+        let tearDownMutation = try #require(tearDownBody.range(of: "stop(owner: owner)")?.lowerBound)
+        #expect(tearDownGuard < tearDownMutation)
+        #expect(tearDownBody.contains("leaseRegistry.release(owner)"))
+
+        let consumeBody = facade[consumeStart..<privateStart]
+        let consumeGuard = try #require(consumeBody.range(of: "guard leaseRegistry.owns(owner) else { return nil }")?.lowerBound)
+        let consumeMutation = try #require(consumeBody.range(of: "finalTranscriptBuffer.removeAll()")?.lowerBound)
+        #expect(consumeGuard < consumeMutation)
+
+        #expect(!facade.contains("public func stop()"))
+        #expect(!facade.contains("public func tearDown()"))
+        #expect(!facade.contains("public func consumeTranscript()"))
+    }
+
+    @Test("stale analyzer stream termination cannot stop a replacement session")
+    func analyzerTerminationIsScopedToItsOriginatingSession() throws {
+        let analyzer = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechAnalyzer.swift")
+        let terminationStart = try #require(analyzer.range(of: "resultsCont.onTermination =")?.lowerBound)
+        let resultsTaskStart = try #require(analyzer.range(of: "self.resultsTask =", range: terminationStart..<analyzer.endIndex)?.lowerBound)
+        let beginSessionStart = try #require(analyzer.range(of: "private func beginSession(")?.lowerBound)
+        let requireSessionStart = try #require(analyzer.range(of: "private func requireCurrentSession(")?.lowerBound)
+        let stopInternalStart = try #require(analyzer.range(of: "private func stopInternal(sessionID: UUID)")?.lowerBound)
+        let tearDownResourcesStart = try #require(analyzer.range(of: "private func tearDownCurrentResources()")?.lowerBound)
+
+        let terminationBody = analyzer[terminationStart..<resultsTaskStart]
+        #expect(terminationBody.contains("self?.stopInternal(sessionID: sessionID)"))
+        #expect(!terminationBody.contains("tearDownCurrentResources()"))
+
+        let beginSessionBody = analyzer[beginSessionStart..<requireSessionStart]
+        let priorStop = try #require(beginSessionBody.range(of: "stopInternal(sessionID: activeSessionID)")?.lowerBound)
+        let replacementAdmission = try #require(beginSessionBody.range(of: "activeSessionID = sessionID")?.lowerBound)
+        #expect(priorStop < replacementAdmission)
+
+        let stopInternalBody = analyzer[stopInternalStart..<tearDownResourcesStart]
+        let sessionGuard = try #require(stopInternalBody.range(of: "guard activeSessionID == sessionID else { return }")?.lowerBound)
+        let sessionClear = try #require(stopInternalBody.range(of: "activeSessionID = nil")?.lowerBound)
+        let resourceMutation = try #require(stopInternalBody.range(of: "tearDownCurrentResources()")?.lowerBound)
+        #expect(sessionGuard < sessionClear)
+        #expect(sessionClear < resourceMutation)
     }
 
     @Test("live voice transcript helpers enforce the capture text envelope")
@@ -493,12 +575,12 @@ struct VoiceCodepackPlan3Tests {
     func voiceButtonGatesSharedTranscriptCallbacksToCaptureOwner() throws {
         let button = try loadMirroredSourceTextFile("Epistemos/Views/Shared/VoiceInputButton.swift")
 
-        #expect(button.contains("@State private var ownsCapture = false"))
-        #expect(button.contains("guard ownsCapture, !newValue.isEmpty else { return }\n            onPartial(newValue)"))
-        #expect(button.contains("guard ownsCapture, !newValue.isEmpty else { return }\n            if let transcript = service.consumeTranscript()"))
-        #expect(button.contains("ownsCapture = true\n        phase = .requesting"))
-        #expect(button.contains("if ownsCapture {\n            service.tearDown()"))
-        #expect(button.contains("ownsCapture = false"))
+        #expect(button.contains("@State private var activeLease: VoiceCaptureLease?"))
+        #expect(button.contains("service.isOwner(activeLease)"))
+        #expect(button.contains("service.consumeTranscript(owner: activeLease)"))
+        #expect(button.contains("let owner = VoiceCaptureLease(purpose: purpose)"))
+        #expect(button.contains("service.stop(owner: owner)"))
+        #expect(button.contains("service.tearDown(owner:"))
     }
 
     @Test("voice settings surface uses native controls and theme tint")

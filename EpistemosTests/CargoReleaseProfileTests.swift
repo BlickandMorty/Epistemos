@@ -30,7 +30,7 @@ struct CargoReleaseProfileTests {
         "graph-engine",
         // "omega-ax" crate removed with cloud-only/Omega removal 2026-07-03
         "syntax-core",
-        "substrate-rt",  // Wave 5: ering_* C ABI wraps every entry in catch_unwind
+        "substrate-rt",  // Wave 5: its C ABI wraps every entry in catch_unwind
         "epistemos-shadow",  // Wave 8: shadow_* C ABI wraps every entry in catch_unwind
         "epistemos-code-index",  // Wave 9.7: codeindex_* C ABI wraps every entry in catch_unwind
     ]

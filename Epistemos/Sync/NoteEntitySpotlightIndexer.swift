@@ -84,11 +84,13 @@ public enum NoteEntitySpotlightIndexer {
     /// Spotlight reindex loop alongside the legacy CSSearchableItem
     /// indexing pass. Idempotent — re-donating the same entity by id
     /// updates the existing index row.
-    static func indexBulk(_ entities: [NoteEntity]) async {
-        guard !entities.isEmpty else { return }
+    @discardableResult
+    static func indexBulk(_ entities: [NoteEntity]) async -> Bool {
+        guard !entities.isEmpty else { return true }
         do {
             try await CSSearchableIndex.default().indexAppEntities(entities)
             log.info("indexAppEntities donated \(entities.count, privacy: .public) note entities")
+            return true
         } catch {
             let message = NoteEntitySpotlightDiagnostics.logMessage(
                 for: error,
@@ -97,6 +99,7 @@ public enum NoteEntitySpotlightIndexer {
             log.error(
                 "\(message, privacy: .public)"
             )
+            return false
         }
     }
 
@@ -105,7 +108,7 @@ public enum NoteEntitySpotlightIndexer {
     /// from NotesSidebar create/save call sites + VaultIndexActor's
     /// per-page persist path.
     static func donate(_ entity: NoteEntity) async {
-        await indexBulk([entity])
+        _ = await indexBulk([entity])
     }
 
     /// Remove a NoteEntity from the Spotlight index. Call when a
@@ -113,14 +116,29 @@ public enum NoteEntitySpotlightIndexer {
     static func unindex(noteIds: [String]) async {
         guard !noteIds.isEmpty else { return }
         do {
-            try await CSSearchableIndex.default().deleteSearchableItems(
-                withIdentifiers: noteIds
-            )
-            log.info("deleteSearchableItems removed \(noteIds.count, privacy: .public) note ids")
+            try await CSSearchableIndex.default().deleteAppEntities(identifiedBy: noteIds, ofType: NoteEntity.self)
+            log.info("deleteAppEntities removed \(noteIds.count, privacy: .public) typed note ids")
         } catch {
             let message = NoteEntitySpotlightDiagnostics.logMessage(
                 for: error,
-                fallback: "deleteSearchableItems failed"
+                fallback: "deleteAppEntities failed"
+            )
+            log.error(
+                "\(message, privacy: .public)"
+            )
+        }
+    }
+
+    /// Remove all donated NoteEntity rows while preserving the separate legacy
+    /// Spotlight domain owned by SpotlightIndexer.
+    static func removeAll() async {
+        do {
+            try await CSSearchableIndex.default().deleteAppEntities(ofType: NoteEntity.self)
+            log.info("deleteAppEntities removed all typed note entities")
+        } catch {
+            let message = NoteEntitySpotlightDiagnostics.logMessage(
+                for: error,
+                fallback: "deleteAppEntities type-wide removal failed"
             )
             log.error(
                 "\(message, privacy: .public)"

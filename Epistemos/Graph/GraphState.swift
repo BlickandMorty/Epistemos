@@ -1,5 +1,7 @@
 import Foundation
+#if !EPISTEMOS_FREE_V1
 import NaturalLanguage
+#endif
 import os
 import SwiftData
 
@@ -557,40 +559,6 @@ enum GraphStartupViewMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - Graph View Location (Phase 1 — embed-in-home)
-
-/// Where the graph renders when the user presses Cmd+G.
-///
-/// `.miniPanel` — the existing floating panel (HologramController.shared.toggle())
-/// `.embedded`  — inline inside the home/landing window, replaces the greeting
-///                with full graph chrome (canvas + workspace routes + sidebar
-///                + inspector + floating controls), background = resolved background
-///                (no NSVisualEffectView blur). UI lives in
-///                `Epistemos/Views/Home/HomeGraphEmbeddedView.swift`.
-///
-/// Only ONE mode is ever active at a time. Flipping this setting closes the
-/// active graph; the next Cmd+G opens whichever mode the setting now names.
-enum GraphViewLocation: String, Codable, CaseIterable, Identifiable, Sendable {
-    case miniPanel
-    case embedded
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .miniPanel: return "Mini floating panel"
-        case .embedded:  return "Embedded in home"
-        }
-    }
-
-    var subtitle: String {
-        switch self {
-        case .miniPanel: return "Separate floating window, frosted blur backdrop (default)."
-        case .embedded:  return "Replaces the home greeting. Background uses the landing color, no blur. Cmd+G again returns to the greeting."
-        }
-    }
-}
-
 // MARK: - Physics Scheduler Types
 
 enum PhysicsSchedulerMode: String, Codable {
@@ -672,6 +640,11 @@ enum GraphVaultMode: String, CaseIterable, Sendable {
 // Physics and rendering are handled by the Rust engine via Metal.
 // Injected into the environment for the hologram overlay and its subviews.
 
+struct SemanticSearchQueryResult {
+    let hits: [GraphStore.SearchHit]
+    let queryEmbedding: [Float]
+}
+
 @MainActor @Observable
 final class GraphState {
     // Per user 2026-05-12: bump to version 3 to migrate Observatory-era
@@ -686,6 +659,8 @@ final class GraphState {
     private static let schedulerDefaultsVersion = 3
     private static let schedulerDefaultsVersionKey = "epistemos.physics.schedulerDefaultsVersion"
     private static let nodeVisibilityDefaultsKey = "epistemos.graph.visibleNodeTypes"
+    private static let nodeVisibilityDefaultsVersionKey = "epistemos.graph.visibleNodeTypes.version"
+    private static let nodeVisibilityDefaultsVersion = 1
 
     static let userFilterableNodeTypes: [GraphNodeType] = GraphNodeType.visibleCases
 
@@ -763,6 +738,12 @@ final class GraphState {
         case .folder:
             selectNode(nil)
             openFolder(resolvedId)
+        case .document:
+            selectNode(id)
+            _ = EpdocDocumentOpening.openDocument(
+                withManifestID: resolvedId,
+                vaultURL: AppBootstrap.shared?.vaultSync.vaultURL
+            )
         default:
             selectNode(id)
         }
@@ -813,7 +794,7 @@ final class GraphState {
         defaults.set(true, forKey: visualThemeMigrationDefaultsKey)
     }
 
-    private static func restoredVisualTheme(defaults: UserDefaults = .standard) -> GraphVisualTheme {
+    private static func restoredVisualTheme(defaults: UserDefaults = FoundationSafety.runtimeUserDefaults) -> GraphVisualTheme {
         guard let storedValue = defaults.object(forKey: visualThemeDefaultsKey) as? NSNumber else {
             return .classic
         }
@@ -868,7 +849,7 @@ final class GraphState {
         embeddingService.preparedRetrievalExecutionMode
     }
     var semanticClusteringAvailable: Bool {
-        preparedRetrievalExecutionMode.usesSwiftEmbeddingFallback
+        embeddingService.isSwiftEmbeddingFallbackAvailable
     }
     private var isRestoringPhysicsSettings = false
     private var overlayPhysicsTask: Task<Void, Never>?
@@ -959,9 +940,6 @@ final class GraphState {
     var isWarmed = false
     /// True after the entrance animation has played once. Prevents replay on re-open.
     var hasPlayedEntrance = false
-    var isScanning = false
-    var scanProgress: Double = 0  // 0.0-1.0
-    var scanStatus: String = ""
     var selectedNodeId: String?
     /// When true, the inspector should switch to editor mode on the next selection update.
     var requestEditorMode = false
@@ -1082,7 +1060,8 @@ final class GraphState {
     func requestFilterSync() { filterVersion += 1 }
 
     func isNodeTypeVisible(_ type: GraphNodeType) -> Bool {
-        filter.activeNodeTypes.contains(type)
+        ProductCapabilityPolicy.allowsGraphProjection(of: type)
+            && filter.activeNodeTypes.contains(type)
     }
 
     func setNodeTypeVisibility(_ type: GraphNodeType, isVisible: Bool) {
@@ -1123,14 +1102,27 @@ final class GraphState {
         let visibleRawValues = Self.userFilterableNodeTypes
             .filter { filter.activeNodeTypes.contains($0) }
             .map(\.rawValue)
-        UserDefaults.standard.set(visibleRawValues, forKey: Self.nodeVisibilityDefaultsKey)
+        let defaults = FoundationSafety.runtimeUserDefaults
+        defaults.set(visibleRawValues, forKey: Self.nodeVisibilityDefaultsKey)
+        defaults.set(Self.nodeVisibilityDefaultsVersion, forKey: Self.nodeVisibilityDefaultsVersionKey)
     }
 
     private func restoreGraphNodeVisibility() {
-        guard let visibleRawValues = UserDefaults.standard.array(forKey: Self.nodeVisibilityDefaultsKey) as? [String] else {
+        let defaults = FoundationSafety.runtimeUserDefaults
+        guard var visibleRawValues = defaults.array(forKey: Self.nodeVisibilityDefaultsKey) as? [String] else {
+            defaults.set(Self.nodeVisibilityDefaultsVersion, forKey: Self.nodeVisibilityDefaultsVersionKey)
             return
         }
         let allowedTypes = Set(Self.userFilterableNodeTypes)
+        let storedVersion = defaults.integer(forKey: Self.nodeVisibilityDefaultsVersionKey)
+        if storedVersion < Self.nodeVisibilityDefaultsVersion {
+            if allowedTypes.contains(GraphNodeType.document),
+               !visibleRawValues.contains(GraphNodeType.document.rawValue) {
+                visibleRawValues.append(GraphNodeType.document.rawValue)
+            }
+            defaults.set(visibleRawValues, forKey: Self.nodeVisibilityDefaultsKey)
+            defaults.set(Self.nodeVisibilityDefaultsVersion, forKey: Self.nodeVisibilityDefaultsVersionKey)
+        }
         var nextTypes = filter.activeNodeTypes.subtracting(allowedTypes)
         for rawValue in visibleRawValues {
             guard let type = GraphNodeType(rawValue: rawValue),
@@ -1186,9 +1178,6 @@ final class GraphState {
         isLoaded = false
         isWarmed = false
         hasPlayedEntrance = false
-        isScanning = false
-        scanProgress = 0
-        scanStatus = ""
         needsRefresh = false
         mode = .global
         modeVersion += 1
@@ -1238,18 +1227,16 @@ final class GraphState {
 
     private static let performanceModeDefaultsKey = "epistemos.graph.performanceMode"
 
-    private static func restoredPerformanceModeEnabled(defaults: UserDefaults = .standard) -> Bool {
-        guard defaults.object(forKey: performanceModeDefaultsKey) != nil else {
-            return false
-        }
-        return defaults.bool(forKey: performanceModeDefaultsKey)
+    private static func restoredPerformanceModeEnabled(defaults: UserDefaults = FoundationSafety.runtimeUserDefaults) -> Bool {
+        defaults.removeObject(forKey: performanceModeDefaultsKey)
+        return true
     }
 
-    /// Graph-only runtime render mode. Default remains the polished cinematic path.
+    /// Graph-only runtime render mode. New sessions begin on the responsive path.
     var performanceModeEnabled: Bool = false {
         didSet {
             guard performanceModeEnabled != oldValue else { return }
-            UserDefaults.standard.set(performanceModeEnabled, forKey: Self.performanceModeDefaultsKey)
+            FoundationSafety.runtimeUserDefaults.set(performanceModeEnabled, forKey: Self.performanceModeDefaultsKey)
             liteModeVersion += 1
             waterNodesVersion += 1
             notifyGraphRenderSettingsChanged()
@@ -1275,9 +1262,8 @@ final class GraphState {
 
     // MARK: - Frame Rate Cap (2026-05-20)
     //
-    // Lets the user trade FPS for battery. 0 = "Unlimited" — the
-    // CADisplayLink keeps preferredFrameRateRange at 60-120 (ProMotion
-    // adaptive). Otherwise we clamp the link to the chosen value.
+    // New sessions begin uncapped and use the display's highest available
+    // ProMotion range. In-graph controls may temporarily select a lower cap.
     //
     // Read in MetalGraphView.startDisplayLink. Changes take effect on
     // the next graph-overlay show / display-link restart (cheap;
@@ -1286,7 +1272,6 @@ final class GraphState {
     static let graphMaxFPSDefaultsKey = "epistemos.graph.maxFPS"
     static let graphFPSHUDDefaultsKey = "epistemos.graph.showFPSHUD"
     static let graphForceMaximumFPSDefaultsKey = "epistemos.graph.forceMaximumFPS"
-    static let graphViewLocationDefaultsKey = "epistemos.graph.viewLocation"
 
     /// 0 = Unlimited (ProMotion adaptive 60-120). Other accepted values: 30, 60, 120.
     /// Stored-property initializer references the type by full name
@@ -1295,7 +1280,7 @@ final class GraphState {
     var graphMaxFPS: Int = GraphState.restoredGraphMaxFPS() {
         didSet {
             guard graphMaxFPS != oldValue else { return }
-            UserDefaults.standard.set(graphMaxFPS, forKey: Self.graphMaxFPSDefaultsKey)
+            FoundationSafety.runtimeUserDefaults.set(graphMaxFPS, forKey: Self.graphMaxFPSDefaultsKey)
             graphFPSConfigVersion &+= 1
             notifyGraphRenderSettingsChanged()
         }
@@ -1305,40 +1290,21 @@ final class GraphState {
     var graphFPSHUDEnabled: Bool = GraphState.restoredGraphFPSHUDEnabled() {
         didSet {
             guard graphFPSHUDEnabled != oldValue else { return }
-            UserDefaults.standard.set(graphFPSHUDEnabled, forKey: Self.graphFPSHUDDefaultsKey)
+            FoundationSafety.runtimeUserDefaults.set(graphFPSHUDEnabled, forKey: Self.graphFPSHUDDefaultsKey)
         }
     }
 
-    /// Where Cmd+G opens the graph. `.miniPanel` = the existing floating
-    /// window (HologramController). `.embedded` = inline inside the home
-    /// window, replacing the greeting until dismissed. See
-    /// `GraphViewLocation` for the full doctrine. Default: `.miniPanel`
-    /// for backward compatibility (users can opt in via Settings → Graph).
-    var graphViewLocation: GraphViewLocation = GraphState.restoredGraphViewLocation() {
-        didSet {
-            guard graphViewLocation != oldValue else { return }
-            UserDefaults.standard.set(graphViewLocation.rawValue, forKey: Self.graphViewLocationDefaultsKey)
-            // Notify listeners so any active graph view can close itself
-            // when the user flips the setting mid-session. The LandingView
-            // observes UIState.homeContent which it clears in response.
-            NotificationCenter.default.post(name: .graphViewLocationDidChange, object: self)
-        }
-    }
-
-    /// MASTER 120Hz OVERRIDE. When true, every display link the app
-    /// owns (graph + landing wave + any future Metal surface) clamps
-    /// to `CAFrameRateRange(120, 120, 120)` — ProMotion's top rate,
-    /// ignoring the `graphMaxFPS` cap, ignoring PowerGuard, ignoring
-    /// thermal state. Intentionally aggressive: users opt in explicitly
-    /// when they want max smoothness and accept the battery cost.
+    /// MASTER 120Hz OVERRIDE. When true, the graph display link requests
+    /// ProMotion's top rate. System Low Power Mode and a critical thermal
+    /// state still take precedence as emergency protections.
     ///
-    /// Off by default. Toggling this BUMPS `graphFPSConfigVersion`
+    /// On by default. Toggling this BUMPS `graphFPSConfigVersion`
     /// so MetalGraphView's renderFrame() picks up the new policy on
     /// the very next frame without an overlay restart.
     var graphForceMaximumFPS: Bool = GraphState.restoredGraphForceMaximumFPS() {
         didSet {
             guard graphForceMaximumFPS != oldValue else { return }
-            UserDefaults.standard.set(graphForceMaximumFPS, forKey: Self.graphForceMaximumFPSDefaultsKey)
+            FoundationSafety.runtimeUserDefaults.set(graphForceMaximumFPS, forKey: Self.graphForceMaximumFPSDefaultsKey)
             graphFPSConfigVersion &+= 1
             notifyGraphRenderSettingsChanged()
         }
@@ -1359,39 +1325,19 @@ final class GraphState {
     var graphFPSConfigVersion: Int = 0
 
     private static func restoredGraphMaxFPS() -> Int {
-        let defaults = UserDefaults.standard
-        // First launch: 0 (Unlimited / ProMotion adaptive).
-        guard defaults.object(forKey: graphMaxFPSDefaultsKey) != nil else {
-            return 0
-        }
-        let raw = defaults.integer(forKey: graphMaxFPSDefaultsKey)
-        // Validate to known buckets; fall back to Unlimited on garbage.
-        switch raw {
-        case 0, 30, 60, 120: return raw
-        default: return 0
-        }
+        let defaults = FoundationSafety.runtimeUserDefaults
+        defaults.removeObject(forKey: graphMaxFPSDefaultsKey)
+        return 0
     }
 
     private static func restoredGraphFPSHUDEnabled() -> Bool {
-        UserDefaults.standard.bool(forKey: graphFPSHUDDefaultsKey)
+        FoundationSafety.runtimeUserDefaults.bool(forKey: graphFPSHUDDefaultsKey)
     }
 
     private static func restoredGraphForceMaximumFPS() -> Bool {
-        // 2026-05-20 user direction: default ON. Most users on M-series
-        // MacBook Pro have ProMotion-capable displays and want max
-        // smoothness. They opt OUT via the Settings toggle if they
-        // want to save battery; opting IN by default beats hiding the
-        // best experience behind a discoverable toggle.
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: graphForceMaximumFPSDefaultsKey) == nil {
-            return true
-        }
-        return defaults.bool(forKey: graphForceMaximumFPSDefaultsKey)
-    }
-
-    private static func restoredGraphViewLocation() -> GraphViewLocation {
-        let raw = UserDefaults.standard.string(forKey: graphViewLocationDefaultsKey) ?? ""
-        return GraphViewLocation(rawValue: raw) ?? .miniPanel
+        let defaults = FoundationSafety.runtimeUserDefaults
+        defaults.removeObject(forKey: graphForceMaximumFPSDefaultsKey)
+        return true
     }
 
     // MARK: - Visual Theme
@@ -1399,7 +1345,7 @@ final class GraphState {
     /// Dialogue vs Classic SDF renderer. Persisted via UserDefaults.
     var visualTheme: GraphVisualTheme = .classic {
         didSet {
-            UserDefaults.standard.set(Int(visualTheme.rawValue), forKey: Self.visualThemeDefaultsKey)
+            FoundationSafety.runtimeUserDefaults.set(Int(visualTheme.rawValue), forKey: Self.visualThemeDefaultsKey)
             visualThemeVersion += 1
             notifyGraphRenderSettingsChanged()
         }
@@ -1454,7 +1400,7 @@ final class GraphState {
     }
     var waterNodesWobble: Float = 0.0 {
         didSet {
-            UserDefaults.standard.set(waterNodesWobble, forKey: "epistemos.waterNodes.wobble")
+            FoundationSafety.runtimeUserDefaults.set(waterNodesWobble, forKey: "epistemos.waterNodes.wobble")
             waterNodesVersion += 1
             notifyGraphRenderSettingsChanged()
         }
@@ -1472,7 +1418,7 @@ final class GraphState {
         defaultValue: 1.7
     ) {
         didSet {
-            UserDefaults.standard.set(
+            FoundationSafety.runtimeUserDefaults.set(
                 Double(cameraDeselectZoomMultiplier),
                 forKey: "epistemos.camera.deselectZoomMultiplier"
             )
@@ -1487,7 +1433,7 @@ final class GraphState {
         defaultValue: 11.0
     ) {
         didSet {
-            UserDefaults.standard.set(
+            FoundationSafety.runtimeUserDefaults.set(
                 Double(cameraSpeedLambda),
                 forKey: "epistemos.camera.speedLambda"
             )
@@ -1503,7 +1449,7 @@ final class GraphState {
 
     var graphTitleMode: GraphTitleMode = .firstOpen {
         didSet {
-            UserDefaults.standard.set(graphTitleMode.rawValue, forKey: "epistemos.graph.titleMode")
+            FoundationSafety.runtimeUserDefaults.set(graphTitleMode.rawValue, forKey: "epistemos.graph.titleMode")
             notifyGraphRenderSettingsChanged()
         }
     }
@@ -1513,7 +1459,7 @@ final class GraphState {
     private static let labelPolicyVersion = 6
 
     func saveLabelPolicy() {
-        let d = UserDefaults.standard
+        let d = FoundationSafety.runtimeUserDefaults
         d.set(Int(labelMaxNodes), forKey: "epistemos.label.maxNodes")
         d.set(labelZoomBias, forKey: "epistemos.label.zoomBias")
         d.set(labelZoomPivot, forKey: "epistemos.label.zoomPivot")
@@ -1530,7 +1476,7 @@ final class GraphState {
     }
 
     func restoreLabelPolicy() {
-        let d = UserDefaults.standard
+        let d = FoundationSafety.runtimeUserDefaults
         guard d.integer(forKey: "epistemos.label.version") == Self.labelPolicyVersion else { return }
         if d.object(forKey: "epistemos.label.maxNodes") != nil {
             labelMaxNodes = UInt32(d.integer(forKey: "epistemos.label.maxNodes"))
@@ -1669,7 +1615,7 @@ final class GraphState {
     var userForceOverlayVersion: Int = 0
 
     private func saveUserForceOverlays() {
-        let d = UserDefaults.standard
+        let d = FoundationSafety.runtimeUserDefaults
         d.set(cursorForceMode.rawValue, forKey: "epistemos.physics.cursorForceMode")
         d.set(cursorForceStrength, forKey: "epistemos.physics.cursorForceStrength")
         d.set(shapeBoundKind.rawValue, forKey: "epistemos.physics.shapeBoundKind")
@@ -1704,7 +1650,7 @@ final class GraphState {
 
     /// Save all force parameters to UserDefaults so they survive app restarts.
     func savePhysicsSettings() {
-        let d = UserDefaults.standard
+        let d = FoundationSafety.runtimeUserDefaults
         d.set(linkDistance, forKey: "epistemos.physics.linkDistance")
         d.set(chargeStrength, forKey: "epistemos.physics.chargeStrength")
         d.set(chargeRange, forKey: "epistemos.physics.chargeRange")
@@ -1760,7 +1706,7 @@ final class GraphState {
     /// Uses a version key to force reset when defaults change across app updates.
     private static let physicsVersion = 11  // Bump: added master clustering toggle + scheduler
     private func restorePhysicsSettings() {
-        let d = UserDefaults.standard
+        let d = FoundationSafety.runtimeUserDefaults
         guard d.bool(forKey: "epistemos.physics.hasSavedSettings") else { return }
         // Force reset if stored version doesn't match current defaults.
         if d.integer(forKey: "epistemos.physics.version") != Self.physicsVersion {
@@ -2121,7 +2067,7 @@ final class GraphState {
     var schedulerEnabled: Bool = false {
         didSet {
             guard !isRestoringPhysicsSettings, schedulerEnabled != oldValue else { return }
-            UserDefaults.standard.set(
+            FoundationSafety.runtimeUserDefaults.set(
                 schedulerEnabled,
                 forKey: "epistemos.physics.schedulerEnabled"
             )
@@ -2473,14 +2419,14 @@ final class GraphState {
         let encoder = JSONEncoder()
         do {
             let data = try encoder.encode(customPhysicsPresets)
-            UserDefaults.standard.set(data, forKey: Self.customPresetsKey)
+            FoundationSafety.runtimeUserDefaults.set(data, forKey: Self.customPresetsKey)
         } catch {
             Log.app.error("GraphState: failed to encode custom presets: \(error.localizedDescription, privacy: .public)")
         }
     }
 
     private func loadCustomPresetsFromDefaults() {
-        guard let data = UserDefaults.standard.data(forKey: Self.customPresetsKey) else { return }
+        guard let data = FoundationSafety.runtimeUserDefaults.data(forKey: Self.customPresetsKey) else { return }
         let decoder = JSONDecoder()
         do {
             customPhysicsPresets = try decoder.decode([CustomPhysicsPresetSnapshot].self, from: data)
@@ -2716,9 +2662,14 @@ final class GraphState {
         let result = builder.build(context: context)
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)
 
-        // Use loadDirect() to populate the store from the already-in-memory arrays.
-        // This skips the redundant SwiftData re-fetch that store.load(context:) would do.
-        store.loadDirect(nodes: result.nodes, edges: result.edges)
+        do {
+            // Re-fetch the persisted union so Epdoc projections and other
+            // independently persisted graph artifacts survive this rebuild.
+            try store.load(context: context)
+        } catch {
+            Log.graph.error("Graph store reload failed after structural rebuild: \(error.localizedDescription, privacy: .public)")
+            return
+        }
         isLoaded = true
         requestRecommit()
         Log.graphPerf.endInterval("buildStructuralGraph", interval)
@@ -2898,17 +2849,18 @@ final class GraphState {
     /// Search node labels via the Rust engine's FST index (sub-1ms, typo-tolerant).
     /// Falls back to Swift-side `GraphStore.fuzzySearch()` when engine isn't available.
     func rustSearch(query: String, limit: Int = 20) -> [GraphStore.SearchHit] {
-        guard !query.isEmpty else { return [] }
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return [] }
+        guard let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit) else { return [] }
 
         // Try Rust-side search via FFI
         if let engine = engineHandle {
             let interval = Log.ffiPerf.beginInterval("graph_engine_search")
             var count: UInt32 = 0
-            guard let cQuery = query.cString(using: .utf8) else {
+            guard let cQuery = checkedQuery.cString(using: .utf8) else {
                 Log.ffiPerf.endInterval("graph_engine_search", interval)
-                return store.fuzzySearch(query: query, limit: limit)
+                return store.fuzzySearch(query: checkedQuery, limit: checkedLimit)
             }
-            let results = graph_engine_search(engine, cQuery, UInt32(limit), &count)
+            let results = graph_engine_search(engine, cQuery, UInt32(checkedLimit), &count)
             Log.ffiPerf.endInterval("graph_engine_search", interval)
             defer { graph_engine_free_search_results(results, count) }
 
@@ -2931,7 +2883,7 @@ final class GraphState {
         }
 
         // Fallback to Swift-side search
-        return store.fuzzySearch(query: query, limit: limit)
+        return store.fuzzySearch(query: checkedQuery, limit: checkedLimit)
     }
 
     /// Hybrid search: combines text (Rust FST) + semantic (embedding cosine) results.
@@ -2949,10 +2901,34 @@ final class GraphState {
     }
 
     func semanticSearch(query: String, limit: Int = 20) -> [GraphStore.SearchHit] {
-        guard !query.isEmpty else { return [] }
-        if let preparedHits = preparedSemanticSearch(query: query, limit: limit) {
-            return preparedHits
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return [] }
+        guard let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit) else { return [] }
+        return semanticSearchWithValidatedQuery(
+            query: checkedQuery,
+            limit: checkedLimit
+        )?.hits ?? []
+    }
+
+    func semanticSearchWithQueryEmbedding(
+        query: String,
+        limit: Int = 20
+    ) -> SemanticSearchQueryResult? {
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return nil }
+        guard let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit) else { return nil }
+        return semanticSearchWithValidatedQuery(query: checkedQuery, limit: checkedLimit)
+    }
+
+    private func semanticSearchWithValidatedQuery(
+        query: String,
+        limit: Int
+    ) -> SemanticSearchQueryResult? {
+        if let preparedResult = preparedSemanticSearchWithQueryEmbedding(
+            query: query,
+            limit: limit
+        ) {
+            return preparedResult
         }
+
         guard canRunFallbackSemanticSearch(),
               let engine = engineHandle,
               embeddingService.dimension > 0,
@@ -2960,11 +2936,11 @@ final class GraphState {
                 for: query,
                 expectedDimension: embeddingService.dimension
               ) else {
-            return []
+            return nil
         }
 
-        return queryVec.withUnsafeBufferPointer { buf in
-            guard let baseAddress = buf.baseAddress else { return [] }
+        let hits = queryVec.withUnsafeBufferPointer { buf in
+            guard let baseAddress = buf.baseAddress else { return [GraphStore.SearchHit]() }
             var count: UInt32 = 0
             let results = graph_engine_semantic_search(
                 engine,
@@ -2979,9 +2955,13 @@ final class GraphState {
                 resolveNode: { [store] nodeID in store.nodes[nodeID] }
             )
         }
+        return SemanticSearchQueryResult(hits: hits, queryEmbedding: queryVec)
     }
 
-    private func preparedSemanticSearch(query: String, limit: Int) -> [GraphStore.SearchHit]? {
+    private func preparedSemanticSearchWithQueryEmbedding(
+        query: String,
+        limit: Int
+    ) -> SemanticSearchQueryResult? {
         guard preparedRetrievalExecutionMode.hasPreparedIndexRuntime,
               ensurePreparedRetrievalIndexLoaded(),
               let engine = engineHandle else {
@@ -2991,11 +2971,11 @@ final class GraphState {
         let dimension = Int(graph_engine_prepared_retrieval_dimension(engine))
         guard dimension > 0,
               let queryVec = embeddingService.queryEmbedding(for: query, expectedDimension: dimension) else {
-            return []
+            return SemanticSearchQueryResult(hits: [], queryEmbedding: [])
         }
 
-        return queryVec.withUnsafeBufferPointer { buf in
-            guard let baseAddress = buf.baseAddress else { return [] }
+        let hits = queryVec.withUnsafeBufferPointer { buf in
+            guard let baseAddress = buf.baseAddress else { return [GraphStore.SearchHit]() }
             var count: UInt32 = 0
             let results = graph_engine_prepared_retrieval_search(
                 engine,
@@ -3010,6 +2990,7 @@ final class GraphState {
                 resolveNode: { [store] pageID in store.node(bySourceId: pageID, type: .note) }
             )
         }
+        return SemanticSearchQueryResult(hits: hits, queryEmbedding: queryVec)
     }
 
     private func collectSemanticHits(
@@ -3064,16 +3045,17 @@ final class GraphState {
     }
 
     func hybridSearch(query: String, limit: Int = 20) -> [GraphStore.SearchHit] {
-        guard !query.isEmpty else { return [] }
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return [] }
+        guard let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit) else { return [] }
 
         // Text search
-        let textHits = rustSearch(query: query, limit: limit)
+        let textHits = rustSearch(query: checkedQuery, limit: checkedLimit)
         var hitMap: [String: GraphStore.SearchHit] = [:]
         for hit in textHits {
             hitMap[hit.id] = hit
         }
 
-        for hit in semanticSearch(query: query, limit: limit) {
+        for hit in semanticSearch(query: checkedQuery, limit: checkedLimit) {
             guard hitMap[hit.id] == nil else { continue }
             hitMap[hit.id] = GraphStore.SearchHit(
                 id: hit.id,
@@ -3085,7 +3067,7 @@ final class GraphState {
         // Sort by score descending, limit
         return Array(hitMap.values)
             .sorted { $0.score > $1.score }
-            .prefix(limit)
+            .prefix(checkedLimit)
             .map { $0 }
     }
 
@@ -3656,17 +3638,6 @@ final class GraphState {
         interactionMode = .idle
     }
 
-    // MARK: - AI Entity Extraction
-
-    private var scanTask: Task<Void, Never>?
-
-    func scanVault(context: ModelContext, llmService: any LLMClientProtocol) {
-        scanTask?.cancel()
-        scanTask = Task {
-            let extractor = EntityExtractor(graphState: self)
-            await extractor.scanVault(context: context, llmService: llmService)
-        }
-    }
 }
 
 /// Helper for the camera UserDefaults bootstrap. Float-valued defaults
@@ -3675,7 +3646,7 @@ final class GraphState {
 /// which would collapse the slider to its lower bound).
 nonisolated enum GraphCameraDefaults {
     static func load(key: String, defaultValue: Float) -> Float {
-        let stored = UserDefaults.standard.double(forKey: key)
+        let stored = FoundationSafety.runtimeUserDefaults.double(forKey: key)
         if stored == 0 {
             return defaultValue
         }

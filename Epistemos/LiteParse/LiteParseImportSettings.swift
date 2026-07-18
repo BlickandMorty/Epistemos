@@ -9,12 +9,12 @@ nonisolated enum LiteParseImportSettings {
         case originalPDF
     }
 
-    static func parsePDFOnImport(defaults: UserDefaults = .standard) -> Bool {
+    static func parsePDFOnImport(defaults: UserDefaults = FoundationSafety.runtimeUserDefaults) -> Bool {
         guard defaults.object(forKey: parsePDFOnImportKey) != nil else { return true }
         return defaults.bool(forKey: parsePDFOnImportKey)
     }
 
-    static func defaultOpenForImportedPDF(defaults: UserDefaults = .standard) -> DefaultOpenTarget {
+    static func defaultOpenForImportedPDF(defaults: UserDefaults = FoundationSafety.runtimeUserDefaults) -> DefaultOpenTarget {
         guard let raw = defaults.string(forKey: defaultOpenForImportedPDFKey),
               let target = DefaultOpenTarget(rawValue: raw) else {
             return .parsedNote

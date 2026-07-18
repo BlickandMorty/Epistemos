@@ -6,6 +6,8 @@ import Foundation
 @MainActor
 struct GraphPhysicsSettingsAuditTests {
     private let performanceModeKey = "epistemos.graph.performanceMode"
+    private let graphMaxFPSKey = "epistemos.graph.maxFPS"
+    private let graphForceMaximumFPSKey = "epistemos.graph.forceMaximumFPS"
     private let waterNodesEnabledKey = "epistemos.waterNodes.enabled"
     private let waterNodesWobbleKey = "epistemos.waterNodes.wobble"
     private let visualThemeKey = "graphVisualTheme"
@@ -55,6 +57,8 @@ struct GraphPhysicsSettingsAuditTests {
             defaults.removeObject(forKey: key)
         }
         defaults.removeObject(forKey: performanceModeKey)
+        defaults.removeObject(forKey: graphMaxFPSKey)
+        defaults.removeObject(forKey: graphForceMaximumFPSKey)
         defaults.removeObject(forKey: waterNodesEnabledKey)
         defaults.removeObject(forKey: waterNodesWobbleKey)
         defaults.removeObject(forKey: visualThemeKey)
@@ -397,19 +401,25 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(state.semanticClusterVersion == 1)
     }
 
-    @Test("Graph defaults to cinematic pixel mode")
-    func graphDefaultsToCinematicPixelMode() {
+    @Test("Graph launches at maximum performance despite retired saved battery preferences")
+    func graphLaunchesAtMaximumPerformance() {
         clearPhysicsDefaults()
+        let defaults = UserDefaults.standard
+        defaults.set(false, forKey: performanceModeKey)
+        defaults.set(30, forKey: graphMaxFPSKey)
+        defaults.set(false, forKey: graphForceMaximumFPSKey)
 
         let state = GraphState()
 
-        #expect(!state.performanceModeEnabled)
-        #expect(state.qualityLevel == 0)
-        #expect(state.waterNodesEnabled)
+        #expect(state.performanceModeEnabled)
+        #expect(state.qualityLevel == 2)
+        #expect(!state.waterNodesEnabled)
+        #expect(state.graphMaxFPS == 0)
+        #expect(state.graphForceMaximumFPS)
     }
 
-    @Test("Performance mode persists, restores, and disables cinematic pixel nodes")
-    func performanceModePersistsAndDisablesCinematicPixelNodes() {
+    @Test("Graph render mode remains a live graph control without becoming a launch preference")
+    func performanceModeRemainsALiveGraphControl() {
         clearPhysicsDefaults()
 
         let state = GraphState()
@@ -419,13 +429,8 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(state.qualityLevel == 2)
         #expect(!state.waterNodesEnabled)
 
-        let restored = GraphState()
-        #expect(restored.performanceModeEnabled)
-        #expect(restored.qualityLevel == 2)
-        #expect(!restored.waterNodesEnabled)
-
-        restored.performanceModeEnabled = false
-        #expect(restored.waterNodesEnabled)
+        state.performanceModeEnabled = false
+        #expect(state.waterNodesEnabled)
     }
 
     @Test("Graph settings expose section tabs and remove middle water/startup controls")

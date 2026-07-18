@@ -20,7 +20,7 @@ nonisolated final class CollectionRegistry: Sendable {
 
     /// The set of folder names currently marked as collections.
     nonisolated var collectionNames: Set<String> {
-        let stored = UserDefaults.standard.stringArray(forKey: key) ?? []
+        let stored = FoundationSafety.runtimeUserDefaults.stringArray(forKey: key) ?? []
         return Set(stored)
     }
 
@@ -32,7 +32,7 @@ nonisolated final class CollectionRegistry: Sendable {
         } else {
             names.remove(name)
         }
-        UserDefaults.standard.set(Array(names), forKey: key)
+        FoundationSafety.runtimeUserDefaults.set(Array(names), forKey: key)
     }
 
     /// Returns true if the given folder name is registered as a collection.

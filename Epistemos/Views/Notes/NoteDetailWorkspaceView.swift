@@ -88,11 +88,13 @@ enum NoteBodyChangeDisposition: Equatable {
     case externalChange
 }
 
-enum NoteWorkspaceMode: String, CaseIterable, Hashable {
+enum NoteWorkspaceMode: String, CaseIterable, Hashable, Sendable {
     case edit
     case document
     case preview
     case source
+
+    static let defaultMarkdown: NoteWorkspaceMode = .edit
 
     var label: String {
         switch self {
@@ -132,6 +134,27 @@ enum NoteWorkspaceMode: String, CaseIterable, Hashable {
             "eye"
         case .source:
             "chevron.left.forwardslash.chevron.right"
+        }
+    }
+
+    static func markdownModes(hasSourceRoute: Bool) -> [NoteWorkspaceMode] {
+        hasSourceRoute ? [.edit, .preview, .source] : [.edit, .preview]
+    }
+}
+
+enum NoteEditorFlushOwner: Equatable {
+    case markdownBody
+    case document
+    case source
+
+    init(activeMode: NoteWorkspaceMode) {
+        switch activeMode {
+        case .document:
+            self = .document
+        case .source:
+            self = .source
+        case .edit, .preview:
+            self = .markdownBody
         }
     }
 }
@@ -332,9 +355,10 @@ enum NoteToolbarDisplay {
 
 enum NoteWorkspacePresentation: Equatable {
     case window
+    case embeddedHome
     case embeddedGraph
 
-    var usesWindowToolbar: Bool { self == .window }
+    var usesWindowToolbar: Bool { self == .window || self == .embeddedHome }
     var usesGraphEmbeddedChrome: Bool { self == .embeddedGraph }
 }
 
@@ -455,7 +479,9 @@ enum NoteToolbarGlyph: Sendable {
     case format
     case preview
     case edit
+    #if !EPISTEMOS_FREE_V1
     case writingTools
+    #endif
     case more
     case backlinks
     case history
@@ -472,8 +498,10 @@ enum NoteToolbarGlyph: Sendable {
             "eye"
         case .edit:
             "pencil"
+        #if !EPISTEMOS_FREE_V1
         case .writingTools:
             "apple.intelligence"
+        #endif
         case .more:
             "ellipsis.circle"
         case .backlinks:
@@ -525,10 +553,16 @@ struct NoteDetailWorkspaceView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.graphSurfacePresentation) private var graphSurfacePresentation
     @Query private var pages: [SDPage]
+    @Query(sort: \SDFolder.sortOrder) private var folders: [SDFolder]
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
+    @State private var showNoteIdentityPopover = false
+    @State private var titleRevealGeneration: UInt64 = 0
     @State private var showWebClipperSheet = false
-    @State private var noteMode: NoteWorkspaceMode = .document
+    @State private var noteMode: NoteWorkspaceMode = .defaultMarkdown
+    @State private var contentWidthMode: NoteWidthMode = .normal
+    @AppStorage("epistemos.sourceEditor.lineWrapping", store: FoundationSafety.runtimeUserDefaults)
+    private var sourceLineWrapping = true
     @State private var noteSession: NoteSessionStateMachine
     @State private var noteSessionLifecycleGeneration: UInt64 = 0
     @State private var workspaceFinalFlushToken: UUID?
@@ -556,11 +590,9 @@ struct NoteDetailWorkspaceView: View {
     /// Option 1). Empty unless the knowledgeCoreRuntimeV0 runtime is standing.
     @State private var blockOutlineItems: [TOCItem] = []
     @State private var selectedNotebookTabID = EpdocNotebookManifest.bodyTabID
-    @State private var hasModelDerivedSidecar = false
     @State private var deterministicOutlineState: KnowledgeCoreOutlineProjectionState
     @State private var wordCountDebounce: Task<Void, Never>?
     @State private var metricsTask: Task<Void, Never>?
-    @State private var modelDerivedSidecarTask: Task<Void, Never>?
     @State private var codeFileLoadTask: Task<Void, Never>?
     @State private var persistedBodyLoadTask: Task<Void, Never>?
     @State private var missingPageRecoveryTask: Task<Void, Never>?
@@ -571,11 +603,6 @@ struct NoteDetailWorkspaceView: View {
     @State private var translationText = ""
     /// Pre-selected idea tab when opened from right-click context menu.
     @State private var contextMenuIdeaTab: IdeasPanel.IdeaTab?
-    /// Editor selection captured BEFORE the popover steals focus.
-    /// The popover becomes key, deselecting the editor — so we snapshot
-    /// the selection range + text at the moment the user opens the panel.
-    @State private var capturedSelection: NSRange?
-    @State private var capturedSelectionText: String?
     /// Opacity of the greeting overlay (0 = invisible, 1 = fully covering).
     /// Kept always in the view tree to avoid insertion delay.
     @State private var transitionOpacity: Double = 0
@@ -587,9 +614,7 @@ struct NoteDetailWorkspaceView: View {
     init(
         pageId: String,
         presentation: NoteWorkspacePresentation = .window,
-        // Owner 2026-07-05: Epdoc (.document) is the default note view everywhere (graph embed,
-        // in-place pane, windows). resolvedNoteMode falls back for code/non-markdown pages.
-        initialMode: NoteWorkspaceMode = .document
+        initialMode: NoteWorkspaceMode = .defaultMarkdown
     ) {
         self.pageId = pageId
         self.presentation = presentation
@@ -672,17 +697,18 @@ struct NoteDetailWorkspaceView: View {
                         graphToolbarNavigationControls
                     }
                 }
-                if usesNativeGraphWindowToolbar, let page = pages.first {
+                if let page = pages.first {
                     ToolbarItem(placement: .principal) {
-                        graphEmbeddedToolbarTitle(page)
+                        noteIdentityTitleControl(page)
                     }
+                    .sharedBackgroundVisibility(.hidden)
                 }
                 if shouldShowNoteToolbarPrimaryActions {
                     ToolbarItemGroup(placement: .primaryAction) {
                         noteToolbarPrimaryActions
                     }
                 }
-                #if canImport(MarkEditKit)
+                #if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
                 if isCodeFile && shouldShowMarkEditSourceSettingsToolbarButton {
                     ToolbarItem(placement: .primaryAction) {
                         markEditSourceSettingsToolbarButton
@@ -773,9 +799,7 @@ struct NoteDetailWorkspaceView: View {
                     page: page,
                     currentBody: displayBody(for: page),
                     initialTab: contextMenuIdeaTab,
-                    autoShowForm: contextMenuIdeaTab != nil,
-                    capturedSelection: capturedSelection,
-                    capturedSelectionText: capturedSelectionText
+                    autoShowForm: contextMenuIdeaTab != nil
                 )
             }
         }
@@ -820,10 +844,19 @@ struct NoteDetailWorkspaceView: View {
         .onChange(of: pages.first?.title) { _, newTitle in
             guard let newTitle, !newTitle.isEmpty else { return }
             navState?.syncTitle(pageId: pageId, title: newTitle)
+            if let window = NSApp.keyWindow,
+               let tabPageID = NoteWindowManager.shared.pageId(for: window),
+               NoteWindowManager.shared.currentPageId(forTab: tabPageID) == pageId
+            {
+                window.title = NoteTitleDisplay.resolvedTitle(newTitle)
+            }
         }
         .onReceive(
             NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)
-        ) { _ in refreshTabCount() }
+        ) { notification in
+            refreshTabCount()
+            replayTitleIfThisNoteBecameMain(notification)
+        }
         .onReceive(
             // RCA2-P1-012 fix-pass (2026-05-13): subscribe to the
             // unconditional `ProseEditorContentDidChange` notification
@@ -846,7 +879,6 @@ struct NoteDetailWorkspaceView: View {
             NotificationCenter.default.publisher(for: ProseTextView2.createIdeaNotification)
         ) { notif in
             guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
-            snapshotEditorSelection()
             contextMenuIdeaTab = .ideas
             showIdeasPopover = true
         }
@@ -854,7 +886,6 @@ struct NoteDetailWorkspaceView: View {
             NotificationCenter.default.publisher(for: ProseTextView2.createBrainDumpNotification)
         ) { notif in
             guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
-            snapshotEditorSelection()
             contextMenuIdeaTab = .brainDumps
             showIdeasPopover = true
         }
@@ -885,8 +916,6 @@ struct NoteDetailWorkspaceView: View {
         .onChange(of: showIdeasPopover) { _, isShown in
             if !isShown {
                 contextMenuIdeaTab = nil
-                capturedSelection = nil
-                capturedSelectionText = nil
             }
         }
     }
@@ -987,7 +1016,6 @@ struct NoteDetailWorkspaceView: View {
                             persistedBody = body
                         }
                         scheduleCodeFileBodyRefresh(for: page)
-                        refreshModelDerivedSidecarBadge(for: page)
                         refreshLegacyRecoveryPresentation()
                         scheduleMetricsRefresh(
                             body: body,
@@ -995,7 +1023,6 @@ struct NoteDetailWorkspaceView: View {
                             includeHeavyOutlines: shouldRunHeavyOutlineWork(for: page)
                         )
                     } else {
-                        refreshModelDerivedSidecarBadge(for: nil)
                         queueMissingPageRecovery()
                     }
                     // Apply pending workspace editor restore (cursor + scroll).
@@ -1031,8 +1058,6 @@ struct NoteDetailWorkspaceView: View {
                 }
                 wordCountDebounce?.cancel()
                 metricsTask?.cancel()
-                modelDerivedSidecarTask?.cancel()
-                modelDerivedSidecarTask = nil
                 codeFileLoadTask?.cancel()
                 codeFileLoadTask = nil
                 persistedBodyLoadTask?.cancel()
@@ -1047,27 +1072,23 @@ struct NoteDetailWorkspaceView: View {
                 if isEmpty {
                     schedulePersistedBodyRefresh(for: nil)
                     scheduleCodeFileBodyRefresh(for: nil)
-                    refreshModelDerivedSidecarBadge(for: nil)
                     queueMissingPageRecovery()
                 } else {
                     missingPageRecoveryTask?.cancel()
                     missingPageRecoveryTask = nil
                     schedulePersistedBodyRefresh(for: pages.first)
                     scheduleCodeFileBodyRefresh(for: pages.first)
-                    refreshModelDerivedSidecarBadge(for: pages.first)
                     refreshLegacyRecoveryPresentation()
                 }
             }
             .onChange(of: pages.first?.filePath) { _, _ in
                 registerProseReadAloudProvider()
                 scheduleCodeFileBodyRefresh(for: pages.first)
-                refreshModelDerivedSidecarBadge(for: pages.first)
             }
             .onChange(of: vaultSync.vaultURL?.standardizedFileURL.path) { _, _ in
                 registerProseReadAloudProvider()
                 schedulePersistedBodyRefresh(for: pages.first)
                 scheduleCodeFileBodyRefresh(for: pages.first)
-                refreshModelDerivedSidecarBadge(for: pages.first)
             }
             .onReceive(NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyDidChange)) { notification in
                 guard let changedId = notification.userInfo?["pageId"] as? String,
@@ -1126,12 +1147,8 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func openContextualShadowHit(_ hit: ContextualShadowsState.RecallHit) {
-        switch hit.kind {
-        case .note:
-            NoteWindowManager.shared.open(pageId: hit.id)
-        case .chat:
-            break
-        }
+        guard hit.kind == .note else { return }
+        NoteWindowManager.shared.open(pageId: hit.id)
         contextualShadows.closePanel(kind: .note, originDocId: pageId)
     }
 
@@ -1194,13 +1211,6 @@ struct NoteDetailWorkspaceView: View {
                         .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.55))
                 }
 
-                if hasModelDerivedSidecar {
-                    noteFooterBubble {
-                        Label("Model-derived", systemImage: "sparkles")
-                            .font(AppDisplayTypography.font(size: 12))
-                            .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.58))
-                    }
-                }
             }
 
             if NoteWorkspaceFooterDisplay.showsShortcutHints {
@@ -1352,24 +1362,6 @@ struct NoteDetailWorkspaceView: View {
             .glassEffect(.regular.interactive(), in: Capsule())
     }
 
-    private func refreshModelDerivedSidecarBadge(for page: SDPage?) {
-        modelDerivedSidecarTask?.cancel()
-        guard let path = page?.filePath,
-              !path.isEmpty else {
-            hasModelDerivedSidecar = false
-            return
-        }
-
-        let sourceURL = URL(fileURLWithPath: path)
-        modelDerivedSidecarTask = Task { @MainActor in
-            let isModelDerived = await Task.detached(priority: .utility) {
-                EpistemosSidecarStore.isModelDerived(for: sourceURL)
-            }.value
-            guard !Task.isCancelled else { return }
-            hasModelDerivedSidecar = isModelDerived
-        }
-    }
-
     @ViewBuilder
     private func noteEditorSurface(page: SDPage, availableSize: CGSize) -> some View {
         let resolvedMode = resolvedNoteMode(for: page)
@@ -1405,62 +1397,28 @@ struct NoteDetailWorkspaceView: View {
     @ViewBuilder
     private func noteDocumentSurface(page: SDPage, isActive: Bool) -> some View {
         let markdown = displayBody(for: page)
-        let notebook = EpdocNotebookManifest.parse(in: markdown)
-        let selectedTab = resolvedNotebookTabID(for: notebook)
+        let normalizedSelectedTabID = EpdocNotebookManifest
+            .normalizedFreeV1SelectedTabID(selectedNotebookTabID)
 
-        VStack(spacing: 0) {
-            EpdocNotebookTabStrip(
-                manifest: notebook,
-                selectedTabID: selectedTab,
-                theme: noteWorkspaceTheme,
-                selectTab: { tabID in
-                    selectedNotebookTabID = tabID
-                }
-            )
-
-            if selectedTab == EpdocNotebookManifest.bodyTabID {
-                MarkdownDocumentSurface(
-                    pageId: page.id,
-                    title: page.title,
-                    markdown: markdown,
-                    theme: noteWorkspaceTheme,
-                    noteRelativePath: page.vaultRelativeNotePath ?? "page:\(page.id)",
-                    isEditable: editorSurfacesAcceptInput,
-                    isActive: isActive,
-                    provenanceStore: editorProvenanceStore,
-                    onEditStarted: {
-                        markDocumentEditorDirtyBeforeDebouncedSave()
-                    },
-                    saveMarkdown: { markdown in
-                        await saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)
-                    },
-                    surfaceToolbarAccessory: markdownDocumentSurfaceToolbarAccessory(for: page)
-                )
-            } else if selectedTab == EpdocNotebookManifest.launcherTabID {
-                EpdocNotebookLauncherPane(theme: noteWorkspaceTheme)
-            } else if let tab = notebook.tabs.first(where: { $0.id == selectedTab }) {
-                EpdocNotebookReferencePane(tab: tab, theme: noteWorkspaceTheme)
-            } else {
-                MarkdownDocumentSurface(
-                    pageId: page.id,
-                    title: page.title,
-                    markdown: markdown,
-                    theme: noteWorkspaceTheme,
-                    noteRelativePath: page.vaultRelativeNotePath ?? "page:\(page.id)",
-                    isEditable: editorSurfacesAcceptInput,
-                    isActive: isActive,
-                    provenanceStore: editorProvenanceStore,
-                    onEditStarted: {
-                        markDocumentEditorDirtyBeforeDebouncedSave()
-                    },
-                    saveMarkdown: { markdown in
-                        await saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)
-                    },
-                    surfaceToolbarAccessory: markdownDocumentSurfaceToolbarAccessory(for: page)
-                )
-            }
-        }
+        MarkdownDocumentSurface(
+            pageId: page.id,
+            title: page.title,
+            markdown: markdown,
+            theme: noteWorkspaceTheme,
+            noteRelativePath: page.vaultRelativeNotePath ?? "page:\(page.id)",
+            isEditable: editorSurfacesAcceptInput,
+            isActive: isActive,
+            provenanceStore: editorProvenanceStore,
+            onEditStarted: {
+                markDocumentEditorDirtyBeforeDebouncedSave()
+            },
+            saveMarkdown: { markdown in
+                await saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)
+            },
+            surfaceToolbarAccessory: markdownDocumentSurfaceToolbarAccessory(for: page)
+        )
         .onAppear {
+            selectedNotebookTabID = normalizedSelectedTabID
             guard isActive else { return }
             registerProseReadAloudProvider()
             EpistemosVisibleReadAloudRegistry.shared.markActive(.proseNoteBody)
@@ -1469,11 +1427,6 @@ struct NoteDetailWorkspaceView: View {
             guard active else { return }
             registerProseReadAloudProvider()
             EpistemosVisibleReadAloudRegistry.shared.markActive(.proseNoteBody)
-        }
-        .onChange(of: notebook.selectableTabIDs) { _, ids in
-            if !ids.contains(selectedNotebookTabID) {
-                selectedNotebookTabID = EpdocNotebookManifest.bodyTabID
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -1506,6 +1459,7 @@ struct NoteDetailWorkspaceView: View {
                     allowsMarkEditWindowToolbar: false,
                     externalSelectionRequest: sourceEditorSelectionRequest,
                     liveTextQueryKey: sourceEditorLiveTextQueryKey,
+                    sourceLineWrapping: sourceLineWrapping,
                     themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
                 )
                 .id(page.id)
@@ -1515,7 +1469,7 @@ struct NoteDetailWorkspaceView: View {
                 EpistemosVisibleReadAloudRegistry.shared.markActive(.codeEditor)
             }
             .sheet(isPresented: $showMarkEditSourceSettings) {
-                #if canImport(MarkEditKit)
+                #if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
                 MarkEditSourceSettingsSheet()
                 #else
                 EmptyView()
@@ -1529,6 +1483,7 @@ struct NoteDetailWorkspaceView: View {
                 initialBodyOverride: initialBodyOverride,
                 navigationContext: presentation.usesGraphEmbeddedChrome ? .graph : .notes,
                 themeOverride: noteWorkspaceTheme,
+                contentWidthMode: contentWidthMode,
                 onEditStarted: {
                     markEditorDirtyBeforeDebouncedSave()
                 }
@@ -1773,7 +1728,7 @@ struct NoteDetailWorkspaceView: View {
         return resolvedNoteMode(for: page) == .document
     }
 
-    #if canImport(MarkEditKit)
+    #if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
     private var markEditSourceSettingsToolbarButton: some View {
         Button {
             showMarkEditSourceSettings = true
@@ -1789,8 +1744,34 @@ struct NoteDetailWorkspaceView: View {
     private var noteToolbarPrimaryActions: some View {
         if let page = pages.first {
             let readAloudText = noteReadAloudText(for: page)
+            let activeMode = resolvedNoteMode(for: page)
             if !isMarkdownDocumentSurfaceModeActive {
                 noteModePicker(for: page)
+            }
+
+            if activeMode == .edit {
+                compactProseFormattingMenu
+            }
+            if activeMode == .edit {
+                EditorContentWidthControl(
+                    mode: $contentWidthMode,
+                    label: "Prose width"
+                )
+            }
+            if activeMode == .source {
+                Toggle(isOn: $sourceLineWrapping) {
+                    Label(
+                        "Wrap Lines",
+                        systemImage: sourceLineWrapping
+                            ? "text.justify.left"
+                            : "arrow.left.and.right"
+                    )
+                }
+                .toggleStyle(.button)
+                .labelStyle(.iconOnly)
+                .help(sourceLineWrapping ? "Keep long Source lines wrapped" : "Keep each Source line on one row")
+                .accessibilityLabel("Wrap Lines")
+                .accessibilityValue(sourceLineWrapping ? "On" : "Off")
             }
 
             ViewOriginalPDFAffordance(
@@ -1813,6 +1794,24 @@ struct NoteDetailWorkspaceView: View {
         }
 
         moreMenu
+    }
+
+    private var compactProseFormattingMenu: some View {
+        Menu {
+            Button("Bold  ⌘B") { insertMarkdown("**", "**") }
+            Button("Italic  ⌘I") { insertMarkdown("*", "*") }
+            Divider()
+            Button("Heading 1") { insertLinePrefix("# ") }
+            Button("Heading 2") { insertLinePrefix("## ") }
+            Button("Bullet List") { toggleMarkdownPrefix("- ") }
+            Button("Checklist") { toggleMarkdownPrefix("- [ ] ") }
+        } label: {
+            Image(systemName: "textformat")
+                .frame(width: 24, height: 24)
+        }
+        .menuIndicator(.hidden)
+        .help("Essential Prose formatting")
+        .accessibilityLabel("Essential Prose formatting")
     }
 
     private func noteReadAloudText(for page: SDPage) -> String {
@@ -1870,7 +1869,7 @@ struct NoteDetailWorkspaceView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(mode.label)
-        .accessibilityHint("Switch between Prose, Document, Preview, and Source")
+        .accessibilityHint("Switch between Prose, Preview, and Source")
         .help(mode.helpText)
     }
 
@@ -1907,10 +1906,154 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func graphEmbeddedToolbarTitle(_ page: SDPage) -> some View {
-        GraphEmbeddedToolbarTitle(
-            title: NoteTitleDisplay.resolvedTitle(page.title),
-            theme: graphEmbeddedToolbarTheme
+        noteIdentityTitleControl(page) {
+            GraphEmbeddedToolbarTitle(
+                title: NoteTitleDisplay.resolvedTitle(page.title),
+                theme: graphEmbeddedToolbarTheme
+            )
+        }
+    }
+
+    private func noteIdentityTitleControl(_ page: SDPage) -> some View {
+        noteIdentityTitleControl(page) {
+            MotionTitle(
+                text: NoteTitleDisplay.resolvedTitle(page.title),
+                font: .system(size: 15, weight: .semibold, design: .rounded),
+                color: noteWorkspaceTheme.textPrimary
+            )
+                .id(
+                    EditorTitleRevealKey(
+                        documentID: page.id,
+                        surface: resolvedNoteMode(for: page).rawValue,
+                        activationGeneration: titleRevealGeneration
+                    )
+                )
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 420)
+        }
+    }
+
+    private func replayTitleIfThisNoteBecameMain(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              let tabPageID = NoteWindowManager.shared.pageId(for: window),
+              NoteWindowManager.shared.currentPageId(forTab: tabPageID) == pageId else {
+            return
+        }
+        titleRevealGeneration &+= 1
+    }
+
+    private func noteIdentityTitleControl<Label: View>(
+        _ page: SDPage,
+        @ViewBuilder label: () -> Label
+    ) -> some View {
+        Button {
+            showNoteIdentityPopover = true
+        } label: {
+            label()
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .accessibilityLabel("Edit note identity for \(NoteTitleDisplay.resolvedTitle(page.title))")
+        .accessibilityHint("Edit the note name, tags, and vault location")
+        .popover(isPresented: $showNoteIdentityPopover, arrowEdge: .bottom) {
+            NoteIdentityPopover(
+                title: page.title,
+                tags: page.tags,
+                folderID: page.folder?.id,
+                folders: noteIdentityFolderOptions,
+                theme: noteWorkspaceTheme,
+                onSave: { draft in
+                    await commitNoteIdentity(draft, for: page)
+                }
+            )
+        }
+    }
+
+    private var noteIdentityFolderOptions: [NoteIdentityFolderOption] {
+        folders
+            .map {
+                NoteIdentityFolderOption(
+                    folderID: $0.id,
+                    relativePath: $0.relativePath
+                )
+            }
+            .sorted {
+                $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending
+            }
+    }
+
+    private func commitNoteIdentity(_ draft: NoteIdentityDraft, for page: SDPage) async -> Bool {
+        let flushResult = await flushCurrentEditor(reason: .explicitSave)
+        guard flushResult != .blocked,
+              beginNoteSessionWrite(reason: .explicitSave)
+        else {
+            return false
+        }
+
+        let title = draft.normalizedTitle
+        let tags = draft.normalizedTags
+        let targetFolder = draft.folderID.flatMap { requestedID in
+            folders.first(where: { $0.id == requestedID })
+        }
+        guard draft.folderID == nil || targetFolder != nil else {
+            noteSession.finishAutosave(succeeded: false)
+            return false
+        }
+
+        let targetSubfolder = targetFolder?.relativePath
+        let titleChanged = title != page.title
+        let sourceRoute = sourceEditorRoute(for: page)
+        let hasNoFilePath = page.filePath == nil
+        let isMarkdownBacked = sourceRoute?.isMarkdown ?? hasNoFilePath
+        let currentBody = currentEditorBody(for: page) ?? persistedBodyFor(page)
+        let titleMutation = titleChanged
+            ? ProseEditorView.syncedNoteTitleMutation(in: currentBody, with: title)
+            : nil
+        let revisedBody = titleMutation?.applying(to: currentBody) ?? currentBody
+
+        let identityCommitResult = await vaultSync.commitPageIdentityFileFirst(
+            pageId: page.id,
+            title: title,
+            tags: tags,
+            folder: targetFolder,
+            subfolder: targetSubfolder,
+            markdownBody: isMarkdownBacked ? revisedBody : nil
         )
+        guard identityCommitResult == .committed else {
+            noteSession.finishAutosave(succeeded: false)
+            return false
+        }
+
+        if revisedBody != currentBody {
+            modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: revisedBody)
+            persistedBody = revisedBody
+            if isMarkdownBacked,
+               resolvedNoteMode(for: page) == .edit,
+               let titleMutation {
+                NotificationCenter.default.post(
+                    name: NoteEditorNotifications.replaceRange,
+                    object: nil,
+                    userInfo: [
+                        "pageId": page.id,
+                        "range": NSValue(range: titleMutation.range),
+                        "replacement": titleMutation.replacementText,
+                        "expectedText": titleMutation.expectedText,
+                        "mapSelection": true,
+                        "persistedHostMutation": true,
+                        "preserveViewport": true,
+                        "requestFocus": false,
+                    ]
+                )
+            }
+        }
+
+        if isMarkdownBacked {
+            refreshMarkdownSourceSnapshot(for: page)
+        }
+
+        noteSession.finishAutosave(succeeded: true)
+        return true
     }
 
     private func overlayGraphEmbeddedToolbar(page: SDPage) -> some View {
@@ -2003,10 +2146,6 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    // MARK: - Selection Capture for Ideas Panel
-    // The popover steals keyboard focus from the editor, which clears the selection.
-    // We snapshot the selection BEFORE the popover opens so Integrate can use it.
-
     private func refreshTabCount() {
         let count = NSApp.keyWindow?.tabbedWindows?.count ?? 1
         hasMultipleTabs = count > 1
@@ -2093,8 +2232,7 @@ struct NoteDetailWorkspaceView: View {
                     )
                     guard !Task.isCancelled else { return }
                     if result.appliedCount > 0 {
-                        let notebookItems = TOCParser.notebookNavigationItems(in: body)
-                        nextHeadings = deterministicOutlineState.items + notebookItems
+                        nextHeadings = deterministicOutlineState.items
                     } else {
                         nextHeadings = snapshot.headings
                     }
@@ -2118,28 +2256,11 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    private func snapshotEditorSelection() {
-        guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else {
-            capturedSelection = nil
-            capturedSelectionText = nil
-            return
-        }
-        let sel = tv.selectedRange()
-        if sel.length > 0 {
-            capturedSelection = sel
-            capturedSelectionText = (tv.string as NSString).substring(with: sel)
-        } else {
-            capturedSelection = nil
-            capturedSelectionText = nil
-        }
-    }
-
     private func captureSelectionAndOpenIdeas() {
-        snapshotEditorSelection()
         showIdeasPopover.toggle()
     }
 
-    // MARK: - AI Context Menu Operations
+    // MARK: - Editor Context Menu Operations
 
     private func applyBlockProperties(_ properties: [(String, PropertyValue)], lineRange: NSRange) {
         // Build the @key=value suffix string
@@ -2202,24 +2323,7 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func navigateActiveOutline(to item: TOCItem) {
-        switch item.kind {
-        case .notebookTab(let tabID):
-            guard let page = pages.first else { return }
-            selectedNotebookTabID = tabID
-            if resolvedNoteMode(for: page) != .document {
-                setNoteMode(.document, for: page)
-            }
-        default:
-            navigateActiveOutline(to: item.charOffset)
-        }
-    }
-
-    private func resolvedNotebookTabID(for notebook: EpdocNotebookManifest) -> String {
-        let ids = notebook.selectableTabIDs
-        if ids.contains(selectedNotebookTabID) {
-            return selectedNotebookTabID
-        }
-        return EpdocNotebookManifest.bodyTabID
+        navigateActiveOutline(to: item.charOffset)
     }
 
     // MARK: - Workspace Editor Restore
@@ -2258,7 +2362,6 @@ struct NoteDetailWorkspaceView: View {
                     includeMarkdownHeadings: true,
                     includeHeavyOutlines: shouldRunHeavyOutlineWork(for: page)
                 )
-                refreshModelDerivedSidecarBadge(for: page)
                 refreshLegacyRecoveryPresentation()
                 return
             }
@@ -2287,7 +2390,6 @@ struct NoteDetailWorkspaceView: View {
             } else {
                 scheduleMetricsRefresh(body: body, includeMarkdownHeadings: true)
             }
-            refreshModelDerivedSidecarBadge(for: pages.first)
             refreshLegacyRecoveryPresentation()
         }
     }
@@ -2388,7 +2490,7 @@ struct NoteDetailWorkspaceView: View {
         let isMarkdownBodied = isMarkdownDocument(page) || (page.filePath?.isEmpty ?? true)
         if isMarkdownBodied {
             return NoteModeOptions(
-                modes: sourceRoute == nil ? [.edit, .document, .preview] : [.edit, .document, .preview, .source],
+                modes: NoteWorkspaceMode.markdownModes(hasSourceRoute: sourceRoute != nil),
                 sourceRoute: sourceRoute
             )
         }
@@ -2557,7 +2659,7 @@ struct NoteDetailWorkspaceView: View {
         let fileURL = URL(fileURLWithPath: filePath)
         codeFileLoadTask = Task { @MainActor in
             do {
-                let loaded = try await CodeFileService.readCodeFileAsync(
+                let body = try await CodeFileService.readCodeFileAsync(
                     at: fileURL,
                     vaultRoot: vaultURL
                 )
@@ -2582,9 +2684,9 @@ struct NoteDetailWorkspaceView: View {
                 codeFileBodySnapshot = CodeFileBodySnapshot(
                     pageId: pageId,
                     filePath: filePath,
-                    body: loaded.body
+                    body: body
                 )
-                let persistedContent = SourceEditorPersistedContent(rawContent: loaded.body, filePath: filePath)
+                let persistedContent = SourceEditorPersistedContent(rawContent: body, filePath: filePath)
                 persistedBody = persistedContent.body
                 if persistedContent.isMarkdownSource {
                     modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: persistedContent.body)
@@ -2692,7 +2794,14 @@ struct NoteDetailWorkspaceView: View {
     @discardableResult
     private func flushCurrentEditor(reason: NoteSessionSaveReason = .explicitSave) async -> NoteEditorFlushResult {
         guard let page = pages.first else { return .noPage }
-        if let route = sourceEditorRoute(for: page) {
+        switch NoteEditorFlushOwner(activeMode: resolvedNoteMode(for: page)) {
+        case .source:
+            guard let route = sourceEditorRoute(for: page) else {
+                Log.notes.error(
+                    "NoteDetailWorkspaceView: refusing to flush Source without a current Source route"
+                )
+                return .blocked
+            }
             let hostContent = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath)
                 ?? cachedSourceEditorContent(page: page, route: route)
             let liveContent = await MarkEditCoreEditorLiveTextRegistry.shared.fetchText(
@@ -2724,10 +2833,19 @@ struct NoteDetailWorkspaceView: View {
                 reason: reason
             ).value
             return saved ? .staged : .blocked
-        }
-        if resolvedNoteMode(for: page) == .document,
-           let documentFlushResult = await MarkdownDocumentSurfaceSaveRegistry.shared.flush(pageId: page.id) {
-            return documentFlushResult ? .staged : .blocked
+        case .document:
+            if let documentFlushResult = await MarkdownDocumentSurfaceSaveRegistry.shared.flush(pageId: page.id) {
+                return documentFlushResult ? .staged : .blocked
+            }
+            guard !noteSession.state.needsWriteLease else {
+                Log.notes.error(
+                    "NoteDetailWorkspaceView: refusing to close or switch dirty Document without its live save registration"
+                )
+                return .blocked
+            }
+            return .unchanged
+        case .markdownBody:
+            break
         }
         let baseline = persistedBodyFor(page)
         let fullText = reason == .lensSwitch
@@ -2933,14 +3051,6 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    private func showAppleWritingTools() {
-        NotificationCenter.default.post(
-            name: WritingToolsBridge.showNotification,
-            object: nil,
-            userInfo: ["pageId": pageId]
-        )
-    }
-
     @MainActor
     private func createWebClip(from draft: WebClipCaptureDraft) async throws {
         let document = try WebClipperMarkdownBuilder.document(from: draft)
@@ -3017,12 +3127,9 @@ struct NoteDetailWorkspaceView: View {
                     Label("Copy Wikilink", systemImage: "link.badge.plus")
                 }
                 Button {
-                    // INT-2 fix: revealCurrentDocumentInKnowledgeGraph needs an Epdoc doc and
-                    // resolves only .document nodes → opened an UNFOCUSED graph for a plain
-                    // note. revealPage resolves the .note node (sourceId == page.id).
-                    HologramController.shared.revealPage(page.id)
+                    KnowledgeGraphShortcutDispatcher.revealPage(page.id)
                 } label: {
-                    Label("Reveal in Graph", systemImage: "point.3.connected.trianglepath.dotted")
+                    Label("Reveal in Home Graph", systemImage: "point.3.connected.trianglepath.dotted")
                 }
                 // DISC-1 (audit 2026-07-03): Focus Mode was reachable ONLY via a hidden ⌘⇧F
                 // button with no visible affordance. Surface it as a menu toggle (the hidden
@@ -3068,12 +3175,6 @@ struct NoteDetailWorkspaceView: View {
                     showBacklinksPopover.toggle()
                 } label: {
                     Label("Backlinks", systemImage: "link")
-                }
-
-                Button {
-                    showAppleWritingTools()
-                } label: {
-                    Label("Apple Writing Tools", systemImage: "apple.intelligence")
                 }
 
                 Button {
@@ -3379,7 +3480,7 @@ struct NoteDetailWorkspaceView: View {
 // MARK: - Ideas & Brain Dumps Panel
 // Popover for registering ideas and brain dumps anchored to specific lines in a note.
 // Each idea captures the cursor line when created. Clicking navigates to that line.
-// "Insert" pastes the idea at the anchor. "Integrate" uses Apple Intelligence to weave it in.
+// "Insert" pastes the idea at the anchor.
 
 private struct IdeasPanel: View {
     let page: SDPage
@@ -3388,10 +3489,6 @@ private struct IdeasPanel: View {
     var initialTab: IdeaTab?
     /// When true, auto-show the new item form (right-click context menu flow).
     var autoShowForm: Bool = false
-    /// Editor selection range captured BEFORE the popover opened (popover steals focus).
-    var capturedSelection: NSRange?
-    /// The selected text captured BEFORE the popover opened.
-    var capturedSelectionText: String?
 
     @Environment(UIState.self) private var ui
     @Environment(EventBus.self) private var eventBus
@@ -3401,7 +3498,6 @@ private struct IdeasPanel: View {
     @State private var showNewForm = false
     @State private var newTitle = ""
     @State private var newBody = ""
-    @State private var busyItemId: String?  // ID of the idea being processed by AI
     @State private var didApplyInitial = false
 
     private var theme: EpistemosTheme { ui.theme }
@@ -3464,20 +3560,6 @@ private struct IdeasPanel: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
 
-            // Selection indicator — shows captured highlight so user knows Integrate will use it
-            if let selText = capturedSelectionText, !selText.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: "text.cursor")
-                        .font(.system(size: 9))
-                    Text("Selected: \"\(selText.prefix(40))\(selText.count > 40 ? "…" : "")\"")
-                        .font(.system(size: 10))
-                        .lineLimit(1)
-                }
-                .foregroundStyle(theme.resolved.accent.color.opacity(0.8))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 6)
-            }
-
             Divider()
 
             // Content — always a ScrollView with fixed height to prevent popover resize crash.
@@ -3509,13 +3591,10 @@ private struct IdeasPanel: View {
                         ForEach(filteredItems) { item in
                             IdeaRow(
                                 item: item,
-                                isBusy: busyItemId == item.id,
                                 theme: theme,
                                 pageBody: currentBody,
                                 onGoToLine: { goToLine(item.lineAnchor) },
                                 onInsert: { insertIdea(item) },
-                                onIntegrate: { integrateWithAI(item) },
-                                onFormat: { formatWithAI(item) },
                                 onDelete: { deleteIdea(item.id) }
                             )
                         }
@@ -3753,198 +3832,16 @@ private struct IdeasPanel: View {
         eventBus.emitToast("Inserted", type: .success)
     }
 
-    /// Use Apple Intelligence to deeply integrate a brain dump / idea into the note.
-    /// Uses the editor selection captured BEFORE the popover opened (popover steals focus).
-    /// Sends the full note for context so AI understands the broader piece.
-    private func integrateWithAI(_ item: NoteIdea) {
-        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
-        guard busyItemId == nil else { return }
-
-        let ideaText = item.formattedBody ?? item.body
-        guard !ideaText.isEmpty else { return }
-
-        let fullBody = currentBody
-        let noteTitle = page.title
-
-        // Use the selection captured before the popover opened
-        let targetText: String
-        let replaceRange: NSRange
-
-        if let sel = capturedSelection, let selText = capturedSelectionText, !selText.isEmpty {
-            // User had text highlighted when they opened the panel
-            targetText = selText
-            replaceRange = sel
-        } else if let line = item.lineAnchor {
-            // No selection — use the anchor line's paragraph
-            let lines = fullBody.components(separatedBy: "\n")
-            let safeIdx = min(max(line - 1, 0), lines.count - 1)
-            let start = max(0, safeIdx - 3)
-            let end = min(lines.count - 1, safeIdx + 3)
-            targetText = lines[start...end].joined(separator: "\n")
-
-            // Find the NSRange covering those lines
-            let nsBody = fullBody as NSString
-            var lineIdx = 0
-            var rStart = 0
-            var rEnd = nsBody.length
-            nsBody.enumerateSubstrings(
-                in: NSRange(location: 0, length: nsBody.length),
-                options: .byLines
-            ) { _, _, enclosingRange, stop in
-                if lineIdx == start { rStart = enclosingRange.location }
-                if lineIdx == end {
-                    rEnd = NSMaxRange(enclosingRange)
-                    stop.pointee = true
-                }
-                lineIdx += 1
-            }
-            replaceRange = NSRange(location: rStart, length: rEnd - rStart)
-        } else {
-            eventBus.emitToast("Highlight text first, then Integrate", type: .info)
-            return
-        }
-
-        busyItemId = item.id
-
-        // Build surrounding context — paragraphs before and after the target
-        // so the AI understands what comes before and after.
-        let nsBody = fullBody as NSString
-        let beforeStart = max(0, replaceRange.location - 500)
-        let beforeLen = replaceRange.location - beforeStart
-        let afterStart = NSMaxRange(replaceRange)
-        let afterLen = min(500, nsBody.length - afterStart)
-
-        let textBefore =
-            beforeLen > 0
-            ? nsBody.substring(with: NSRange(location: beforeStart, length: beforeLen))
-            : ""
-        let textAfter =
-            afterLen > 0
-            ? nsBody.substring(with: NSRange(location: afterStart, length: afterLen))
-            : ""
-
-        Task {
-            do {
-                let prompt = """
-                    Rewrite a section of the note titled "\(noteTitle)".
-
-                    CONTEXT BEFORE the target section:
-                    \(textBefore.isEmpty ? "(start of note)" : textBefore)
-
-                    TARGET SECTION TO REWRITE (this is what you must replace):
-                    ---
-                    \(targetText)
-                    ---
-
-                    CONTEXT AFTER the target section:
-                    \(textAfter.isEmpty ? "(end of note)" : textAfter)
-
-                    NEW CONTENT TO INTEGRATE (brain dump / idea from the user):
-                    Title: \(item.title)
-                    Content: \(ideaText)
-
-                    INSTRUCTIONS:
-                    1. Combine the TARGET SECTION and the NEW CONTENT into ONE rewritten block.
-                    2. The new content's ideas must be DEEPLY WOVEN into the existing text — not appended, not listed separately, not tacked on at the end.
-                    3. The result must flow naturally from the CONTEXT BEFORE and into the CONTEXT AFTER.
-                    4. Preserve the author's voice, markdown formatting, and academic tone.
-                    5. Return ONLY the rewritten target section. No explanation, no preamble, no "Here is the rewritten section:" prefix.
-                    """
-
-                let result = try await AppleIntelligenceService.shared.generate(
-                    prompt: prompt,
-                    systemPrompt: nil
-                )
-
-                let cleaned = result.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !cleaned.isEmpty else {
-                    busyItemId = nil
-                    return
-                }
-
-                guard let tv = NoteEditorViewFinder.findEditorTextView(for: page.id) else {
-                    busyItemId = nil
-                    return
-                }
-
-                // Verify the range is still valid (user may have edited in between)
-                let currentLength = (tv.string as NSString).length
-                let safeRange: NSRange
-                if NSMaxRange(replaceRange) <= currentLength {
-                    safeRange = replaceRange
-                } else {
-                    // Range shifted — insert at end as fallback
-                    safeRange = NSRange(location: currentLength, length: 0)
-                }
-
-                let replacement = cleaned.hasSuffix("\n") ? cleaned : cleaned + "\n"
-                tv.insertText(replacement, replacementRange: safeRange)
-                tv.window?.makeKeyAndOrderFront(nil)
-
-                busyItemId = nil
-                eventBus.emitToast("Integrated into note", type: .success)
-            } catch {
-                busyItemId = nil
-                eventBus.emitToast(
-                    "Apple Intelligence: \(error.localizedDescription)", type: .error)
-            }
-        }
-    }
-
-    /// Use Apple Intelligence to format a brain dump into coherent text.
-    private func formatWithAI(_ item: NoteIdea) {
-        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
-        guard busyItemId == nil else { return }
-        busyItemId = item.id
-
-        Task {
-            do {
-                let prompt = """
-                    Take this raw brain dump and format it into a clear, coherent paragraph or set of points. \
-                    Keep the original meaning and ideas intact. Don't add new ideas — just clean up the language, \
-                    fix grammar, organize the thoughts, and make it readable. Return ONLY the formatted text.
-
-                    Brain dump:
-                    \(item.body)
-                    """
-
-                let result = try await AppleIntelligenceService.shared.generate(
-                    prompt: prompt,
-                    systemPrompt: nil
-                )
-
-                let cleaned = result.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !cleaned.isEmpty else {
-                    busyItemId = nil
-                    return
-                }
-
-                var ideas = readIdeas()
-                if let idx = ideas.firstIndex(where: { $0.id == item.id }) {
-                    ideas[idx].formattedBody = cleaned
-                    writeIdeas(ideas)
-                }
-                busyItemId = nil
-            } catch {
-                busyItemId = nil
-                eventBus.emitToast(
-                    "Apple Intelligence: \(error.localizedDescription)", type: .error)
-            }
-        }
-    }
 }
 
 // MARK: - Idea Row
 
 private struct IdeaRow: View {
     let item: NoteIdea
-    let isBusy: Bool
     let theme: EpistemosTheme
     let pageBody: String
     let onGoToLine: () -> Void
     let onInsert: () -> Void
-    let onIntegrate: () -> Void
-    let onFormat: () -> Void
     let onDelete: () -> Void
 
     @State private var isExpanded = false
@@ -3987,24 +3884,18 @@ private struct IdeaRow: View {
 
                 Spacer()
 
-                if isBusy {
-                    ProgressView()
-                        .scaleEffect(0.5)
+                Button {
+                    onDelete()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8))
+                        .foregroundStyle(theme.textTertiary)
                         .frame(width: 16, height: 16)
-                } else {
-                    Button {
-                        onDelete()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 8))
-                            .foregroundStyle(theme.textTertiary)
-                            .frame(width: 16, height: 16)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Remove idea")
-                    .help("Remove")
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove idea")
+                .help("Remove")
             }
 
             // Line anchor badge — click to navigate
@@ -4034,8 +3925,8 @@ private struct IdeaRow: View {
                 .help("Go to line \(line)")
             }
 
-            // Action bar — Insert / Integrate / Format
-            if isExpanded && !isBusy {
+            // Action bar — Insert and legacy formatted-body display
+            if isExpanded {
                 HStack(spacing: 8) {
                     // Insert at anchor
                     Button {
@@ -4056,48 +3947,6 @@ private struct IdeaRow: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Insert at anchor line")
                     .help("Insert text at anchor line")
-
-                    if ProductCapabilityPolicy.isAvailable(.generativeActions) {
-                        Button {
-                            onIntegrate()
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: 9))
-                                Text("Integrate")
-                                    .font(.system(size: 9, weight: .medium))
-                            }
-                            .foregroundStyle(.purple)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.purple.opacity(0.1), in: Capsule())
-                            .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Integrate with AI")
-                        .help("AI integrates this into the note")
-
-                        if item.type == .brainDump && item.formattedBody == nil && !item.body.isEmpty {
-                            Button {
-                                onFormat()
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "wand.and.stars")
-                                        .font(.system(size: 9))
-                                    Text("Format")
-                                        .font(.system(size: 9, weight: .medium))
-                                }
-                                .foregroundStyle(.orange)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.orange.opacity(0.1), in: Capsule())
-                                .contentShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Format with AI")
-                            .help("Format with Apple Intelligence")
-                        }
-                    }
 
                     // Toggle raw/formatted (brain dumps with formatted body)
                     if item.type == .brainDump && item.formattedBody != nil {
@@ -4129,7 +3978,7 @@ private struct IdeaRow: View {
                     .font(.system(size: 9))
                     .foregroundStyle(theme.textTertiary.opacity(0.6))
                 if item.formattedBody != nil {
-                    Text(ProductCapabilityPolicy.isAvailable(.generativeActions) ? "AI formatted" : "Formatted")
+                    Text("Formatted")
                         .font(.system(size: 8, weight: .medium))
                         .foregroundStyle(theme.resolved.accent.color.opacity(0.7))
                         .padding(.horizontal, 8)

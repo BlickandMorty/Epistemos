@@ -39,11 +39,6 @@ struct GraphWorkspaceContainer: View {
     }
 
     var body: some View {
-        // 2026-05-19 — the shape-blur boundary used to live here, but on
-        // the .canvas route this whole container's host view is hidden by
-        // HologramOverlay's routeObserver. Moved to `ShapedGraphBoundaryHost`
-        // mounted as a separate always-visible NSHostingView on the overlay
-        // so the shape-blur is also visible while the user is on the canvas.
         routeContent
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .modifier(EmbeddedGraphRouteChrome(

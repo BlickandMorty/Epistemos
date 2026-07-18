@@ -191,29 +191,25 @@ struct NoteEditorLayoutTests {
     func noteProseBodyUsesCenteredReadableInset() {
         let compactInset = ProseEditorRepresentable2.horizontalInset(
             for: 900,
-            markdown: "A readable paragraph of prose without tables."
+            mode: .normal
         )
         let restoredWideInset = ProseEditorRepresentable2.horizontalInset(
             for: NoteDualPreviewLayout.defaultEditorSurfaceMaxWidth,
-            markdown: "A readable paragraph of prose without tables."
+            mode: .normal
         )
         let oversizedInset = ProseEditorRepresentable2.horizontalInset(
             for: 1100,
-            markdown: "A readable paragraph of prose without tables."
+            mode: .normal
         )
         let tableInset = ProseEditorRepresentable2.horizontalInset(
             for: 1100,
-            markdown: "| A | B |\n| - | - |\n| 1 | 2 |"
+            mode: .normal
         )
 
-        #expect(compactInset == NoteDualPreviewLayout.minimumTextHorizontalInset)
-        #expect(restoredWideInset == NoteDualPreviewLayout.minimumTextHorizontalInset)
-        #expect(
-            NoteDualPreviewLayout.defaultEditorSurfaceMaxWidth - (restoredWideInset * 2)
-                == NoteDualPreviewLayout.editorTextReadableMaxWidth
-        )
-        #expect(oversizedInset == 70)
-        #expect(tableInset == NoteDualPreviewLayout.minimumTextHorizontalInset)
+        #expect(compactInset == 90)
+        #expect(restoredWideInset == 180)
+        #expect(oversizedInset == 190)
+        #expect(tableInset == oversizedInset)
     }
 
     @Test("note editor surface lets the prose scroll view fill the available width")
@@ -231,8 +227,8 @@ struct NoteEditorLayoutTests {
         #expect(surfaceSource.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
     }
 
-    @Test("markdown documents default to Document and expose Prose Preview Source as peer modes")
-    func markdownDocumentsDefaultToDocumentWithSourceAsPeerMode() throws {
+    @Test("markdown documents default to Prose and expose Preview and Source as peer modes")
+    func markdownDocumentsDefaultToProseWithSourceAsPeerMode() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(source.contains("enum NoteWorkspaceMode: String, CaseIterable, Hashable"))
@@ -240,10 +236,11 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("case document"))
         #expect(source.contains("case preview"))
         #expect(source.contains("case source"))
-        #expect(source.contains("@State private var noteMode: NoteWorkspaceMode = .document"))
+        #expect(source.contains("static let defaultMarkdown: NoteWorkspaceMode = .edit"))
+        #expect(source.contains("@State private var noteMode: NoteWorkspaceMode = .defaultMarkdown"))
         #expect(source.contains("surfaceModeToolbarButton(mode: mode, isActive: mode == selectedMode)"))
         #expect(!source.contains("Picker(\n                \"View\""))
-        #expect(source.contains(": [.edit, .document, .preview, .source]"))
+        #expect(source.contains("hasSourceRoute ? [.edit, .preview, .source] : [.edit, .preview]"))
         #expect(source.contains("guard resolvedNoteMode(for: page, options: options) == .source else {"))
         #expect(!source.contains("MarkdownDocumentLens"))
         #expect(!source.contains("epistemos.markdownLens"))
@@ -1125,7 +1122,9 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("NoteFileStorage.stageBodyForImmediateRead("))
         #expect(!source.contains("await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)"))
         #expect(source.contains("page.needsVaultSync = true"))
-        #expect(source.contains("ProseEditorView.syncNoteTitleIfNeeded("))
+        #expect(source.contains("ProseEditorView.syncedNoteTitle(from: stagedBody)"))
+        #expect(source.contains("performPageIdentityFileFirstCommit("))
+        #expect(!source.contains("ProseEditorView.syncNoteTitleIfNeeded("))
     }
 
     @Test("page-body read requests stage editor text without forcing a full metadata flush on the main actor")

@@ -3,23 +3,17 @@ import os
 
 // MARK: - Power Mode
 
-/// Three-tier power management:
+/// Two-tier power management:
 ///   - `.full`: everything on, no restrictions
-///   - `.eco`: manual toggle — disables background subsystems, full FPS
-///   - `.lowPower`: system LPM or critical thermal — eco + 60fps cap + render throttle
-enum PowerMode: Int, Comparable, Sendable, CaseIterable {
+///   - `.lowPower`: system Low Power Mode or critical thermal state — pauses
+///     nonessential maintenance and throttles rendering as an emergency fallback
+enum PowerMode: Int, Sendable, CaseIterable {
     case full = 0
-    case eco = 1
-    case lowPower = 2
-
-    static func < (lhs: PowerMode, rhs: PowerMode) -> Bool {
-        lhs.rawValue < rhs.rawValue
-    }
+    case lowPower = 1
 
     var label: String {
         switch self {
         case .full: "Full"
-        case .eco: "Eco"
         case .lowPower: "Low Power"
         }
     }
@@ -27,13 +21,13 @@ enum PowerMode: Int, Comparable, Sendable, CaseIterable {
     /// Whether background subsystems (heartbeat, watchdog, screen capture,
     /// vault timers, health checks) should be disabled.
     var disablesBackground: Bool {
-        self >= .eco
+        self == .lowPower
     }
 
     /// Whether rendering should be throttled (60fps cap, physics paused,
     /// ring buffer polling slowed).
     var throttlesRendering: Bool {
-        self >= .lowPower
+        self == .lowPower
     }
 }
 
@@ -42,10 +36,9 @@ enum PowerMode: Int, Comparable, Sendable, CaseIterable {
 /// Centralized power authority. All subsystems query this before doing
 /// background or compute-intensive work.
 ///
-/// Derives `currentMode` from three inputs:
+/// Derives `currentMode` from two automatic inputs:
 ///   1. System low power mode (`ProcessInfo.isLowPowerModeEnabled`)
 ///   2. Thermal state (`.critical` escalates to `.lowPower`)
-///   3. User eco toggle (persisted in UserDefaults)
 ///
 /// Same architectural pattern as ThermalGuard — singleton, notification-driven,
 /// observable for SwiftUI.
@@ -62,20 +55,6 @@ final class PowerGuard {
     /// Current derived power mode — the canonical source of truth.
     private(set) var currentMode: PowerMode = .full
 
-    /// User-controlled eco toggle. Persisted across launches.
-    var ecoModeEnabled: Bool {
-        didSet {
-            UserDefaults.standard.set(ecoModeEnabled, forKey: "epistemos.ecoMode")
-            recalculate(reason: ecoModeEnabled ? "eco enabled" : "eco disabled")
-        }
-    }
-
-    /// Whether eco mode has ever been explicitly set by the user.
-    /// On first launch, eco is on by default.
-    private static var hasExplicitEcoPreference: Bool {
-        UserDefaults.standard.object(forKey: "epistemos.ecoMode") != nil
-    }
-
     /// Whether the system is in low power mode.
     private(set) var systemLowPowerActive = false
 
@@ -90,7 +69,7 @@ final class PowerGuard {
     /// True when rendering should be throttled (60fps cap, physics pause).
     var shouldThrottleRendering: Bool { currentMode.throttlesRendering }
 
-    /// Max display link FPS. Unlimited (0) in full/eco, 60 in lowPower.
+    /// Max display link FPS. Unlimited (0) in full, 60 in lowPower.
     var maxDisplayLinkFPS: Int { currentMode.throttlesRendering ? 60 : 0 }
 
     /// Ring buffer polling interval.
@@ -102,7 +81,6 @@ final class PowerGuard {
     var healthCheckInterval: TimeInterval {
         switch currentMode {
         case .full: 30.0
-        case .eco: 120.0
         case .lowPower: .infinity // stopped
         }
     }
@@ -113,10 +91,9 @@ final class PowerGuard {
     private var thermalNotificationTask: Task<Void, Never>?
 
     private init() {
-        // Default to eco mode on first launch (no key in UserDefaults yet).
-        ecoModeEnabled = Self.hasExplicitEcoPreference
-            ? UserDefaults.standard.bool(forKey: "epistemos.ecoMode")
-            : true
+        // Retire the old manual Eco setting instead of allowing a saved value to
+        // suppress a fresh session's normal-performance policy.
+        FoundationSafety.runtimeUserDefaults.removeObject(forKey: "epistemos.ecoMode")
         systemLowPowerActive = ProcessInfo.processInfo.isLowPowerModeEnabled
         thermalCritical = ProcessInfo.processInfo.thermalState == .critical
 
@@ -169,14 +146,7 @@ final class PowerGuard {
     private func recalculate(reason: String) {
         let previous = currentMode
 
-        let derived: PowerMode
-        if systemLowPowerActive || thermalCritical {
-            derived = .lowPower
-        } else if ecoModeEnabled {
-            derived = .eco
-        } else {
-            derived = .full
-        }
+        let derived: PowerMode = systemLowPowerActive || thermalCritical ? .lowPower : .full
 
         guard derived != previous else { return }
         currentMode = derived

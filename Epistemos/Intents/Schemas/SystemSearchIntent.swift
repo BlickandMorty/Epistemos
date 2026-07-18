@@ -2,15 +2,15 @@ import AppIntents
 import SwiftData
 
 // MARK: - System Search Intent (.system domain)
-// Universal search across all Lucid content: notes, research, chat history.
-// This is the most powerful schema — Apple Intelligence can compose it with
-// any other intent: "Find my notes about quantum and summarize them"
+// Universal deterministic search across local Epistemos notes and documents.
+// Paid research/chat search can be rebuilt later behind the paid capability
+// gates; Free V1 metadata must not advertise hidden surfaces.
 
 @AppIntent(schema: .system.search)
 struct SystemSearchIntent: AppIntent {
     static var title: LocalizedStringResource { "Search Epistemos" }
     static var description: IntentDescription {
-        IntentDescription("Searches across all your Epistemos notes, research, and chat history.")
+        IntentDescription("Searches across your local Epistemos notes and documents.")
     }
     static var openAppWhenRun: Bool { true }
 

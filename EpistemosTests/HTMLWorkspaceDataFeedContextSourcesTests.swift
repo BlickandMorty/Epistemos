@@ -81,8 +81,8 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
     }
 
     @MainActor
-    @Test("recent chat context source uses real persisted chat messages")
-    func recentChatContextSourceUsesRealPersistedChatMessages() throws {
+    @Test("free V1 HTML workspace hides persisted chat context")
+    func recentChatContextSourceIsHiddenInFreeV1() throws {
         let schema = Schema([SDPage.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self, SDChat.self, SDMessage.self])
         let container = try ModelContainer(
             for: schema,
@@ -106,11 +106,7 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
             modelContainer: container,
             limit: 5
         )
-        #expect(directResults.map(\.pageID) == [chat.id])
-        #expect(directResults.first?.contextKind == "recent_chat")
-        #expect(directResults.first?.sourceLabel == "Recent chat")
-        #expect(directResults.first?.snippet == "Alpha decision recap from the real chat.")
-        #expect(directResults.first?.provenance.contains("SDChat / notes") == true)
+        #expect(directResults.isEmpty)
 
         let genericResult = SearchResult(pageId: "note-a", title: "Generic", snippet: "generic", rank: 0.7)
         let triggeredResults = HTMLWorkspaceDataFeedContextSources.results(
@@ -120,8 +116,7 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
             limit: 5,
             query: "recent chats alpha"
         )
-        #expect(triggeredResults.map(\.pageID) == [chat.id])
-        #expect(triggeredResults.first?.contextKind == "recent_chat")
+        #expect(triggeredResults.isEmpty)
 
         let explicitGraphResults = HTMLWorkspaceDataFeedContextSources.results(
             for: "graph_related_note",
@@ -504,7 +499,7 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "folder: physics") == "folder_note")
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "meeting notes launch") == "meeting_note")
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "web clip example") == "web_clip")
-        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "recent chats alpha") == "recent_chat")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "recent chats alpha") == nil)
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "provenance claims") == "provenance_claim")
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "graph related anchor") == "graph_related_note")
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "plain substrate search") == nil)
@@ -513,9 +508,10 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
     @MainActor
     @Test("standalone context source classifier separates local reads from vault search reads")
     func standaloneContextSourceClassifierSeparatesLocalReadsFromVaultSearchReads() {
-        for kind in ["recent_capture", "note", "pdf_note", "folder_note", "meeting_note", "web_clip", "recent_chat", "provenance_claim"] {
+        for kind in ["recent_capture", "note", "pdf_note", "folder_note", "meeting_note", "web_clip", "provenance_claim"] {
             #expect(HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(kind))
         }
+        #expect(!HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource("recent_chat"))
         #expect(!HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource("graph_related_note"))
         #expect(!HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(nil))
     }

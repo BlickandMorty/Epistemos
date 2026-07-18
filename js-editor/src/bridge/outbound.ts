@@ -56,7 +56,7 @@ export interface MarkdownWritebackRegionPayload {
 export interface MarkdownDidChangeMessage extends OutboundMessageBase {
   type: 'markdownDidChange';
   epoch: number;
-  /** Full-fidelity Markdown snapshot from @tiptap/markdown. */
+  /** Full-fidelity Markdown snapshot, or empty when writeback carries the edit. */
   markdown: string;
   /** LUMENLENS L3: changed block byte range for minimal-diff writeback. */
   writeback?: MarkdownWritebackRegionPayload;
@@ -72,30 +72,6 @@ export interface DocumentStatsChangedMessage extends OutboundMessageBase {
 export interface LoadSettledMessage extends OutboundMessageBase {
   type: 'loadSettled';
   epoch: number;
-}
-
-export interface SuggestionResolvedMessage extends OutboundMessageBase {
-  type: 'suggestionResolved';
-  epoch: number;
-  suggestionId: string;
-  state: 'accepted' | 'rejected';
-}
-
-export interface SuggestionAppliedMessage extends OutboundMessageBase {
-  type: 'suggestionApplied';
-  epoch: number;
-  id: string;
-  author: string;
-  turnId: string;
-  kind: string;
-  from: number;
-  to: number;
-  mapVersion: number;
-  before: string;
-  after: string;
-  rationale?: string;
-  sourceCitation?: string;
-  claimId?: string;
 }
 
 export interface RectPayload {
@@ -140,20 +116,6 @@ export interface RequestHTMLWorkspaceMessage extends OutboundMessageBase {
   source?: 'slash-menu' | 'toolbar' | 'dock';
 }
 
-/**
- * AR5 — paste classification request. JS posts the raw pasted text to
- * the Swift host so `IntakeValve.shared.classifyAndRoute(...)` can
- * decide whether the paste belongs in the structured graph, the
- * ambient quarantine, or the bit-bucket. See
- * `js-editor/src/extensions/paste-classifier-bridge.ts` and
- * `Epistemos/Engine/IntakeValve.swift`.
- */
-export interface ClassifyPasteMessage extends OutboundMessageBase {
-  type: 'classifyPaste';
-  /** Pasted text (after browser sanitisation, before Tiptap parsing). */
-  text: string;
-}
-
 export interface StoreImageAssetMessage extends OutboundMessageBase {
   type: 'storeImageAsset';
   /** Correlates the eventual Swift response with the captured paste/drop position. */
@@ -170,13 +132,10 @@ export type OutboundMessage =
   | MarkdownDidChangeMessage
   | DocumentStatsChangedMessage
   | LoadSettledMessage
-  | SuggestionAppliedMessage
-  | SuggestionResolvedMessage
   | CaretChangedMessage
   | RequestSlashMenuMessage
   | RequestBubbleMenuMessage
   | RequestHTMLWorkspaceMessage
-  | ClassifyPasteMessage
   | StoreImageAssetMessage;
 
 /**

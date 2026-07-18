@@ -1,6 +1,6 @@
 # Current In-Flight Feature Handoff
 
-Updated: 2026-07-13
+Updated: 2026-07-15
 
 This file is the durable GitHub anchor for moving an unfinished Epistemos task
 between Codex sessions or machines. A prompt alone does not transfer hidden
@@ -20,6 +20,134 @@ conflicts. The active app edition is free V1: June, generative/model/agent
 features, Browser, and ResearchHub are paid-only and hidden/inert. Kokoro and
 the deterministic local capability ring remain free. This does not change the
 current KEELSTONE execution key or external-canon authority.
+
+Latest dated owner override: external/repository canon addendum
+`14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md` supersedes every
+conflicting LumenLens, June/AI, and Reckoner execution instruction. LumenLens
+and all AI/agent/model/provider/generative work are canceled. Reckoner and
+spreadsheet/database-product work are parked reversibly. All requested non-AI
+work remains active except Reckoner, including the Editor Core, KEELSTONE,
+Sync, Quick Capture, planner/calendar/Meeting, PDF, graphs, native integrations,
+settings/performance hardening, export, and Kokoro. Browser and ResearchHub are
+deterministic future paid possibilities only and remain absent from Free V1.
+
+Directive-coverage companion:
+`15_OWNER_DIRECTIVE_COVERAGE_AND_HARDENING_CHECKPOINT_2026_07_15.md` is the
+durable add/remove/harden/test routing index. It preserves the subtle P0
+Contextual Shadows/query/notebook/AI-compile/Reckoner/restoration/release-gate
+work, current per-feature implementation and proof status, exact editor and
+Kokoro contracts, KEELSTONE debt, and the safe resume order. Read it after 14;
+do not reconstruct the queue from this handoff summary alone.
+
+Newest sequential two-lane execution directive:
+`16_TWO_LANE_REMOVAL_AND_REBUILD_DIRECTIVE_2026_07_15.md` authorizes two
+non-overlapping source sessions under the same KEELSTONE key, but they execute
+one at a time. Lane R is current and executes
+`docs/prompts/FREE_V1_REMOVAL_AND_FAIL_CLOSED_PROMPT_2026_07_15.md`. Lane B
+is deferred until Lane R records a stable source checkpoint, then executes
+`docs/prompts/RETAINED_BUILD_EPDOC_AND_MULTITASK_GRAPH_PROMPT_2026_07_15.md`.
+Lane R's legacy notebook removal means only the retired Chat/Sheet/Body-strip
+workspace; it must preserve the future Epdoc-native notebook/structured-
+document concept and canonical JSON `.epdoc` seams.
+The owner reports the native Epdoc is visibly bare relative to the previous
+rich Tiptap surface and the Multitask Graph opens blank. These are Lane B's
+immediate P0 defects. Neither lane may edit Settings or overlap the other's
+file map, and neither may run Xcode/app verification until both sequential
+source checkpoints are stable.
+
+Concurrent ownership note: the owner is cleaning up Settings in another
+session. Preserve all current Settings-file edits as externally owned in-flight
+work. Do not overwrite, revert, absorb, or independently “fix” those files;
+reconcile and test their final state at the later one-current-build boundary.
+
+## July 15 Owner-Scope Pause Checkpoint
+
+The owner requested a review checkpoint. Production implementation, builds,
+tests, and launches are paused. Do not use any older “exact next action” later
+in this handoff until this section and canon `14` have been read.
+
+### Repository identity at the pause
+
+- branch: `feat/goose-surface`;
+- local HEAD, `origin/feat/goose-surface`, and handoff publication commit:
+  `668b52cfb43721de95db102260d9f327ae24e13e`;
+- dirty owner/in-flight worktree intentionally preserved; do not reset,
+  overwrite, or assume uncommitted current-source changes are on GitHub;
+- canonical execution key remains
+  `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`;
+- private Columbia/VA/funding work is outside this repository.
+
+### Current evidence boundary
+
+- R109: one older Free V1 Release archive passed artifact scanners and omitted
+  named June/model/provider/agent products. It is unsigned local evidence and
+  stale relative to current source.
+- R110: one partial runtime pass on R109 found small Markdown editing and Source
+  switching usable, but also stale Settings copy, Source-width residue, missing
+  Epdoc discoverability, toolbar overflow, and unexecuted graph routes. Its
+  Epdoc typing leg was contaminated and is not product evidence.
+- R113: the Free V1 App Store target compiled and four selected guards passed
+  for Source wrap/no width slider, Landing commands, Epdoc graph source, and
+  Home/Multitask plus two graph routes. It is stale relative to the next batch.
+- The current editor batch has only Swift parse and `git diff --check` evidence.
+  It has not received a replacement Xcode build, scheme-member test run, app
+  launch, large-document runtime pass, memory pass, visual check, or
+  accessibility check.
+
+### Current unbuilt editor batch
+
+Key current-source work includes:
+
+- `MotionTitle.swift` and editor hosts: recovered ASCII/blur title reveal,
+  bubble removal intent, activation/identity keys, Reduce Motion/occlusion;
+- `EpdocDocument.swift`, `EpdocTextKit2EditorSession.swift`, and
+  `EpdocTextKit2EditorView.swift`: autosave/explicit-save state, coalesced
+  projections/checkpoints, reduced duplicate validation, no-op width handling;
+- `EpdocEditorToolbar.swift` and `EpdocEditorChromeView.swift`: truthful native
+  capabilities plus link/image/find actions and save-state presentation;
+- `EpdocGraphProjector.swift`, `EpdocGraphRenderingMapper.swift`, and
+  `EpdocQuery.swift`: retired complexity work removed from the graph/query path;
+- `CodeEditorView.swift` and `CodeFileIconView.swift`: obsolete left identity
+  chip removed;
+- Landing, Notes sidebar, `HomeDocumentWorkspaceView`, UI state, graph routes,
+  and Source wrap/format-label changes from the R113 batch;
+- scheme-member App Store tests in
+  `EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift`,
+  `EpdocNativeToolbarTests.swift`, and `EpdocCanonicalContentTests.swift`.
+
+This list is a batch map, not a compilation or behavior claim.
+
+### Newly audited P0 contradictions
+
+- Free V1 Contextual Shadows can still query and present stored chats.
+- AI-diff/HandleWithCare suggestion code, AI bridge/provenance types, dormant
+  AI views/services, and some chat/LLM-adjacent composition-root state remain
+  compiled even where their visible controls are hidden.
+- `.reckoner` remains advertised as a Free V1 capability and a pending dataset
+  hook remains in `VaultIndexActor` despite the owner parking Reckoner.
+- HTML Workspace/Setup copy and KEELSTONE source gates retain stale AI/June
+  assumptions.
+- Standalone Epdoc title identity has not proven parity with the shared
+  Name/Tags/Where and rename/move popover.
+
+### Exact safe resumption boundary
+
+After owner review, under the same KEELSTONE key:
+
+1. Seal the Free V1 AI/chat query, compile, bootstrap, settings/copy, and release-
+   gate boundaries; remove Reckoner from active capability truth while retaining
+   compatibility parsing and quarantined provenance.
+2. Finish the retained non-AI editor batch and resolve Epdoc title-popover
+   parity without expanding features.
+3. Retire stale R113, perform the mandatory below-16-GiB resource preflight,
+   and produce exactly one current App Store Debug build/test product.
+4. Run the finite editor/navigation/graph/67k-72k/save/title/settings/Kokoro/
+   accessibility/memory runtime matrix on that exact app.
+5. Close KEELSTONE with one fresh Release archive and all artifact/release
+   gates. Do not begin another canonical execution key.
+
+The scope decision is in canon `14`; the complete directive inventory,
+current-state matrix, and remaining capability order are in canon `15`.
 
 ## Owner Intent Checkpoint
 
@@ -159,9 +287,9 @@ Before using the repository read order, verify the full external canon at
 numbered `03_MINIMAL_PROMPT_PACK.md`. The imported repository copy is a recovery
 mirror, not higher authority.
 
-## Current Authoritative Continuation Checkpoint — 2026-07-13
+## Current Authoritative Continuation Checkpoint — 2026-07-14
 
-Status: `IN_FLIGHT_RUNTIME_BLOCKED_BY_LOCKED_MAC`
+Status: `IN_FLIGHT_RUNTIME_MATRIX_RED_REPAIR_REQUIRED`
 
 Exact feature:
 
@@ -198,57 +326,267 @@ Current intended behavior and done bar:
 
 Proven current state:
 
-- Local `HEAD`, fetched `origin/feat/goose-surface`, live GitHub, and the prior
-  handoff publication commit were grounded at
-  `5e0a335d3cc2de87d89ec91698a3077036d693a7` before edits.
+- Local `HEAD`, fetched `origin/feat/goose-surface`, and the handoff publication
+  commit are exact at
+  `668b52cfb43721de95db102260d9f327ae24e13e`. Dirty count is 117 and
+  `git diff --check` passes; nothing was reset or overwritten.
 - The centralized `ProductCapabilityPolicy`, free build condition/settings,
   paid-route guards, and free resource omission path are implemented.
-- Focused result `/tmp/Epistemos-FreeV1-Policy.xcresult` passes 8/8 tests with
-  zero failures or skips.
-- The edition-aware source gate passes.
+- The formerly Red14 watcher-warning leg now passes an exact focused 1/1 test
+  and a fresh selected 25/25 regression with zero failed, skipped, expected-
+  failure, issue, or direct Runtime Warning nodes. The test-only container
+  release correction does not change production watcher behavior.
 - Exactly one current archive exists:
-  `/Users/jojo/Downloads/Epistemos/build/archives/Epistemos-FreeV1-current.xcarchive`.
-  Its exact app is universal, bundle `com.epistemos.appstore`, version 1.0.0
-  build 1, and locally ad-hoc signed for evidence with App Sandbox entitlement.
-- Strict deep signature verification passes. The exact built-app KEELSTONE gate
-  and comprehensive bundle scanner pass. `JuneWeb`, `model_manifest.json`, and
-  `DefaultSkills` are absent.
-- After local signing, executable SHA-256 is
-  `3e4273c9cdfe7ed3f3deca7883f9d05020fd92fc3d95ec986ba18cd6f6513f5b`.
+  `/Users/jojo/Downloads/Epistemos/build/archives/Epistemos-FreeV1-current-2026-07-14.xcarchive`.
+  Its exact app is universal `x86_64 arm64`, bundle
+  `com.epistemos.appstore`, version 1.0.0 build 1, and locally ad-hoc signed for
+  evidence with the App Store entitlements.
+- Direct archive-result inspection reports `succeeded`, zero errors, and
+  thirteen retained compiler/toolchain warnings. The exact Release graph
+  archive was universal and had zero SQLite exports/string names before its
+  disposable staging copy was removed.
+- Strict deep signature verification passes. CDHash is
+  `1e5bf8ec807e1cea25414214c663a554ac5b009b`; `TeamIdentifier` is absent, so
+  this is not distribution signing. Executable SHA-256 after signing is
+  `16773d596813727bcf8894b6719c2ec329fb5ac29d7a1f124d670fffb28575c8`.
+- The exact built-app KEELSTONE gate and separately retained comprehensive
+  scanner pass. App Sandbox is effective. The main privacy manifest matches
+  source byte-for-byte; GRDB supplies the second expected nested manifest.
+  `JuneWeb`, model/agent resources, paid linkage, test frameworks, quarantine,
+  and all scanner forbidden findings are absent.
+- Disposable archive DerivedData and the staged graph archive are absent.
+  The only current Epistemos app is nested inside the only current archive.
 
 Unproven and verification debt:
 
-- The UI/runtime matrix did not begin because macOS was locked and the UI tool
-  correctly refused to bypass the lock. No Epistemos process or runtime log was
-  created; no vault, model, provider, secret, network, microphone, or audio
-  operation began.
-- When the Mac is unlocked, still prove: paid surfaces absent/inert; disposable
-  vault save/relaunch/save; Epdoc rich-Markdown lens fidelity; deterministic
-  Meeting/Capture/planner/Sync/calendar/PDF/export entry points; graph/search
-  routing; and English Kokoro with no agent/model/provider startup.
+- No current-source runtime leg has begun against the July 14 archive. Still
+  prove: paid surfaces absent/inert; disposable-vault save/relaunch/save; Epdoc
+  rich-Markdown lens fidelity; deterministic Meeting/Capture/planner/Sync/
+  calendar/PDF/export entry points; graph/search routing; and English Kokoro
+  with no agent/model/provider startup.
 - The local ad-hoc signature is not Apple distribution signing. Payment and
   submission readiness remain deferred and unproven.
-- The free artifact still links dormant shared paid implementation libraries,
-  including `libagent_core`, `libomega_mcp`, and `llama.framework`. Removing
-  them is future size/build-topology debt; never delete linked code from the
-  finished bundle as a cleanup shortcut.
+- Archive warnings, broad non-App-Store suites, Eidos/Spotlight/rescan/manual-
+  sync/structural-recovery coverage, bootstrap messages, performance/storage
+  soak, distribution, and repeated-zero-fail evidence remain explicit later
+  debt. Artifact-gate success is not a warning-free or release-ready verdict.
 
 Exact next action:
 
 1. Keep the sole current archive immutable and do not start another build.
-2. When the owner has unlocked the Mac, re-run the resource preflight; stop on
-   swap >= 4 GiB, free memory < 25%, nonzero throttled pages, or a competing
-   build/model/Epistemos process.
-3. Launch the exact archive app and run only the finite free-V1 runtime matrix
-   serially with correlated logs and a disposable vault.
-4. Update the existing exact-runtime evidence document and this handoff; stop
-   after the KEELSTONE verdict. Do not begin paid June, Browser, ResearchHub,
-   payment work, or another canonical execution key.
+2. Run a fresh complete runtime preflight. Stop before launch if swap used is
+   not strictly below 16,384 MiB, free memory is below 25%, throttled pages are
+   nonzero, a competing Xcode/compiler/model/Epistemos process exists, the sole
+   archive/app identity changed, or the product inventory is no longer exact.
+3. If and only if the preflight passes, launch the exact July 14 archive app
+   with isolated disposable application-support and vault paths, and run only
+   the finite free-V1 runtime matrix serially with correlated logs.
+4. Do not access the owner's real vault, private/removable material, account or
+   payment state, model/provider/secret paths, or paid June/Browser/ResearchHub
+   surfaces. Update the existing evidence document and this handoff, then stop
+   after the KEELSTONE verdict. Do not begin canon/feature work or another
+   canonical execution key.
 
 All older statements below that say June is currently active, that a model or
 provider runtime leg is required for free V1, or that Apple signing is required
 before local archive evidence are historical and superseded by this dated
 checkpoint.
+
+## Runtime Matrix Verdict Checkpoint — 2026-07-14
+
+This checkpoint is newer than and supersedes the runtime-pending details in the
+Current Authoritative Continuation Checkpoint immediately above.
+
+Status: `IN_FLIGHT_RUNTIME_MATRIX_RED_REPAIR_REQUIRED`
+
+Canonical execution key:
+
+`EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`
+
+Exact repository and artifact identity:
+
+- branch `feat/goose-surface`;
+- local `HEAD`, fetched `origin/feat/goose-surface`, and handoff publication
+  `668b52cfb43721de95db102260d9f327ae24e13e`;
+- dirty count 179; preserve all changes;
+- sole archive
+  `build/archives/Epistemos-FreeV1-runtime-isolation-current-2026-07-14.xcarchive`;
+- executable SHA-256
+  `468c76dc6fa2e0982af8bed768ce2ea17eecee50d25314003b16fbfca231bda7`;
+- deterministic app-tree SHA-256
+  `adaded48d7b114d0ea50cd734b4287b222536b0a75ac8968e141d8e942d16608`;
+- archive `Info.plist` SHA-256
+  `0583481459bbf1613cc3af5ac08f24dc05a1ad1b6665672a884ce4da12d23236`.
+
+Runtime verdict:
+
+`INCOMPLETE — RUNTIME MATRIX RED — NOT RELEASE READY`
+
+The artifact gates remain green, but the finite runtime matrix found:
+
+- visible Companions and stale agent/chat/provenance/Writing Tools surfaces in
+  Free V1;
+- actual Apple NaturalLanguage `mul_Latn` embedding-model load and
+  512-dimensional embedding pushes despite the literal no-AI Free V1 lock;
+- eager AVAudioEngine configuration and thousands of microphone-permission
+  queries without an explicit Meeting/audio start;
+- `/tmp` versus `/private/tmp` vault aliasing that created a nested
+  absolute-derived path, containment failures, and failed file-first saves;
+- repeated Eidos/index and Epdoc host-Markdown divergence errors;
+- non-verbatim Source Markdown and a live CoreEditor-only path below the
+  canonical MarkEdit fidelity requirement;
+- absent calendar permission/entry contract, unproved Kokoro runtime, a
+  roughly 40-second blank-Epdoc interaction delay, Settings inspection hangs,
+  negative geometry/lifecycle diagnostics, and about 922 MiB of structured
+  logs for this bounded matrix.
+
+Positive boundaries remain exact: no June, cloud-provider request, Browser,
+ResearchHub, Kokoro synthesis, HTTP endpoint, owner-vault, private/removable,
+payment/account, provider-secret, or Columbia/VA/funding activity was found.
+Normal onboarding, disposable-vault restoration, Quick Capture, Meeting
+ready-state, HTML preview/export entry points, graph navigation, and Unicode
+search produced partial positive evidence, but they do not cancel the red
+legs.
+
+The owner's latest Source lock is also durable: Markdown Source and its
+preview/“eye” must use MarkEdit's donor typography, geometry, gutter,
+scroll/selection behavior, and preview presentation almost verbatim while
+retaining the Epistemos palette and owner toolbar. Current source has the full
+MarkEdit donor and controller path, but production deliberately passes
+`allowsMarkEditWindowToolbar: false` because the full bridge exposes file,
+service, and clipboard APIs. The eventual repair must create a restricted
+MarkEdit host; it must not merely flip that Boolean or invent a new title
+ontology.
+
+Exact stop and resumption boundary:
+
+1. Stop after this final KEELSTONE verdict. Do not begin MAS canon, another
+   feature, or another canonical execution key.
+2. Keep the current archive immutable. Delete it only immediately before a
+   later authorized build under the one-current-build rule.
+3. If the owner explicitly resumes this same key, first add failing Free-build
+   tests for compiled/visible agent surfaces, NaturalLanguage execution, eager
+   audio setup, and microphone polling, then make the smallest repair.
+4. Next centralize canonical/symlink-resolved vault-relative containment and
+   prove save/relaunch/save without `/tmp` alias corruption.
+5. Only after those runtime blockers are green, implement and prove the
+   restricted-host near-verbatim MarkEdit Source/Preview contract.
+6. Before every future test/build/archive/runtime leg, enforce swap used
+   strictly below 16,384 MiB, free memory at least 25%, zero throttling, no
+   competing process, and exactly one current product.
+
+The detailed receipts, hashes, screenshot names, log classifications, and
+matrix table are in
+`docs/plans/keelstone/KEELSTONE_EXACT_RUNTIME_EVIDENCE_2026_07_10.md`.
+
+## Free V1 Compiler And Metadata Repair Checkpoint — 2026-07-14
+
+This checkpoint is newer than the archive/runtime stop boundary immediately
+above. It supersedes only the exact product inventory, artifact identity, and
+next action; it remains inside the same KEELSTONE execution key and does not
+start MarkEdit, Epdoc/PDF, LumenLens, Reckoner, Sync, canon feature work, or a
+new key.
+
+Status: `IN_FLIGHT_QUICK_CAPTURE_VOICE_OWNERSHIP_REPAIR_REQUIRED`
+
+Canonical execution key:
+
+`EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`
+
+Repository identity and preservation boundary:
+
+- branch `feat/goose-surface`;
+- local HEAD, fetched `origin/feat/goose-surface`, and handoff publication all
+  `668b52cfb43721de95db102260d9f327ae24e13e`;
+- current `git status --porcelain=v1 -uall` count 313; preserve every owner and
+  agent change, and do not reset or overwrite the dirty worktree;
+- Free V1 keeps June/chat/agent/provider/general-model/Browser/ResearchHub
+  hidden and uncompiled; Kokoro remains the sole bundled/app-owned model
+  exception;
+- payment, StoreKit enrollment, Apple-account recovery, and distribution
+  signing are deferred and do not block source/tests/unsigned local evidence;
+- do not inspect accounts, secrets, removable media, or private
+  Columbia/VA/funding material.
+
+Proven same-key repairs after the red runtime matrix:
+
+- The whole-file June/QuickChat/Goose/legacy-AgentWorkspace compiler boundary
+  is green. The exact App Store Swift input list contains 627 entries and has
+  SHA-256
+  `f3a5d439f5046a41cce2beae48fa43281818393c7d3d95ece64f2a2ceb84cea8`;
+  all 33 mapped paid source files are absent while Kokoro, MarkEdit, visible
+  speech, capture, deterministic search, and consent types required by free
+  product seams remain.
+- The false legacy `INIntentsSupported` array is removed from source and built
+  plists. The exact current generated App Intents metadata still proves 13
+  deterministic actions, 6 entities, 6 queries, zero enums, four approved
+  shortcuts, empty assistant metadata, and none of the four paid/chat intent
+  names.
+- The privacy-metadata fail-first test recorded four expected source/built
+  issues before product correction. The surgical correction changed only
+  `Epistemos-AppStore-Info.plist`: the microphone explanation now names only
+  explicit Meeting transcription, and
+  `NSSpeechRecognitionUsageDescription` is absent.
+- The accepted privacy replacement is
+  `build/xcode-results/2026-07-14-free-v1-privacy-metadata-green-16gib.xcresult`:
+  one passed, zero failed, zero skipped. Its 390530-byte log SHA-256 is
+  `b16d9b199ca91772f0050422f702424ba9e509257d108dd567dd11f1b53dbb23`.
+- The source audio-input entitlement remains true. The exact runtime still
+  links Speech and AVFoundation, uses `SpeechAnalyzer`/`SpeechTranscriber`, and
+  exposes no executable `SFSpeechRecognizer` or
+  `SFSpeechRecognitionRequest` symbol/string.
+- The complete current artifact audit is
+  `build/xcode-results/2026-07-14-free-v1-privacy-metadata-green-16gib-artifact-audit.txt`,
+  11278 bytes, SHA-256
+  `4cc4b915a07dd5ecf38dd47112bdef3cd06cb55f47203eaae5a7652cab72320a`.
+- Both MAS canon mirrors are byte-identical across all active numbered docs.
+  Their recomputed active-doc digest and manifest value are
+  `01f5090d3b7f43293166b9e128e84c3e22643083f6f473395995bc7a6393dc04`.
+
+Current product and resource evidence:
+
+- The prior archive is no longer the current product. The sole current product
+  is the unsigned selected-test app at
+  `/private/tmp/Epistemos-FreeV1NoEmbedding-Red-16GiB/Build/Products/Debug/Epistemos.app`;
+  there is no current archive and no `.appex` under the active root.
+- Its built Info.plist is 3972 bytes with SHA-256
+  `116cfce9887925f097299fc0a7b4854861a0552c6c54f259af10bef16ea84906`.
+  The launcher SHA-256 is
+  `54798be7b23fc6cccf66228dc9b1266d6e33f1bd6309a190d3ee46e84a5b22b8`;
+  its Debug runtime dylib SHA-256 is
+  `4d4b32eac26ba38e1112890c8391025020a17e1d2b9af788b63bce5127a5709e`.
+- The accepted-green preflight recorded 15880.19 MiB swap used, 54% free
+  memory, zero throttled pages, and no competing Xcode/compiler/model/
+  Epistemos process. The stale red app was deleted before exactly one serial
+  replacement selected-test build.
+- The test host bootstrapped for the assertion, but there was no normal
+  interactive launch, microphone request, audio capture, model/provider load,
+  secret access, or owner-vault/removable-media operation.
+
+Remaining blocker and exact next action:
+
+- Meeting is the real current owner-triggered native transcription path.
+  Quick Capture's visible Dictate control still reaches fail-closed
+  `AudioRecorder`/`AudioTranscriber` stubs in
+  `UnavailableAudioCapture.swift`, and Settings overclaims voice support.
+- The next action is one fail-first Quick Capture voice-honesty and shared-
+  capture ownership boundary. Before wiring the control to
+  `LiveVoiceInputService`, add a non-preemptive owner-scoped lease with
+  deterministic busy/denied/cancelled states, explicit draft persistence, and
+  owner-only stop/teardown; prove Meeting or another Quick Capture cannot be
+  stopped, cleared, or stolen. Do not restore `SFSpeechRecognizer`, a
+  subprocess, sidecar, local server, or second capture authority.
+- If that safe contract cannot be implemented and evidenced within this gate,
+  hide or truthfully disable the dead Free V1 control and correct Settings
+  rather than shipping an App Completeness overclaim.
+- Before any next test/build/archive, re-run the owner preflight: swap used
+  strictly below 16,384 MiB, free memory at least 25%, zero throttled pages,
+  no competing Xcode/compiler/model/Epistemos process; then delete the current
+  app and retain only the one serial replacement product.
+
+Overall verdict remains:
+
+`INCOMPLETE — RUNTIME MATRIX REPAIR IN PROGRESS — NOT RELEASE READY`
 
 ## Historical Program Truth Before Previous-Task Update
 
@@ -548,8 +886,9 @@ Exact next action after reset:
 2. If it reports a fatal identity mismatch, stop without resetting or
    overwriting anything.
 3. Restore Rust, Bun, Apple signing, and an exact reviewed JuneWeb stage/donor.
-4. Re-run the script. The owner's mandatory threshold is swap below 4 GB, at
-   least 25% free memory, zero pages throttled, and no competing
+4. Re-run the script. The owner's 2026-07-14 superseding mandatory threshold is
+   swap used strictly below 16 GiB (16,384 MiB), at least 25% free memory, zero
+   pages throttled, and no competing
    Xcode/compiler/model/Epistemos process.
 5. Only when identity, prerequisites, and safety are green: run the narrow
    serial compile/regression batch, produce exactly one
@@ -872,3 +1211,378 @@ After authenticated push/fetch, local `HEAD`, `origin/feat/goose-surface`, live
 GitHub, and that resolved handoff commit must match exactly. The only remaining
 owner-account gate is Apple signing. KEELSTONE remains `INCOMPLETE`; do not
 begin Prompt 3.
+
+## Same-Key Quick Capture Ownership Repair Checkpoint — 2026-07-14
+
+This section supersedes the older “exact next action” statements above. It
+does not replace the external July 8 master canon and does not begin Prompt 3.
+
+### Exact continuity identity
+
+- Branch: `feat/goose-surface`.
+- Local `HEAD`, `origin/feat/goose-surface`, and this handoff's last published
+  commit all resolve to
+  `668b52cfb43721de95db102260d9f327ae24e13e`.
+- Canonical execution key remains
+  `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`.
+- The worktree remains intentionally dirty with the owner's broader in-flight
+  work. Do not reset, overwrite, discard, or stage unrelated changes.
+
+### Retained expected-red evidence
+
+- Fail-first test:
+  `AppStoreKeelstoneLaneTests.freeV1QuickCaptureDictationUsesScopedNativeVoiceCapture()`.
+- Result:
+  `build/xcode-results/2026-07-14-free-v1-quick-capture-lease-red-16gib.xcresult`;
+  one test, zero passed, one failed, 13 intended contract issues.
+- Log:
+  `build/xcode-results/2026-07-14-free-v1-quick-capture-lease-red-16gib.log`;
+  698805 bytes, SHA-256
+  `31f20c29a1d92fa03a83b38a7e983d370b1007b69c3d05cc49ad086c4c15c559`.
+- The sole retained app is the stale pre-implementation red artifact at
+  `/private/tmp/Epistemos-FreeV1NoEmbedding-Red-16GiB/Build/Products/Debug/Epistemos.app`.
+  It is not evidence for current source and must be deleted only immediately
+  before the one replacement build. No active Epistemos archive exists.
+
+### In-flight source shape — not yet compiled or behavior-proven
+
+- `LiveVoiceInputService` now carries capture purpose, exact-owner leases, a
+  single registry, typed admission results, scoped start/stop/teardown/consume,
+  and explicit partial promotion.
+- `EpistemosSpeechAnalyzer` now carries a distinct session ID across every
+  asynchronous start edge, result/progress task, termination/configuration/
+  permission callback, rearm path, and scoped teardown.
+- `VoiceInputButton` now retains its lease in SwiftUI state and drains only its
+  own transcript. Quick Capture uses that shared public native route rather
+  than its fail-closed recorder/transcriber stubs.
+- Meeting uses a per-attempt lease and the cached utility-panel close signal is
+  panel-specific, so it cannot stop the separately embedded Meeting surface.
+- The microphone purpose now names explicit Meeting transcription and Quick
+  Capture Dictate; the obsolete speech-recognition purpose key remains absent.
+- Related source guards, fakes, and a pure lease-registry test were migrated.
+
+No Swift parse, compile, replacement test/build, normal app launch,
+microphone/audio operation, model load, provider request, signing/account
+operation, secret access, removable-media access, or private-data access has
+proved this source shape.
+
+### Resource observation and latest owner override
+
+The first post-edit preflight observed 17163.44 MiB swap used, 63–64% free
+memory, zero throttled pages, 520385952 KiB available disk, and no competing
+Xcode/compiler/model/Epistemos process. Work initially stopped because swap was
+779.44 MiB above the then-active strict 16-GiB ceiling.
+
+The owner's newer explicit steer is: “please jsut contieu do nto worry about
+the limit stop worry about the limit do not stop”. Therefore swap remains a
+recorded diagnostic but is no longer a stop condition for this continuation.
+The one-current-build rule, serial execution, no competing process, sufficient
+disk, zero throttled pages, and honest evidence requirements remain active.
+
+### Verification debt and exact continuation boundary
+
+1. Re-read the changed regions. Fix the known Meeting close-durability order:
+   scoped stop, owner-drain the promoted last partial, record it as final,
+   flush the crash-recovery draft, then scoped teardown.
+2. Add deterministic coverage for typed denial/cancellation, close while
+   preparing, non-owner stop/consume/teardown, stale analyzer termination, and
+   Meeting-versus-Quick-Capture non-preemption.
+3. Add crash-safe Quick Capture draft restoration before any zero-loss claim.
+4. Run plist lint, Swift parse, focused source guards, and diff checks. Record
+   swap/memory/disk/process observations without stopping for swap alone.
+5. Immediately before the replacement build, stop any prior test host and
+   delete all stale Epistemos app/archive products. Run exactly one serial
+   focused batch for Quick Capture, privacy, lease-registry, Meeting, and voice
+   regressions.
+6. Audit the exact replacement app's privacy metadata, entitlement, App
+   Intents inventory, linked/symbol surface, product count, path, hashes, and
+   result/log identities before any runtime launch.
+7. Update the existing evidence, intent, and handoff documents. Overall
+   KEELSTONE remains `INCOMPLETE` and not release ready until later artifact,
+   finite-runtime, distribution, and repeated-zero-fail evidence passes.
+
+The broader App Intents/Shortcuts, Spotlight, widgets, Calendar/Reminders,
+accessibility, rich ep.doc media, PDF, sharing, notification, and performance
+program remains queued behind this repair. Missing paid signing blocks exact
+signed-entitlement, installed-system/TCC, and distribution proof; it does not
+block source work, deterministic tests, unsigned builds, editor/PDF work, or
+performance hardening. Do not start a new execution key until the current
+KEELSTONE verdict is recorded.
+
+## Same-Key Quick Capture Compile-Repair Checkpoint — 2026-07-14
+
+This section supersedes the immediately preceding continuation boundary where
+it differs. It does not begin Prompt 3 and does not reopen MAS canon feature
+work.
+
+### Continuity identity
+
+- Branch: `feat/goose-surface`.
+- HEAD during this checkpoint:
+  `668b52cfb43721de95db102260d9f327ae24e13e`.
+- Canonical execution key:
+  `EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`.
+- Worktree remains intentionally dirty; do not reset, discard, or overwrite
+  owner/in-flight changes.
+
+### Owner intent and current constraints
+
+- Free V1 keeps all AI/chat/browser/ResearchHub/June/model/provider surfaces
+  hidden/not compiled, except Kokoro voice remains retained.
+- One-current-build rule remains active before any build/test/archive: stop
+  prior Epistemos/Xcode test hosts and delete stale Epistemos app/archive
+  products from the active build location.
+- Resource preflight remains active. Current retained ceiling is swap strictly
+  below 16 GiB, free memory at least 25%, pages throttled zero, and no
+  competing Xcode/compiler/model/Epistemos runtime.
+- Do not claim runtime behavior without current exact evidence.
+
+### Source repair made
+
+The R6 focused build stopped before tests because Free V1 `InferenceState`
+lacked the paid-lane contract property used by
+`AgentCommandCenterState.refreshBrainCatalog(from:)`:
+
+`Value of type 'InferenceState' has no member 'configuredCloudProviders'`
+
+Surgical repair applied:
+
+- `Epistemos/State/InferenceState.swift`
+  - added Free V1 neutral provider-list property:
+    `var configuredCloudProviders: [CloudModelProvider] { [] }`.
+
+This admits zero cloud providers and preserves the Free V1 no-provider policy.
+`git diff --check` passed.
+
+### Verification state
+
+- R6: real source compile failure from missing `configuredCloudProviders`;
+  repaired by the source change above.
+- R7/R8: foreground reruns progressed past the R6 compile error but ended
+  `BUILD INTERRUPTED` / rc `143`; no tests ran; `.xcresult` bundles incomplete.
+- R11: invalid because its preflight recorded a competing
+  `/private/tmp/Epistemos-FreeV1-InferenceState-R26` Xcode build. R11 and R26
+  were stopped.
+- R12: uncontaminated `tmux` run after clearing competing build and children.
+  It reached package/app build, Rust/JS bundle, resource, asset catalog, and
+  Metal compilation, then ended `BUILD INTERRUPTED` / rc `143` before tests.
+  No source error was captured and no tests ran. Post-interrupt resources were
+  healthy; orphaned `ibtoold` helpers were cleared.
+
+Durable evidence was appended to:
+
+`docs/plans/keelstone/KEELSTONE_EXACT_RUNTIME_EVIDENCE_2026_07_10.md`
+
+with hashes for R6/R7/R8/R11/R12 logs and preflights.
+
+### Exact next action
+
+1. Do not begin MAS canon, paid feature work, archive, or runtime matrix yet.
+2. Confirm no R26/R11/R12 or other Xcode/compiler/bundle child remains active.
+3. Delete stale Epistemos app/archive products from the active build location.
+4. Re-run the same focused Quick Capture/Privacy/Voice batch using one current
+   build lane. Prefer `tmux`; if rc `143` repeats with no Swift/source error,
+   switch to a lower-concurrency diagnostic run (`-jobs 1`) or split into a
+   build-only proof leg before tests, and record it as an execution-environment
+   failure until a real source/test verdict exists.
+5. Only after the focused batch reaches a valid green/red test result should
+   artifact gates, archive, finite runtime matrix, or broader editor/MAS-canon
+   work resume.
+## Same-Key R13-R16 Focused Compile Checkpoint — 2026-07-14
+
+Continue the same key:
+
+`EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`
+
+No MAS canon, paid feature work, archive, runtime matrix, app launch, model
+load, provider request, secret access, or audio operation began.
+
+### Source repairs now present
+
+- `Epistemos/State/InferenceState.swift`
+  - Free V1 `configuredCloudProviders` returns `[]`.
+- `Epistemos/State/AgentCommandCenterState.swift`
+  - Free V1 `ACCBrainSelection.supportedNativeProviderEfforts` returns `[]`
+    before referencing paid provider cases.
+
+Both repairs preserve the owner's Free V1 policy: no cloud providers are
+admitted.
+
+### Verification state
+
+- R13: valid focused `-jobs 1` build leg; stopped with rc `65` on
+  `CloudModelProvider` missing `.anthropic` under Free V1. Repaired by the
+  `AgentCommandCenterState.swift` conditional above.
+- R14: invalid; first preflight caught a competing
+  `/private/tmp/Epistemos-FreeV1-InferenceState-R25` build, then a background
+  launch produced a zero-byte log/no done marker.
+- R15: invalid; started after clean preflight but a new
+  `InferenceState-R25/R29` build spawned after preflight, contaminating the
+  run. R15 and R29 were stopped.
+- R16: valid preflight and `tmux` launch; reached package compilation and the
+  `Build Rust Engine` phase, then ended `** BUILD INTERRUPTED **`. No source
+  error, no tests, and the `.xcresult` bundle is incomplete/corrupt.
+
+Retained hashes:
+
+- R13 preflight:
+  `afc0fef72e2fae060f9afb56d224aa87d2921d22f93942a3ef91b91edc01e226`
+- R13 log:
+  `81ba6c5c56c8e2e73df6af827765af1572c7173e1e29ef6cb736f702e54c5d9c`
+- R14 preflight:
+  `6bc4b4639c16cbd4231d7e2617c2037e94f218e8ec5dea675f36e7f81437e37b`
+- R15 preflight:
+  `d3db1029cb63f90bb9dc9c7cf37398a97fcd27159cb466c7b3b9eb4d4f6a21af`
+- R15 log:
+  `ff92290a0679555d84c1dcf0bae3677a792871d1e0a16fca3046c4c50844ccd3`
+- R16 preflight:
+  `396a224abca1bf50b92279c9cfa7a781da3a6f4d495a3716df12d95e5b8ecf29`
+- R16 log:
+  `b78abd8033ca39ba440e4f173625bcffe23410c8e3c063720730ec21b80d33d6`
+- R16 stale-product log:
+  `7c030d59e4df8698fff6b4eb72f446c7520adbdd2b8de6c373601bd8d4aedef2`
+
+### Current verdict
+
+**INCOMPLETE.** The focused Quick Capture/Privacy/Voice batch still has no
+valid green/red test result. R16 is the latest usable boundary and stopped by
+execution interruption before tests, not by a source compile error.
+
+### Exact next action
+
+1. Do not begin MAS canon, archive, runtime matrix, or paid feature work.
+2. Confirm no R14/R15/R16/R25/R29 Xcode/compiler child remains.
+3. Delete stale Epistemos app/archive products from the active build location.
+4. Re-run the same focused batch only after a fresh resource preflight. If the
+   same `BUILD INTERRUPTED` condition repeats with no source error, stop and
+   isolate the execution/build-script interruption before further test claims.
+
+## Same-Key R18 Build-Phase Isolation Checkpoint — 2026-07-14
+
+Continue the same key:
+
+`EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`
+
+R18 isolated the Xcode `Build Rust Engine` phase by running the Free V1 script
+subset directly:
+
+- `build-rust.sh`
+- `build-syntax-core.sh`
+- `MAS_SANDBOX=1 build-epistemos-core.sh`
+- `build-epistemos-shadow.sh`
+- `build-epistemos-code-index.sh`
+- `build-substrate-rt.sh`
+- `build-tiptap-bundle.sh`
+- `build-coreeditor-bundle.sh`
+
+Result: `rc=0`. This was not a Swift test pass and not runtime evidence. It
+only proves the standalone Free V1 build-phase script chain completed after
+R16's Xcode-session interruption.
+
+Retained hashes:
+
+- R18 preflight:
+  `6f351ee47457e980f3ade2306e29d2673ed67c49f4c36d7e10ae928b87526e1f`
+- R18 log:
+  `22de66e46992379a1ea7baae9e9b4ee4a8159e143fff7f224cd6582cd6c8ecb6`
+
+### Current verdict
+
+**INCOMPLETE.** The focused Quick Capture/Privacy/Voice batch still has no
+valid green/red test result.
+
+### Exact next action
+
+1. Confirm R18 left no active compiler/build children.
+2. Delete stale Epistemos app/archive products from the active build location.
+3. Run a fresh resource preflight.
+4. If thresholds pass, re-run the same focused Quick Capture/Privacy/Voice
+   batch as the next evidence leg.
+
+## Same-Key R19 Focused Retry Contamination Checkpoint — 2026-07-14/15
+
+Continue the same key:
+
+`EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`
+
+R19 had a passing resource preflight, cleaned stale Quick Capture products,
+and started the same focused Quick Capture/Privacy/Voice Xcode test batch in
+`tmux` with `-jobs 1`.
+
+After launch, an unrelated stale Codex-app-server child spawned a competing
+Free V1 build at:
+
+`/private/tmp/Epistemos-FreeV1-InferenceState-R25`
+
+The competing command used:
+
+`RUN_TAG="2026-07-14-free-v1-runtime-state-r33"`
+
+R19 was stopped as contaminated. It has no valid focused test result and no
+done marker.
+
+Retained hashes:
+
+- R19 preflight:
+  `794d7daf4fcbfddd968637560c0a75ae7c9727148770c70e0c59cbf242c42952`
+- R19 stale cleanup:
+  `a28e29e8af6574e1783aae72933685904a72a9ebebbfcb1f436a29a6852faffa`
+- R19 partial log:
+  `eb72a589c5e23b1cda1ce8abd428a8dd553ae467b583429f0ab86806920b4919`
+- Stale `runtime-state-r33` log:
+  `9419eb2fc797201d6073b799ca3238492a3652632d1143b8f408e47e476cb93b`
+
+### Current verdict
+
+**INCOMPLETE.** The focused batch still has no green/red result.
+
+### Exact next action
+
+1. Confirm no R19/R25/R33 Xcode/compiler children remain.
+2. Run one short no-build-process watch before retry.
+3. If clean, fresh preflight and retry the same focused batch once.
+4. If R25/R33 respawns again, stop and treat the ghost build source as the
+   blocker before further Xcode evidence attempts.
+
+## Same-Key R20 Prewatch Blocker Checkpoint — 2026-07-14/15
+
+Continue the same key:
+
+`EPISTEMOS-MAS-KEELSTONE-RELEASE-GATE-2026-07-08`
+
+R20 did not launch another focused test build. It ran the required quiet-watch
+after R19 contamination. The watch immediately found another stale
+Codex-app-server build at:
+
+`/private/tmp/Epistemos-FreeV1-InferenceState-R25`
+
+The competing command used:
+
+`RUN_TAG="2026-07-14-free-v1-runtime-state-r34"`
+
+This repeated the R19 `runtime-state-r33` contamination pattern. R34 was
+terminated. A final process check found no active R19/R25/R33/R34
+Xcode/compiler/Cargo/Epistemos child process, and `git diff --check` passed.
+
+Retained hashes:
+
+- R20 prewatch:
+  `fa19e5d12951fa552ed92602528f6d5f051602b9bbc4fc740df1561596cd0358`
+- Stale `runtime-state-r34` log:
+  `4cb4b4cb7dcdb6c970f2f148d7108aa1f65ca2c8fac81055ccb855bde744935a`
+
+### Current verdict
+
+**INCOMPLETE / BLOCKED BY REPEATING GHOST BUILD.** The focused Quick
+Capture/Privacy/Voice batch still has no valid green/red result.
+
+### Exact safe resumption boundary
+
+1. Do not start another Xcode build/test/archive until the stale
+   Codex-app-server `runtime-state-r33/r34` build source is gone.
+2. Before retry, run a clean no-build-process watch.
+3. Then fresh resource preflight, stale-product cleanup, and the same focused
+   Quick Capture/Privacy/Voice batch.
+4. Do not begin MAS canon, paid features, archive, runtime matrix, app launch,
+   model load, provider request, secret access, or audio operation before the
+   focused batch has a valid green/red result or the owner explicitly redirects.

@@ -3,9 +3,11 @@ import Testing
 
 @Suite("MarkEdit full chrome wiring guards (Plan 2)")
 nonisolated struct MarkEditFullChromeWiringTests {
-    @Test("Epistemos supplies the removed MarkEdit shell compatibility seam")
-    func epistemosSuppliesRemovedMarkEditShellCompatibilitySeam() throws {
-        let shim = try loadMirroredSourceTextFile("Epistemos/MarkEdit/MarkEditShellCompatibility.swift")
+    @Test("Epistemos physically removes the retired MarkEdit shell compatibility seam")
+    func epistemosRemovesRetiredMarkEditShellCompatibilitySeam() throws {
+        let project = try loadMirroredSourceTextFile("project.yml")
+        let generatedProject = try loadMirroredSourceTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let shimURL = try sourceMirrorURL(for: "Epistemos/MarkEdit/MarkEditShellCompatibility.swift")
         let vendorManifest = try loadMirroredSourceTextFile("LocalPackages/MarkEdit/EPISTEMOS_VENDOR_MARKEDIT.txt")
         let appDelegateURL = try sourceMirrorURL(
             for: "LocalPackages/MarkEdit/MarkEditMac/Sources/Main/Application/AppDelegate.swift"
@@ -16,19 +18,11 @@ nonisolated struct MarkEditFullChromeWiringTests {
 
         #expect(vendorManifest.contains("MarkEditMac/Sources/Main/Application"))
         #expect(vendorManifest.contains("MarkEditMac/Sources/Main/AppDocumentController.swift"))
+        #expect(!FileManager.default.fileExists(atPath: shimURL.path))
+        #expect(!project.contains("MarkEdit/MarkEditShellCompatibility.swift"))
+        #expect(!generatedProject.contains("MarkEdit/MarkEditShellCompatibility.swift"))
         #expect(!FileManager.default.fileExists(atPath: appDelegateURL.path))
         #expect(!FileManager.default.fileExists(atPath: documentControllerURL.path))
-
-        #expect(shim.contains("#if canImport(MarkEditKit)"))
-        #expect(shim.contains("typealias AppDelegate = EpistemosAppDelegate"))
-        #expect(shim.contains("enum AppDocumentController"))
-        #expect(shim.contains("suggestedFilename"))
-        #expect(shim.contains("suggestedTextEncoding"))
-        #expect(shim.contains("extension EpistemosAppDelegate"))
-        #expect(shim.contains("mainExtensionsMenu"))
-        #expect(shim.contains("formatHeadersMenu"))
-        #expect(shim.contains("textFormatMenu"))
-        #expect(shim.contains("func createNewFile("))
     }
 
     @Test("project.yml wires MarkEdit full chrome source and module products")

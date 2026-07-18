@@ -15,7 +15,10 @@ import Foundation
 //
 //     MyResearchReport.epdoc/
 //       manifest.json              # required: EpdocManifest
-//       content.pm.json            # required: canonical ProseMirror JSON
+//       content.json               # required: canonical Epistemos rich JSON
+//       migrations/                # optional: one-way import receipts
+//         prosemirror-v1.original.json
+//         prosemirror-v1.receipt.json
 //       projections/               # optional: derived views
 //         shadow.md                # GFM Markdown projection (lossy)
 //         plain.txt                # FTS-friendly plain text
@@ -30,14 +33,16 @@ import Foundation
 //   - manifest + contentJSON are REQUIRED. A package missing either
 //     fails to decode (invariant violation).
 //   - Projections + assets + exports are OPTIONAL and addressed by name.
-//   - Markdown shadow regenerates from canonical on every save.
+//   - Markdown/PDF are explicit exports, never autosave projections.
 //   - DOCX/PDF are export snapshots — never autosaved.
 
 /// Reserved top-level filenames inside a `.epdoc` package. Used by the
 /// FileWrapper bridge to route reads/writes to the right field.
 nonisolated public enum EpdocPackageEntry {
     public static let manifest = "manifest.json"
-    public static let content = "content.pm.json"
+    public static let content = "content.json"
+    public static let legacyContent = "content.pm.json"
+    public static let migrations = "migrations"
     public static let projections = "projections"
     public static let assets = "assets"
     public static let exports = "exports"
@@ -49,16 +54,22 @@ nonisolated public enum EpdocPackageEntry {
         public static let plainText = "plain.txt"
         public static let searchBlocksJSONL = "search_blocks.jsonl"
     }
+
+    public enum Migration {
+        public static let legacyProseMirrorOriginal = "prosemirror-v1.original.json"
+        public static let legacyProseMirrorReceipt = "prosemirror-v1.receipt.json"
+    }
 }
 
 /// In-memory representation of a `.epdoc` package.
 nonisolated public struct EpdocPackage: Sendable, Hashable {
     public var manifest: EpdocManifest
-    /// Raw bytes of `content.pm.json` — the canonical ProseMirror
-    /// document. Stored as `Data` (not a parsed JSON tree) so the
-    /// reader/writer never has to re-encode the canonical bytes;
-    /// content_hash in the manifest is computed against THESE bytes.
+    /// Raw bytes of `content.json` — the canonical, versioned Epistemos rich
+    /// document. Stored as `Data` so content_hash pins the exact durable bytes.
     public var contentJSON: Data
+    /// Read-only migration evidence. Legacy top-level content is moved here
+    /// during the one-way load migration; it is never a second live authority.
+    public var migrationArtifacts: [String: Data]
     /// Optional Markdown projection — derived, lossy.
     public var shadowMarkdown: Data?
     /// Optional plain-text projection — for FTS5 indexing.
@@ -77,6 +88,7 @@ nonisolated public struct EpdocPackage: Sendable, Hashable {
     public init(
         manifest: EpdocManifest,
         contentJSON: Data,
+        migrationArtifacts: [String: Data] = [:],
         shadowMarkdown: Data? = nil,
         plainText: Data? = nil,
         searchBlocksJSONL: Data? = nil,
@@ -86,6 +98,7 @@ nonisolated public struct EpdocPackage: Sendable, Hashable {
     ) {
         self.manifest = manifest
         self.contentJSON = contentJSON
+        self.migrationArtifacts = migrationArtifacts
         self.shadowMarkdown = shadowMarkdown
         self.plainText = plainText
         self.searchBlocksJSONL = searchBlocksJSONL
@@ -100,6 +113,9 @@ nonisolated public struct EpdocPackage: Sendable, Hashable {
 nonisolated public enum EpdocPackageError: Error, CustomStringConvertible {
     case missingManifest
     case missingContent
+    case malformedContent(underlying: Error)
+    case mismatchedContentDocumentID(manifestID: String, contentID: String)
+    case ambiguousContentAuthorities
     case malformedManifest(underlying: Error)
     case manifestSchemaTooNew(version: UInt32)
     case wrongFileWrapperShape
@@ -109,7 +125,13 @@ nonisolated public enum EpdocPackageError: Error, CustomStringConvertible {
         case .missingManifest:
             return "EpdocPackage: missing required manifest.json"
         case .missingContent:
-            return "EpdocPackage: missing required content.pm.json"
+            return "EpdocPackage: missing required content.json (or legacy content.pm.json)"
+        case .malformedContent(let underlying):
+            return "EpdocPackage: malformed content.json — \(underlying)"
+        case .mismatchedContentDocumentID(let manifestID, let contentID):
+            return "EpdocPackage: manifest \(manifestID) cannot own content for \(contentID)"
+        case .ambiguousContentAuthorities:
+            return "EpdocPackage: content.json and content.pm.json cannot both be live authorities"
         case .malformedManifest(let underlying):
             return "EpdocPackage: malformed manifest.json — \(underlying)"
         case .manifestSchemaTooNew(let version):
@@ -129,7 +151,7 @@ extension EpdocPackage {
     /// `.epdoc` extension.
     ///
     /// `manifest.json` is always emitted first via JSON encoding;
-    /// `content.pm.json` is written verbatim from `contentJSON` (no
+    /// `content.json` is written verbatim from `contentJSON` (no
     /// re-serialization — preserves byte-equal canonical bytes across
     /// load → save round-trips).
     nonisolated public func makeFileWrapper(jsonEncoder: JSONEncoder = .epdocCanonical) throws -> FileWrapper {
@@ -139,6 +161,16 @@ extension EpdocPackage {
         topLevel[EpdocPackageEntry.manifest] = FileWrapper(regularFileWithContents: manifestData)
 
         topLevel[EpdocPackageEntry.content] = FileWrapper(regularFileWithContents: contentJSON)
+
+        if !migrationArtifacts.isEmpty {
+            var children: [String: FileWrapper] = [:]
+            for (name, data) in migrationArtifacts {
+                children[name] = FileWrapper(regularFileWithContents: data)
+            }
+            topLevel[EpdocPackageEntry.migrations] = FileWrapper(
+                directoryWithFileWrappers: children
+            )
+        }
 
         // projections/
         var projChildren: [String: FileWrapper] = [:]
@@ -182,8 +214,10 @@ extension EpdocPackage {
     }
 
     /// Decode a directory `FileWrapper` into an in-memory package.
-    /// Treats `manifest.json` + `content.pm.json` as REQUIRED — missing
-    /// either is an error. Any other top-level file or unrecognised
+    /// Treats `manifest.json` + `content.json` as REQUIRED. A legacy-only
+    /// `content.pm.json` package migrates once in memory, archives the exact
+    /// source plus receipt under `migrations/`, and writes only `content.json`
+    /// on the next save. Any other top-level file or unrecognised
     /// projection is preserved (in `extraProjections` for projections,
     /// dropped at the package root).
     nonisolated public init(
@@ -209,8 +243,59 @@ extension EpdocPackage {
             throw EpdocPackageError.manifestSchemaTooNew(version: manifest.schemaVersion)
         }
 
-        guard let contentWrapper = children[EpdocPackageEntry.content],
-              let contentData = contentWrapper.regularFileContents else {
+        let canonicalContent = children[EpdocPackageEntry.content]?.regularFileContents
+        let legacyContent = children[EpdocPackageEntry.legacyContent]?.regularFileContents
+        guard canonicalContent == nil || legacyContent == nil else {
+            throw EpdocPackageError.ambiguousContentAuthorities
+        }
+
+        var migrationArtifacts: [String: Data] = [:]
+        if let migrationsWrapper = children[EpdocPackageEntry.migrations],
+           migrationsWrapper.isDirectory,
+           let migrationChildren = migrationsWrapper.fileWrappers {
+            for (name, wrapper) in migrationChildren {
+                if let data = wrapper.regularFileContents {
+                    migrationArtifacts[name] = data
+                }
+            }
+        }
+
+        let contentData: Data
+        if let canonicalContent {
+            do {
+                let envelope = try jsonDecoder.decode(
+                    EpdocContentEnvelope.self,
+                    from: canonicalContent
+                )
+                try envelope.validate()
+                guard envelope.documentID == manifest.id else {
+                    throw EpdocPackageError.mismatchedContentDocumentID(
+                        manifestID: manifest.id,
+                        contentID: envelope.documentID
+                    )
+                }
+                contentData = canonicalContent
+            } catch let error as EpdocPackageError {
+                throw error
+            } catch {
+                throw EpdocPackageError.malformedContent(underlying: error)
+            }
+        } else if let legacyContent {
+            do {
+                let migration = try EpdocLegacyProseMirrorMigrator.migrate(
+                    legacyContent,
+                    documentID: manifest.id,
+                    migratedAt: manifest.updatedAt
+                )
+                contentData = try JSONEncoder.epdocCanonical.encode(migration.envelope)
+                migrationArtifacts[EpdocPackageEntry.Migration.legacyProseMirrorOriginal] =
+                    migration.originalContent
+                migrationArtifacts[EpdocPackageEntry.Migration.legacyProseMirrorReceipt] =
+                    try JSONEncoder.epdocCanonical.encode(migration.receipt)
+            } catch {
+                throw EpdocPackageError.malformedContent(underlying: error)
+            }
+        } else {
             throw EpdocPackageError.missingContent
         }
 
@@ -257,6 +342,7 @@ extension EpdocPackage {
         self.init(
             manifest: manifest,
             contentJSON: contentData,
+            migrationArtifacts: migrationArtifacts,
             shadowMarkdown: shadow,
             plainText: plain,
             searchBlocksJSONL: blocks,

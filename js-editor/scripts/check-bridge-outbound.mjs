@@ -85,10 +85,10 @@ try {
     },
   });
   postBridge({
-    type: 'suggestionResolved',
+    type: 'documentStatsChanged',
     epoch: 9,
-    suggestionId: 'span-batch',
-    state: 'accepted',
+    wordCount: 3,
+    characterCount: 19,
   });
   window.epdocOutboundBridge.flushSync();
 
@@ -96,12 +96,12 @@ try {
   assert.equal(postedPayloads[0].type, 'batch');
   assert.deepEqual(
     postedPayloads[0].messages.map((message) => message.type),
-    ['contentDidChange', 'markdownDidChange', 'suggestionResolved'],
+    ['contentDidChange', 'markdownDidChange', 'documentStatsChanged'],
   );
   assert.deepEqual(postedPayloads[0].messages.map((message) => message.epoch), [9, 9, 9]);
   assert.equal(postedPayloads[0].messages[1].writeback.blockMarkdown, 'Bravo updated');
-  assert.equal(postedPayloads[0].messages[2].suggestionId, 'span-batch');
-  assert.equal(postedPayloads[0].messages[2].state, 'accepted');
+  assert.equal(postedPayloads[0].messages[2].wordCount, 3);
+  assert.equal(postedPayloads[0].messages[2].characterCount, 19);
   assert.ok(requestedFrames.length >= 2, 'postBridge should schedule display-frame flushes');
 } finally {
   rmSync(tempDir, { recursive: true, force: true });

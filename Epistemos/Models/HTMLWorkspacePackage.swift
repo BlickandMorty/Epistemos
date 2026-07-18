@@ -201,32 +201,27 @@ nonisolated public enum HTMLWorkspacePreviewTheme: String, Sendable, Hashable {
 nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashable {
     public var allowNetwork: Bool
     public var allowAppBridge: Bool
-    public var allowPythonRuntime: Bool
     public var safeAPIVersion: UInt32
 
     public init(
         allowNetwork: Bool,
         allowAppBridge: Bool,
-        allowPythonRuntime: Bool = false,
         safeAPIVersion: UInt32
     ) {
         self.allowNetwork = allowNetwork
         self.allowAppBridge = allowAppBridge
-        self.allowPythonRuntime = allowPythonRuntime
         self.safeAPIVersion = safeAPIVersion
     }
 
     public static let offlineDefault = HTMLWorkspaceSandboxPolicy(
         allowNetwork: false,
         allowAppBridge: false,
-        allowPythonRuntime: false,
         safeAPIVersion: 1
     )
 
     private enum CodingKeys: String, CodingKey {
         case allowNetwork
         case allowAppBridge
-        case allowPythonRuntime
         case safeAPIVersion
     }
 
@@ -234,23 +229,13 @@ nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashabl
         let container = try decoder.container(keyedBy: CodingKeys.self)
         allowNetwork = try container.decodeIfPresent(Bool.self, forKey: .allowNetwork) ?? false
         allowAppBridge = try container.decodeIfPresent(Bool.self, forKey: .allowAppBridge) ?? false
-        allowPythonRuntime = try container.decodeIfPresent(Bool.self, forKey: .allowPythonRuntime) ?? false
         safeAPIVersion = try container.decodeIfPresent(UInt32.self, forKey: .safeAPIVersion) ?? 1
     }
 
     public var contentSecurityPolicy: String {
         let localResources = HTMLWorkspaceLocalResourceScheme.contentSecurityPolicySource
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         let scriptSources = "'unsafe-inline' \(localResources)"
         let workerSources = "'none'"
-        #else
-        let scriptSources = allowPythonRuntime
-            ? "'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' \(localResources)"
-            : "'unsafe-inline' \(localResources)"
-        let workerSources = allowPythonRuntime
-            ? "blob: \(localResources)"
-            : "'none'"
-        #endif
         if allowNetwork {
             return [
                 "default-src 'none'",

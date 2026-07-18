@@ -40,6 +40,7 @@
 pub mod backend;
 pub mod error;
 pub mod honest_handle;
+#[cfg(feature = "semantic")]
 pub mod state;
 
 pub use backend::ShadowBackend;
@@ -116,7 +117,9 @@ pub struct ShadowStats {
 // backend during app bootstrap and falls back to an explicitly labeled
 // in-memory backend only before that open succeeds.
 
-use std::ffi::{CStr, CString, c_char};
+#[cfg(feature = "semantic")]
+use std::ffi::{c_char, CStr, CString};
+#[cfg(feature = "semantic")]
 use std::ptr;
 
 /// Insert one document into the index. JSON-encoded `ShadowDocument`.
@@ -125,6 +128,7 @@ use std::ptr;
 /// # Safety
 ///
 /// `doc_json` must be a valid NUL-terminated UTF-8 string.
+#[cfg(feature = "semantic")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_insert_json(doc_json: *const c_char) -> i32 {
     let result = std::panic::catch_unwind(|| {
@@ -167,6 +171,7 @@ pub unsafe extern "C" fn shadow_insert_json(doc_json: *const c_char) -> i32 {
 /// # Safety
 ///
 /// `doc_id` must be a valid NUL-terminated UTF-8 string.
+#[cfg(feature = "semantic")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_remove_json(doc_id: *const c_char) -> i32 {
     let result = std::panic::catch_unwind(|| {
@@ -202,6 +207,7 @@ pub unsafe extern "C" fn shadow_remove_json(doc_id: *const c_char) -> i32 {
 /// `query` and `domain` must be valid NUL-terminated UTF-8. Caller
 /// MUST pass the returned pointer to `shadow_free_string` to release
 /// the allocation.
+#[cfg(feature = "semantic")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_search_json(
     query: *const c_char,
@@ -225,6 +231,7 @@ pub unsafe extern "C" fn shadow_search_json(
 }
 
 /// Persist any pending writes to disk. Returns 0 on success.
+#[cfg(feature = "semantic")]
 #[unsafe(no_mangle)]
 pub extern "C" fn shadow_flush() -> i32 {
     let result = std::panic::catch_unwind(|| match state::shadow_backend().flush() {
@@ -236,6 +243,7 @@ pub extern "C" fn shadow_flush() -> i32 {
 
 /// Read aggregate index stats. Returns a JSON-encoded `ShadowStats`
 /// as a caller-owned C string; null on error.
+#[cfg(feature = "semantic")]
 #[unsafe(no_mangle)]
 pub extern "C" fn shadow_stats_json() -> *mut c_char {
     let result = std::panic::catch_unwind(|| -> Option<CString> {
@@ -256,6 +264,7 @@ pub extern "C" fn shadow_stats_json() -> *mut c_char {
 /// `ptr` must come from a `*_json` function above (e.g.
 /// `shadow_search_json` or `shadow_stats_json`). Calling this on any
 /// other pointer is undefined behavior.
+#[cfg(feature = "semantic")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_free_string(ptr: *mut c_char) {
     if ptr.is_null() {
@@ -280,6 +289,7 @@ pub unsafe extern "C" fn shadow_free_string(ptr: *mut c_char) {
 /// # Safety
 ///
 /// `path` must be a valid NUL-terminated UTF-8 C string.
+#[cfg(feature = "semantic")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_open_at(path: *const c_char) -> i32 {
     let result = std::panic::catch_unwind(|| {
@@ -304,29 +314,6 @@ pub unsafe extern "C" fn shadow_open_at(path: *const c_char) -> i32 {
             Ok(()) => 0,
             Err(error) => error.as_code(),
         }
-    });
-    result.unwrap_or(ShadowError::Panic.as_code())
-}
-
-/// W8.4.b — Warm the global Model2Vec singleton off the search hot
-/// path. Triggers `Embedder::global()` so the HuggingFace download
-/// (~30 MB, ~2s on cold cache) happens before the first
-/// `shadow_search_json`. Idempotent — subsequent calls are
-/// atomic-fast no-ops. Safe to call from a background dispatch queue.
-///
-/// The Swift bootstrap fires this once at app start (per the doc note
-/// in `backend::embedder`'s "Auto-download trap" §). Skipping the warm
-/// step is functionally fine — `shadow_search_json` still works on
-/// cold cache, just blocks the first call ~2s. The `catch_unwind`
-/// wrapper here keeps any failure from tearing down the Swift host.
-///
-/// Returns 0 on success, the `ShadowError` discriminant (e.g. -4
-/// Backend on HF download failure) otherwise.
-#[unsafe(no_mangle)]
-pub extern "C" fn shadow_warm() -> i32 {
-    let result = std::panic::catch_unwind(|| match crate::backend::embedder::Embedder::warm() {
-        Ok(()) => 0,
-        Err(error) => error.as_code(),
     });
     result.unwrap_or(ShadowError::Panic.as_code())
 }

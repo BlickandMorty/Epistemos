@@ -83,12 +83,13 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
         themeGuardCSSOverride: String? = nil,
         resourceMode: HTMLWorkspacePreviewResourceMode = .packageLocal
     ) -> String {
-        let package = switch resourceMode {
+        var package = switch resourceMode {
         case .packageLocal:
             package
         case .inlinePackageAssets:
             HTMLWorkspacePackageResources.packageWithInlineAssets(package)
         }
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.presentationDataJSON(from: package.dataJSON)
         let csp = package.manifest.sandboxPolicy.contentSecurityPolicy
         let themeAttribute = theme.map { #" data-epistemos-theme="\#($0.rawValue)""# } ?? ""
         let themeCSS = themeGuardCSSOverride ?? theme?.guardCSS ?? HTMLWorkspacePreviewTheme.defaultGuardCSS
@@ -118,7 +119,6 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
           <script id="epistemos-workspace-runtime">
         \(HTMLWorkspacePreviewRuntime.script(
             workspaceID: package.manifest.id,
-            pythonPolicyEnabled: package.manifest.sandboxPolicy.allowPythonRuntime,
             appBridgeEnabled: package.manifest.sandboxPolicy.allowAppBridge,
             safeAPIVersion: package.manifest.sandboxPolicy.safeAPIVersion
         ))
@@ -149,28 +149,9 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
 nonisolated enum HTMLWorkspacePreviewRuntime {
     static func script(
         workspaceID: String,
-        pythonPolicyEnabled: Bool,
         appBridgeEnabled: Bool,
         safeAPIVersion: UInt32
     ) -> String {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        let pythonStatus = "disabled"
-        let pythonEnabledLiteral = "false"
-        let pythonAvailableLiteral = "false"
-        #else
-        let pythonAvailable = pythonPolicyEnabled && HTMLWorkspacePythonRuntime.isAvailable
-        let pythonStatus: String = if !pythonPolicyEnabled {
-            "disabled"
-        } else if pythonAvailable {
-            "available"
-        } else {
-            "missing-vendored-assets"
-        }
-        let pythonEnabledLiteral = pythonPolicyEnabled ? "true" : "false"
-        let pythonAvailableLiteral = pythonAvailable ? "true" : "false"
-        #endif
-        let pythonBaseURL = HTMLWorkspacePythonRuntime.baseURLString
-        let pythonMissingResources = stringArrayLiteral(HTMLWorkspacePythonRuntime.missingRequiredResourceNames)
         let appBridgeJavaScript = appBridgeScript(
             enabled: appBridgeEnabled,
             safeAPIVersion: safeAPIVersion
@@ -197,15 +178,10 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
           dataNode.textContent = rawJSON === null ? JSON.stringify(nextData) : String(rawJSON);
         }
         if (emitEvent) {
-          try {
-            window.dispatchEvent(new CustomEvent('htmlworkspace:datachange', { detail: nextData }));
-          } catch (error) {
-            console.warn('HTMLWorkspace datachange event failed', error);
-          }
+          window.dispatchEvent(new CustomEvent('htmlworkspace:datachange', { detail: nextData }));
         }
         return true;
       };
-
       Object.defineProperty(window, '__epistemosReplaceWorkspaceData', {
         value(nextData, rawJSON = null) {
           return replaceWorkspaceData(nextData, rawJSON);
@@ -214,172 +190,18 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
         configurable: false,
         enumerable: false
       });
-
-      replaceWorkspaceData(state.data, dataNode?.textContent || '{}', false);
-
-      const contextState = (() => {
-        const maxStateLength = 12000;
-        const keyComponent = (value, fallback) => {
-          const text = String(value || fallback || '').trim().slice(0, 160);
-          return (text || fallback || 'workspace').replace(/[^A-Za-z0-9._:-]+/g, '_');
-        };
-        const storageKey = (scope) => {
-          const safeWorkspaceID = keyComponent(workspaceID, 'workspace');
-          const safeScope = keyComponent(scope, 'state');
-          return `epistemos.htmlWorkspace.contextState.v1.${safeWorkspaceID}.${safeScope}`;
-        };
-        const boundedString = (value, limit) => {
-          const text = String(value || '').trim();
-          return text && text.length <= limit ? text : '';
-        };
-        const boundedKeyList = (values) => {
-          const keys = [];
-          (Array.isArray(values) ? values : []).forEach((value) => {
-            const key = boundedString(value, 1024);
-            if (key && !keys.includes(key)) { keys.push(key); }
-          });
-          return keys.slice(-16);
-        };
-        const boundedRecord = (value, valueLimit) => {
-          const output = {};
-          if (!value || typeof value !== 'object' || Array.isArray(value)) { return output; }
-          Object.entries(value).slice(0, 24).forEach(([rawID, rawValue]) => {
-            const id = boundedString(rawID, 128);
-            const text = boundedString(rawValue, valueLimit);
-            if (id && text) { output[id] = text; }
-          });
-          return output;
-        };
-        const normalizedContextState = (value) => {
-          if (!value || typeof value !== 'object' || Array.isArray(value)) { return null; }
-          return {
-            pinnedContextKeys: boundedKeyList(value.pinnedContextKeys),
-            sectionContextKeys: boundedRecord(value.sectionContextKeys, 1024),
-            sectionContextLabels: boundedRecord(value.sectionContextLabels, 160),
-            contextDropKey: boundedString(value.contextDropKey, 1024)
-          };
-        };
-        const unavailable = Object.freeze({ unavailable: true });
-        return Object.freeze({
-          load(scope) {
-            try {
-              const store = window.localStorage;
-              if (!store) { return null; }
-              const raw = store.getItem(storageKey(scope));
-              if (!raw) { return null; }
-              if (raw.length > maxStateLength) { return unavailable; }
-              return normalizedContextState(JSON.parse(raw));
-            } catch (error) {
-              return unavailable;
-            }
-          },
-          save(scope, value) {
-            try {
-              const store = window.localStorage;
-              if (!store) { return false; }
-              const normalized = normalizedContextState(value);
-              if (!normalized) { return false; }
-              const raw = JSON.stringify(normalized);
-              if (!raw || raw.length > maxStateLength) { return false; }
-              store.setItem(storageKey(scope), raw);
-              return true;
-            } catch (error) {
-              return false;
-            }
-          }
-        });
-      })();
-
-      const pythonRuntime = (() => {
-        const enabled = \(pythonEnabledLiteral);
-        const available = \(pythonAvailableLiteral);
-        const status = "\(pythonStatus)";
-        const baseURL = "\(pythonBaseURL)";
-        const missingResources = \(pythonMissingResources);
-        const maxCodeLength = 20000;
-        let loadPromise = null;
-        let runQueue = Promise.resolve();
-        function loadScript(src) {
-          return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => {
-              script.remove();
-              reject(new Error('Failed to load Pyodide script: ' + src));
-            };
-            document.head.appendChild(script);
-          });
-        }
-        async function load() {
-          if (!enabled) {
-            throw new Error('HTML Workspace Python runtime is disabled by sandbox policy');
-          }
-          if (!available) {
-            throw new Error('HTML Workspace Python runtime is not bundled in this build');
-          }
-          if (!loadPromise) {
-            loadPromise = (async () => {
-              if (typeof window.loadPyodide !== 'function') {
-                await loadScript(baseURL + '\(HTMLWorkspacePythonRuntime.entryScriptName)');
-              }
-              if (typeof window.loadPyodide !== 'function') {
-                throw new Error('Pyodide loader did not register loadPyodide');
-              }
-              return window.loadPyodide({ indexURL: baseURL });
-            })();
-          }
-          try {
-            return await loadPromise;
-          } catch (error) {
-            loadPromise = null;
-            throw error;
-          }
-        }
-        function boundedCode(code) {
-          const source = String(code ?? '');
-          if (source.length > maxCodeLength) {
-            throw new Error('HTML Workspace Python code is too large');
-          }
-          return source;
-        }
-        async function run(code) {
-          const source = boundedCode(code);
-          const execute = async () => {
-            const pyodide = await load();
-            return pyodide.runPythonAsync(source);
-          };
-          const result = runQueue.then(execute, execute);
-          runQueue = result.catch(() => {});
-          return result;
-        }
-        return Object.freeze({
-          enabled,
-          available,
-          status,
-          missingResources,
-          baseURL: available ? baseURL : null,
-          load,
-          run
-        });
-      })();
-
+      const contextState = Object.freeze({
+        load() { return null; },
+        save() { return false; }
+      });
       const toArray = (children) => Array.isArray(children) ? children : [children];
       const api = {
         workspaceID,
         contextState,
-        get data() {
-          return state.data;
-        },
+        get data() { return state.data; },
         app: appBridge,
-        python: pythonRuntime,
-        q(selector, scope = document) {
-          return scope.querySelector(selector);
-        },
-        qa(selector, scope = document) {
-          return Array.from(scope.querySelectorAll(selector));
-        },
+        q(selector, scope = document) { return scope.querySelector(selector); },
+        qa(selector, scope = document) { return Array.from(scope.querySelectorAll(selector)); },
         el(tagName, attributes = {}, children = []) {
           const node = document.createElement(tagName);
           Object.entries(attributes || {}).forEach(([key, value]) => {
@@ -405,14 +227,12 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
           return host;
         }
       };
-
       Object.defineProperty(window, 'HTMLWorkspace', {
         value: Object.freeze(api),
         writable: false,
         configurable: false,
         enumerable: false
       });
-
       Object.defineProperty(window, 'HTMLWorkspaceApp', {
         value: appBridge,
         writable: false,

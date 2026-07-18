@@ -194,15 +194,6 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Cache pinned llama XCFramework
-        uses: actions/cache@v4
-        with:
-          path: LocalPackages/EpistemosLlama/Binary
-          key: ${{ runner.os }}-llama-b9870-xcframework-v1
-
-      - name: Fetch and verify pinned llama XCFramework
-        run: bash scripts/fetch-llama-xcframework.sh
-
       - name: Validate source-tree JuneWeb
         env:
           EPISTEMOS_JUNE_FORK: ${{ runner.temp }}/missing-june-donor

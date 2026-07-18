@@ -1,5 +1,14 @@
 # 05 - MAS June Agent and MiniChat
 
+## July 15 status - canceled execution lane
+
+The owner canceled LumenLens and all AI work. This file is retained only as
+historical architecture/provenance and as a list of code and product surfaces
+that must be absent from Free V1. Do not reactivate June, MiniChat/Epdoc Assist,
+agent tools, model/provider selection, generative actions, inference routing,
+or AI provenance without a new explicit dated owner directive that supersedes
+`14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md`.
+
 ## July 13 status - future paid, not free V1
 
 This architecture is preserved as the sole allowed future paid agent lane, but
@@ -9,6 +18,12 @@ inert through the centralized product-capability policy. Do not execute this
 plan, expose its UI, initialize providers, or add payment/StoreKit until a
 later explicit owner activation. Kokoro local read-aloud is the free-V1 voice
 exception and does not activate this plan.
+
+Free-V1 absence is stronger than an unavailable banner: stored chat/session data
+may remain durable for a later paid edition, but free V1 must not show a Chat
+tab, prompt, composer, model selector, graph node/filter, settings section,
+shortcut, deep link, restored route, provider startup, background job, or
+degraded placeholder for this preserved source.
 
 ## Non-negotiable answer
 

@@ -28,6 +28,10 @@ final class SDWorkspace {
         self.userNote = ""
         self.lastSummaryAt = nil
     }
+
+    var presentedSummary: String {
+        ProductCapabilityPolicy.sanitizedAIOutput(summary)
+    }
 }
 
 // MARK: - Workspace Snapshot Types

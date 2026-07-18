@@ -1,14 +1,13 @@
 import Foundation
 
-// MARK: - MutationEnvelope (Swift mirror of agent_core::mutations)
+// MARK: - MutationEnvelope
 //
 // T+4.8 of `docs/audits/deliberation/T+4_cognitive_artifact_spine_deliberation_20260427.md`
 // (cross-ref `docs/architecture/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md` §9 +
 //  `docs/_consolidated/00_canonical_authority/MASTER_FUSION.md` §3.5).
 //
 // Mirrors Rust types defined in:
-//   - agent_core/src/mutations/envelope.rs — MutationEnvelope struct
-//   - agent_core/src/mutations/types.rs    — MutationStatus, MutationActor,
+//   - Local mutation envelope schema
 //                                            Sensitivity, Reversibility,
 //                                            BlockRef (named MutationBlockRef
 //                                            here to avoid an implicit
@@ -268,14 +267,14 @@ nonisolated public enum RelationChange: Codable, Sendable, Hashable {
 
 // MARK: MutationEnvelope
 
-/// Mirrors `agent_core::mutations::MutationEnvelope`. Field order and
+/// Local mutation envelope. Field order and
 /// CodingKeys match the Rust serde wire format byte-for-byte. Optional
 /// fields use Swift `Optional<T>` and skip serialization when nil
 /// (matches Rust's `#[serde(skip_serializing_if = "Option::is_none")]`).
 ///
 /// Note: this Swift type uses `EpdocArtifactRef` for `touched_artifacts`
 /// — it's the existing application-level mirror of the Rust
-/// `agent_core::artifacts::ArtifactRef`. JSON wire format is identical
+/// local artifact references. JSON wire format is identical
 /// across both Swift names (Rust serializes `ArtifactRef`, Swift
 /// decodes into `EpdocArtifactRef`; field set and snake_case keys match).
 nonisolated public struct MutationEnvelope: Codable, Sendable, Hashable {
@@ -400,8 +399,8 @@ nonisolated public struct MutationEnvelope: Codable, Sendable, Hashable {
 
 /// Durable graph-projection event derived from committed mutation envelopes.
 ///
-/// `GraphEvent` is already the 64-byte substrate-rt ring event used by
-/// `EventDrain.swift`; this model owns the persisted graph mutation stream.
+/// This model owns the persisted graph mutation stream independently of any
+/// retired runtime transport.
 nonisolated public enum DurableGraphEventKind: String, Codable, Sendable, Hashable, CaseIterable {
     case graphMutation = "graph_mutation"
     case nodeCreated = "node_created"

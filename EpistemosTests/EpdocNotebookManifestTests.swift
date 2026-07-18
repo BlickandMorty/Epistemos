@@ -24,8 +24,9 @@ struct EpdocNotebookManifestTests {
         #expect(manifest.tabs[2].reference == "session:analysis-thread")
         #expect(manifest.tabs[3].kind == .unknown("chart3d"))
         #expect(manifest.tabs[3].needsTombstone)
-        #expect(manifest.selectableTabIDs.first == EpdocNotebookManifest.bodyTabID)
-        #expect(manifest.selectableTabIDs.last == EpdocNotebookManifest.launcherTabID)
+        #expect(EpdocNotebookManifest.normalizedFreeV1SelectedTabID(sheetA) == EpdocNotebookManifest.bodyTabID)
+        #expect(EpdocNotebookManifest.normalizedFreeV1SelectedTabID(chat) == EpdocNotebookManifest.bodyTabID)
+        #expect(EpdocNotebookManifest.normalizedFreeV1SelectedTabID(unknown) == EpdocNotebookManifest.bodyTabID)
     }
 
     @Test("manifest parsing is bounded so ordinary large documents do not scan the whole body")
@@ -101,25 +102,18 @@ struct EpdocNotebookManifestTests {
         #expect(parsed.tabs[0].charOffset == updated[..<tabRange.lowerBound].utf16.count)
     }
 
-    @Test("notebook tabs and block embeds join the shared TOC model")
-    func notebookTabsAndEmbedsJoinTOC() {
+    @Test("legacy notebook metadata cannot restore shared TOC rows")
+    func legacyNotebookMetadataCannotRestoreTOCRows() {
         let items = TOCParser.parse(notebookMarkdown)
 
-        #expect(items.contains { $0.kind == .heading && $0.title == "Notebook" })
-        #expect(items.contains { $0.kind == .notebookTab(tabID: EpdocNotebookManifest.bodyTabID) && $0.title == "Body" })
-        #expect(items.contains { $0.kind == .notebookTab(tabID: sheetA) && $0.title == "Metrics" })
-        #expect(items.contains { $0.kind == .notebookTab(tabID: chat) && $0.title == "Analysis chat" })
-        #expect(items.contains { $0.kind == .embed(referenceID: embed, type: "sheet") && $0.title == "Inline Dataset" })
+        #expect(items.map(\.title) == ["Notebook"])
     }
 
-    @Test("disclosure lists notebook tabs and embeds for weaker lenses")
-    func disclosureListsNotebookReferences() {
+    @Test("legacy notebook metadata cannot restore Lens disclosure or export surfaces")
+    func legacyNotebookMetadataCannotRestoreLensSurfaces() {
         let items = LensFidelityDisclosure.items(in: notebookMarkdown, lens: .edit)
 
-        #expect(items.contains { $0.type == "notebookSheetTab" && $0.label == "Sheet tab" && $0.state == .invisible })
-        #expect(items.contains { $0.type == "notebookChatTab" && $0.label == "Chat tab" })
-        #expect(items.contains { $0.type == "notebookUnknownTab" && $0.label == "chart3d tab" })
-        #expect(items.contains { $0.type == "datasetEmbed" && $0.label == "Dataset embed" })
+        #expect(items.isEmpty)
     }
 
     @Test("disclosure previews and exports use typed rendered providers")
@@ -176,23 +170,9 @@ struct EpdocNotebookManifestTests {
         #expect(quarantine.exportText.contains(#"{"future":true}"#))
         #expect(quarantine.exportText.contains("epistemos-quarantine:end"))
 
-        let sheet = try #require(items.first { $0.type == "notebookSheetTab" })
-        #expect(sheet.primaryExport?.kind == .xlsx)
-        #expect(sheet.exportSuggestedFilename == "Metrics.xlsx")
-        #expect(sheet.primaryExport?.data == Data([0x50, 0x4B, 0x03, 0x04]))
-        #expect(sheet.exports.contains { export in
-            export.kind == .csv && export.textRepresentation?.contains("dataset:metrics.dataset.md") == true
-        })
-
-        let embedItem = try #require(items.first { $0.type == "datasetEmbed" })
-        #expect(embedItem.primaryExport?.kind == .xlsx)
-        #expect(embedItem.exports.contains { export in
-            export.kind == .csv && export.textRepresentation?.contains("dataset:inline.dataset.md") == true
-        })
-
-        let chatItem = try #require(items.first { $0.type == "notebookChatTab" })
-        #expect(chatItem.primaryExport?.kind == .transcript)
-        #expect(chatItem.exportText.contains("Transcript reference: `session:analysis-thread`"))
+        #expect(!items.contains { $0.type == "notebookSheetTab" })
+        #expect(!items.contains { $0.type == "datasetEmbed" })
+        #expect(!items.contains { $0.type == "notebookChatTab" })
     }
 
     @Test("dataset references expose artifact handles without inline row payloads")
@@ -224,18 +204,8 @@ struct EpdocNotebookManifestTests {
         #expect(!embed.canonicalReferenceLine.contains("Beta"))
 
         let items = LensFidelityDisclosure.items(in: markdown, lens: .edit)
-        let sheet = try #require(items.first { $0.type == "notebookSheetTab" })
-        let inline = try #require(items.first { $0.type == "datasetEmbed" })
-        let exportedText = (sheet.exports + inline.exports)
-            .compactMap(\.textRepresentation)
-            .joined(separator: "\n")
-
-        #expect(exportedText.contains("dataset:leaky.dataset.md"))
-        #expect(exportedText.contains("dataset:inline.dataset.md"))
-        #expect(!exportedText.contains("rows"))
-        #expect(!exportedText.contains("values"))
-        #expect(!exportedText.contains("Alpha"))
-        #expect(!exportedText.contains("Beta"))
+        #expect(!items.contains { $0.type == "notebookSheetTab" })
+        #expect(!items.contains { $0.type == "datasetEmbed" })
     }
 
     @Test("chart disclosure requires provenance before rendered preview")
@@ -257,33 +227,15 @@ struct EpdocNotebookManifestTests {
         #expect(!chart.exportText.contains("<svg"))
     }
 
-    @Test("MAS-style document lens degrades chat references into transcript exports")
-    func masDocumentLensDegradesChatReferencesIntoTranscriptExports() throws {
+    @Test("free V1 document lens does not restore chat or sheet reference surfaces")
+    func freeV1DocumentLensDoesNotRestoreChatAndSheetReferenceSurfaces() throws {
         let markdown = """
         \(notebookMarkdown)
 
         {{epistemos-ref id=\(chatEmbed) type=chat version=1 title="Inline Chat" ref="session:inline-thread"}}
         """
 
-        let masItems = LensFidelityDisclosure.items(
-            in: markdown,
-            lens: .document,
-            chatTabContentAvailable: false
-        )
-        let chatItems = masItems.filter { $0.type == "notebookChatTab" }
-
-        #expect(chatItems.count == 2)
-        #expect(chatItems.allSatisfy { $0.state == .degraded })
-        #expect(chatItems.allSatisfy { $0.primaryExport?.kind == .transcript })
-        #expect(chatItems.contains { $0.exportText.contains("Transcript reference: `session:analysis-thread`") })
-        #expect(chatItems.contains { $0.exportText.contains("Transcript reference: `session:inline-thread`") })
-
-        let contentAvailableItems = LensFidelityDisclosure.items(
-            in: markdown,
-            lens: .document,
-            chatTabContentAvailable: true
-        )
-        #expect(!contentAvailableItems.contains { $0.type == "notebookChatTab" })
+        #expect(LensFidelityDisclosure.items(in: markdown, lens: .document).isEmpty)
     }
 
     private struct FixtureDatasetExportProvider: LensFidelityDatasetExportProviding {

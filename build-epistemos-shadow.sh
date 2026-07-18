@@ -1,20 +1,13 @@
 #!/bin/bash
 set -e
 
-# Wave 8.1 / 8.4 build script for the epistemos-shadow crate.
+# Free V1 build script for the epistemos-shadow lexical crate.
 #
 # Builds a fat libepistemos_shadow.dylib covering both arm64 and
 # x86_64 macOS architectures, then installs it next to the executable
-# via embed-and-sign-rust-dylib.sh — the same canonical pattern
-# epistemos-core, agent-core, and omega-mcp already use.
-#
-# Why dylib (W8.7 follow-up): epistemos-shadow depends on `usearch`,
-# whose cxxbridge generates C++ symbols (NativeIndex::*,
-# `_cxxbridge1$rust_vec$f32$*`, …). graph-engine also depends on
-# usearch and ships the same symbols. Linking BOTH static archives
-# into the host app explodes ld with 268 duplicate symbols. Building
-# epistemos-shadow as a dylib hides those internal C++ symbols
-# behind the dylib boundary; only the `shadow_*` C ABI is exported.
+# via embed-and-sign-rust-dylib.sh. The explicit feature selection is
+# part of the Free build boundary: no semantic/model dependency may be
+# selected implicitly by Cargo defaults.
 
 if [ -f "$HOME/.cargo/env" ]; then
     source "$HOME/.cargo/env"
@@ -28,13 +21,13 @@ fi
 cd "$(dirname "$0")/epistemos-shadow"
 
 if [ "$CONFIGURATION" = "Debug" ]; then
-    cargo build --target aarch64-apple-darwin
-    cargo build --target x86_64-apple-darwin
+    cargo build --no-default-features --features free-lexical --target aarch64-apple-darwin
+    cargo build --no-default-features --features free-lexical --target x86_64-apple-darwin
     ARM64_LIB_PATH="target/aarch64-apple-darwin/debug/libepistemos_shadow.dylib"
     X86_64_LIB_PATH="target/x86_64-apple-darwin/debug/libepistemos_shadow.dylib"
 else
-    cargo build --release --target aarch64-apple-darwin
-    cargo build --release --target x86_64-apple-darwin
+    cargo build --release --no-default-features --features free-lexical --target aarch64-apple-darwin
+    cargo build --release --no-default-features --features free-lexical --target x86_64-apple-darwin
     ARM64_LIB_PATH="target/aarch64-apple-darwin/release/libepistemos_shadow.dylib"
     X86_64_LIB_PATH="target/x86_64-apple-darwin/release/libepistemos_shadow.dylib"
 fi

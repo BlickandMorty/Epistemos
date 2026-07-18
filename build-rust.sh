@@ -45,8 +45,10 @@ acquire_staging_lock() {
         if [ -f "$STAGING_LOCK/pid" ]; then
             lock_pid="$(cat "$STAGING_LOCK/pid" 2>/dev/null || true)"
             if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
-                rm -rf "$STAGING_LOCK"
-                continue
+                rm -f "$STAGING_LOCK/pid"
+                if rmdir "$STAGING_LOCK" 2>/dev/null; then
+                    continue
+                fi
             fi
         fi
         sleep 0.2
@@ -58,4 +60,5 @@ lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output "$TEMP_OUTPUT"
 acquire_staging_lock
 rm -f ../build-rust/libgraph_engine.a
 mv -f "$TEMP_OUTPUT" ../build-rust/libgraph_engine.a
+cleanup_temp_output
 trap - EXIT

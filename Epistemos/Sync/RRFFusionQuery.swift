@@ -164,7 +164,7 @@ nonisolated public enum RRFFusionFlags {
         if ProcessInfo.processInfo.environment[userDefaultsKey] == "1" {
             return true
         }
-        return UserDefaults.standard.bool(forKey: userDefaultsKey)
+        return FoundationSafety.runtimeUserDefaults.bool(forKey: userDefaultsKey)
     }
 }
 
@@ -191,6 +191,16 @@ nonisolated public enum Phase3FusionConsts {
 }
 
 // MARK: - FusionWeights
+
+enum FusionWeightsValidationError: Error, Equatable, Sendable {
+    case nonFiniteWeight
+    case outOfRangeWeight
+    case nonFiniteHalfLife
+    case outOfRangeHalfLife
+    case invalidResultLimit
+    case invalidPerSourceLimit
+    case nonFiniteClock
+}
 
 /// Tunable knobs for the fusion query. Defaults match the user
 /// mission brief; production callers usually pass `.default`. Custom
@@ -219,6 +229,9 @@ nonisolated public struct FusionWeights: Sendable, Hashable {
     /// 50k matching pages would force a 50k-row aggregation.
     public var perSourceLimit: Int
 
+    static let maximumResultCount = 100
+    static let maximumPerSourceResultCount = 200
+
     public init(
         pageWeight: Double = 1.0,
         blockWeight: Double = 1.0,
@@ -237,6 +250,36 @@ nonisolated public struct FusionWeights: Sendable, Hashable {
 
     /// Settled defaults from the design doc.
     public static let `default` = FusionWeights()
+
+    nonisolated func validated(now: Date) throws -> FusionWeights {
+        guard pageWeight.isFinite,
+              blockWeight.isFinite,
+              universalWeight.isFinite else {
+            throw FusionWeightsValidationError.nonFiniteWeight
+        }
+        guard (0.0...8.0).contains(pageWeight),
+              (0.0...8.0).contains(blockWeight),
+              (0.0...8.0).contains(universalWeight) else {
+            throw FusionWeightsValidationError.outOfRangeWeight
+        }
+        guard halfLifeDays.isFinite else {
+            throw FusionWeightsValidationError.nonFiniteHalfLife
+        }
+        guard (1.0...365.0).contains(halfLifeDays) else {
+            throw FusionWeightsValidationError.outOfRangeHalfLife
+        }
+        guard maxResults >= 1, maxResults <= Self.maximumResultCount else {
+            throw FusionWeightsValidationError.invalidResultLimit
+        }
+        guard perSourceLimit >= maxResults,
+              perSourceLimit <= Self.maximumPerSourceResultCount else {
+            throw FusionWeightsValidationError.invalidPerSourceLimit
+        }
+        guard now.timeIntervalSince1970.isFinite else {
+            throw FusionWeightsValidationError.nonFiniteClock
+        }
+        return self
+    }
 }
 
 // MARK: - FusedResult
@@ -329,38 +372,48 @@ nonisolated public enum RRFFusionQuery {
           page_hits AS (
             SELECT
               indexed_pages.id        AS entity_id,
+              ('note:' || indexed_pages.id) AS entity_key,
               indexed_pages.id        AS parent_doc_id,
               'page'                  AS entity_kind,
               'page'                  AS source,
               NULL                    AS snippet_block_id,
               snippet(page_search, 1, '<b>', '</b>', '…', 32) AS snippet_text,
-              indexed_pages.updatedAt AS updated_at_unix,
-              ROW_NUMBER() OVER (ORDER BY bm25(page_search) ASC) AS rnk
+              (indexed_pages.updatedAt + :reference_date_epoch_offset)
+                                             AS updated_at_unix,
+              ROW_NUMBER() OVER (ORDER BY bm25(page_search) ASC, indexed_pages.id ASC) AS rnk
             FROM page_search
             JOIN indexed_pages ON indexed_pages.rowid = page_search.rowid
             WHERE page_search MATCH :query
+            ORDER BY bm25(page_search) ASC, indexed_pages.id ASC
             LIMIT :per_source_limit
           ),
           block_hits AS (
             SELECT
               indexed_blocks.page_id  AS entity_id,
+              ('note:' || indexed_blocks.page_id) AS entity_key,
               indexed_blocks.page_id  AS parent_doc_id,
               'block'                 AS entity_kind,
               'block'                 AS source,
               indexed_blocks.block_id AS snippet_block_id,
               snippet(block_search, 0, '<b>', '</b>', '…', 32) AS snippet_text,
-              (SELECT updatedAt FROM indexed_pages
+              (SELECT updatedAt + :reference_date_epoch_offset FROM indexed_pages
                WHERE id = indexed_blocks.page_id)
                                       AS updated_at_unix,
-              ROW_NUMBER() OVER (ORDER BY bm25(block_search) ASC) AS rnk
+              ROW_NUMBER() OVER (ORDER BY bm25(block_search) ASC, indexed_blocks.page_id ASC, indexed_blocks.block_id ASC) AS rnk
             FROM block_search
             JOIN indexed_blocks ON indexed_blocks.rowid = block_search.rowid
             WHERE block_search MATCH :query
+            ORDER BY bm25(block_search) ASC, indexed_blocks.page_id ASC, indexed_blocks.block_id ASC
             LIMIT :per_source_limit
           ),
           readable_hits AS (
             SELECT
               readable_blocks.artifact_id    AS entity_id,
+              CASE
+                WHEN readable_blocks.artifact_kind = 'prose_note'
+                  THEN 'note:' || readable_blocks.artifact_id
+                ELSE 'readable:' || readable_blocks.artifact_kind || ':' || readable_blocks.artifact_id
+              END                            AS entity_key,
               readable_blocks.artifact_id    AS parent_doc_id,
               readable_blocks.artifact_kind  AS entity_kind,
               'readable_block'               AS source,
@@ -368,24 +421,45 @@ nonisolated public enum RRFFusionQuery {
               snippet(readable_blocks_fts, 1, '<b>', '</b>', '…', 32) AS snippet_text,
               CAST(strftime('%s', readable_blocks.updated_at) AS REAL)
                                              AS updated_at_unix,
-              ROW_NUMBER() OVER (ORDER BY bm25(readable_blocks_fts) ASC) AS rnk
+              ROW_NUMBER() OVER (ORDER BY bm25(readable_blocks_fts) ASC, readable_blocks.artifact_id ASC, readable_blocks.block_id ASC) AS rnk
             FROM readable_blocks_fts
             JOIN readable_blocks ON readable_blocks.id = readable_blocks_fts.rowid
             WHERE readable_blocks_fts MATCH :query
+            ORDER BY bm25(readable_blocks_fts) ASC, readable_blocks.artifact_id ASC, readable_blocks.block_id ASC
             LIMIT :per_source_limit
           ),
           unioned AS (
-            SELECT entity_id, parent_doc_id, entity_kind, source,
+            SELECT entity_id, entity_key, parent_doc_id, entity_kind, source,
                    snippet_block_id, snippet_text, updated_at_unix, rnk
             FROM page_hits
             UNION ALL
-            SELECT entity_id, parent_doc_id, entity_kind, source,
+            SELECT entity_id, entity_key, parent_doc_id, entity_kind, source,
                    snippet_block_id, snippet_text, updated_at_unix, rnk
             FROM block_hits
             UNION ALL
-            SELECT entity_id, parent_doc_id, entity_kind, source,
+            SELECT entity_id, entity_key, parent_doc_id, entity_kind, source,
                    snippet_block_id, snippet_text, updated_at_unix, rnk
             FROM readable_hits
+          ),
+          -- Multiple matching chunks from one source must not manufacture
+          -- cross-source consensus. Keep the best deterministic rank for each
+          -- source/entity pair before calculating reciprocal-rank fusion.
+          source_ranked AS (
+            SELECT
+              entity_id, entity_key, parent_doc_id, entity_kind, source,
+              snippet_block_id, snippet_text, updated_at_unix, rnk,
+              ROW_NUMBER() OVER (
+                PARTITION BY source, entity_key
+                ORDER BY rnk ASC
+              ) AS source_rn
+            FROM unioned
+          ),
+          source_winners AS (
+            SELECT
+              entity_id, entity_key, parent_doc_id, entity_kind, source,
+              snippet_block_id, snippet_text, updated_at_unix, rnk
+            FROM source_ranked
+            WHERE source_rn = 1
           ),
           -- Rank rows within each entity so the surfaced entity_kind /
           -- snippet_block_id / snippet_text come deterministically from the
@@ -398,13 +472,13 @@ nonisolated public enum RRFFusionQuery {
           -- MIN(rnk) / MAX(updated_at) / SUM(score) intact.
           ranked AS (
             SELECT
-              entity_id, parent_doc_id, entity_kind, source,
+              entity_id, entity_key, parent_doc_id, entity_kind, source,
               snippet_block_id, snippet_text, updated_at_unix, rnk,
               ROW_NUMBER() OVER (
-                PARTITION BY entity_id ORDER BY rnk ASC, source ASC
+                PARTITION BY entity_key ORDER BY rnk ASC, source ASC
               )                                        AS rn,
-              MIN(rnk) OVER (PARTITION BY entity_id)   AS best_source_rank,
-              MAX(updated_at_unix) OVER (PARTITION BY entity_id)
+              MIN(rnk) OVER (PARTITION BY entity_key)  AS best_source_rank,
+              MAX(updated_at_unix) OVER (PARTITION BY entity_key)
                                                        AS group_updated_at_unix,
               SUM(
                 CASE source
@@ -412,12 +486,13 @@ nonisolated public enum RRFFusionQuery {
                   WHEN 'block'          THEN :w_block     / (:k + rnk)
                   WHEN 'readable_block' THEN :w_universal / (:k + rnk)
                 END
-              ) OVER (PARTITION BY entity_id)          AS raw_fused_score
-            FROM unioned
+              ) OVER (PARTITION BY entity_key)         AS raw_fused_score
+            FROM source_winners
           ),
           rolled_up AS (
             SELECT
               entity_id,
+              entity_key,
               parent_doc_id,
               entity_kind,
               group_updated_at_unix          AS updated_at_unix,
@@ -446,7 +521,7 @@ nonisolated public enum RRFFusionQuery {
           snippet_text,
           updated_at_unix
         FROM rolled_up
-        ORDER BY fused_score DESC, updated_at_unix DESC, entity_id ASC
+        ORDER BY fused_score DESC, updated_at_unix DESC, entity_key ASC
         LIMIT :max_results
         """
 
@@ -464,11 +539,13 @@ nonisolated public enum RRFFusionQuery {
               'page'                  AS source,
               NULL                    AS snippet_block_id,
               snippet(page_search, 1, '<b>', '</b>', '…', 32) AS snippet_text,
-              indexed_pages.updatedAt AS updated_at_unix,
-              ROW_NUMBER() OVER (ORDER BY bm25(page_search) ASC) AS rnk
+              (indexed_pages.updatedAt + :reference_date_epoch_offset)
+                                             AS updated_at_unix,
+              ROW_NUMBER() OVER (ORDER BY bm25(page_search) ASC, indexed_pages.id ASC) AS rnk
             FROM page_search
             JOIN indexed_pages ON indexed_pages.rowid = page_search.rowid
             WHERE page_search MATCH :query
+            ORDER BY bm25(page_search) ASC, indexed_pages.id ASC
             LIMIT :per_source_limit
           ),
           block_hits AS (
@@ -479,13 +556,14 @@ nonisolated public enum RRFFusionQuery {
               'block'                 AS source,
               indexed_blocks.block_id AS snippet_block_id,
               snippet(block_search, 0, '<b>', '</b>', '…', 32) AS snippet_text,
-              (SELECT updatedAt FROM indexed_pages
+              (SELECT updatedAt + :reference_date_epoch_offset FROM indexed_pages
                WHERE id = indexed_blocks.page_id)
                                       AS updated_at_unix,
-              ROW_NUMBER() OVER (ORDER BY bm25(block_search) ASC) AS rnk
+              ROW_NUMBER() OVER (ORDER BY bm25(block_search) ASC, indexed_blocks.page_id ASC, indexed_blocks.block_id ASC) AS rnk
             FROM block_search
             JOIN indexed_blocks ON indexed_blocks.rowid = block_search.rowid
             WHERE block_search MATCH :query
+            ORDER BY bm25(block_search) ASC, indexed_blocks.page_id ASC, indexed_blocks.block_id ASC
             LIMIT :per_source_limit
           ),
           unioned AS (
@@ -496,6 +574,23 @@ nonisolated public enum RRFFusionQuery {
             SELECT entity_id, parent_doc_id, entity_kind, source,
                    snippet_block_id, snippet_text, updated_at_unix, rnk
             FROM block_hits
+          ),
+          source_ranked AS (
+            SELECT
+              entity_id, parent_doc_id, entity_kind, source,
+              snippet_block_id, snippet_text, updated_at_unix, rnk,
+              ROW_NUMBER() OVER (
+                PARTITION BY source, entity_id
+                ORDER BY rnk ASC
+              ) AS source_rn
+            FROM unioned
+          ),
+          source_winners AS (
+            SELECT
+              entity_id, parent_doc_id, entity_kind, source,
+              snippet_block_id, snippet_text, updated_at_unix, rnk
+            FROM source_ranked
+            WHERE source_rn = 1
           ),
           -- See the main query: window aggregates + rn=1 take the best-rank
           -- row's bare columns deterministically (the bare-column-in-aggregate
@@ -516,7 +611,7 @@ nonisolated public enum RRFFusionQuery {
                   WHEN 'block' THEN :w_block / (:k + rnk)
                 END
               ) OVER (PARTITION BY entity_id)          AS raw_fused_score
-            FROM unioned
+            FROM source_winners
           ),
           rolled_up AS (
             SELECT
@@ -553,26 +648,28 @@ nonisolated public enum RRFFusionQuery {
         LIMIT :max_results
         """
 
-    /// Bind the 10 parameters the SQL expects against a query
+    /// Bind the 11 parameters the SQL expects against a query
     /// string + weights + clock. `now` is injectable so tests can
     /// pin a deterministic recency boost.
-    public static func bindArguments(
+    static func bindArguments(
         query: String,
         weights: FusionWeights = .default,
         now: Date = Date()
-    ) -> StatementArguments {
+    ) throws -> StatementArguments {
+        let validatedWeights = try weights.validated(now: now)
         let nowUnix = now.timeIntervalSince1970
         return [
             "query":             query,
             "k":                 Phase3FusionConsts.K_RRF,
-            "w_page":            weights.pageWeight,
-            "w_block":           weights.blockWeight,
-            "w_universal":       weights.universalWeight,
-            "per_source_limit":  weights.perSourceLimit,
-            "half_life_days":    weights.halfLifeDays,
+            "w_page":            validatedWeights.pageWeight,
+            "w_block":           validatedWeights.blockWeight,
+            "w_universal":       validatedWeights.universalWeight,
+            "per_source_limit":  validatedWeights.perSourceLimit,
+            "half_life_days":    validatedWeights.halfLifeDays,
             "recency_ln_2":      Phase3FusionConsts.RECENCY_LN_2,
             "now_unix":          nowUnix,
-            "max_results":       weights.maxResults,
+            "reference_date_epoch_offset": Date.timeIntervalBetween1970AndReferenceDate,
+            "max_results":       validatedWeights.maxResults,
         ]
     }
 
@@ -587,11 +684,12 @@ nonisolated public enum RRFFusionQuery {
         includeReadableBlocks: Bool = true,
         in db: Database
     ) throws -> [FusedResult] {
+        let arguments = try bindArguments(query: query, weights: weights, now: now)
         installSQLiteFunctions(in: db)
         let rows = try Row.fetchAll(
             db,
             sql: includeReadableBlocks ? sql : pageBlockOnlySQL,
-            arguments: bindArguments(query: query, weights: weights, now: now)
+            arguments: arguments
         )
         return rows.map { row in
             FusedResult(

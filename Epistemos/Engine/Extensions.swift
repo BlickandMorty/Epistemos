@@ -1,9 +1,34 @@
+import Darwin
 import Foundation
 
-nonisolated enum FoundationSafety {
+private nonisolated func clearEpistemosTestRuntimeDefaultsAtProcessExit() {
+    FoundationSafety.clearTestRuntimeDefaultsAtProcessExit()
+}
+
+public nonisolated enum FoundationSafety {
+    enum AuditRuntimeIsolationRequestState: Equatable {
+        case notRequested
+        case active
+        case requestedButInvalid
+    }
+
     private static let readableTextInspectionScalarLimit = 16_384
 
     static let applicationSupportOverrideEnvironmentKey = "EPISTEMOS_APPLICATION_SUPPORT_ROOT"
+    static let auditRuntimeAppGroupRootEnvironmentKey = "EPISTEMOS_AUDIT_APP_GROUP_ROOT"
+    static let auditRuntimeDefaultsSuiteEnvironmentKey = "EPISTEMOS_AUDIT_DEFAULTS_SUITE"
+    private static let auditRuntimeDefaultsSuitePrefix = "com.epistemos.audit.runtime."
+    private static let testRuntimeDefaultsSuitePrefix = "com.epistemos.test.runtime."
+    private static let testRuntimeDefaultsExitCleanupRegistration: Void = {
+        guard auditRuntimeIsolationRequestState() == .notRequested,
+              testRuntimeDefaultsSuiteName() != nil
+        else {
+            return
+        }
+        guard Darwin.atexit(clearEpistemosTestRuntimeDefaultsAtProcessExit) == 0 else {
+            preconditionFailure("Could not register isolated XCTest defaults cleanup")
+        }
+    }()
 
     static func isRunningTests(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
@@ -16,6 +41,32 @@ nonisolated enum FoundationSafety {
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment,
         processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier
     ) -> URL {
+        switch auditRuntimeIsolationRequestState(
+            fileManager: fileManager,
+            processInfoEnvironment: processInfoEnvironment
+        ) {
+        case .active:
+            guard let directory = validatedAbsoluteDirectory(
+                environmentKey: applicationSupportOverrideEnvironmentKey,
+                processInfoEnvironment: processInfoEnvironment
+            ) else {
+                preconditionFailure("Runtime-audit Application Support root became invalid")
+            }
+            do {
+                try fileManager.createDirectory(
+                    at: directory,
+                    withIntermediateDirectories: true
+                )
+                return directory
+            } catch {
+                preconditionFailure("Could not create runtime-audit Application Support root")
+            }
+        case .requestedButInvalid:
+            preconditionFailure("Runtime-audit isolation was requested but is incomplete or invalid")
+        case .notRequested:
+            break
+        }
+
         let directory: URL
         if let override = applicationSupportOverrideDirectory(
             fileManager: fileManager,
@@ -42,7 +93,249 @@ nonisolated enum FoundationSafety {
         fileManager: FileManager,
         processInfoEnvironment: [String: String]
     ) -> URL? {
-        guard let rawPath = processInfoEnvironment[applicationSupportOverrideEnvironmentKey]?
+        guard let directory = validatedAbsoluteDirectory(
+            environmentKey: applicationSupportOverrideEnvironmentKey,
+            processInfoEnvironment: processInfoEnvironment
+        ) else {
+            return nil
+        }
+
+        do {
+            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+            return directory
+        } catch {
+            return nil
+        }
+    }
+
+    static func auditRuntimeDefaultsSuiteName(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> String? {
+        let allowedCharacters = CharacterSet(
+            charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
+        )
+        guard let suiteName = processInfoEnvironment[auditRuntimeDefaultsSuiteEnvironmentKey]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              suiteName.hasPrefix(auditRuntimeDefaultsSuitePrefix),
+              suiteName.count > auditRuntimeDefaultsSuitePrefix.count,
+              suiteName.count <= 255,
+              !suiteName.contains(".."),
+              suiteName.unicodeScalars.allSatisfy(allowedCharacters.contains)
+        else {
+            return nil
+        }
+        return suiteName
+    }
+
+    static func auditRuntimeAppGroupDirectory(
+        fileManager _: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL? {
+        validatedAbsoluteDirectory(
+            environmentKey: auditRuntimeAppGroupRootEnvironmentKey,
+            processInfoEnvironment: processInfoEnvironment
+        )
+    }
+
+    static func isAuditRuntimeIsolationActive(
+        fileManager: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        guard auditRuntimeDefaultsSuiteName(
+            processInfoEnvironment: processInfoEnvironment
+        ) != nil,
+              let applicationSupportDirectory = validatedAbsoluteDirectory(
+                  environmentKey: applicationSupportOverrideEnvironmentKey,
+                  processInfoEnvironment: processInfoEnvironment
+              ),
+              let appGroupDirectory = auditRuntimeAppGroupDirectory(
+                  fileManager: fileManager,
+                  processInfoEnvironment: processInfoEnvironment
+              ),
+              !directoriesOverlap(applicationSupportDirectory, appGroupDirectory)
+        else {
+            return false
+        }
+
+        do {
+            try fileManager.createDirectory(
+                at: applicationSupportDirectory,
+                withIntermediateDirectories: true
+            )
+            try fileManager.createDirectory(
+                at: appGroupDirectory,
+                withIntermediateDirectories: true
+            )
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    static func isAuditRuntimeIsolationRequested(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        processInfoEnvironment[auditRuntimeAppGroupRootEnvironmentKey] != nil
+            || processInfoEnvironment[auditRuntimeDefaultsSuiteEnvironmentKey] != nil
+    }
+
+    static func auditRuntimeIsolationRequestState(
+        fileManager: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> AuditRuntimeIsolationRequestState {
+        guard isAuditRuntimeIsolationRequested(
+            processInfoEnvironment: processInfoEnvironment
+        ) else {
+            return .notRequested
+        }
+        return isAuditRuntimeIsolationActive(
+            fileManager: fileManager,
+            processInfoEnvironment: processInfoEnvironment
+        ) ? .active : .requestedButInvalid
+    }
+
+    static func requireValidAuditRuntimeIsolationIfRequested(
+        fileManager: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
+        guard auditRuntimeIsolationRequestState(
+            fileManager: fileManager,
+            processInfoEnvironment: processInfoEnvironment
+        ) != .requestedButInvalid else {
+            preconditionFailure("Runtime-audit isolation was requested but is incomplete or invalid")
+        }
+    }
+
+    public nonisolated(unsafe) static let runtimeUserDefaults = resolvedRuntimeUserDefaults(
+        resetTestDomain: true
+    )
+
+    static func resolvedRuntimeUserDefaults(
+        fileManager: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier,
+        resetTestDomain: Bool = false
+    ) -> UserDefaults {
+        switch auditRuntimeIsolationRequestState(
+            fileManager: fileManager,
+            processInfoEnvironment: processInfoEnvironment
+        ) {
+        case .notRequested:
+            guard let suiteName = testRuntimeDefaultsSuiteName(
+                processInfoEnvironment: processInfoEnvironment,
+                processIdentifier: processIdentifier
+            ) else {
+                return UserDefaults.standard
+            }
+            _ = testRuntimeDefaultsExitCleanupRegistration
+            guard let defaults = UserDefaults(suiteName: suiteName) else {
+                preconditionFailure("Could not create isolated XCTest defaults")
+            }
+            if resetTestDomain {
+                defaults.removePersistentDomain(forName: suiteName)
+            }
+            return defaults
+        case .requestedButInvalid:
+            preconditionFailure("Runtime-audit defaults isolation is incomplete or invalid")
+        case .active:
+            break
+        }
+        guard let suiteName = auditRuntimeDefaultsSuiteName(
+            processInfoEnvironment: processInfoEnvironment
+        ),
+              let defaults = UserDefaults(suiteName: suiteName)
+        else {
+            preconditionFailure("Could not create isolated runtime-audit defaults")
+        }
+        return defaults
+    }
+
+    static func testRuntimeDefaultsSuiteName(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier
+    ) -> String? {
+        guard isRunningTests(processInfoEnvironment: processInfoEnvironment),
+              processIdentifier > 0
+        else {
+            return nil
+        }
+        return "\(testRuntimeDefaultsSuitePrefix)\(processIdentifier)"
+    }
+
+    static func testRuntimeDefaultsPlistURL(
+        fileManager: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier
+    ) -> URL? {
+        guard let suiteName = testRuntimeDefaultsSuiteName(
+            processInfoEnvironment: processInfoEnvironment,
+            processIdentifier: processIdentifier
+        ) else {
+            return nil
+        }
+        return fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Preferences", isDirectory: true)
+            .appendingPathComponent("\(suiteName).plist", isDirectory: false)
+    }
+
+    static func clearTestRuntimeDefaultsAtProcessExit() {
+        guard auditRuntimeIsolationRequestState() == .notRequested,
+              testRuntimeDefaultsSuiteName() != nil
+        else {
+            return
+        }
+        clearTestRuntimeDefaultsIfNeeded(defaults: runtimeUserDefaults)
+    }
+
+    static func clearTestRuntimeDefaultsIfNeeded(
+        fileManager: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier,
+        defaults providedDefaults: UserDefaults? = nil
+    ) {
+        guard let suiteName = testRuntimeDefaultsSuiteName(
+            processInfoEnvironment: processInfoEnvironment,
+            processIdentifier: processIdentifier
+        ) else {
+            return
+        }
+        guard let defaults = providedDefaults ?? UserDefaults(suiteName: suiteName) else { return }
+        defaults.removePersistentDomain(forName: suiteName)
+        _ = defaults.synchronize()
+        guard let plistURL = testRuntimeDefaultsPlistURL(
+            fileManager: fileManager,
+            processInfoEnvironment: processInfoEnvironment,
+            processIdentifier: processIdentifier
+        ) else {
+            return
+        }
+        try? fileManager.removeItem(at: plistURL)
+    }
+
+    static func runtimeWindowFrameAutosaveName(
+        _ name: String,
+        fileManager: FileManager = .default,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> String? {
+        switch auditRuntimeIsolationRequestState(
+            fileManager: fileManager,
+            processInfoEnvironment: processInfoEnvironment
+        ) {
+        case .notRequested:
+            return name
+        case .active:
+            return nil
+        case .requestedButInvalid:
+            preconditionFailure("Runtime-audit window-state isolation is incomplete or invalid")
+        }
+    }
+
+    private static func validatedAbsoluteDirectory(
+        environmentKey: String,
+        processInfoEnvironment: [String: String]
+    ) -> URL? {
+        guard let rawPath = processInfoEnvironment[environmentKey]?
             .trimmingCharacters(in: .whitespacesAndNewlines),
               !rawPath.isEmpty,
               rawPath.hasPrefix("/")
@@ -50,9 +343,43 @@ nonisolated enum FoundationSafety {
             return nil
         }
 
-        let directory = URL(fileURLWithPath: rawPath, isDirectory: true).standardizedFileURL
-        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let directory = URL(fileURLWithPath: rawPath, isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        guard directory.path != "/",
+              !containsProductionLibraryDirectory(directory)
+        else {
+            return nil
+        }
         return directory
+    }
+
+    private static func containsProductionLibraryDirectory(_ directory: URL) -> Bool {
+        let protectedDirectoryNames = Set([
+            "application support",
+            "group containers",
+            "preferences",
+            "saved application state",
+        ])
+        let components = directory.pathComponents.map {
+            $0.lowercased(with: Locale(identifier: "en_US_POSIX"))
+        }
+        guard components.count > 1 else { return false }
+        return components.indices.dropLast().contains { index in
+            components[index] == "library"
+                && protectedDirectoryNames.contains(components[index + 1])
+        }
+    }
+
+    private static func directoriesOverlap(_ lhs: URL, _ rhs: URL) -> Bool {
+        let lhsComponents = lhs.pathComponents.map {
+            $0.lowercased(with: Locale(identifier: "en_US_POSIX"))
+        }
+        let rhsComponents = rhs.pathComponents.map {
+            $0.lowercased(with: Locale(identifier: "en_US_POSIX"))
+        }
+        return lhsComponents.starts(with: rhsComponents)
+            || rhsComponents.starts(with: lhsComponents)
     }
 
     static func regularExpression(
@@ -1212,8 +1539,9 @@ nonisolated enum UserFacingModelOutput {
               let closeRange = cleaned.range(of: "</tool>", range: openRange.upperBound..<cleaned.endIndex) {
             let body = String(cleaned[openRange.upperBound..<closeRange.lowerBound])
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            let looksLikeToolPayload = !ToolCallParser.parse(body).isEmpty
-                || isStructuredToolPayload(body)
+            // Free V1 has no model/tool runtime. Keep only the deterministic
+            // structured-payload recognition needed to clean persisted text.
+            let looksLikeToolPayload = isStructuredToolPayload(body)
 
             guard looksLikeToolPayload else {
                 searchStart = closeRange.upperBound

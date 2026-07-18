@@ -324,9 +324,6 @@ struct VaultIndexActorTests {
         let container = try makeContainer()
         let actor = VaultIndexActor(modelContainer: container)
         let context = container.mainContext
-        defer {
-            UserDefaults.standard.removeObject(forKey: VaultIndexActor.spotlightIndexDateKey)
-        }
 
         _ = insertPage(
             in: context,
@@ -336,12 +333,9 @@ struct VaultIndexActorTests {
         )
         try context.save()
 
-        UserDefaults.standard.set(
-            Date(timeIntervalSince1970: 200),
-            forKey: VaultIndexActor.spotlightIndexDateKey
+        let snapshot = await actor.spotlightReindexSnapshotForTesting(
+            since: Date(timeIntervalSince1970: 200)
         )
-
-        let snapshot = await actor.spotlightReindexSnapshotForTesting()
 
         #expect(snapshot.lastIndexDate == Date(timeIntervalSince1970: 200))
         #expect(snapshot.changedPageCount == 0)
@@ -353,9 +347,6 @@ struct VaultIndexActorTests {
         let container = try makeContainer()
         let actor = VaultIndexActor(modelContainer: container)
         let context = container.mainContext
-        defer {
-            UserDefaults.standard.removeObject(forKey: VaultIndexActor.spotlightIndexDateKey)
-        }
 
         _ = insertPage(
             in: context,
@@ -371,12 +362,9 @@ struct VaultIndexActorTests {
         )
         try context.save()
 
-        UserDefaults.standard.set(
-            Date(timeIntervalSince1970: 200),
-            forKey: VaultIndexActor.spotlightIndexDateKey
+        let snapshot = await actor.spotlightReindexSnapshotForTesting(
+            since: Date(timeIntervalSince1970: 200)
         )
-
-        let snapshot = await actor.spotlightReindexSnapshotForTesting()
 
         #expect(snapshot.lastIndexDate == Date(timeIntervalSince1970: 200))
         #expect(snapshot.changedPageCount == 1)
@@ -832,7 +820,10 @@ struct VaultIndexActorTests {
             #expect(abs(page.wordCount - repeatedLineCount * 3) < (repeatedLineCount * 3 / 10))
             #expect(page.loadBody().hasPrefix("alpha beta gamma"))
             #expect(page.needsVaultSync == false)
-            #expect(page.lastSyncedBodyHash?.hasPrefix("vault-file:") == true)
+            #expect(
+                page.lastSyncedBodyHash
+                    == SDPage.bodyHash(largeBody.trimmingCharacters(in: .whitespacesAndNewlines))
+            )
             let pageId = page.id
             #expect(!NoteFileStorage.bodyExists(pageId: pageId))
             let blockDescriptor = FetchDescriptor<SDBlock>(
@@ -881,7 +872,10 @@ struct VaultIndexActorTests {
                 return
             }
 
-            #expect(expectedFingerprint.hasPrefix("vault-file:"))
+            #expect(
+                expectedFingerprint
+                    == SDPage.bodyHash(largeBody.trimmingCharacters(in: .whitespacesAndNewlines))
+            )
             #expect(!NoteFileStorage.bodyExists(pageId: importedPage.id))
 
             let pageId = importedPage.id

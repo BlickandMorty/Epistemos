@@ -9,42 +9,18 @@
 /* Begin PBXBuildFile section */
 		0465C1B669B990DFF2F4AAF8 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
 		14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
-		1B43A5176B33E51D2684788D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */; };
 		226F765E554D4FB43B088278 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13D3E6E9629BE150EEFC32BE /* Security.framework */; };
 		2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
-		30E13BBA08D4E40824E55896 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = F8EFC969F569F143FA21C59C /* FileVersion */; };
 		3B8E1C3C335DC819029D0BFB /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
 		46243D23E5333064943D5310 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		47EC22FDE2094C0AD988091C /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0A2D551363AE61A7F5B1B898 /* GRDB */; };
-		4B2F884424FC5BA76B256BAC /* SessionTelemetryClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_7B99A99F-2136-4B76-B056-F544A9D5946D" /* SessionTelemetryClassifier.swift */; };
 		4CAE00A3B9F046672C6522D6 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
-		4E33C15A55EFB202E9C797EA /* CognitiveIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_8B1113AC-0B6A-4685-9F80-7A0FB7F0DEA5" /* CognitiveIntents.swift */; };
-		4F90EF5DF32F4B80091FCF84 /* EpistemosSidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_9A73C2E0-D7FD-4D77-8D88-2A224204767A" /* EpistemosSidecar.swift */; };
-		5069B6B7F0AC060687178E7F /* ConversationStateClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_23E19FAA-F19B-45A6-83B6-7F230A2F17C6" /* ConversationStateClassifier.swift */; };
-		535DA20E3D052CF1BE542E54 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
-		54FEAA196B99035E42E8B0B6 /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 16CC623C4E71A4DF3F6DBDBC /* TextBundle */; };
-		5BD2F1107633AD6B41B0C58B /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 104F667588B6B74771455F14 /* Statistics */; };
 		5FA96D2820E6751FD7CAE761 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
-		74959B01F628EBAA2FBB4B29 /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 88BCB3EA6698A7750855E06F /* TextCompletion */; };
-		7BA33DAD72F26B5969AF58A4 /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5565EA54F11316CA03FCE0A /* MarkEditCore */; };
-		7E04502E94924A57934605BE /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 40094AE6591C1C7FEA3D49B6 /* SettingsUI */; };
-		7FB9B55EC62CC75E4D5D6688 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
-		836B564E870EDF34873B3A58 /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */; };
-		9306CA2B6D16680A144B5317 /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3FF61CC7613816DCD256501A /* MarkEditKit */; };
+		836B564E870EDF34873B3A58 /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5565EA54F11316CA03FCE0A /* MarkEditCore */; };
 		A0CC72DF04BB145B6C54585F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
-		B6058CDDBAC6D239758DE0BE /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = 929E3F8673D5E6BA76C7D611 /* AppKitControls */; };
 		BAAEE4E38661F000D998F186 /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = A7B4A33EDFA6CDF19164E100 /* Grape */; };
-		BE22FF112091A73278DA1574 /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = C5C43578924D958FD0F10AEA /* FileDrop */; };
-		C431FC0DE9D2002A4AEC0CE9 /* EpistemosSpeechSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_C80750C9-5926-4911-A9DE-2C98EE96250D" /* EpistemosSpeechSynthesizer.swift */; };
-		CE76B49BFA0C9A55A6078A3C /* ProductCapabilityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_EAB4A544-D484-4F53-99FE-4C03BF3912D8" /* ProductCapabilityPolicy.swift */; };
-		E058F3DDB6411F32CD2A67AA /* SidecarCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_1B8A2DB0-6176-4263-8C3C-372CE0DC0548" /* SidecarCache.swift */; };
-		E1411145209B0CCD99C5C608 /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 21E9EC38054CF698E1778CBE /* AppKitExtensions */; };
-		E70B453353C9AB5E24A29DFA /* EpistemosLlama in Frameworks */ = {isa = PBXBuildFile; productRef = 3795DC0C48B43DA46FE88219 /* EpistemosLlama */; };
-		ED5855468758D8370F0E122F /* QuarantineArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_A7C9E083-DD09-4F31-9215-6FB71E1C8FD0" /* QuarantineArchive.swift */; };
-		F179F5290BD109FC06F77403 /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = F5DBC24422FD519A6BED081F /* Previewer */; };
-		F5784C6AD6DA3C05A246766E /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = DD9553A30739FBFA2CD51437 /* FontPicker */; };
-		F6C17C67B9A73ACC2E082B37 /* EpistemosControlWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_31C87C40-DCF3-4448-8D3D-D1B1D0A14310" /* EpistemosControlWidget.swift */; };
-		F81C8396579EAFDD7A266181 /* AFMSessionPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_324EC653-EF39-48D3-BFE4-E902BDC442A0" /* AFMSessionPool.swift */; };
+		E70B453353C9AB5E24A29DFA /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */; };
+		EB248C35B08C28FF8598E672 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 7F98E14FC44891C085E98ABA /* GRDB */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,50 +36,27 @@
 /* Begin PBXFileReference section */
 		0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		0C22103FC04EC48867600235 /* MarkEditCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MarkEditCore; path = LocalPackages/MarkEdit/MarkEditCore; sourceTree = SOURCE_ROOT; };
-		134FB1FC495841C9ED25232F /* EpistemosLlama */ = {isa = PBXFileReference; lastKnownFileType = folder; name = EpistemosLlama; path = LocalPackages/EpistemosLlama; sourceTree = SOURCE_ROOT; };
 		13D3E6E9629BE150EEFC32BE /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
-		3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Epistemos-AppStore.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CA1ADD76D0A683D0954DDB5 /* KokoroPipeline */ = {isa = PBXFileReference; lastKnownFileType = folder; name = KokoroPipeline; path = LocalPackages/KokoroPipeline; sourceTree = SOURCE_ROOT; };
-		689A6C418AA4456CEBAE5A31 /* Modules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Modules; path = LocalPackages/MarkEdit/MarkEditMac/Modules; sourceTree = SOURCE_ROOT; };
 		A0DEC64ED9ED804781639E05 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSpotlight.framework; path = System/Library/Frameworks/CoreSpotlight.framework; sourceTree = SDKROOT; };
-		BE341F589C4FD8A21810B329 /* EpistemosWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EpistemosWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5467DC782039DA54397330A /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		E9964F6D56D0A9A72ED41455 /* SwiftData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftData.framework; path = System/Library/Frameworks/SwiftData.framework; sourceTree = SDKROOT; };
-		FC737BC198BF4E5BEADB7BC8 /* MarkEditKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MarkEditKit; path = LocalPackages/MarkEdit/MarkEditKit; sourceTree = SOURCE_ROOT; };
 		FDCC764E331624B8EF1C1BED /* EpistemosAppStoreKeelstoneTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EpistemosAppStoreKeelstoneTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		"TEMP_1B8A2DB0-6176-4263-8C3C-372CE0DC0548" /* SidecarCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarCache.swift; sourceTree = "<group>"; };
-		"TEMP_23E19FAA-F19B-45A6-83B6-7F230A2F17C6" /* ConversationStateClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStateClassifier.swift; sourceTree = "<group>"; };
-		"TEMP_31C87C40-DCF3-4448-8D3D-D1B1D0A14310" /* EpistemosControlWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosControlWidget.swift; sourceTree = "<group>"; };
-		"TEMP_324EC653-EF39-48D3-BFE4-E902BDC442A0" /* AFMSessionPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AFMSessionPool.swift; sourceTree = "<group>"; };
-		"TEMP_7B99A99F-2136-4B76-B056-F544A9D5946D" /* SessionTelemetryClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTelemetryClassifier.swift; sourceTree = "<group>"; };
-		"TEMP_8B1113AC-0B6A-4685-9F80-7A0FB7F0DEA5" /* CognitiveIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CognitiveIntents.swift; sourceTree = "<group>"; };
-		"TEMP_9A73C2E0-D7FD-4D77-8D88-2A224204767A" /* EpistemosSidecar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosSidecar.swift; sourceTree = "<group>"; };
-		"TEMP_A7C9E083-DD09-4F31-9215-6FB71E1C8FD0" /* QuarantineArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuarantineArchive.swift; sourceTree = "<group>"; };
-		"TEMP_C80750C9-5926-4911-A9DE-2C98EE96250D" /* EpistemosSpeechSynthesizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosSpeechSynthesizer.swift; sourceTree = "<group>"; };
-		"TEMP_EAB4A544-D484-4F53-99FE-4C03BF3912D8" /* ProductCapabilityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductCapabilityPolicy.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				agent_coreFFI.h,
-				agent_coreFFI.modulemap,
-				agent_coreFFI/agent_coreFFI.h,
-				agent_coreFFI/module.modulemap,
 				epistemos_coreFFI.h,
 				epistemos_coreFFI.modulemap,
 				epistemos_coreFFI/epistemos_coreFFI.h,
 				epistemos_coreFFI/module.modulemap,
-				omega_mcpFFI.h,
-				omega_mcpFFI.modulemap,
-				omega_mcpFFI/module.modulemap,
-				omega_mcpFFI/omega_mcpFFI.h,
 			);
 			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
 		};
@@ -121,17 +74,17 @@
 				"Resources/CoreEditor/chunks/groovy-D9Dt4D0W.js",
 				"Resources/CoreEditor/chunks/haskell-Cw1EW3IL.js",
 				"Resources/CoreEditor/chunks/http-DBlCnlav.js",
-				"Resources/CoreEditor/chunks/index-2N30lIXC.js",
-				"Resources/CoreEditor/chunks/index-B50JxE-E.js",
-				"Resources/CoreEditor/chunks/index-BfnDPdgd.js",
-				"Resources/CoreEditor/chunks/index-C1S7G-Og.js",
-				"Resources/CoreEditor/chunks/index-CLl0Ir8W.js",
-				"Resources/CoreEditor/chunks/index-CgZ5Hp05.js",
-				"Resources/CoreEditor/chunks/index-DNtsdCEH.js",
-				"Resources/CoreEditor/chunks/index-DQ4WRUcj.js",
-				"Resources/CoreEditor/chunks/index-DhwZXjO_.js",
-				"Resources/CoreEditor/chunks/index-gi9nrXxG.js",
-				"Resources/CoreEditor/chunks/index-lteqA7Av.js",
+				"Resources/CoreEditor/chunks/index-8I92uQ-M.js",
+				"Resources/CoreEditor/chunks/index-BUeEVpaI.js",
+				"Resources/CoreEditor/chunks/index-BlhD2nGL.js",
+				"Resources/CoreEditor/chunks/index-BmhwsT7l.js",
+				"Resources/CoreEditor/chunks/index-C459kODO.js",
+				"Resources/CoreEditor/chunks/index-CJR-36EO.js",
+				"Resources/CoreEditor/chunks/index-CipSngav.js",
+				"Resources/CoreEditor/chunks/index-Cv5U3tHP.js",
+				"Resources/CoreEditor/chunks/index-D9xYuCvh.js",
+				"Resources/CoreEditor/chunks/index-DNGUBWes.js",
+				"Resources/CoreEditor/chunks/index-RYDeKCek.js",
 				"Resources/CoreEditor/chunks/index-o5-7ktni.css",
 				"Resources/CoreEditor/chunks/julia-DuME0IfC.js",
 				"Resources/CoreEditor/chunks/lua-VAEuO923.js",
@@ -147,63 +100,12 @@
 				"Resources/CoreEditor/chunks/shell-CjFT_Tl9.js",
 				"Resources/CoreEditor/chunks/swift-BzpIVaGY.js",
 				"Resources/CoreEditor/chunks/toml-Bm5Em-hy.js",
-				Vault/KnowledgeGraphService.swift,
-			);
-			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
-		};
-		45C30E899114488A41C98903 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 37DE6F7D0C0330DB13916CE8 /* EpistemosWidgets */;
-		};
-		596B3837891BA2E479B46AAC /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"Scripting/EditorDocument+Scripting.swift",
-				"Scripting/NSColor+Scripting.swift",
-				Shortcuts/Extensions,
-				"Shortcuts/Extensions/AppIntent+Extension.swift",
-				Shortcuts/IntentError.swift,
-				Shortcuts/IntentProvider.swift,
-				Shortcuts/Intents,
-				Shortcuts/Intents/CreateNewDocumentIntent.swift,
-				Shortcuts/Intents/EvaluateJavaScriptIntent.swift,
-				Shortcuts/Intents/GetFileContentIntent.swift,
-				Shortcuts/Intents/UpdateFileContentIntent.swift,
-				Updater/AppUpdater.swift,
-				Updater/AppVersion.swift,
 			);
 			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		48195CB9B8649331A9DD3F18 /* EpistemosWidgets */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				45C30E899114488A41C98903 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = EpistemosWidgets;
-			sourceTree = "<group>";
-		};
-		61CCCFA46A1E2E88C5B9386D /* LocalPackages/MarkEdit/MarkEditMac/Sources */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				596B3837891BA2E479B46AAC /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = LocalPackages/MarkEdit/MarkEditMac/Sources;
-			sourceTree = "<group>";
-		};
 		8498727F02475E046A16C239 /* build-rust/swift-bindings */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -240,13 +142,11 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		E1728B0C39930685E5B00A37 /* Frameworks */ = {
+		DAEECE4D7038101FCCF87B3F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1B43A5176B33E51D2684788D /* WidgetKit.framework in Frameworks */,
-				7FB9B55EC62CC75E4D5D6688 /* SwiftUI.framework in Frameworks */,
-				535DA20E3D052CF1BE542E54 /* AppIntents.framework in Frameworks */,
+				EB248C35B08C28FF8598E672 /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,20 +156,8 @@
 			files = (
 				47EC22FDE2094C0AD988091C /* GRDB in Frameworks */,
 				BAAEE4E38661F000D998F186 /* Grape in Frameworks */,
-				E70B453353C9AB5E24A29DFA /* EpistemosLlama in Frameworks */,
-				836B564E870EDF34873B3A58 /* KokoroPipeline in Frameworks */,
-				7BA33DAD72F26B5969AF58A4 /* MarkEditCore in Frameworks */,
-				9306CA2B6D16680A144B5317 /* MarkEditKit in Frameworks */,
-				B6058CDDBAC6D239758DE0BE /* AppKitControls in Frameworks */,
-				E1411145209B0CCD99C5C608 /* AppKitExtensions in Frameworks */,
-				BE22FF112091A73278DA1574 /* FileDrop in Frameworks */,
-				30E13BBA08D4E40824E55896 /* FileVersion in Frameworks */,
-				F5784C6AD6DA3C05A246766E /* FontPicker in Frameworks */,
-				F179F5290BD109FC06F77403 /* Previewer in Frameworks */,
-				7E04502E94924A57934605BE /* SettingsUI in Frameworks */,
-				5BD2F1107633AD6B41B0C58B /* Statistics in Frameworks */,
-				54FEAA196B99035E42E8B0B6 /* TextBundle in Frameworks */,
-				74959B01F628EBAA2FBB4B29 /* TextCompletion in Frameworks */,
+				E70B453353C9AB5E24A29DFA /* KokoroPipeline in Frameworks */,
+				836B564E870EDF34873B3A58 /* MarkEditCore in Frameworks */,
 				0465C1B669B990DFF2F4AAF8 /* AppKit.framework in Frameworks */,
 				2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */,
 				14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */,
@@ -290,7 +178,6 @@
 			children = (
 				57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */,
 				FDCC764E331624B8EF1C1BED /* EpistemosAppStoreKeelstoneTests.xctest */,
-				BE341F589C4FD8A21810B329 /* EpistemosWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -301,8 +188,6 @@
 				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 				DC577E252B5002D94779881E /* Epistemos */,
 				B46C64D2B0A3DFDFDAD54295 /* EpistemosAppStoreKeelstoneTests */,
-				48195CB9B8649331A9DD3F18 /* EpistemosWidgets */,
-				61CCCFA46A1E2E88C5B9386D /* LocalPackages/MarkEdit/MarkEditMac/Sources */,
 				CDE9EC77D799DAC3B605278D /* Packages */,
 				C4CC4178A08EBA8D216C43EF /* Frameworks */,
 				21C2583A1AFD8B5552357491 /* Products */,
@@ -321,7 +206,6 @@
 				13D3E6E9629BE150EEFC32BE /* Security.framework */,
 				E9964F6D56D0A9A72ED41455 /* SwiftData.framework */,
 				0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */,
-				3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -329,80 +213,22 @@
 		CDE9EC77D799DAC3B605278D /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				134FB1FC495841C9ED25232F /* EpistemosLlama */,
 				5CA1ADD76D0A683D0954DDB5 /* KokoroPipeline */,
 				0C22103FC04EC48867600235 /* MarkEditCore */,
-				FC737BC198BF4E5BEADB7BC8 /* MarkEditKit */,
-				689A6C418AA4456CEBAE5A31 /* Modules */,
 			);
 			name = Packages;
-			sourceTree = "<group>";
-		};
-		"TEMP_5D58D33F-29E3-452C-93C1-AE679C746D2A" /* Engine */ = {
-			isa = PBXGroup;
-			children = (
-				"TEMP_C80750C9-5926-4911-A9DE-2C98EE96250D" /* EpistemosSpeechSynthesizer.swift */,
-				"TEMP_A7C9E083-DD09-4F31-9215-6FB71E1C8FD0" /* QuarantineArchive.swift */,
-				"TEMP_9A73C2E0-D7FD-4D77-8D88-2A224204767A" /* EpistemosSidecar.swift */,
-				"TEMP_1B8A2DB0-6176-4263-8C3C-372CE0DC0548" /* SidecarCache.swift */,
-				"TEMP_23E19FAA-F19B-45A6-83B6-7F230A2F17C6" /* ConversationStateClassifier.swift */,
-				"TEMP_7B99A99F-2136-4B76-B056-F544A9D5946D" /* SessionTelemetryClassifier.swift */,
-				"TEMP_324EC653-EF39-48D3-BFE4-E902BDC442A0" /* AFMSessionPool.swift */,
-			);
-			name = Engine;
-			path = Epistemos/Engine;
-			sourceTree = "<group>";
-		};
-		"TEMP_D426EDDD-DA7A-4743-825C-79C008B57F15" /* Schemas */ = {
-			isa = PBXGroup;
-			children = (
-				"TEMP_31C87C40-DCF3-4448-8D3D-D1B1D0A14310" /* EpistemosControlWidget.swift */,
-				"TEMP_8B1113AC-0B6A-4685-9F80-7A0FB7F0DEA5" /* CognitiveIntents.swift */,
-			);
-			name = Schemas;
-			path = Epistemos/Intents/Schemas;
-			sourceTree = "<group>";
-		};
-		"TEMP_F2F68FC1-9BB4-47BF-9AB0-2109C6BD2D30" /* App */ = {
-			isa = PBXGroup;
-			children = (
-				"TEMP_EAB4A544-D484-4F53-99FE-4C03BF3912D8" /* ProductCapabilityPolicy.swift */,
-			);
-			name = App;
-			path = Epistemos/App;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		37DE6F7D0C0330DB13916CE8 /* EpistemosWidgets */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 09B08AA2CF4C2DA53C9EB337 /* Build configuration list for PBXNativeTarget "EpistemosWidgets" */;
-			buildPhases = (
-				C0E17763D30980F9A4FD2527 /* Sources */,
-				5FD6A3D3897D7F9C84FCDA4B /* Resources */,
-				E1728B0C39930685E5B00A37 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				48195CB9B8649331A9DD3F18 /* EpistemosWidgets */,
-			);
-			name = EpistemosWidgets;
-			packageProductDependencies = (
-			);
-			productName = EpistemosWidgets;
-			productReference = BE341F589C4FD8A21810B329 /* EpistemosWidgets.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 		A5BC3560F9D79CC3603CB663 /* EpistemosAppStoreKeelstoneTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 530E6713FD60CF0906D4736C /* Build configuration list for PBXNativeTarget "EpistemosAppStoreKeelstoneTests" */;
 			buildPhases = (
 				3F69AB49E8E8AD409964873E /* Sources */,
 				3BD03339F53E514842079581 /* Resources */,
+				DAEECE4D7038101FCCF87B3F /* Frameworks */,
 				19183C5A958368052E69D64C /* Stage Repository Source Guards */,
 			);
 			buildRules = (
@@ -415,6 +241,7 @@
 			);
 			name = EpistemosAppStoreKeelstoneTests;
 			packageProductDependencies = (
+				7F98E14FC44891C085E98ABA /* GRDB */,
 			);
 			productName = EpistemosAppStoreKeelstoneTests;
 			productReference = FDCC764E331624B8EF1C1BED /* EpistemosAppStoreKeelstoneTests.xctest */;
@@ -429,7 +256,6 @@
 				4EF88187EDE7DCEE6CC43D97 /* Resources */,
 				E7F55AE2AEC8F0BA884A93F7 /* Frameworks */,
 				4E337C83B228C8BF01D9A6D2 /* Bundle Runtime Assets */,
-				7A2A0F51F641A7EFF9924990 /* Scrub Pro Frameworks */,
 			);
 			buildRules = (
 			);
@@ -437,27 +263,14 @@
 			);
 			fileSystemSynchronizedGroups = (
 				DC577E252B5002D94779881E /* Epistemos */,
-				61CCCFA46A1E2E88C5B9386D /* LocalPackages/MarkEdit/MarkEditMac/Sources */,
 				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 			);
 			name = "Epistemos-AppStore";
 			packageProductDependencies = (
 				0A2D551363AE61A7F5B1B898 /* GRDB */,
 				A7B4A33EDFA6CDF19164E100 /* Grape */,
-				3795DC0C48B43DA46FE88219 /* EpistemosLlama */,
 				50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */,
 				B5565EA54F11316CA03FCE0A /* MarkEditCore */,
-				3FF61CC7613816DCD256501A /* MarkEditKit */,
-				929E3F8673D5E6BA76C7D611 /* AppKitControls */,
-				21E9EC38054CF698E1778CBE /* AppKitExtensions */,
-				C5C43578924D958FD0F10AEA /* FileDrop */,
-				F8EFC969F569F143FA21C59C /* FileVersion */,
-				DD9553A30739FBFA2CD51437 /* FontPicker */,
-				F5DBC24422FD519A6BED081F /* Previewer */,
-				40094AE6591C1C7FEA3D49B6 /* SettingsUI */,
-				104F667588B6B74771455F14 /* Statistics */,
-				16CC623C4E71A4DF3F6DBDBC /* TextBundle */,
-				88BCB3EA6698A7750855E06F /* TextCompletion */,
 			);
 			productName = "Epistemos-AppStore";
 			productReference = 57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */;
@@ -472,10 +285,6 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
-					37DE6F7D0C0330DB13916CE8 = {
-						DevelopmentTeam = 3BNL2669SL;
-						ProvisioningStyle = Automatic;
-					};
 					A5BC3560F9D79CC3603CB663 = {
 						DevelopmentTeam = 3BNL2669SL;
 						ProvisioningStyle = Automatic;
@@ -498,11 +307,8 @@
 			packageReferences = (
 				C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				524D78E9249015029F79F437 /* XCRemoteSwiftPackageReference "Grape" */,
-				1B35C0DC51AEC6846C08363A /* XCLocalSwiftPackageReference "LocalPackages/EpistemosLlama" */,
 				9780EB52E9DBAAAEE6416DCF /* XCLocalSwiftPackageReference "LocalPackages/KokoroPipeline" */,
 				364B6F662E4418B1727D73D1 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditCore" */,
-				B1BD229D7BC4AA1455B53515 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditKit" */,
-				C613EEA98847AB76DEFBB315 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditMac/Modules" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 21C2583A1AFD8B5552357491 /* Products */;
@@ -511,7 +317,6 @@
 			targets = (
 				D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */,
 				A5BC3560F9D79CC3603CB663 /* EpistemosAppStoreKeelstoneTests */,
-				37DE6F7D0C0330DB13916CE8 /* EpistemosWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -525,13 +330,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4EF88187EDE7DCEE6CC43D97 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5FD6A3D3897D7F9C84FCDA4B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -558,7 +356,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nfixture_root=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RepositorySourceFixtures\"\nsource_guard=\"${SRCROOT}/EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift\"\n\n/bin/rm -rf \"${fixture_root}\"\n/bin/mkdir -p \"${fixture_root}\"\n\n/usr/bin/sed -n 's/.*loadRepoTextFile(\"\\([^\"]*\\)\").*/\\1/p' \"${source_guard}\" \\\n  | /usr/bin/sort -u \\\n  | while IFS= read -r relative_path; do\n      source_path=\"${SRCROOT}/${relative_path}\"\n      destination_path=\"${fixture_root}/${relative_path}\"\n      if [[ ! -f \"${source_path}\" ]]; then\n        echo \"error: missing repository source guard input: ${relative_path}\" >&2\n        exit 1\n      fi\n      /bin/mkdir -p \"$(/usr/bin/dirname \"${destination_path}\")\"\n      /bin/cp \"${source_path}\" \"${destination_path}\"\n    done\n";
+			shellScript = "set -euo pipefail\nfixture_root=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RepositorySourceFixtures\"\nsource_guards=\"\n${SRCROOT}/EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift\n${SRCROOT}/EpistemosAppStoreKeelstoneTests/FreeV1BuildContractTests.swift\n\"\n\n/bin/rm -rf \"${fixture_root}\"\n/bin/mkdir -p \"${fixture_root}\"\n\nfor source_guard in ${source_guards}; do\n  /usr/bin/sed -n 's/.*loadRepoTextFile(\"\\([^\"]*\\)\").*/\\1/p' \"${source_guard}\"\ndone | /usr/bin/sort -u \\\n  | while IFS= read -r relative_path; do\n      source_path=\"${SRCROOT}/${relative_path}\"\n      destination_path=\"${fixture_root}/${relative_path}\"\n      case \"${relative_path}\" in\n        Epistemos/JuneAgent/*)\n          echo \"note: skipping intentionally absent Free V1 source root Epistemos/JuneAgent/: ${relative_path}\" >&2\n          continue\n          ;;\n      esac\n      if [[ ! -f \"${source_path}\" ]]; then\n        echo \"error: missing repository source guard input: ${relative_path}\" >&2\n        exit 1\n      fi\n      /bin/mkdir -p \"$(/usr/bin/dirname \"${destination_path}\")\"\n      /bin/cp \"${source_path}\" \"${destination_path}\"\n    done\n";
 		};
 		1DA88FE300B58BE04268296B /* Build Rust Engine */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -577,7 +375,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nbash \"${SRCROOT}/build-rust.sh\"\nbash \"${SRCROOT}/build-syntax-core.sh\"\nMAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\"\nMAS_SANDBOX=1 bash \"${SRCROOT}/build-epistemos-core.sh\"\nMAS_SANDBOX=1 bash \"${SRCROOT}/build-agent-core.sh\"\nbash \"${SRCROOT}/build-epistemos-shadow.sh\"\nbash \"${SRCROOT}/build-epistemos-code-index.sh\"\nbash \"${SRCROOT}/build-substrate-rt.sh\"\nbash \"${SRCROOT}/build-tiptap-bundle.sh\"\nbash \"${SRCROOT}/build-coreeditor-bundle.sh\"\nif [ \"${EPISTEMOS_PRODUCT_EDITION:-}\" != \"FREE_V1\" ]; then\n  bash \"${SRCROOT}/build-june-web.sh\"\nfi\n";
+			shellScript = "set -euo pipefail\nbash \"${SRCROOT}/build-rust.sh\"\nbash \"${SRCROOT}/build-syntax-core.sh\"\nMAS_SANDBOX=1 bash \"${SRCROOT}/build-epistemos-core.sh\"\nbash \"${SRCROOT}/build-epistemos-shadow.sh\"\nbash \"${SRCROOT}/build-epistemos-code-index.sh\"\nbash \"${SRCROOT}/build-tiptap-bundle.sh\"\nbash \"${SRCROOT}/build-coreeditor-bundle.sh\"\n";
 		};
 		4E337C83B228C8BF01D9A6D2 /* Bundle Runtime Assets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -598,25 +396,6 @@
 			shellPath = /bin/sh;
 			shellScript = "bash \"${SRCROOT}/bundle-app-runtime-assets.sh\"";
 		};
-		7A2A0F51F641A7EFF9924990 /* Scrub Pro Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Scrub Pro Frameworks";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\n";
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -624,23 +403,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C0E17763D30980F9A4FD2527 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F81C8396579EAFDD7A266181 /* AFMSessionPool.swift in Sources */,
-				4E33C15A55EFB202E9C797EA /* CognitiveIntents.swift in Sources */,
-				5069B6B7F0AC060687178E7F /* ConversationStateClassifier.swift in Sources */,
-				F6C17C67B9A73ACC2E082B37 /* EpistemosControlWidget.swift in Sources */,
-				4F90EF5DF32F4B80091FCF84 /* EpistemosSidecar.swift in Sources */,
-				C431FC0DE9D2002A4AEC0CE9 /* EpistemosSpeechSynthesizer.swift in Sources */,
-				CE76B49BFA0C9A55A6078A3C /* ProductCapabilityPolicy.swift in Sources */,
-				ED5855468758D8370F0E122F /* QuarantineArchive.swift in Sources */,
-				4B2F884424FC5BA76B256BAC /* SessionTelemetryClassifier.swift in Sources */,
-				E058F3DDB6411F32CD2A67AA /* SidecarCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -684,34 +446,14 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lepistemos_core -lepistemos_shadow -lepistemos_code_index -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1 EPISTEMOS_LINK_SUBSTRATE_RT";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
-			};
-			name = Debug;
-		};
-		1F14548A8F23EC8EDB5E078D /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 3BNL2669SL;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = EpistemosWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/../../../../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app.widgets;
-				PRODUCT_NAME = EpistemosWidgets;
-				SDKROOT = macosx;
-				SKIP_INSTALL = NO;
 			};
 			name = Debug;
 		};
@@ -735,8 +477,8 @@
 				PRODUCT_MODULE_NAME = EpistemosAppStoreKeelstoneTests;
 				PRODUCT_NAME = EpistemosAppStoreKeelstoneTests;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT";
-				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos";
 			};
@@ -762,8 +504,8 @@
 				PRODUCT_MODULE_NAME = EpistemosAppStoreKeelstoneTests;
 				PRODUCT_NAME = EpistemosAppStoreKeelstoneTests;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT";
-				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos";
 			};
@@ -857,35 +599,14 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lepistemos_core -lepistemos_shadow -lepistemos_code_index -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1 EPISTEMOS_LINK_SUBSTRATE_RT";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
-			};
-			name = Release;
-		};
-		669764D62A1F85DBFF0FBACD /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 3BNL2669SL;
-				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = EpistemosWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/../../../../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app.widgets;
-				PRODUCT_NAME = EpistemosWidgets;
-				SDKROOT = macosx;
-				SKIP_INSTALL = NO;
 			};
 			name = Release;
 		};
@@ -950,7 +671,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG EPISTEMOS_LINK_SUBSTRATE_RT";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_COMPILATION_MODE = singlefile;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -961,15 +682,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		09B08AA2CF4C2DA53C9EB337 /* Build configuration list for PBXNativeTarget "EpistemosWidgets" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1F14548A8F23EC8EDB5E078D /* Debug */,
-				669764D62A1F85DBFF0FBACD /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
 		530E6713FD60CF0906D4736C /* Build configuration list for PBXNativeTarget "EpistemosAppStoreKeelstoneTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1000,10 +712,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		1B35C0DC51AEC6846C08363A /* XCLocalSwiftPackageReference "LocalPackages/EpistemosLlama" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = LocalPackages/EpistemosLlama;
-		};
 		364B6F662E4418B1727D73D1 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LocalPackages/MarkEdit/MarkEditCore;
@@ -1011,14 +719,6 @@
 		9780EB52E9DBAAAEE6416DCF /* XCLocalSwiftPackageReference "LocalPackages/KokoroPipeline" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LocalPackages/KokoroPipeline;
-		};
-		B1BD229D7BC4AA1455B53515 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = LocalPackages/MarkEdit/MarkEditKit;
-		};
-		C613EEA98847AB76DEFBB315 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditMac/Modules" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = LocalPackages/MarkEdit/MarkEditMac/Modules;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1047,41 +747,14 @@
 			package = C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
 			productName = GRDB;
 		};
-		104F667588B6B74771455F14 /* Statistics */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Statistics;
-		};
-		16CC623C4E71A4DF3F6DBDBC /* TextBundle */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = TextBundle;
-		};
-		21E9EC38054CF698E1778CBE /* AppKitExtensions */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = AppKitExtensions;
-		};
-		3795DC0C48B43DA46FE88219 /* EpistemosLlama */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = EpistemosLlama;
-		};
-		3FF61CC7613816DCD256501A /* MarkEditKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MarkEditKit;
-		};
-		40094AE6591C1C7FEA3D49B6 /* SettingsUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = SettingsUI;
-		};
 		50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = KokoroPipeline;
 		};
-		88BCB3EA6698A7750855E06F /* TextCompletion */ = {
+		7F98E14FC44891C085E98ABA /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = TextCompletion;
-		};
-		929E3F8673D5E6BA76C7D611 /* AppKitControls */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = AppKitControls;
+			package = C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
 		};
 		A7B4A33EDFA6CDF19164E100 /* Grape */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1091,22 +764,6 @@
 		B5565EA54F11316CA03FCE0A /* MarkEditCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MarkEditCore;
-		};
-		C5C43578924D958FD0F10AEA /* FileDrop */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = FileDrop;
-		};
-		DD9553A30739FBFA2CD51437 /* FontPicker */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = FontPicker;
-		};
-		F5DBC24422FD519A6BED081F /* Previewer */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Previewer;
-		};
-		F8EFC969F569F143FA21C59C /* FileVersion */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = FileVersion;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

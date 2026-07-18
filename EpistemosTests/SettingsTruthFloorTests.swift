@@ -11,7 +11,6 @@ struct SettingsTruthFloorTests {
         "Epistemos/Views/Settings/DeploymentProfileHealthRow.swift",
         "Epistemos/Views/Settings/EditorBundleHealthRow.swift",
         "Epistemos/Views/Settings/EidosHealthRow.swift",
-        "Epistemos/Views/Settings/FalsifierArtifactsHealthRow.swift",
         "Epistemos/Views/Settings/KnowledgeCoreReadParityHealthRow.swift",
         "Epistemos/Views/Settings/KnowledgeCoreRuntimeHealthRow.swift",
         "Epistemos/Views/Settings/OpLogProjectionHealthRow.swift",

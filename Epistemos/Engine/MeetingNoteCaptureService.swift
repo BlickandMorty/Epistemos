@@ -7,11 +7,13 @@ protocol MeetingVoiceInputProviding: AnyObject {
     var state: LiveVoiceInputService.State { get }
     var partialTranscript: String { get }
     var modelDownloadProgress: Double? { get }
+    var microphoneAccessDenied: Bool { get }
 
-    func start() async
-    func stop()
-    func tearDown()
-    func consumeTranscript() -> String?
+    func isOwner(_ owner: VoiceCaptureLease) -> Bool
+    func start(owner: VoiceCaptureLease) async -> VoiceCaptureStartResult
+    func stop(owner: VoiceCaptureLease)
+    func tearDown(owner: VoiceCaptureLease)
+    func consumeTranscript(owner: VoiceCaptureLease) -> String?
 }
 
 extension LiveVoiceInputService: MeetingVoiceInputProviding {}
@@ -88,6 +90,8 @@ final class MeetingNoteCaptureService {
     private let autoStopSilenceDelay: Duration
     @ObservationIgnored
     private let sleep: SleepProvider
+    @ObservationIgnored
+    private let draftBaseDirectory: URL?
 
     private var finalSegments: [String] = []
     private var startedAt: Date?
@@ -96,6 +100,7 @@ final class MeetingNoteCaptureService {
     private var autoStopSilenceTask: Task<Void, Never>?
     private var autoStopSilenceID = UUID()
     private var captureGeneration = UUID()
+    private var voiceLease: VoiceCaptureLease?
     @ObservationIgnored
     private var savedResult: CaptureResult?
     // #30 durable persistence (audit 2026-07-03): the active session's transcript is
@@ -105,6 +110,10 @@ final class MeetingNoteCaptureService {
     private var draftSessionId: String?
     @ObservationIgnored
     private var draftWriteTask: Task<Void, Never>?
+    @ObservationIgnored
+    private var draftRevision: UInt64 = 0
+    @ObservationIgnored
+    private var recoveryScanTask: Task<Void, Never>?
     /// Hard cap on how long a live meeting can go unwritten. The 2s debounce coalesces rapid
     /// final segments, but a non-stop talker (segments < 2s apart) would STARVE it and a crash
     /// could lose minutes — so force a write at least this often. (Meeting data-integrity.)
@@ -117,6 +126,7 @@ final class MeetingNoteCaptureService {
     private(set) var state: State = .idle
     private(set) var partialTranscript = ""
     private(set) var modelDownloadProgress: Double?
+    private(set) var microphoneAccessDenied = false
     /// A previous session's unsaved transcript recovered from disk (crash recovery),
     /// surfaced so the user can restore it instead of losing it.
     private(set) var recoverableDraft: MeetingDraftStore.RecoverableDraft?
@@ -132,7 +142,8 @@ final class MeetingNoteCaptureService {
         autoStopSilenceDelay: Duration = .seconds(2),
         sleep: @escaping @MainActor (Duration) async throws -> Void = { delay in
             try await Task.sleep(for: delay)
-        }
+        },
+        draftBaseDirectory: URL? = nil
     ) {
         self.voiceInput = voiceInput ?? LiveVoiceInputService.shared
         self.pipelineFactory = pipelineFactory
@@ -141,6 +152,7 @@ final class MeetingNoteCaptureService {
         self.isAutoStopOnSilenceEnabled = isAutoStopOnSilenceEnabled
         self.autoStopSilenceDelay = autoStopSilenceDelay
         self.sleep = sleep
+        self.draftBaseDirectory = draftBaseDirectory
     }
 
     var transcriptText: String {
@@ -155,33 +167,68 @@ final class MeetingNoteCaptureService {
 
     func start() async {
         cancelAutoStopSilence()
+        recoveryScanTask?.cancel()
+        recoveryScanTask = nil
+        if let voiceLease {
+            voiceInput.tearDown(owner: voiceLease)
+        }
+        let owner = VoiceCaptureLease(purpose: .meeting)
+        voiceLease = owner
         let generation = UUID()
         captureGeneration = generation
         savedResult = nil
         draftSessionId = UUID().uuidString
+        draftRevision = 0
         lastDraftWriteAt = draftClock.now  // start the max-write-interval clock at meeting start
         recoverableDraft = nil
         resetTranscript()
         startedAt = now()
         stoppedAt = nil
         state = .preparing
-        await voiceInput.start()
-        guard isCurrentCapture(generation) else {
-            voiceInput.stop()
+        let startResult = await voiceInput.start(owner: owner)
+        guard isCurrentCapture(generation), voiceLease == owner else {
+            voiceInput.tearDown(owner: owner)
             if captureGeneration == generation {
                 state = .idle
             }
             return
         }
-        refreshFromVoiceInput()
-        syncStateFromVoiceInput()
+        switch startResult {
+        case .started:
+            refreshFromVoiceInput()
+            syncStateFromVoiceInput()
+        case .busy(let activePurpose):
+            voiceLease = nil
+            state = .error("Voice capture is already in use by \(activePurpose.displayName).")
+        case .permissionDenied(let message):
+            microphoneAccessDenied = true
+            voiceInput.tearDown(owner: owner)
+            voiceLease = nil
+            state = .error(VoiceCapturePresentationBounds.statusMessage(message))
+        case .unavailable(let message), .failed(let message):
+            voiceInput.tearDown(owner: owner)
+            voiceLease = nil
+            state = .error(VoiceCapturePresentationBounds.statusMessage(message))
+        case .cancelled:
+            voiceInput.tearDown(owner: owner)
+            voiceLease = nil
+            state = .idle
+        }
     }
 
     func stop() {
         captureGeneration = UUID()
         cancelAutoStopSilence()
-        refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
-        voiceInput.stop()
+        if let owner = voiceLease, voiceInput.isOwner(owner) {
+            refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
+            voiceInput.stop(owner: owner)
+            if let final = voiceInput.consumeTranscript(owner: owner) {
+                recordFinal(final)
+            }
+            flushDraft()
+            voiceInput.tearDown(owner: owner)
+        }
+        voiceLease = nil
         freezeCaptureClock()
         if case .recording = state {
             state = .idle
@@ -191,13 +238,28 @@ final class MeetingNoteCaptureService {
     }
 
     func tearDownCapture() {
-        captureGeneration = UUID()
+        if case .finalizing = state {
+            // The pipeline may already have persisted the note. View teardown
+            // must not invalidate the bookkeeping that publishes the saved
+            // state and retires this session's recovery draft.
+        } else {
+            captureGeneration = UUID()
+        }
         cancelAutoStopSilence()
-        refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
+        if let owner = voiceLease, voiceInput.isOwner(owner) {
+            refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
+            voiceInput.stop(owner: owner)
+            if let final = voiceInput.consumeTranscript(owner: owner) {
+                recordFinal(final)
+            }
+        }
         // #30: flush the crash-recovery draft immediately so a close-without-save
         // keeps the last few seconds the 2s debounce may not have written yet.
         flushDraft()
-        voiceInput.tearDown()
+        if let owner = voiceLease {
+            voiceInput.tearDown(owner: owner)
+        }
+        voiceLease = nil
         freezeCaptureClock()
         modelDownloadProgress = nil
         if case .recording = state {
@@ -210,7 +272,22 @@ final class MeetingNoteCaptureService {
     func discard() {
         captureGeneration = UUID()
         cancelAutoStopSilence()
-        voiceInput.tearDown()
+        recoveryScanTask?.cancel()
+        recoveryScanTask = nil
+        if let owner = voiceLease {
+            voiceInput.tearDown(owner: owner)
+        }
+        voiceLease = nil
+        draftWriteTask?.cancel()
+        draftWriteTask = nil
+        if let sessionId = draftSessionId {
+            MeetingDraftStore.delete(
+                sessionId: sessionId,
+                revision: nextDraftRevision(),
+                baseDirectory: draftBaseDirectory
+            )
+        }
+        draftSessionId = nil
         resetTranscript()
         savedResult = nil
         startedAt = nil
@@ -223,6 +300,7 @@ final class MeetingNoteCaptureService {
     }
 
     private func refreshFromVoiceInput(scheduleAutoStopOnFinal: Bool) {
+        guard let owner = voiceLease, voiceInput.isOwner(owner) else { return }
         modelDownloadProgress = VoiceCapturePresentationBounds.modelDownloadProgress(voiceInput.modelDownloadProgress)
         let incomingPartial = Self.cleanedSegment(voiceInput.partialTranscript)
         if !incomingPartial.isEmpty {
@@ -230,7 +308,7 @@ final class MeetingNoteCaptureService {
         }
         recordPartial(incomingPartial)
         var consumedFinal = false
-        if let final = voiceInput.consumeTranscript() {
+        if let final = voiceInput.consumeTranscript(owner: owner) {
             recordFinal(final)
             consumedFinal = true
         }
@@ -279,7 +357,14 @@ final class MeetingNoteCaptureService {
         captureGeneration = finalizeGeneration
         refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
         cancelAutoStopSilence()
-        voiceInput.stop()
+        if let owner = voiceLease, voiceInput.isOwner(owner) {
+            voiceInput.stop(owner: owner)
+            if let final = voiceInput.consumeTranscript(owner: owner) {
+                recordFinal(final)
+            }
+            voiceInput.tearDown(owner: owner)
+        }
+        voiceLease = nil
         freezeCaptureClock()
         let transcript = transcriptText
         guard !transcript.isEmpty else {
@@ -306,7 +391,7 @@ final class MeetingNoteCaptureService {
                     sourceMetadata: metadata
                 )
             }
-            guard isCurrentCapture(finalizeGeneration) else {
+            guard captureGeneration == finalizeGeneration else {
                 return result
             }
             // MEET-2 (hardening 2026-07-02): finalize always requests persistence
@@ -324,7 +409,11 @@ final class MeetingNoteCaptureService {
             // #30: the meeting is durably saved — drop the crash-recovery draft.
             draftWriteTask?.cancel()
             if let sessionId = draftSessionId {
-                Task.detached { MeetingDraftStore.delete(sessionId: sessionId) }
+                MeetingDraftStore.delete(
+                    sessionId: sessionId,
+                    revision: nextDraftRevision(),
+                    baseDirectory: draftBaseDirectory
+                )
             }
             draftSessionId = nil
             recoverableDraft = nil
@@ -361,7 +450,13 @@ final class MeetingNoteCaptureService {
             guard let self, !Task.isCancelled, let sessionId = self.draftSessionId else { return }
             let snapshot = Self.renderTranscript(finalSegments: self.finalSegments, partial: "")
             self.lastDraftWriteAt = self.draftClock.now
-            Task.detached { MeetingDraftStore.write(sessionId: sessionId, transcript: snapshot) }
+            MeetingDraftStore.write(
+                sessionId: sessionId,
+                transcript: snapshot,
+                revision: self.nextDraftRevision(),
+                baseDirectory: self.draftBaseDirectory
+            )
+            self.draftWriteTask = nil
         }
     }
 
@@ -372,27 +467,54 @@ final class MeetingNoteCaptureService {
         guard let sessionId = draftSessionId else { return }
         let snapshot = Self.renderTranscript(finalSegments: finalSegments, partial: "")
         lastDraftWriteAt = draftClock.now
-        Task.detached { MeetingDraftStore.write(sessionId: sessionId, transcript: snapshot) }
+        MeetingDraftStore.write(
+            sessionId: sessionId,
+            transcript: snapshot,
+            revision: nextDraftRevision(),
+            baseDirectory: draftBaseDirectory
+        )
     }
 
     /// Look for an unsaved transcript left by a previous (crashed) session and, if
     /// found while idle with no live transcript, surface it for recovery. Call on
     /// the meeting view's appear.
     func refreshRecoverableDraft() {
+        recoveryScanTask?.cancel()
         guard case .idle = state, transcriptText.isEmpty else {
             recoverableDraft = nil
+            recoveryScanTask = nil
             return
         }
-        recoverableDraft = MeetingDraftStore.latestRecoverable(excluding: draftSessionId)
+        let excludedSessionId = draftSessionId
+        let generation = captureGeneration
+        let baseDirectory = draftBaseDirectory
+        recoveryScanTask = Task { @MainActor [weak self] in
+            let draft = await Task.detached(priority: .utility) {
+                MeetingDraftStore.latestRecoverable(
+                    excluding: excludedSessionId,
+                    baseDirectory: baseDirectory
+                )
+            }.value
+            guard let self,
+                  !Task.isCancelled,
+                  self.captureGeneration == generation,
+                  self.transcriptText.isEmpty,
+                  self.state == .idle else { return }
+            self.recoverableDraft = draft
+            self.recoveryScanTask = nil
+        }
     }
 
     /// Restore a recovered draft into the live transcript so the user can save it.
     func restoreRecoverableDraft() {
         guard let draft = recoverableDraft else { return }
+        recoveryScanTask?.cancel()
+        recoveryScanTask = nil
         finalSegments = [draft.transcript]
         partialTranscript = ""
         // Adopt the recovered session's id so saving deletes the right draft file.
         draftSessionId = draft.sessionId
+        draftRevision = 0
         recoverableDraft = nil
         state = .idle
     }
@@ -400,26 +522,46 @@ final class MeetingNoteCaptureService {
     /// Discard a recovered draft the user doesn't want.
     func discardRecoverableDraft() {
         guard let draft = recoverableDraft else { return }
+        recoveryScanTask?.cancel()
+        recoveryScanTask = nil
         let sessionId = draft.sessionId
-        Task.detached { MeetingDraftStore.delete(sessionId: sessionId) }
+        MeetingDraftStore.delete(
+            sessionId: sessionId,
+            revision: nextDraftRevision(),
+            baseDirectory: draftBaseDirectory
+        )
         recoverableDraft = nil
     }
 
     private func syncStateFromVoiceInput() {
+        guard let owner = voiceLease, voiceInput.isOwner(owner) else { return }
         switch voiceInput.state {
         case .idle:
-            if case .preparing = state {
-                state = .idle
-            } else if case .recording = state {
-                state = .idle
-            }
+            drainAndReleaseTerminalVoiceCapture(owner: owner)
+            state = .idle
         case .preparing:
             state = .preparing
         case .recording:
             state = .recording
         case .unavailable(let message), .error(let message):
+            drainAndReleaseTerminalVoiceCapture(owner: owner)
             state = .error(VoiceCapturePresentationBounds.statusMessage(message))
         }
+    }
+
+    private func drainAndReleaseTerminalVoiceCapture(owner: VoiceCaptureLease) {
+        cancelAutoStopSilence()
+        voiceInput.stop(owner: owner)
+        if let final = voiceInput.consumeTranscript(owner: owner) {
+            recordFinal(final)
+        }
+        flushDraft()
+        voiceInput.tearDown(owner: owner)
+        if voiceLease == owner {
+            voiceLease = nil
+        }
+        freezeCaptureClock()
+        modelDownloadProgress = nil
     }
 
     private func scheduleAutoStopAfterSilence() {
@@ -456,6 +598,7 @@ final class MeetingNoteCaptureService {
         autoStopSilenceTask = nil
         autoStopSilenceID = UUID()
         guard case .recording = state else { return }
+        guard let owner = voiceLease, voiceInput.isOwner(owner) else { return }
         guard Self.cleanedSegment(voiceInput.partialTranscript).isEmpty else { return }
         stop()
     }
@@ -470,6 +613,7 @@ final class MeetingNoteCaptureService {
         finalSegments.removeAll()
         partialTranscript = ""
         modelDownloadProgress = nil
+        microphoneAccessDenied = false
     }
 
     private func boundFinalSegments() {
@@ -482,6 +626,13 @@ final class MeetingNoteCaptureService {
         if startedAt != nil, stoppedAt == nil {
             stoppedAt = now()
         }
+    }
+
+    private func nextDraftRevision() -> UInt64 {
+        if draftRevision < .max {
+            draftRevision += 1
+        }
+        return draftRevision
     }
 
     private func isCurrentCapture(_ generation: UUID) -> Bool {

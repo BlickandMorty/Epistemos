@@ -11,30 +11,20 @@ struct GraphTypesTests {
         #expect(GraphNodeType.allCases.count == 14)
     }
 
-    @Test("defaultActiveCases is visibleCases minus only .folder (2026-05-15 user direction)")
-    func defaultActiveCasesIsVisibleCasesMinusFolder() {
+    @Test("free V1 graph projection excludes paid artifacts and folder remains opt-in")
+    func freeV1GraphProjectionExcludesPaidArtifacts() {
         let visible = Set(GraphNodeType.visibleCases)
         let defaultActive = Set(GraphNodeType.defaultActiveCases)
+        let paidArtifacts: Set<GraphNodeType> = [.chat, .run, .rawThought, .toolTrace]
 
-        // Strict subset: every default-active case must also be a
-        // visible case. The user can't toggle ON a type that the
-        // filter UI doesn't expose, so anything in defaultActive
-        // that's NOT in visible would be a UI dead zone.
         #expect(defaultActive.isSubset(of: visible),
                 "defaultActiveCases must be a subset of visibleCases")
-
-        // The ONLY visibleCase excluded from defaultActiveCases is
-        // `.folder`. Per user direction 2026-05-15: folder is an
-        // opt-in filter rather than default-on clutter. A future PR
-        // that excludes a second case (or restores .folder) MUST
-        // update this assertion and re-read the user direction.
-        let excludedFromDefault = visible.subtracting(defaultActive)
-        #expect(excludedFromDefault == [.folder],
-                "Only `.folder` should be excluded from defaultActiveCases; got: \(excludedFromDefault)")
-
-        // Count invariant: exactly one case excluded.
-        #expect(GraphNodeType.defaultActiveCases.count
-                == GraphNodeType.visibleCases.count - 1)
+        #expect(visible.isDisjoint(with: paidArtifacts),
+                "Free V1 must not offer paid chat/agent artifacts as graph types")
+        #expect(defaultActive.isDisjoint(with: paidArtifacts),
+                "Free V1 must not default paid chat/agent artifacts on")
+        #expect(!defaultActive.contains(.folder),
+                "Folder remains opt-in rather than default-on graph clutter")
     }
 
     @Test("rustIndex is unique and sequential")

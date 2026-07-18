@@ -19,45 +19,6 @@ nonisolated struct CodeFileIdentity {
     let tint: CodeFileIdentityTint?
 }
 
-struct CodeFileIdentityChip: View {
-    let filePath: String?
-    let language: String
-    let theme: EpistemosTheme
-
-    private var identity: CodeFileIdentity {
-        CodeFileIconResolver.identity(forFilePath: filePath, language: language)
-    }
-
-    var body: some View {
-        let label = identity.displayName
-        HStack(spacing: 6) {
-            CodeFileIconView(filePath: filePath, language: language, theme: theme)
-
-            Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-        }
-        .foregroundStyle(theme.resolved.foreground.color.opacity(theme.isDark ? 0.9 : 0.82))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(
-            theme.resolved.foreground.color.opacity(theme.isDark ? 0.07 : 0.045),
-            in: Capsule()
-        )
-        .overlay(
-            Capsule()
-                .strokeBorder(
-                    theme.resolved.border.color.opacity(theme.isDark ? 0.42 : 0.24),
-                    lineWidth: 0.75
-                )
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label) file")
-        .help("\(label) file")
-    }
-}
-
 struct CodeFileIconView: View {
     let filePath: String?
     let language: String

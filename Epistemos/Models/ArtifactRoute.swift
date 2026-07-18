@@ -21,7 +21,7 @@ import Foundation
 //
 // Adding a new ArtifactKind variant means:
 //   1. Add the variant to the unified taxonomy
-//      (`agent_core/src/artifacts/kind.rs` + `Epistemos/Models/ArtifactKind.swift`).
+//      (`Epistemos/Models/ArtifactKind.swift`).
 //   2. Decide whether it gets a new route case or shares an existing one.
 //   3. Add (or extend) the `@ViewBuilder` switch in `ArtifactHostView`.
 //   4. Update `ArtifactRouteParityTests`.

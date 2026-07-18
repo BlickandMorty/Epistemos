@@ -24,23 +24,12 @@ nonisolated struct ShadowInitDiagnosticsTests {
         #expect(snap.totalFailures == 0)
     }
 
-    @Test("embedderWarm init failure is independent from handleOpen")
-    func embedderWarmIsDistinctFromHandleOpen() async {
-        ShadowSearchDiagnostics.shared.reset()
-        defer { ShadowSearchDiagnostics.shared.reset() }
-
-        ShadowSearchDiagnostics.shared.recordInitFailure(class: .embedderWarm)
-        let snap = ShadowSearchDiagnostics.shared.snapshot()
-        #expect(snap.lastInitFailureClass == "embedder_warm")
-        #expect(snap.isDegraded)
-    }
-
     @Test("A subsequent successful search clears degraded state after init failure")
     func successfulSearchAfterInitFailureRecovers() async throws {
         ShadowSearchDiagnostics.shared.reset()
         defer { ShadowSearchDiagnostics.shared.reset() }
 
-        ShadowSearchDiagnostics.shared.recordInitFailure(class: .embedderWarm)
+        ShadowSearchDiagnostics.shared.recordInitFailure(class: .handleOpen)
         #expect(ShadowSearchDiagnostics.shared.snapshot().isDegraded)
 
         let client = InMemoryShadowFFIClient()
@@ -53,12 +42,12 @@ nonisolated struct ShadowInitDiagnosticsTests {
         )
         try client.insert(document: doc)
         let service = await ShadowSearchService(client: client)
-        _ = await service.search(text: "smoke", domain: .notes, limit: 5)
+        _ = await service.search(text: "smoke", limit: 5)
 
         let snap = ShadowSearchDiagnostics.shared.snapshot()
         // Init failure record persists for diagnostics, but isDegraded
         // flips back to false once a search succeeds after the init failure.
-        #expect(snap.lastInitFailureClass == "embedder_warm")
+        #expect(snap.lastInitFailureClass == "handle_open")
         #expect(snap.isDegraded == false)
         #expect(snap.totalSearches == 1)
     }

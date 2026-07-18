@@ -114,18 +114,11 @@ struct HTMLWorkspacePreviewHeader: View {
     let routeNames: [String]
     @Binding var previewRouteName: String?
     let bridgeStatusText: String
-    let pythonRuntimeStatusText: String
     let headerFill: Color
     let theme: EpistemosTheme
 
     private var mutedText: Color {
         theme.textTertiary
-    }
-
-    private var pythonRuntimeColor: Color {
-        package.manifest.sandboxPolicy.allowPythonRuntime && HTMLWorkspacePythonRuntime.isAvailable
-            ? theme.success
-            : mutedText
     }
 
     private var networkStatusColor: Color {
@@ -154,12 +147,6 @@ struct HTMLWorkspacePreviewHeader: View {
             Text(bridgeStatusText)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(mutedText)
-            Text(pythonRuntimeStatusText)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(pythonRuntimeColor)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: 150, alignment: .trailing)
             Text(package.manifest.sandboxPolicy.allowNetwork ? "Network" : "Offline")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(networkStatusColor)
@@ -270,7 +257,6 @@ struct HTMLWorkspaceInspectorPanel: View {
     let dataStatus: String
     let generationProvenanceText: String
     let bridgeStatusText: String
-    let pythonRuntimeStatusText: String
     let panelFill: Color
     let theme: EpistemosTheme
     let onCopySelector: (String) -> Void
@@ -300,7 +286,6 @@ struct HTMLWorkspaceInspectorPanel: View {
                 inspectorRow("Hash", String(contentHash.prefix(12)))
                 inspectorRow("Sandbox", package.manifest.sandboxPolicy.allowNetwork ? "Network" : "Offline")
                 inspectorRow("Bridge", bridgeStatusText)
-                inspectorRow("Python", pythonRuntimeStatusText)
                 inspectorRow("DOM", "\(domNodeCount) \(domSourceLabel)")
                 inspectorRow("Selected", selectedElementInspection?.selector ?? "None")
                 inspectorRow("Data", dataStatus)

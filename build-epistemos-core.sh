@@ -14,8 +14,13 @@ fi
 cd "$(dirname "$0")/epistemos-core"
 
 FEATURE_FLAGS=()
+PATCH_ARGUMENTS=()
 if [ "${TARGET_NAME:-}" = "Epistemos-AppStore" ] || [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" = "com.epistemos.appstore" ] || [ "${MAS_SANDBOX:-0}" = "1" ]; then
     FEATURE_FLAGS+=(--features mas-sandbox)
+fi
+if [ "${EPISTEMOS_PRODUCT_EDITION:-}" = "FREE_V1" ] || [[ " ${SWIFT_ACTIVE_COMPILATION_CONDITIONS:-} " == *" EPISTEMOS_FREE_V1 "* ]]; then
+    FEATURE_FLAGS+=(--features free-v1)
+    PATCH_ARGUMENTS+=(--free-v1)
 fi
 
 if [ "$CONFIGURATION" = "Debug" ]; then
@@ -99,7 +104,7 @@ if [ -f "$UNIFFI_BIN" ]; then
 fi
 
 # Patch generated Swift for SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor compatibility
-python3 ../patch-uniffi-bindings.py ../build-rust/swift-bindings/epistemos_core.swift
+python3 ../patch-uniffi-bindings.py "${PATCH_ARGUMENTS[@]}" ../build-rust/swift-bindings/epistemos_core.swift
 
 # Sync header + modulemap into module map directory
 mkdir -p ../build-rust/swift-bindings/epistemos_coreFFI

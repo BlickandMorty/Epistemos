@@ -41,9 +41,9 @@ export class MarkdownWritebackTracker {
     this.pendingMaps.push(...maps);
   }
 
-  consume(editor: Editor, currentMarkdown: string = safeMarkdownSnapshot(editor)): WritebackRegion | null {
+  consume(editor: Editor, currentMarkdown?: string): WritebackRegion | null {
     if (!this.currentSet) {
-      this.reset(editor, currentMarkdown);
+      this.reset(editor, currentMarkdown ?? safeMarkdownSnapshot(editor));
       return null;
     }
     if (!this.pendingBaseSet || this.pendingMaps.length === 0) return null;
@@ -57,7 +57,7 @@ export class MarkdownWritebackTracker {
       serializeDoc: doc => serializeDoc(editor, doc),
     });
     if (!result) {
-      this.reset(editor, currentMarkdown);
+      this.reset(editor, currentMarkdown ?? safeMarkdownSnapshot(editor));
       return null;
     }
 

@@ -26,23 +26,16 @@ import os.signpost
 public final class HaloEditorBridge: NSObject {
 
     public let controller: HaloController
-    /// Domain to attribute keystrokes to. Most editors host one
-    /// domain (.notes / .chats); a multi-domain editor (e.g. a chat
-    /// transcript with embedded notes) sets this on each delegate
-    /// callback.
-    public var domain: ShadowDomain
     private weak var textView: NSTextView?
     private static let log = Logger(subsystem: "com.epistemos", category: "HaloEditorBridge")
     private static let signpost = OSLog(subsystem: "com.epistemos", category: .pointsOfInterest)
 
     public init(
         controller: HaloController,
-        textView: NSTextView,
-        domain: ShadowDomain = .notes
+        textView: NSTextView
     ) {
         self.controller = controller
         self.textView = textView
-        self.domain = domain
         super.init()
         textView.delegate = self
     }
@@ -62,7 +55,7 @@ public final class HaloEditorBridge: NSObject {
     public func feed(text: String) {
         Self.beginSignpost()
         defer { Self.endSignpost() }
-        controller.editorTextDidChange(text, domain: domain)
+        controller.editorTextDidChange(text)
     }
 
     /// Tell the controller the editor lost focus. Mirrors

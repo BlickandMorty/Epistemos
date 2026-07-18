@@ -3,40 +3,54 @@ import Testing
 
 @Suite("Epdoc visibility source guards")
 nonisolated struct EpdocVisibilitySourceGuardTests {
-    @Test("File menu uses one Markdown note creation that defaults to Epdoc")
-    func fileMenuUsesOneMarkdownNoteCreationThatDefaultsToEpdoc() throws {
+    @Test("File menu separates Markdown notes from canonical JSON Epdoc documents")
+    func fileMenuSeparatesMarkdownNotesFromJSONEpdocs() throws {
         let appSource = try Self.loadSourceText("Epistemos/App/EpistemosApp.swift")
         let coordinatorSource = try Self.loadSourceText("Epistemos/Views/Notes/NoteCreationCoordinator.swift")
 
-        #expect(appSource.contains("Button(\"New Note\")"),
-                "File > New should expose one note command instead of separate prose/document storage commands.")
+        #expect(appSource.contains("Button(\"New Markdown Document (.md)\")"),
+                "File > New must name the Markdown creation command by its real format.")
         #expect(appSource.contains("NoteCreationCoordinator.createAndOpen(vaultSync: vaultSync)"),
                 "The File menu should route through the shared note creation coordinator.")
-        #expect(!appSource.contains("Button(\"New Document\")"),
-                "Document is now the default Markdown surface, not a second File > New item.")
-        // Owner 2026-07-05: notes always open in Epdoc (Document) by default. The per-create
-        // Prose/Document modal was removed — the four Markdown lenses are switchable from the
-        // editor toggles, so there is no reason to prompt on every new note.
-        #expect(coordinatorSource.contains("open(pageId, .document)"),
-                "Note creation must open directly in Epdoc (Document) mode — Epdoc is the default note surface.")
+        #expect(appSource.contains("Button(\"New JSON Document (.epdoc)\")"),
+                "The independent JSON-native Epdoc type needs an accurate format-explicit command.")
+        #expect(appSource.contains("createUntitledEpdocDocument(in: vaultSync.vaultURL)"),
+                "New Epdoc must route through the existing NSDocument package controller.")
+        #expect(coordinatorSource.contains("open(pageId, .defaultMarkdown)"),
+                "Markdown-note creation must open the Markdown family's Prose default.")
         #expect(!coordinatorSource.contains("NSAlert"),
-                "Note creation must not prompt a per-create Prose/Document modal.")
+                "Markdown-note creation must not prompt for an unrelated Epdoc document type.")
         #expect(!coordinatorSource.contains("chooseSurface()"),
-                "The per-create surface chooser was removed in favor of an always-Epdoc default.")
+                "Markdown and Epdoc are separate creation commands, not a per-note lens chooser.")
     }
 
-    @Test("Landing exposes one visible Markdown create shortcut")
-    func landingExposesOneVisibleMarkdownCreateShortcut() throws {
+    @Test("Landing exposes distinct native Markdown and JSON document shortcuts")
+    func landingExposesNativeMarkdownAndJSONDocumentShortcuts() throws {
         let source = try Self.loadSourceText("Epistemos/Views/Landing/LandingView.swift")
+        let commands = try Self.loadSourceText("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
 
-        #expect(source.contains("title: \"new note\""),
-                "Landing should keep one obvious note creation entry point.")
+        #expect(source.contains("title: \"Markdown (.md)\""),
+                "Landing should name Markdown creation by its real file format.")
         #expect(source.contains("NoteCreationCoordinator.createAndOpen("),
-                "Landing creation should use the shared Prose/Document chooser.")
+                "Landing Markdown creation should use the shared Markdown-note coordinator.")
+        #expect(source.contains("title: \"JSON Document (.epdoc)\""),
+                "Landing should expose standalone canonical JSON Epdoc creation distinctly.")
+        #expect(source.contains("action: createAndOpenEpdocDocument"),
+                "The JSON document shortcut must invoke the canonical Epdoc package route.")
+        #expect(source.contains("createUntitledEpdocDocument(in: vaultSync.vaultURL)"),
+                "Landing must create the real .epdoc package, not a loose JSON or Markdown substitute.")
+        #expect(source.contains(".accessibilityLabel(\"New JSON Document (.epdoc)\")"),
+                "The new format-specific command needs an explicit VoiceOver label.")
         #expect(!source.contains("title: \"new doc\""),
-                "Landing must not advertise Document as a separate storage object.")
-        #expect(!source.contains("createAndOpenDocument()"),
-                "The old standalone .epdoc creation shortcut should not remain on the landing page.")
+                "The ambiguous retired Document label must not return.")
+        #expect(commands.contains(".hoverGlass("),
+                "Landing commands must restore the exact native hover-only liquid-glass treatment.")
+        #expect(commands.contains("if let shortcut"),
+                "Keyboard hints must be visible content, not tooltip-only metadata.")
+        #expect(commands.contains("allowDisplayFont: false"),
+                "Landing commands must use the old regular system typography rather than a pixel display face.")
+        #expect(!commands.contains("PixelCommandTypewriterText("),
+                "The pixel/typewriter replacement must not remain in the restored native command component.")
     }
 
     @Test("Home commands trigger expressive haptics")
@@ -69,59 +83,30 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "Saved .epdoc packages must be visible from the sidebar, not only creatable.")
         #expect(source.contains("DocumentsSection("),
                 "Sidebar needs a first-class Documents section for saved .epdoc packages.")
+        #expect(source.contains("Text(\"Markdown (.md)\")"),
+                "The sidebar must name ordinary note files by their real Markdown extension.")
+        #expect(source.contains("Text(\"JSON Documents (.epdoc)\")"),
+                "The sidebar must explain that rich documents are JSON-backed .epdoc packages.")
+        #expect(source.contains("accessibilityLabel(\"JSON Document: \\(item.title)\")"),
+                "Saved Epdoc rows need format-explicit VoiceOver labels.")
     }
 
-    @Test("Note windows expose Document as a Markdown-backed peer mode")
-    func noteWindowsExposeDocumentAsMarkdownBackedPeerMode() throws {
+    @Test("Markdown note windows exclude independent Epdoc while Epdoc stays a real package document")
+    func markdownWindowsExcludeIndependentEpdocPackage() throws {
         let workspace = try Self.loadSourceText("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
-        let surface = try Self.loadSourceText("Epistemos/Views/Notes/MarkdownDocumentSurface.swift")
+        let document = try Self.loadSourceText("Epistemos/Engine/EpdocDocument.swift")
+        let package = try Self.loadSourceText("Epistemos/Models/EpdocPackage.swift")
 
         #expect(workspace.contains("case document"),
-                "Document should be a note workspace mode beside Prose/Preview/Source.")
-        #expect(workspace.contains("MarkdownDocumentSurface("),
-                "Document mode should mount the rich Epdoc surface over the note body.")
-        #expect(workspace.contains("documentSurfaceIsAvailable")
-                && workspace.contains("noteDocumentSurface(page: page, isActive: resolvedMode == .document)")
-                && workspace.contains(".opacity(resolvedMode == .document ? 1 : 0)")
-                && workspace.contains("noteNonDocumentEditorSurface(page: page, availableSize: availableSize)"),
-                "Document mode should stay mounted but inactive across lens switches so Epdoc does not remount and discard rich editor state.")
-        #expect(workspace.contains("saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)"),
-                "Document edits must write back through the Markdown note pipeline.")
-        #expect(workspace.contains("vaultSync.savePageBodyFileFirst(pageId: pageId, body: markdown)"),
-                "Document edits must persist the vault .md through the file-first save path.")
-        #expect(!workspace.contains("page.body = markdown"),
-                "Document edits must not reintroduce SDPage.body as live Markdown truth.")
-        #expect(surface.contains("EpdocEditorChromeView(")
-                && surface.contains("controller: coordinator.controller"),
-                "The Markdown Document surface should reuse the existing Epdoc editor chrome.")
-        #expect(surface.contains("markdownSource: markdown"),
-                "The Document surface must seed from the current Markdown body, not empty package JSON.")
-        #expect(surface.contains(".onChange(of: markdown)"),
-                "The default Document surface must observe late body changes, but same-page rich-editor reloads stay policy-gated.")
-        #expect(surface.contains("latestMarkdown == lastFlushedMarkdown")
-                && surface.contains("!controller.toolbarModel.isDirty"),
-                "Late body reloads must be clean-only so a dirty open note is never silently clobbered.")
-        #expect(surface.contains("reloadSamePageExternalMarkdown = false")
-                && surface.contains("guard MarkdownDocumentSurfacePerformancePolicy.reloadSamePageExternalMarkdown else"),
-                "Same-page parent markdown churn must not reload the rich Epdoc editor tree and collapse table/block formatting during surface switches.")
-        #expect(surface.contains("let isActive: Bool")
-                && surface.contains("pendingExternalMarkdownReload")
-                && surface.contains("if isActive, let pending = pendingExternalMarkdownReload"),
-                "Inactive retained Document surfaces should defer real external markdown changes and reload once when Document becomes active again.")
-        #expect(surface.contains("let hadPendingSave = saveTask != nil")
-                && surface.contains("guard hadPendingSave || hadOutstandingWrite || controller.toolbarModel.isDirty else")
-                && surface.contains("let hasPendingMarkdownSnapshot = latestMarkdown != lastFlushedMarkdown")
-                && surface.contains("if !hasPendingMarkdownSnapshot")
-                && surface.contains("return true"),
-                "Clean Document surface transitions must not serialize-and-save a normalized Markdown snapshot; only dirty edits or pending saves may flush.")
-        #expect(surface.contains("let onEditStarted: @MainActor () -> Void")
-                && surface.contains("self.onEditStarted()"),
-                "Document edits must mark the shared note lease dirty before the two-second autosave debounce.")
-        #expect(workspace.contains("onEditStarted: {\n                        markDocumentEditorDirtyBeforeDebouncedSave()"),
-                "The Markdown Document surface must report buffered edits to the note-session lease immediately.")
-        #expect(surface.contains("MarkdownDocumentSurfacePerformancePolicy.autosaveQuietWindow")
-                && surface.contains("static let autosaveQuietWindow: Duration = .seconds(2)"),
-                "Document mode autosave must use a quiet typing window instead of hammering the vault/graph path every few hundred milliseconds.")
+                "The legacy enum case remains temporarily for rollback/migration, but is not a Markdown mode.")
+        #expect(workspace.contains("hasSourceRoute ? [.edit, .preview, .source] : [.edit, .preview]"),
+                "Markdown notes must expose one .md through Prose, Preview, and Source only.")
+        #expect(workspace.contains("static let defaultMarkdown: NoteWorkspaceMode = .edit"),
+                "New and reopened Markdown notes must default to Prose.")
+        #expect(document.contains("public final class EpdocDocument: NSDocument"),
+                "Epdoc remains a first-class independent macOS document.")
+        #expect(package.contains("public var contentJSON: Data"),
+                "The .epdoc package must retain a canonical JSON body distinct from Markdown.")
     }
 
     @Test("Epdoc chrome exposes projection info in the toolbar")
@@ -218,7 +203,7 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
         #expect(source.contains("EpdocTiptapWebView(controller: controller, theme: theme)"),
                 "The hosted WKWebView must receive the resolved app theme, not only WebKit's light/dark media query.")
         #expect(source.contains("EpdocEditorThemeStyle.applyScript(for: theme)"),
-                "Epdoc must push semantic theme tokens into CSS variables for custom theme pairs.")
+                "Epdoc must push semantic theme tokens into CSS variables for every preset theme pair.")
         #expect(source.contains("MarkdownPreviewSurfaceStyle.solidFlatBackground(for: theme.surfaceVariant(.other))")
                 && source.contains(".ignoresSafeArea()"),
                 "Epdoc's native SwiftUI canvas should reuse the same explicit solid editor-body surface instead of a browser/OLED plate.")
@@ -303,7 +288,7 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
         #expect(inbound.contains("applySlashChoice(editor, blockType)"),
                 "Swift toolbar insert buttons must execute the same concrete Tiptap actions as slash choices.")
         #expect(inbound.contains("postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot)"),
-                "Toolbar-driven commands must push a fresh ProseMirror snapshot and the host-provided Markdown snapshot immediately so complexity/markdown projection do not lag behind word counts.")
+                "Toolbar-driven commands may push a fresh ProseMirror snapshot and host-provided Markdown snapshot at explicit command boundaries; ordinary Markdown-surface typing must stay on minimal writeback.")
         #expect(inbound.contains("const loadEpoch = beginLoad(editor.view, undefined, normalizeLoadEpoch(epoch));")
                 && inbound.contains(".setMeta(HOST_LOAD_META, true)")
                 && inbound.contains(".setMeta(EPOCH_META, loadEpoch)")
@@ -320,6 +305,7 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 && index.contains("LoadStateExtension")
                 && index.contains("!isDocumentLoadSettling(ed.state)")
                 && index.contains("epoch: currentLoadEpoch(editor.state)")
+                && index.contains("if (markdownProjectionMode)")
                 && index.contains("postBridge({\n      type: 'contentDidChange',"),
                 "Tiptap boot-placeholder/load transactions must not emit contentDidChange until Swift has pushed and settled the real package content.")
         #expect(inbound.contains("linkHrefFromArgs(args)") && inbound.contains("editor.chain().focus()"),
@@ -565,7 +551,6 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 && disclosure.contains("case image")
                 && disclosure.contains("case csv")
                 && disclosure.contains("case xlsx")
-                && disclosure.contains("case transcript")
                 && disclosure.contains("protocol LensFidelityDatasetExportProviding")
                 && disclosure.contains("struct LensFidelityDatasetReference")
                 && disclosure.contains("datasetExportProvider:")
@@ -619,17 +604,19 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
         #expect(tracker.contains("class MarkdownWritebackTracker")
                 && tracker.contains("reset(editor: Editor, markdown: string)")
                 && tracker.contains("recordTransaction")
-                && tracker.contains("consume(editor: Editor, currentMarkdown: string")
-                && tracker.contains("this.reset(editor, currentMarkdown)")
+                && tracker.contains("consume(editor: Editor, currentMarkdown?: string")
+                && tracker.contains("this.reset(editor, currentMarkdown ?? safeMarkdownSnapshot(editor))")
                 && tracker.contains("minimalWriteback({")
                 && tracker.contains("editor.markdown?.serialize"),
-                "The live editor must track a loaded markdown baseline, accumulate StepMaps, serialize only the changed doc range through Tiptap markdown, and reset its baseline after full-snapshot fallback.")
+                "The live editor must track a loaded markdown baseline, accumulate StepMaps, serialize only the changed doc range through Tiptap markdown, and avoid full snapshots on successful minimal-writeback edits.")
         #expect(index.contains("new MarkdownWritebackTracker()")
                 && index.contains("markdownWritebackTracker.recordTransaction")
                 && index.contains("markdownWritebackTracker.consume")
-                && index.contains("postMarkdownSnapshot: postMarkdownDidChange")
+                && index.contains("markdownProjectionMode")
+                && index.contains("postMarkdownSnapshot: (ed) => postMarkdownDidChange(ed, { preferWriteback: false })")
                 && inbound.contains("resetMarkdownWritebackBaseline")
                 && inbound.contains("postMarkdownSnapshot")
+                && inbound.contains("setMarkdownProjectionMode")
                 && outbound.contains("writeback?: MarkdownWritebackRegionPayload"),
                 "Minimal writeback must be wired into live outbound markdown snapshots without breaking the existing full-snapshot path.")
         #expect(bridge.contains("struct EpdocMarkdownWritebackRegion")
@@ -877,8 +864,8 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "L5 needs executable JS proof that the outbound WK bridge batches L3 writeback and L5 suggestion decision payloads in the shape Swift decodes.")
     }
 
-    @Test("LumenLens L6 Epdoc notebook container is wired")
-    func lumenLensEpdocNotebookContainerIsWired() throws {
+    @Test("Free V1 preserves legacy Epdoc bytes without compiling a notebook presentation surface")
+    func freeV1EpdocNotebookCompatibilityIsParserOnly() throws {
         let notebook = try Self.loadSourceText("Epistemos/Views/Notes/EpdocNotebookManifest.swift")
         let workspace = try Self.loadSourceText("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         let toc = try Self.loadSourceText("Epistemos/Views/Notes/NoteTableOfContents.swift")
@@ -891,42 +878,40 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 && notebook.contains("frontmatterKey = \"_epistemos_notebook\"")
                 && notebook.contains("upsertingFrontmatterManifest")
                 && notebook.contains("blockScalarRange(forKey:")
-                && notebook.contains("struct EpdocNotebookTabStrip")
-                && notebook.contains("struct EpdocNotebookLauncherPane")
-                && notebook.contains("struct EpdocNotebookReferencePane")
                 && notebook.contains("canonicalReferenceLine")
                 && notebook.contains("EpdocNotebookInlineRowDataGuard")
-                && notebook.contains("EpdocNotebookBuildCapabilities.isChatTabContentAvailable"),
-                "L6 needs the Epdoc notebook container: Tier-B manifest parser, YAML-safe frontmatter edit path, tab chrome, launcher pane, tombstone/reference panes, and build-gated chat availability.")
+                && notebook.contains("normalizedFreeV1SelectedTabID")
+                && !notebook.contains("struct EpdocNotebookTabStrip")
+                && !notebook.contains("struct EpdocNotebookLauncherPane")
+                && !notebook.contains("struct EpdocNotebookReferencePane"),
+                "Free V1 must retain only the bounded legacy parser and byte-safe compatibility helpers, never the notebook tab, launcher, or reference-pane UI.")
         #expect(workspace.contains("@State private var selectedNotebookTabID")
-                && workspace.contains("EpdocNotebookTabStrip(")
-                && workspace.contains("EpdocNotebookLauncherPane")
-                && workspace.contains("EpdocNotebookReferencePane")
+                && workspace.contains("normalizedFreeV1SelectedTabID")
                 && workspace.contains("navigateActiveOutline(to item: TOCItem)")
-                && workspace.contains("setNoteMode(.document, for: page)"),
-                "Document mode must host notebook tabs and let outline navigation select a tab instead of building a second navigator.")
-        #expect(toc.contains("case notebookTab(tabID: String)")
-                && toc.contains("case embed(referenceID: String, type: String)")
-                && toc.contains("notebookNavigationItems(in markdown: String)")
-                && toc.contains("EpdocNotebookReferenceParser.blockEmbeds"),
-                "Tabs and block-level embeds must extend the shared TOCItem infrastructure.")
-        #expect(disclosure.contains("scanNotebookReferences")
-                && disclosure.contains("notebookSheetTab")
-                && disclosure.contains("notebookChatTab")
-                && disclosure.contains("notebookUnknownTab")
-                && disclosure.contains("chatTabContentAvailable:")
-                && disclosure.contains("chatTabContentAvailable ? .rendered : .degraded")
+                && !workspace.contains("EpdocNotebookTabStrip(")
+                && !workspace.contains("EpdocNotebookLauncherPane")
+                && !workspace.contains("EpdocNotebookReferencePane"),
+                "Document mode must normalize any stale notebook selection to Body before mounting the single Markdown document surface.")
+        #expect(!toc.contains("case notebookTab(tabID: String)")
+                && !toc.contains("case embed(referenceID: String, type: String)")
+                && !toc.contains("notebookNavigationItems(in markdown: String)"),
+                "Legacy notebook metadata must not synthesize outline rows in Free V1.")
+        #expect(!disclosure.contains("scanNotebookReferences")
+                && !disclosure.contains("notebookSheetTab")
+                && !disclosure.contains("notebookChatTab")
+                && !disclosure.contains("notebookUnknownTab")
+                && !disclosure.contains("chatTabContentAvailable:")
                 && disclosure.contains("sanitizedDatasetReferenceSource")
-                && disclosure.contains("EpdocNotebookBuildCapabilities.isChatTabContentAvailable"),
-                "Notebook tabs must surface through the existing lens-fidelity popovers for Prose/Source/MAS degradation.")
+                && disclosure.contains("notebookManifestFence")
+                && disclosure.contains("EpdocNotebookReferenceParser.containsEmbed"),
+                "Lens scanning must skip legacy manifest and reference bytes instead of restoring tab, transcript, or export disclosures.")
         #expect(tests.contains("frontmatter manifest edits replace only the notebook block")
-                && tests.contains("notebook tabs and block embeds join the shared TOC model")
-                && tests.contains("disclosure lists notebook tabs and embeds for weaker lenses")
-                && tests.contains("MAS-style document lens degrades chat references into transcript exports")
+                && tests.contains("legacy notebook metadata cannot restore shared TOC rows")
+                && tests.contains("legacy notebook metadata cannot restore Lens disclosure or export surfaces")
+                && tests.contains("free V1 document lens does not restore chat or sheet reference surfaces")
                 && tests.contains("manifest parsing is bounded")
-                && tests.contains("dataset references expose artifact handles without inline row payloads")
-                && tests.contains("chatTabContentAvailable: false"),
-                "L6 needs focused tests for manifest parsing, minimal frontmatter edits, TOC rows, tombstones, and disclosure rows.")
+                && tests.contains("dataset references expose artifact handles without inline row payloads"),
+                "Free V1 needs focused source proof for byte-safe parsing, bounded compatibility, and the absence of legacy notebook presentation routes.")
         #expect(roundtrip.contains("notebookManifest440")
                 && roundtrip.contains("epistemos-notebook")
                 && roundtrip.contains("epistemos-ref")

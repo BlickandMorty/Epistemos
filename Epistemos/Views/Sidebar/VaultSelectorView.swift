@@ -110,9 +110,9 @@ public struct VaultSelectorView: View {
 #Preview {
     VaultSelectorView(
         vaults: [
-            .init(id: "v1", displayName: "Default", modelTag: "claude-opus-4-7", isActive: true),
-            .init(id: "v2", displayName: "Provider Lab", modelTag: "june-provider", isActive: false),
-            .init(id: "v3", displayName: "Research", modelTag: "perplexity-sonar-pro", isActive: false),
+            .init(id: "v1", displayName: "Default", modelTag: "local-notes", isActive: true),
+            .init(id: "v2", displayName: "Archive", modelTag: "local-archive", isActive: false),
+            .init(id: "v3", displayName: "Reference", modelTag: "local-reference", isActive: false),
         ],
         onSelect: { _ in }
     )

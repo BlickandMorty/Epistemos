@@ -92,12 +92,6 @@ cleanup_xcodebuild_wrapper_state() {
   fi
 }
 
-ensure_pinned_llama_xcframework() {
-  if grep -Fq "EpistemosLlama:" "${ROOT_DIR}/project.yml"; then
-    bash "${ROOT_DIR}/scripts/fetch-llama-xcframework.sh"
-  fi
-}
-
 resolve_package_dependencies() {
   local args=("$@")
   local resolve_args=()
@@ -190,7 +184,6 @@ if [[ "${cleanup_deriveddata_epistemos}" == "1" ]]; then
 fi
 
 export DISABLE_SWIFTLINT=1
-ensure_pinned_llama_xcframework
 
 if [[ "${main_invocation_is_package_resolution}" != "1" ]]; then
   append_default_xcodebuild_arg "-disableAutomaticPackageResolution" "$@"

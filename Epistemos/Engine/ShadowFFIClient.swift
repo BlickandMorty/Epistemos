@@ -12,8 +12,8 @@ import Foundation
 // Why a protocol instead of @_silgen_name calls everywhere:
 //   - Tests can wire a deterministic in-memory client without spinning
 //     up the Rust dylib at unit-test scope.
-//   - The W8.4 real-backend swap (Model2Vec + usearch + tantivy + RRF)
-//     happens on the Rust side; the Swift surface stays identical.
+//   - The Free backend keeps the Rust lexical index behind one small,
+//     testable Swift surface.
 //   - The eventual UniFFI codegen (W8.4 follow-up) can implement this
 //     protocol verbatim — protocol + concrete UniFFI binding is the
 //     canonical pattern for testable Swift over Rust crates.
@@ -29,8 +29,7 @@ nonisolated public enum ShadowFFIError: Error, Equatable, Sendable {
     case notFound(docId: String)
     /// Index file IO failure. Rust discriminant: -3.
     case ioFailure(detail: String)
-    /// Backend engine failure (Model2Vec / usearch / tantivy
-    /// internal). Rust discriminant: -4.
+    /// Backend engine failure. Rust discriminant: -4.
     case backendFailure(detail: String)
     /// Caught a Rust panic at the FFI boundary. Rust discriminant:
     /// -99. Bug — Swift should log + recover.
@@ -65,79 +64,9 @@ nonisolated public enum ShadowFFIError: Error, Equatable, Sendable {
 nonisolated public protocol ShadowFFIClient: Sendable {
     func insert(document: ShadowDocumentDTO) throws -> Void
     func remove(docId: String) throws -> Void
-    func search(query: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit]
+    func search(query: String, limit: Int) throws -> [ShadowHit]
     func flush() throws -> Void
     func stats() throws -> ShadowStatsDTO
-
-    /// W8.4.b extension — pre-initialise the global Model2Vec
-    /// singleton off the search hot path. Idempotent: subsequent calls
-    /// are atomic-fast no-ops. Production callers fire this once at
-    /// app start (typically from `AppBootstrap` after `openAt`) so the
-    /// first `search(...)` doesn't pay the ~2s HuggingFace download.
-    /// Mirrors the Rust `shadow_warm()` C ABI in
-    /// `epistemos-shadow/src/lib.rs`.
-    func warm() throws -> Void
-
-    /// AMBIENT_RECALL_HALO_MASTER_PLAN §4 — per-stage timings of the
-    /// most recent `search()` call. Drives the `shadow.embed.ms` /
-    /// `shadow.ann.ms` / `shadow.bm25.ms` / `shadow.fusion.ms` /
-    /// `shadow.search.total.ms` OSSignposter intervals.
-    ///
-    /// Default impl returns `.empty` (all-zero) so the in-memory test
-    /// client stays minimal; production `RustShadowFFIClient` overrides to
-    /// read the per-handle accumulator via the
-    /// `shadow_handle_last_timings_json` FFI.
-    func lastSearchTimings() -> ShadowSearchTimings
-}
-
-extension ShadowFFIClient {
-    public nonisolated func lastSearchTimings() -> ShadowSearchTimings { .empty }
-}
-
-/// Per-stage timings of the most recent Shadow search, in microseconds.
-/// All-zero means "no search has run yet on this client" — callers
-/// treat that as "no signal" and skip OSSignposter emission for the
-/// cold call.
-nonisolated public struct ShadowSearchTimings: Sendable, Hashable, Codable {
-    public let embedUs: UInt64
-    public let annUs: UInt64
-    public let bm25Us: UInt64
-    public let fusionUs: UInt64
-    public let totalUs: UInt64
-
-    public init(
-        embedUs: UInt64,
-        annUs: UInt64,
-        bm25Us: UInt64,
-        fusionUs: UInt64,
-        totalUs: UInt64
-    ) {
-        self.embedUs = embedUs
-        self.annUs = annUs
-        self.bm25Us = bm25Us
-        self.fusionUs = fusionUs
-        self.totalUs = totalUs
-    }
-
-    public static let empty = ShadowSearchTimings(
-        embedUs: 0,
-        annUs: 0,
-        bm25Us: 0,
-        fusionUs: 0,
-        totalUs: 0
-    )
-
-    public var isEmpty: Bool {
-        embedUs == 0 && annUs == 0 && bm25Us == 0 && fusionUs == 0 && totalUs == 0
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case embedUs = "embed_us"
-        case annUs = "ann_us"
-        case bm25Us = "bm25_us"
-        case fusionUs = "fusion_us"
-        case totalUs = "total_us"
-    }
 }
 
 /// Plain DTO mirroring the Rust `ShadowDocument` struct field-for-field.
@@ -232,8 +161,8 @@ nonisolated public struct ShadowStatsDTO: Sendable, Hashable, Codable {
 // covered without depending on the Rust dylib being loadable.
 
 /// In-memory `ShadowFFIClient` used by tests. Behaviour mirrors the
-/// Rust `ShadowState` fallback (substring-match scoring + per-domain
-/// filtering + UTF-8-safe snippet truncation). Thread-safe via an
+/// Free Rust lexical boundary (notes-only substring-match scoring +
+/// UTF-8-safe snippet truncation). Thread-safe via an
 /// internal serial queue so tests can call from any actor context.
 nonisolated public final class InMemoryShadowFFIClient: ShadowFFIClient, @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.epistemos.shadow.in-memory")
@@ -245,6 +174,9 @@ nonisolated public final class InMemoryShadowFFIClient: ShadowFFIClient, @unchec
     public func insert(document: ShadowDocumentDTO) throws {
         guard !document.docId.isEmpty else {
             throw ShadowFFIError.invalidInput(detail: "doc_id was empty")
+        }
+        guard document.domain == .notes else {
+            throw ShadowFFIError.invalidInput(detail: "Free Shadow accepts note documents only")
         }
         queue.sync { docs[document.docId] = document }
     }
@@ -258,11 +190,13 @@ nonisolated public final class InMemoryShadowFFIClient: ShadowFFIClient, @unchec
         }
     }
 
-    public func search(query: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit] {
-        let q = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    public func search(query: String, limit: Int) throws -> [ShadowHit] {
+        let checkedLimit = try SearchRequestBounds.validatedResultLimit(limit)
+        guard let checkedQuery = try SearchRequestBounds.validatedQuery(query) else { return [] }
+        let q = checkedQuery.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         if q.isEmpty { return [] }
         let snapshot: [ShadowDocumentDTO] = queue.sync {
-            docs.values.filter { $0.domain == domain }
+            docs.values.filter { $0.domain == .notes }
         }
         var hits: [ShadowHit] = snapshot.compactMap { doc in
             let titleLower = doc.title.lowercased()
@@ -299,7 +233,7 @@ nonisolated public final class InMemoryShadowFFIClient: ShadowFFIClient, @unchec
             )
         }
         hits.sort { $0.score > $1.score }
-        if hits.count > limit { hits = Array(hits.prefix(limit)) }
+        if hits.count > checkedLimit { hits = Array(hits.prefix(checkedLimit)) }
         return hits
     }
 
@@ -307,31 +241,20 @@ nonisolated public final class InMemoryShadowFFIClient: ShadowFFIClient, @unchec
         queue.sync { lastFlush = Date() }
     }
 
-    public func warm() throws {
-        // The in-memory fallback has no embedder state; warming is a
-        // no-op. Tests that exercise the warm path observe success
-        // without touching disk or network. Matches the contract:
-        // `warm()` is idempotent and never raises in the happy path.
-    }
-
     public func stats() throws -> ShadowStatsDTO {
         queue.sync {
             var noteCount: UInt64 = 0
-            var chatCount: UInt64 = 0
             var bytes: UInt64 = 0
             for doc in docs.values {
                 bytes &+= UInt64(doc.title.utf8.count + doc.body.utf8.count)
-                switch doc.domain {
-                case .notes: noteCount &+= 1
-                case .chats: chatCount &+= 1
-                }
+                noteCount &+= 1
             }
             let elapsedMs = lastFlush == .distantPast
                 ? UInt64.max
                 : UInt64(max(0, Date().timeIntervalSince(lastFlush) * 1000))
             return ShadowStatsDTO(
                 noteCount: noteCount,
-                chatCount: chatCount,
+                chatCount: 0,
                 indexSizeBytes: bytes,
                 lastFlushMsAgo: elapsedMs
             )

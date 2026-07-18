@@ -95,18 +95,18 @@ struct TaggedMarkdownTextView: View {
         func font(size: CGFloat) -> Font {
             switch self {
             case .assistant:
-                ClaudeAppTypography.assistantFont(size: size)
+                AssistantTextTypography.assistantFont(size: size)
             case .user:
-                ClaudeAppTypography.userFont(size: size)
+                AssistantTextTypography.userFont(size: size)
             }
         }
 
         func strongFont(size: CGFloat) -> Font {
             switch self {
             case .assistant:
-                ClaudeAppTypography.assistantFont(size: size, weight: .semibold)
+                AssistantTextTypography.assistantFont(size: size, weight: .semibold)
             case .user:
-                ClaudeAppTypography.monoFont(size: size, weight: .semibold)
+                AssistantTextTypography.monoFont(size: size, weight: .semibold)
             }
         }
     }
@@ -704,13 +704,13 @@ struct TaggedMarkdownTextView: View {
         switch item.kind {
         case .bullet:
             Text("\u{2022}")
-                .font(ClaudeAppTypography.monoFont(size: 17, weight: .semibold))
+                .font(AssistantTextTypography.monoFont(size: 17, weight: .semibold))
                 .foregroundStyle(theme.resolved.accent.color)
                 .frame(width: Self.listMarkerWidth, alignment: .leading)
                 .padding(.top, 1)
         case .numbered(let number):
             Text(number)
-                .font(ClaudeAppTypography.monoFont(size: bodyFontSize, weight: .semibold))
+                .font(AssistantTextTypography.monoFont(size: bodyFontSize, weight: .semibold))
                 .foregroundStyle(theme.resolved.accent.color)
                 .frame(minWidth: Self.numberedMarkerMinWidth, alignment: .trailing)
                 .padding(.top, 1)
@@ -798,7 +798,7 @@ struct TaggedMarkdownTextView: View {
             } else if (4...5).contains(level) {
                 return AppDisplayTypography.font(size: fontSize, weight: weight, allowDisplayFont: false)
             } else {
-                return ClaudeAppTypography.monoFont(size: fontSize, weight: weight)
+                return AssistantTextTypography.monoFont(size: fontSize, weight: weight)
             }
         }()
         // Match font shrink for Classic + Platinum (Ember stays on 1.0).

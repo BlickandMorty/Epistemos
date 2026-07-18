@@ -6,6 +6,23 @@ stale or dangerous execution lanes are parked, superseded, or forbidden for
 MAS. The complete per-file machine inventory is `source_map.json`; the readable
 per-file map is `source_map.md`.
 
+## July 15 owner supersession
+
+The latest classification is defined by
+`14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md`:
+
+| Prior lane | Current classification |
+|---|---|
+| LumenLens named lane and all AI/suggestion/agent work | `CANCELED_OWNER_2026_07_15` |
+| June/MiniChat/models/providers/generative/inference work | `CANCELED_OWNER_2026_07_15` |
+| Reckoner/IronCalc/Univer/sheets/datasets/grid/database product work | `PARKED_OWNER_2026_07_15` |
+| Non-AI editor correctness formerly under LumenLens | `ACTIVE_EDITOR_CORE_SALVAGE` |
+| Browser/ResearchHub deterministic paid work | `DEFERRED_PAID_NON_AI`; absent from Free V1 |
+
+Original archives, receipts, and compatibility data remain provenance. This
+classification prevents execution; it is not permission for destructive
+history or user-data deletion.
+
 Owner steer captured for this fusion:
 
 ```text
@@ -20,10 +37,10 @@ or provenance material, but they must not drag the active canon backward.
 
 | Original ZIP | Archive role | Canonical ideas salvaged | What is intentionally parked or superseded |
 |---|---|---|---|
-| `research1.zip` | PRIMARY_LATEST_EXECUTIVE_RESEARCH | Latest MAS master canon structure, active doc set, release/legality framing, MAS-only lock, source archive discipline. | Any embedded older source text is evidence only unless repeated in 00-10. |
+| `research1.zip` | PRIMARY_LATEST_EXECUTIVE_RESEARCH | Latest MAS master canon structure, active doc set, release/legality framing, MAS-only lock, source archive discipline. | Any embedded older source text is evidence only unless repeated in the active documents declared by `manifest.json`. |
 | `research2.zip` | PRIMARY_LATEST_EXECUTIVE_RESEARCH | Latest reduced prompt/plan vocabulary and MAS-only execution language. | Duplicate or narrower phrasing superseded by `research4.zip` where conflicts exist. |
 | `research3.zip` | PRIMARY_LATEST_EXECUTIVE_RESEARCH | Expanded source archive, contradiction, and release-gate nuance. | Old parked-lane examples remain provenance, not active product direction. |
-| `research4.zip` | PRIMARY_LATEST_EXECUTIVE_RESEARCH | Final active 00-10 doc spine used as the base for this master ZIP. | Any missing source ZIPs/counts were corrected by this fusion pass. |
+| `research4.zip` | PRIMARY_LATEST_EXECUTIVE_RESEARCH | Final active doc spine used as the base for this master ZIP. | Any missing source ZIPs/counts were corrected by this fusion pass. |
 | `epistemos-mas-c-control-pack-2026-07-08.zip` | CURRENT_LOCAL_CONTROL_DONOR | Local MAS-C control patterns, anti-drift guardrails, evidence protocol, release evidence gate, feature prompt structure. | Per-feature MAS-C prompts are donor material unless rephrased in `03`, `04`, `05`, `06`, or `07`. |
 | `epistemos-mas-pivot-cloud-research-packet-2026-07-07.zip` | RAW_RESEARCH_PROVENANCE | Original MAS pivot lock, AGENTS/CLAUDE root intent, research standard, source-provider caution, storage lineage. | Pro, 1Code, Goose, Kindred, browser-use, terminal, and second-runtime text is parked unless explicitly converted to MAS-safe June architecture. |
 | `epistemos-mas-pivot-research-2026-07-08.zip` | RAW_RESEARCH_PROVENANCE | July 8 research consolidation, prompt pruning, official-source spine, MAS legality emphasis. | Nested duplicate July 7 material remains provenance. |
@@ -84,7 +101,7 @@ not a replacement for the exact per-file classification.
 | GRDB or SQLite as durable truth | Reframed as derived working cache only. Vault files/artifacts and append-only provenance remain durable truth unless a later owner decision changes the storage architecture. |
 | Google Scholar / Sci-Hub / LibGen / publisher scraping | Forbidden. ResearchHub uses official APIs, RSS/Atom, legal OA infrastructure, or user-supplied credentials only. |
 | Network/server entitlements | Not accepted by default. Requires local verification, explicit justification, privacy/App Review notes, and removal if not needed. |
-| Older prompt packs that say similar things differently | Superseded by active 00-10 docs; retained unchanged in `source_archives/originals/` for audit. |
+| Older prompt packs that say similar things differently | Superseded by active documents declared in `manifest.json`; retained unchanged in `source_archives/originals/` for audit. |
 
 ## Compression safeguards
 

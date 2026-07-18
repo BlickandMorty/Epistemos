@@ -2,14 +2,13 @@ import Testing
 import Foundation
 @testable import Epistemos
 
-/// The setup wizard does not duplicate June's model picker/download controls.
-/// Model selection belongs to June and MAS Settings, while optional Kokoro
-/// voice setup remains a first-run concern.
-@Suite("Onboarding model stack pruning")
+/// Free onboarding must stay model-free while retaining optional Kokoro voice
+/// setup as a first-run concern.
+@Suite("Onboarding Free V1 foundation")
 struct OnboardingModelInstallTests {
 
-    @Test("the wizard does not mount local model install or inference setup")
-    func wizardDoesNotMountLocalModelInstallOrInferenceSetup() throws {
+    @Test("the wizard keeps the Free foundation free of agent and generative setup")
+    func wizardKeepsFreeFoundationFreeOfAgentAndGenerativeSetup() throws {
         let src = try loadMirroredSourceTextFile(
             "Epistemos/Views/Onboarding/SetupAssistantView.swift"
         )
@@ -19,11 +18,13 @@ struct OnboardingModelInstallTests {
         #expect(!src.contains("CloudProviderSetupCard("))
         #expect(!src.contains("Cloud AI"))
         #expect(!src.contains("Button(\"Open Settings → Inference\")"))
-        #expect(src.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n            Text(\"June Foundation\")"))
-        #expect(src.contains("MAS June uses your vault, fast search, provenance, and approval-gated tools."))
-        #expect(src.contains("connected OpenAI or Anthropic models, Apple Intelligence when available, and your selected local GGUF models."))
-        #expect(src.contains("statusRow(\"MAS June\", done: true)"))
-        #expect(src.contains("statusRow(\"Approval-gated tools\", done: true)"))
+        #expect(src.contains("Text(\"Free V1 Foundation\")"))
+        #expect(src.contains("without agent or generative-model features."))
+        #expect(src.contains("statusRow(\"Epdoc planning and tasks\", done: true)"))
+        #expect(src.contains("statusRow(\"Meeting, PDF import, and Kokoro voice\", done: true)"))
+        #expect(!src.contains("Text(\"June Foundation\")"))
+        #expect(!src.contains("statusRow(\"MAS June\", done: true)"))
+        #expect(!src.contains("statusRow(\"Approval-gated tools\", done: true)"))
     }
 
     @Test("the wizard offers optional Kokoro read-aloud setup")

@@ -61,7 +61,6 @@ enum LensFidelityExportKind: String, Equatable {
     case image
     case csv
     case xlsx
-    case transcript
 
     var actionLabel: String {
         switch self {
@@ -75,8 +74,6 @@ enum LensFidelityExportKind: String, Equatable {
             "Export CSV"
         case .xlsx:
             "Export XLSX"
-        case .transcript:
-            "Export Transcript"
         }
     }
 }
@@ -135,7 +132,6 @@ struct LensFidelityChartPreview: Equatable {
 enum LensFidelityPreview: Equatable {
     case chart(LensFidelityChartPreview)
     case table(headers: [String], rows: [[String]])
-    case transcript(title: String, reference: String)
     case reference(kind: String, title: String, reference: String)
     case markdown(String)
     case raw(String)
@@ -147,8 +143,6 @@ enum LensFidelityPreview: Equatable {
         case .table(let headers, let rows):
             let header = headers.joined(separator: ", ")
             return "\(header)\n\(rows.prefix(3).map { $0.joined(separator: ", ") }.joined(separator: "\n"))"
-        case .transcript(let title, let reference):
-            return "\(title)\n\(reference)"
         case .reference(let kind, let title, let reference):
             return "\(kind): \(title)\n\(reference)"
         case .markdown(let text), .raw(let text):
@@ -161,7 +155,6 @@ enum LensFidelityDisclosure {
     static func items(
         in markdown: String,
         lens: NoteWorkspaceMode,
-        chatTabContentAvailable: Bool = EpdocNotebookBuildCapabilities.isChatTabContentAvailable,
         datasetExportProvider: (any LensFidelityDatasetExportProviding)? = nil
     ) -> [LensFidelityDisclosureItem] {
         guard !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -171,13 +164,6 @@ enum LensFidelityDisclosure {
         var items: [LensFidelityDisclosureItem] = []
         let lines = markdown.components(separatedBy: .newlines)
         scanFencedBlocks(lines, lens: lens, into: &items)
-        scanNotebookReferences(
-            markdown,
-            lens: lens,
-            chatTabContentAvailable: chatTabContentAvailable,
-            datasetExportProvider: datasetExportProvider,
-            into: &items
-        )
         scanInlineMarkdown(lines, lens: lens, datasetExportProvider: datasetExportProvider, into: &items)
         return items
     }
@@ -210,6 +196,10 @@ enum LensFidelityDisclosure {
             let raw = lines[index...blockEnd].joined(separator: "\n")
             let lineNumber = index + 1
 
+            if notebookManifestFence(in: trimmed) != nil {
+                index = max(index + 1, end + 1)
+                continue
+            }
             if info == "chart" || (info == "json" && containsChartSpec(raw)) {
                 append(
                     type: "epdocChart",
@@ -246,6 +236,19 @@ enum LensFidelityDisclosure {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             let lineNumber = index + 1
 
+            if let fence = notebookManifestFence(in: trimmed) {
+                var end = index + 1
+                while end < lines.count,
+                      !lines[end].trimmingCharacters(in: .whitespaces).hasPrefix(fence) {
+                    end += 1
+                }
+                index = max(index + 1, end + 1)
+                continue
+            }
+            if EpdocNotebookReferenceParser.containsEmbed(line) {
+                index += 1
+                continue
+            }
             if line.contains("epistemos-quarantine:start") {
                 var end = index
                 while end < lines.count,
@@ -362,8 +365,7 @@ enum LensFidelityDisclosure {
                     into: &items
                 )
             }
-            if !EpdocNotebookReferenceParser.containsEmbed(line),
-               containsDatasetEmbed(line) {
+            if containsDatasetEmbed(line) {
                 append(
                     type: "datasetEmbed",
                     label: "Dataset embed",
@@ -378,56 +380,18 @@ enum LensFidelityDisclosure {
         }
     }
 
-    private static func scanNotebookReferences(
-        _ markdown: String,
-        lens: NoteWorkspaceMode,
-        chatTabContentAvailable: Bool,
-        datasetExportProvider: (any LensFidelityDatasetExportProviding)?,
-        into items: inout [LensFidelityDisclosureItem]
-    ) {
-        let manifest = EpdocNotebookManifest.parse(in: markdown)
-        for tab in manifest.tabs {
-            append(
-                type: disclosureType(for: tab),
-                label: disclosureLabel(for: tab),
-                raw: tab.rawLine,
-                line: tab.line,
-                lens: lens,
-                chatTabContentAvailable: chatTabContentAvailable,
-                preview: preview(for: tab),
-                providedExports: exports(for: tab, datasetExportProvider: datasetExportProvider),
-                into: &items
-            )
-        }
-
-        for embed in EpdocNotebookReferenceParser.blockEmbeds(in: markdown) {
-            append(
-                type: disclosureType(for: embed),
-                label: embed.kind == .sheet ? "Dataset embed" : "\(embed.kind.defaultTitle) embed",
-                raw: embed.rawLine,
-                line: embed.line,
-                lens: lens,
-                chatTabContentAvailable: chatTabContentAvailable,
-                preview: preview(for: embed),
-                providedExports: exports(for: embed, datasetExportProvider: datasetExportProvider),
-                into: &items
-            )
-        }
-    }
-
     private static func append(
         type: String,
         label: String,
         raw: String,
         line: Int,
         lens: NoteWorkspaceMode,
-        chatTabContentAvailable: Bool = EpdocNotebookBuildCapabilities.isChatTabContentAvailable,
         preview: LensFidelityPreview? = nil,
         providedExports: [LensFidelityExport]? = nil,
         datasetExportProvider: (any LensFidelityDatasetExportProviding)? = nil,
         into items: inout [LensFidelityDisclosureItem]
     ) {
-        let state = fidelityState(for: type, lens: lens, chatTabContentAvailable: chatTabContentAvailable)
+        let state = fidelityState(for: type, lens: lens)
         guard state != .rendered else { return }
         items.append(
             LensFidelityDisclosureItem(
@@ -450,8 +414,7 @@ enum LensFidelityDisclosure {
 
     private static func fidelityState(
         for type: String,
-        lens: NoteWorkspaceMode,
-        chatTabContentAvailable: Bool
+        lens: NoteWorkspaceMode
     ) -> LensFidelityState {
         switch lens {
         case .edit:
@@ -461,10 +424,6 @@ enum LensFidelityDisclosure {
                 "mermaid",
                 "datasetEmbed",
                 "opaqueQuarantine",
-                "notebookSheetTab",
-                "notebookChatTab",
-                "notebookUnknownTab",
-                "notebookEmbed",
             ].contains(type) {
                 return .invisible
             }
@@ -478,19 +437,12 @@ enum LensFidelityDisclosure {
                 "mermaid",
                 "datasetEmbed",
                 "opaqueQuarantine",
-                "notebookSheetTab",
-                "notebookChatTab",
-                "notebookUnknownTab",
-                "notebookEmbed",
             ].contains(type) {
                 return .degraded
             }
             return .rendered
         case .document:
-            if type == "notebookChatTab" {
-                return chatTabContentAvailable ? .rendered : .degraded
-            }
-            if ["opaqueQuarantine", "datasetEmbed", "notebookUnknownTab", "notebookEmbed"].contains(type) {
+            if ["opaqueQuarantine", "datasetEmbed"].contains(type) {
                 return .degraded
             }
             return .rendered
@@ -499,6 +451,18 @@ enum LensFidelityDisclosure {
 
     private static func containsChartSpec(_ source: String) -> Bool {
         matches(source, #""type"\s*:\s*"(scatter|bar|line)""#)
+    }
+
+    private static func notebookManifestFence(in trimmedLine: String) -> String? {
+        guard trimmedLine.hasPrefix("```") || trimmedLine.hasPrefix("~~~") else { return nil }
+        let fence = String(trimmedLine.prefix(3))
+        let info = trimmedLine
+            .dropFirst(3)
+            .trimmingCharacters(in: .whitespaces)
+            .split(whereSeparator: { $0.isWhitespace })
+            .first
+            .map(String.init) ?? ""
+        return info.caseInsensitiveCompare(EpdocNotebookManifest.fenceInfoString) == .orderedSame ? fence : nil
     }
 
     private static func containsInlineMath(_ source: String) -> Bool {
@@ -533,12 +497,10 @@ enum LensFidelityDisclosure {
                 return .table(headers: table.headers, rows: table.rows)
             }
             return .markdown(boundedPreview(raw))
-        case "datasetEmbed", "notebookSheetTab":
+        case "datasetEmbed":
             let source = sanitizedDatasetReferenceSource(from: raw)
             return .reference(kind: "Dataset", title: label, reference: referenceSummary(from: source))
-        case "notebookChatTab":
-            return .transcript(title: label, reference: referenceSummary(from: raw))
-        case "opaqueQuarantine", "notebookUnknownTab", "notebookEmbed":
+        case "opaqueQuarantine":
             return .raw(boundedPreview(raw))
         default:
             return .markdown(boundedPreview(raw))
@@ -609,7 +571,7 @@ enum LensFidelityDisclosure {
                 ]
             }
             return [markdownExport(type: type, raw: raw, line: line)]
-        case "datasetEmbed", "notebookSheetTab":
+        case "datasetEmbed":
             let source = sanitizedDatasetReferenceSource(from: raw)
             return datasetExports(
                 type: type,
@@ -620,78 +582,12 @@ enum LensFidelityDisclosure {
                 datasetExportProvider: datasetExportProvider,
                 fallback: [markdownExport(type: type, raw: source, line: line)]
             )
-        case "notebookChatTab":
-            return [
-                LensFidelityExport(
-                    kind: .transcript,
-                    filename: suggestedFilename(type: type, line: line, suffix: "md"),
-                    text: transcriptMarkdown(title: label, reference: referenceSummary(from: raw), source: raw)
-                ),
-            ]
-        case "opaqueQuarantine", "notebookUnknownTab", "notebookEmbed":
+        case "opaqueQuarantine":
             return [rawExport(type: type, raw: raw, line: line)]
         case "callout", "taskList", "wikilink", "highlight", "inlineMath":
             return [markdownExport(type: type, raw: raw, line: line)]
         default:
             return [rawExport(type: type, raw: raw, line: line)]
-        }
-    }
-
-    private static func exports(
-        for tab: EpdocNotebookTab,
-        datasetExportProvider: (any LensFidelityDatasetExportProviding)?
-    ) -> [LensFidelityExport] {
-        let type = disclosureType(for: tab)
-        switch tab.kind {
-        case .sheet:
-            return datasetExports(
-                type: type,
-                title: tab.title,
-                reference: tab.reference,
-                source: tab.canonicalReferenceLine,
-                line: tab.line,
-                datasetExportProvider: datasetExportProvider
-            )
-        case .chat:
-            return [
-                LensFidelityExport(
-                    kind: .transcript,
-                    filename: suggestedFilename(type: type, line: tab.line, suffix: "md"),
-                    text: transcriptMarkdown(title: tab.title, reference: tab.reference, source: tab.rawLine)
-                ),
-            ]
-        case .unknown:
-            return [rawExport(type: type, raw: tab.rawLine, line: tab.line)]
-        case .body:
-            return [markdownExport(type: type, raw: tab.rawLine, line: tab.line)]
-        }
-    }
-
-    private static func exports(
-        for embed: EpdocNotebookBlockReference,
-        datasetExportProvider: (any LensFidelityDatasetExportProviding)?
-    ) -> [LensFidelityExport] {
-        let type = disclosureType(for: embed)
-        switch embed.kind {
-        case .sheet:
-            return datasetExports(
-                type: type,
-                title: embed.title,
-                reference: embed.reference,
-                source: embed.canonicalReferenceLine,
-                line: embed.line,
-                datasetExportProvider: datasetExportProvider
-            )
-        case .chat:
-            return [
-                LensFidelityExport(
-                    kind: .transcript,
-                    filename: suggestedFilename(type: type, line: embed.line, suffix: "md"),
-                    text: transcriptMarkdown(title: embed.title, reference: embed.reference, source: embed.rawLine)
-                ),
-            ]
-        case .body, .unknown:
-            return [rawExport(type: type, raw: embed.rawLine, line: embed.line)]
         }
     }
 
@@ -729,36 +625,9 @@ enum LensFidelityDisclosure {
             .markdown: 2,
             .raw: 3,
             .image: 4,
-            .transcript: 5,
         ]
         return exports.sorted {
             (priority[$0.kind] ?? Int.max, $0.filename) < (priority[$1.kind] ?? Int.max, $1.filename)
-        }
-    }
-
-    private static func preview(for tab: EpdocNotebookTab) -> LensFidelityPreview {
-        switch tab.kind {
-        case .chat:
-            return .transcript(title: tab.title, reference: tab.reference)
-        case .sheet:
-            return .reference(kind: "Dataset", title: tab.title, reference: tab.reference)
-        case .body:
-            return .markdown(tab.rawLine)
-        case .unknown(let kind):
-            return .reference(kind: kind, title: tab.title, reference: tab.reference)
-        }
-    }
-
-    private static func preview(for embed: EpdocNotebookBlockReference) -> LensFidelityPreview {
-        switch embed.kind {
-        case .chat:
-            return .transcript(title: embed.title, reference: embed.reference)
-        case .sheet:
-            return .reference(kind: "Dataset", title: embed.title, reference: embed.reference)
-        case .body:
-            return .reference(kind: "Notebook", title: embed.title, reference: embed.reference)
-        case .unknown(let kind):
-            return .reference(kind: kind, title: embed.title, reference: embed.reference)
         }
     }
 
@@ -780,18 +649,6 @@ enum LensFidelityDisclosure {
             filename: suggestedFilename(type: type, line: line, suffix: "md"),
             text: raw
         )
-    }
-
-    private static func transcriptMarkdown(title: String, reference: String, source: String) -> String {
-        """
-        # \(title)
-
-        Transcript reference: `\(reference.isEmpty ? "unresolved" : reference)`
-
-        ```epistemos-notebook-reference
-        \(source)
-        ```
-        """
     }
 
     private static func referenceCSV(kind: String, title: String, reference: String, source: String) -> String {
@@ -1041,41 +898,6 @@ enum LensFidelityDisclosure {
             .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
-    private static func disclosureType(for tab: EpdocNotebookTab) -> String {
-        switch tab.kind {
-        case .body:
-            "notebookBodyTab"
-        case .sheet:
-            "notebookSheetTab"
-        case .chat:
-            "notebookChatTab"
-        case .unknown:
-            "notebookUnknownTab"
-        }
-    }
-
-    private static func disclosureLabel(for tab: EpdocNotebookTab) -> String {
-        switch tab.kind {
-        case .body, .sheet, .chat:
-            "\(tab.kind.defaultTitle) tab"
-        case .unknown:
-            tab.kind.defaultTitle
-        }
-    }
-
-    private static func disclosureType(for embed: EpdocNotebookBlockReference) -> String {
-        switch embed.kind {
-        case .sheet:
-            "datasetEmbed"
-        case .chat:
-            "notebookChatTab"
-        case .body:
-            "notebookEmbed"
-        case .unknown:
-            "notebookEmbed"
-        }
-    }
-
     private static func stableHash(_ source: String) -> String {
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in source.utf8 {
@@ -1201,15 +1023,6 @@ struct LensFidelityDisclosureSection: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-            }
-            .textSelection(.enabled)
-        case .transcript(let title, let reference):
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                Text(reference)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .textSelection(.enabled)
         case .reference(let kind, let title, let reference):

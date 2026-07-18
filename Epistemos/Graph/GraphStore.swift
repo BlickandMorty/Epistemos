@@ -91,6 +91,12 @@ final class GraphStore {
     private struct SearchCacheKey: Hashable {
         let query: String
         let limit: Int
+        let candidateUniverse: SearchCandidateUniverse
+    }
+
+    private enum SearchCandidateUniverse: Hashable {
+        case unfiltered
+        case currentProductProjection
     }
 
     private struct SearchCacheEntry {
@@ -1048,9 +1054,39 @@ final class GraphStore {
     /// At 50K nodes, trigram lookup reduces candidates from O(n) to ~O(100).
     /// Scoring: exact (1.0) > prefix (0.9) > word-start (0.8) > contains (0.6) > subsequence (0.3).
     func fuzzySearch(query: String, limit: Int = 20) -> [SearchHit] {
+        fuzzySearch(
+            query: query,
+            limit: limit,
+            candidateUniverse: .unfiltered,
+            includes: { _ in true }
+        )
+    }
+
+    /// Query-runtime label resolution must rank only records that may be
+    /// projected in the current product. Its cache entries therefore cannot be
+    /// reused for the unrestricted graph-store universe.
+    func fuzzySearchForCurrentProductProjection(query: String, limit: Int) -> [SearchHit] {
+        fuzzySearch(
+            query: query,
+            limit: limit,
+            candidateUniverse: .currentProductProjection,
+            includes: ProductCapabilityPolicy.allowsGraphProjection(of:)
+        )
+    }
+
+    private func fuzzySearch(
+        query: String,
+        limit: Int,
+        candidateUniverse: SearchCandidateUniverse,
+        includes: (GraphNodeRecord) -> Bool
+    ) -> [SearchHit] {
         let q = query.lowercased()
         guard !q.isEmpty else { return [] }
-        let key = SearchCacheKey(query: q, limit: limit)
+        let key = SearchCacheKey(
+            query: q,
+            limit: limit,
+            candidateUniverse: candidateUniverse
+        )
         let now = searchCacheNowProvider()
 
         if let cached = searchCache[key] {
@@ -1067,6 +1103,7 @@ final class GraphStore {
 
         var hits: [SearchHit] = []
         for node in candidateNodes(forLowercasedQuery: q) {
+            guard includes(node) else { continue }
             let label = node.label.lowercased()
             let score: Float
 

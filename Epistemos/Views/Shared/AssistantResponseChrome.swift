@@ -1,5 +1,4 @@
 import AppKit
-import SwiftUI
 import UniformTypeIdentifiers
 
 nonisolated enum TextExportDiagnostics {
@@ -94,36 +93,6 @@ enum TextExportSupport {
             alert.beginSheetModal(for: window) { _ in }
         } else {
             alert.runModal()
-        }
-    }
-}
-
-struct AssistantResponseChrome<Content: View>: View {
-    @Environment(UIState.self) private var ui
-
-    private let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    private var theme: EpistemosTheme { ui.theme }
-
-    var body: some View {
-        if theme.assistantBubbleBackgroundHex != nil {
-            content
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(
-                    theme.assistantBubbleBackground,
-                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(theme.border.opacity(0.85), lineWidth: 0.8)
-                )
-        } else {
-            content
         }
     }
 }

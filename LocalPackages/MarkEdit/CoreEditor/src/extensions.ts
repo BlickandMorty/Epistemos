@@ -33,7 +33,6 @@ import { paragraphIndentStyle, lineIndentStyle } from './styling/nodes/indent';
 import { gutterExtensions } from './styling/nodes/gutter';
 import { IndentBehavior } from './config';
 
-import { isActive as isWritingToolsActive } from './modules/writingTools';
 import { localizePhrases } from './modules/localization';
 import { indentationKeymap } from './modules/indentation';
 import { filterTransaction, wordTokenizer, observeChanges, interceptInputs } from './modules/input';
@@ -83,7 +82,7 @@ export function extensions(options: { lineBreak?: string; documentLanguage?: Ext
     highlightSpecialChars(),
     history({
       newGroupDelay: 300,
-      ignoreBeforeInput: () => isWritingToolsActive(),
+      ignoreBeforeInput: () => false,
     }),
     drawSelection({ cursorBlinkRate: 1000 }),
     dropCursor(),

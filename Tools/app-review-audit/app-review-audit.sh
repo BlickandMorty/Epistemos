@@ -21,9 +21,7 @@
 #
 # Audit checks:
 #   1. Resources/ directory enumeration — every artifact named.
-#   2. No runtime URLSession downloads of executable code. Optional GGUF model
-#      weights are data: the runtime is bundled, revisions/digests are pinned,
-#      and verified weights stay inside Application Support.
+#   2. No runtime URLSession downloads of executable code.
 #   3. HELIOS V5 runtime toggles remain absent for the v1 freeze.
 #   4. For App Store/MAS, no `Process()` / `Process.init()` / `Pipe()` /
 #      `system()` calls in MAS-visible Swift source.
@@ -223,19 +221,6 @@ for pat in "${download_patterns[@]}"; do
 done
 if [ "${findings}" -eq 0 ]; then
   echo "  no runtime executable-code download patterns detected"
-fi
-
-gguf_catalog="${REPO_ROOT}/Epistemos/QuickChat/GGUFModelCatalog.swift"
-gguf_downloads="${REPO_ROOT}/Epistemos/QuickChat/QuickChatModelDownloadManager.swift"
-if grep -Fq 'resolve/\(revision)/\(fileName)' "${gguf_catalog}" \
-    && grep -Fq 'let sha256: String' "${gguf_catalog}" \
-    && grep -Fq 'let expected = entry.sha256' "${gguf_downloads}" \
-    && grep -Fq 'for: .applicationSupportDirectory' "${gguf_catalog}" \
-    && ! grep -Fq 'fetchPublishedSHA256' "${gguf_downloads}"; then
-  echo "  optional GGUF weights are immutable-pinned model data inside Application Support"
-else
-  echo "::error::W26 §2.5.2 finding — GGUF model-data download is not revision/digest/container pinned"
-  findings=$((findings + 1))
 fi
 
 # Check 3: HELIOS V5 runtime toggles remain absent for the v1 freeze

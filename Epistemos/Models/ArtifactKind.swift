@@ -5,7 +5,7 @@ import Foundation
 // Per docs/architecture/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md §2 and
 // docs/audits/EXTENDED_PROGRAM_PLAN_2026_04_25.md Wave 3.2.
 //
-// Mirrors agent_core/src/artifacts/kind.rs. Numeric raw values are CONTRACTS:
+// Numeric raw values are persistence contracts:
 // they MUST match the Rust `repr(u8)` discriminants byte-for-byte. Drift is
 // caught by EpistemosTests/ArtifactKindParityTests.swift.
 //

@@ -485,16 +485,66 @@ struct BackgroundGraphLoadingTests {
             position: .zero,
             velocity: .zero
         )
+        let hiddenPaidArtifacts = [
+            GraphNodeRecord(
+                id: "paid-chat-1",
+                type: .chat,
+                label: "Archived paid chat",
+                sourceId: "chat-source",
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: .now,
+                position: .zero,
+                velocity: .zero
+            ),
+            GraphNodeRecord(
+                id: "paid-run-1",
+                type: .run,
+                label: "Archived agent run",
+                sourceId: "run-source",
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: .now,
+                position: .zero,
+                velocity: .zero
+            ),
+            GraphNodeRecord(
+                id: "paid-thought-1",
+                type: .rawThought,
+                label: "Archived agent thought",
+                sourceId: "thought-source",
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: .now,
+                position: .zero,
+                velocity: .zero
+            ),
+            GraphNodeRecord(
+                id: "paid-tool-1",
+                type: .toolTrace,
+                label: "Archived tool trace",
+                sourceId: "tool-source",
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: .now,
+                position: .zero,
+                velocity: .zero
+            ),
+        ]
 
-        store.loadFromRecords(nodeRecords: [document, note], edgeRecords: [])
+        let records = [document, note] + hiddenPaidArtifacts
+        store.loadFromRecords(nodeRecords: records, edgeRecords: [])
 
         let snapshot = HologramSidebarNotesTreeBuilder.build(store: store)
+        let cache = HologramSidebarNotesTreeBuilder.buildCache(nodes: records, edges: [])
 
         #expect(snapshot.noteById["note-1"]?.label == "Notebook Note")
         #expect(snapshot.looseNoteIds == ["note-1"])
         #expect(snapshot.artifactById["document-1"]?.type == .document)
         #expect(snapshot.artifactById["document-1"]?.label == "Codex Loader Gate Smoke")
         #expect(snapshot.looseArtifactIds == ["document-1"])
+        #expect(Set(snapshot.artifactById.keys) == ["document-1"])
+        #expect(cache.sortedSearchNodes.map(\.id) == ["document-1", "note-1"])
     }
 
     @Test("Hologram sidebar source keeps artifact section wired")
@@ -505,6 +555,8 @@ struct BackgroundGraphLoadingTests {
                 "The Hologram sidebar should index graph-visible .epdoc and app-level artifact nodes, not only legacy notes.")
         #expect(sidebarSource.contains("let looseArtifactIds: [String]"),
                 "Standalone .epdoc artifacts should appear even when they are not nested under a folder.")
+        #expect(sidebarSource.contains("nodes.filter { ProductCapabilityPolicy.allowsGraphProjection(of: $0.type) }"),
+                "The sidebar must apply the shared Free V1 graph policy before creating either notes or search projections.")
         #expect(sidebarSource.contains("let artifactTypes = Set(GraphNodeType.appLevelCases)"),
                 "Artifact sidebar visibility should use the canonical app-level graph cases instead of a parallel hard-coded type list.")
         #expect(sidebarSource.contains("sectionHeader(\"Artifacts\")"),

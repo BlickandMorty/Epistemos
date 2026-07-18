@@ -68,17 +68,32 @@ final class InstantRecallService {
     }
 
     func rebuildIndexAsync(notes: [(id: String, text: String)]) async {
-        documents.removeAll(keepingCapacity: true)
+        let preparedDocuments = await Task.detached(priority: .utility) {
+            Self.makeDocumentMap(notes: notes)
+        }.value
+        replaceIndex(with: preparedDocuments)
+    }
+
+    func replaceIndex(with preparedDocuments: [String: String]) {
+        documents = preparedDocuments
+        hasHydratedInitialSnapshot = true
+        documentCount = documents.count
+        lastResults = []
+        resetMetrics()
+    }
+
+    private nonisolated static func makeDocumentMap(
+        notes: [(id: String, text: String)]
+    ) -> [String: String] {
+        var documents: [String: String] = [:]
+        documents.reserveCapacity(notes.count)
         for note in notes {
             let trimmed = note.text.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 documents[note.id] = note.text
             }
         }
-        hasHydratedInitialSnapshot = true
-        documentCount = documents.count
-        lastResults = []
-        resetMetrics()
+        return documents
     }
 
     func search(queryText: String, topK: Int = 5) -> [InstantRecallResult] {

@@ -81,12 +81,12 @@ struct MeetingNoteCaptureServiceTests {
     }
 
     @Test("refresh consumes LiveVoiceInputService-shaped final transcript")
-    func refreshConsumesVoiceInput() {
+    func refreshConsumesVoiceInput() async {
         let voice = FakeMeetingVoiceInput()
-        voice.state = .recording
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+        await service.start()
         voice.partialTranscript = "partial sentence"
         voice.finalTranscripts = ["final sentence"]
-        let service = MeetingNoteCaptureService(voiceInput: voice)
 
         service.refreshFromVoiceInput()
 
@@ -96,9 +96,10 @@ struct MeetingNoteCaptureServiceTests {
     }
 
     @Test("refresh bounds progress and voice error display state")
-    func refreshBoundsProgressAndVoiceErrorDisplayState() {
+    func refreshBoundsProgressAndVoiceErrorDisplayState() async {
         let voice = FakeMeetingVoiceInput()
         let service = MeetingNoteCaptureService(voiceInput: voice)
+        await service.start()
 
         voice.state = .recording
         voice.modelDownloadProgress = -0.5
@@ -125,6 +126,37 @@ struct MeetingNoteCaptureServiceTests {
             return
         }
         #expect(message.count == VoiceCapturePresentationBounds.maxStatusMessageCharacters)
+    }
+
+    @Test("permission-denied admission is typed and releases the meeting lease")
+    func permissionDeniedAdmissionReleasesMeetingLease() async {
+        let voice = FakeMeetingVoiceInput()
+        let denialMessage = "Microphone access is denied in System Settings."
+        voice.nextStartResult = .permissionDenied(denialMessage)
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+
+        await service.start()
+
+        #expect(service.state == .error(denialMessage))
+        #expect(service.microphoneAccessDenied)
+        #expect(voice.activePurpose == nil)
+        #expect(voice.stopCallCount == 0)
+        #expect(voice.tearDownCallCount == 1)
+    }
+
+    @Test("cancelled admission returns idle and releases the meeting lease")
+    func cancelledAdmissionReleasesMeetingLease() async {
+        let voice = FakeMeetingVoiceInput()
+        voice.nextStartResult = .cancelled
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+
+        await service.start()
+
+        #expect(service.state == .idle)
+        #expect(!service.microphoneAccessDenied)
+        #expect(voice.activePurpose == nil)
+        #expect(voice.stopCallCount == 0)
+        #expect(voice.tearDownCallCount == 1)
     }
 
     @Test("finalize diagnostics redact external error descriptions")
@@ -554,14 +586,120 @@ struct MeetingNoteCaptureServiceTests {
         #expect(voice.stopCallCount >= 1)
     }
 
-    @Test("teardown drains pending transcript and clears shared voice state")
-    func tearDownCaptureDrainsPendingTranscriptAndClearsVoiceState() {
+    @Test("teardown during preparing prevents a late mic start from reviving capture")
+    func tearDownDuringPreparingCancelsLateStart() async {
         let voice = FakeMeetingVoiceInput()
-        voice.state = .recording
+        var resumeStart: (() -> Void)?
+        voice.onStart = {
+            await withCheckedContinuation { continuation in
+                resumeStart = {
+                    voice.state = .recording
+                    continuation.resume()
+                }
+            }
+        }
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+
+        let startTask = Task { @MainActor in
+            await service.start()
+        }
+        for _ in 0..<5 where resumeStart == nil {
+            await Task.yield()
+        }
+
+        #expect(service.state == .preparing)
+        service.tearDownCapture()
+        #expect(service.state == .idle)
+        #expect(voice.activePurpose == nil)
+        #expect(voice.stopCallCount == 1)
+        #expect(voice.tearDownCallCount == 1)
+
+        resumeStart?()
+        await startTask.value
+
+        #expect(service.state == .idle)
+        #expect(voice.state == .idle)
+        #expect(voice.activePurpose == nil)
+        #expect(voice.stopCallCount == 1)
+        #expect(voice.tearDownCallCount == 1)
+    }
+
+    @Test("active Quick Capture cannot be preempted or torn down by Meeting")
+    func activeQuickCaptureCannotBePreemptedByMeeting() async {
+        let voice = FakeMeetingVoiceInput()
+        let quickCapture = VoiceCaptureLease(purpose: .quickCapture)
+        let quickStart = await voice.start(owner: quickCapture)
+        #expect(quickStart == .started)
+        voice.partialTranscript = "Quick Capture draft in progress"
+        voice.finalTranscripts = ["Quick Capture final pending"]
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+
+        await service.start()
+
+        guard case .error(let message) = service.state else {
+            Issue.record("Expected busy Meeting admission, got \(service.state)")
+            return
+        }
+        #expect(message.contains("Quick Capture"))
+        #expect(voice.isOwner(quickCapture))
+        #expect(voice.activePurpose == .quickCapture)
+        #expect(voice.state == .recording)
+        #expect(voice.partialTranscript == "Quick Capture draft in progress")
+        #expect(voice.finalTranscripts == ["Quick Capture final pending"])
+        #expect(voice.stopCallCount == 0)
+        #expect(voice.tearDownCallCount == 0)
+
+        service.tearDownCapture()
+
+        #expect(voice.isOwner(quickCapture))
+        #expect(voice.state == .recording)
+        #expect(voice.partialTranscript == "Quick Capture draft in progress")
+        #expect(voice.finalTranscripts == ["Quick Capture final pending"])
+        #expect(voice.stopCallCount == 0)
+        #expect(voice.tearDownCallCount == 0)
+    }
+
+    @Test("active Meeting rejects Quick Capture and ignores non-owner lifecycle calls")
+    func activeMeetingRejectsQuickCaptureAndNonOwnerLifecycleCalls() async {
+        let voice = FakeMeetingVoiceInput()
+        let service = MeetingNoteCaptureService(
+            voiceInput: voice,
+            isAutoStopOnSilenceEnabled: { false }
+        )
+        await service.start()
+        voice.partialTranscript = "Meeting transcript remains owned"
+        voice.finalTranscripts = ["Owned meeting final"]
+        let quickCapture = VoiceCaptureLease(purpose: .quickCapture)
+
+        let quickStart = await voice.start(owner: quickCapture)
+        voice.stop(owner: quickCapture)
+        let stolenTranscript = voice.consumeTranscript(owner: quickCapture)
+        voice.tearDown(owner: quickCapture)
+
+        #expect(quickStart == .busy(.meeting))
+        #expect(stolenTranscript == nil)
+        #expect(voice.activePurpose == .meeting)
+        #expect(voice.state == .recording)
+        #expect(voice.partialTranscript == "Meeting transcript remains owned")
+        #expect(voice.finalTranscripts == ["Owned meeting final"])
+        #expect(voice.stopCallCount == 0)
+        #expect(voice.tearDownCallCount == 0)
+
+        service.refreshFromVoiceInput()
+
+        #expect(service.state == .recording)
+        #expect(service.transcriptText == "Owned meeting final\n\nMeeting transcript remains owned")
+        #expect(voice.finalTranscripts.isEmpty)
+    }
+
+    @Test("teardown drains pending transcript and clears shared voice state")
+    func tearDownCaptureDrainsPendingTranscriptAndClearsVoiceState() async {
+        let voice = FakeMeetingVoiceInput()
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+        await service.start()
         voice.partialTranscript = "Live partial"
         voice.finalTranscripts = ["Final decision"]
         voice.modelDownloadProgress = 0.5
-        let service = MeetingNoteCaptureService(voiceInput: voice)
 
         service.tearDownCapture()
 
@@ -595,7 +733,17 @@ struct MeetingNoteCaptureServiceTests {
         #expect(source.contains("MeetingCaptureDiagnostics"))
         #expect(source.contains("statusMessage(for error: Error)"))
         #expect(source.contains("func tearDownCapture()"))
-        #expect(source.contains("voiceInput.tearDown()"))
+        #expect(source.contains("voiceInput.tearDown(owner:"))
+        let tearDownStart = try #require(source.range(of: "func tearDownCapture()")?.lowerBound)
+        let discardStart = try #require(source.range(of: "func discard()", range: tearDownStart..<source.endIndex)?.lowerBound)
+        let tearDownBody = source[tearDownStart..<discardStart]
+        let scopedStop = try #require(tearDownBody.range(of: "voiceInput.stop(owner: owner)")?.lowerBound)
+        let promotedDrain = try #require(tearDownBody.range(of: "voiceInput.consumeTranscript(owner: owner)")?.lowerBound)
+        let draftFlush = try #require(tearDownBody.range(of: "flushDraft()")?.lowerBound)
+        let scopedTearDown = try #require(tearDownBody.range(of: "voiceInput.tearDown(owner: owner)")?.lowerBound)
+        #expect(scopedStop < promotedDrain)
+        #expect(promotedDrain < draftFlush)
+        #expect(draftFlush < scopedTearDown)
         #expect(source.contains("let finalizeGeneration = UUID()"))
         #expect(source.contains("guard isCurrentCapture(finalizeGeneration) else"))
         #expect(source.contains("if isCurrentCapture(finalizeGeneration)"))
@@ -646,32 +794,83 @@ private final class FakeMeetingVoiceInput: MeetingVoiceInputProviding {
     var state: LiveVoiceInputService.State = .idle
     var partialTranscript = ""
     var modelDownloadProgress: Double?
+    var microphoneAccessDenied = false
     var finalTranscripts: [String] = []
     var stopCallCount = 0
     var tearDownCallCount = 0
     var onStart: (@MainActor () async -> Void)?
+    var nextStartResult: VoiceCaptureStartResult?
+    private var leaseRegistry = VoiceCaptureLeaseRegistry()
 
-    func start() async {
+    var activePurpose: VoiceCapturePurpose? {
+        leaseRegistry.activeLease?.purpose
+    }
+
+    func isOwner(_ owner: VoiceCaptureLease) -> Bool {
+        leaseRegistry.owns(owner)
+    }
+
+    func start(owner: VoiceCaptureLease) async -> VoiceCaptureStartResult {
+        switch leaseRegistry.reserve(owner) {
+        case .busy(let activePurpose):
+            return .busy(activePurpose)
+        case .acquired, .alreadyOwned:
+            break
+        }
+        state = .preparing
         if let onStart {
             await onStart()
-            return
         }
-        state = .recording
+        guard leaseRegistry.owns(owner) else {
+            nextStartResult = nil
+            state = .idle
+            return .cancelled
+        }
+        let result = nextStartResult ?? .started
+        nextStartResult = nil
+        switch result {
+        case .started:
+            state = .recording
+        case .busy(_):
+            leaseRegistry.release(owner)
+            state = .idle
+        case .permissionDenied(let message):
+            microphoneAccessDenied = true
+            state = .unavailable(message)
+        case .unavailable(let message):
+            state = .unavailable(message)
+        case .failed(let message):
+            state = .error(message)
+        case .cancelled:
+            state = .idle
+        }
+        return result
     }
 
-    func stop() {
+    func stop(owner: VoiceCaptureLease) {
+        guard leaseRegistry.owns(owner) else { return }
         stopCallCount += 1
+        let promoted = partialTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !promoted.isEmpty, finalTranscripts.last != promoted {
+            finalTranscripts.append(promoted)
+        }
+        partialTranscript = ""
         state = .idle
     }
 
-    func tearDown() {
+    func tearDown(owner: VoiceCaptureLease) {
+        guard leaseRegistry.owns(owner) else { return }
         tearDownCallCount += 1
+        leaseRegistry.release(owner)
         state = .idle
         partialTranscript = ""
+        modelDownloadProgress = nil
+        microphoneAccessDenied = false
         finalTranscripts.removeAll()
     }
 
-    func consumeTranscript() -> String? {
+    func consumeTranscript(owner: VoiceCaptureLease) -> String? {
+        guard leaseRegistry.owns(owner) else { return nil }
         guard !finalTranscripts.isEmpty else { return nil }
         return finalTranscripts.removeFirst()
     }

@@ -73,7 +73,7 @@ public final class EpistemosSpeechAnalyzer {
 
     public static let shared = EpistemosSpeechAnalyzer()
 
-    private let engine = AVAudioEngine()
+    private var engine: AVAudioEngine?
     private var inputContinuation: AsyncStream<AnalyzerInput>.Continuation?
     private var analyzer: SpeechAnalyzer?
     private var transcriber: SpeechTranscriber?
@@ -86,16 +86,23 @@ public final class EpistemosSpeechAnalyzer {
     private var analyzerFormat: AVAudioFormat?
     private var configChangeObserver: NSObjectProtocol?
     private var permissionMonitorTask: Task<Void, Never>?
+    private var activeSessionID: UUID?
     // MED-7 (audit 2026-07-03): counts audio buffers the input stream's bounded
     // buffer drops under backpressure so silently-lost audio → transcript gaps can be
     // surfaced. Lock-free (the real-time tap must never block); drained off-thread.
-    private let audioDropTracker = AudioDropTracker()
+    private var audioDropTracker: AudioDropTracker?
 
     private final class AudioDropTracker: @unchecked Sendable {
         private let dropped = Atomic<Int>(0)
         func recordDrop() { dropped.wrappingAdd(1, ordering: .relaxed) }
         func drain() -> Int { dropped.exchange(0, ordering: .relaxed) }
     }
+
+#if DEBUG
+    var hasAllocatedAudioEngineForTesting: Bool {
+        engine != nil
+    }
+#endif
 
     private init() {}
 
@@ -138,16 +145,22 @@ public final class EpistemosSpeechAnalyzer {
     /// the asset (a SwiftUI progress affordance can be wired via the
     /// `onModelDownload` callback).
     public func startLive(
+        sessionID: UUID,
         onModelDownload: ((Double) -> Void)? = nil
     ) async throws -> AsyncStream<LiveResult> {
-        stopInternal()
+        beginSession(sessionID)
+        var shouldTearDownOnExit = true
+        defer {
+            if shouldTearDownOnExit {
+                stopInternal(sessionID: sessionID)
+            }
+        }
+        try requireCurrentSession(sessionID)
 
-        // Ensure microphone permission (synchronous request via
-        // AVCaptureDevice; the SpeechAnalyzer-side asset request is
-        // separate).
         let permission = AVCaptureDevice.authorizationStatus(for: .audio)
         if permission == .notDetermined {
             let granted = await AVCaptureDevice.requestAccess(for: .audio)
+            try requireCurrentSession(sessionID)
             if !granted {
                 throw SpeechError.notAvailable(.microphonePermissionDenied)
             }
@@ -155,50 +168,53 @@ public final class EpistemosSpeechAnalyzer {
             throw SpeechError.notAvailable(.microphonePermissionDenied)
         }
 
-        // Build the transcriber + ensure the model is installed.
         let transcriber = SpeechTranscriber(
             locale: .current,
             preset: .progressiveTranscription
         )
-        if let request = try await AssetInventory.assetInstallationRequest(
+        let installationRequest = try await AssetInventory.assetInstallationRequest(
             supporting: [transcriber]
-        ) {
-            // Surface the download. AssetInstallationRequest exposes
-            // a Progress object; downstream UI can observe it via the
-            // callback.
+        )
+        try requireCurrentSession(sessionID)
+        if let request = installationRequest {
             onModelDownload?(0.0)
-            // RES-1 (audit 2026-07-03): observe the request's Progress so the UI shows a
-            // MOVING bar during the (potentially slow) first-run model download instead of
-            // a frozen 0% that reads as a hang. Poll on the MainActor (this class is
-            // @MainActor); the task is cancelled the moment the download resolves.
             let downloadProgress = request.progress
-            let progressTask = Task { @MainActor in
+            let progressTask = Task { @MainActor [weak self] in
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .milliseconds(200))
-                    guard !Task.isCancelled else { break }
+                    guard !Task.isCancelled,
+                          self?.activeSessionID == sessionID else { return }
                     onModelDownload?(downloadProgress.fractionCompleted)
                 }
             }
             do {
                 try await request.downloadAndInstall()
                 progressTask.cancel()
+                try requireCurrentSession(sessionID)
                 onModelDownload?(1.0)
+            } catch is CancellationError {
+                progressTask.cancel()
+                throw SpeechError.streamCancelled
             } catch {
                 progressTask.cancel()
+                try requireCurrentSession(sessionID)
                 throw SpeechError.downloadFailed(
                     VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "model download failed")
                 )
             }
         }
-        self.transcriber = transcriber
+        try requireCurrentSession(sessionID)
 
+        let engine = AVAudioEngine()
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
         guard let analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(
             compatibleWith: [transcriber],
             considering: inputFormat
         ) else {
+            try requireCurrentSession(sessionID)
             throw SpeechError.audioFormatUnavailable
         }
+        try requireCurrentSession(sessionID)
         guard let bufferConverter = SpeechAnalyzerAudioBufferConverter(
             inputFormat: inputFormat,
             outputFormat: analyzerFormat
@@ -206,161 +222,170 @@ public final class EpistemosSpeechAnalyzer {
             throw SpeechError.audioFormatUnavailable
         }
 
-        // Wire the analyzer input stream. SpeechAnalyzer expects buffers
-        // in its best available format; raw mic tap buffers can SIGTRAP
-        // inside Speech.framework on macOS 26 if forwarded directly.
-        let (inputStream, inputCont) = AsyncStream<AnalyzerInput>
-            .makeStream(bufferingPolicy: .bufferingNewest(64))
-        self.inputContinuation = inputCont
-
         let analyzer = SpeechAnalyzer(modules: [transcriber])
         try await analyzer.prepareToAnalyze(in: analyzerFormat)
-        self.analyzer = analyzer
+        try requireCurrentSession(sessionID)
 
-        // Drain transcriber.results into the public LiveResult stream.
+        let (inputStream, inputCont) = AsyncStream<AnalyzerInput>
+            .makeStream(bufferingPolicy: .bufferingNewest(64))
         let (resultsStream, resultsCont) = AsyncStream<LiveResult>
             .makeStream(bufferingPolicy: .bufferingNewest(256))
-        // CONC-5 (hardening 2026-07-02): honor the documented "stop by cancelling
-        // the consuming Task" contract. Without this, a consumer that stops
-        // iterating leaves the mic tap + AVAudioEngine + analyzer running — the
-        // system mic indicator stays lit and the meeting keeps recording until an
-        // explicit stop(). onTermination fires on consumer-cancel AND on natural
-        // finish; stopInternal() is @MainActor and idempotent, so the redundant
-        // call on the normal stop() path is a safe no-op.
+        let dropTracker = AudioDropTracker()
+
+        self.transcriber = transcriber
+        self.engine = engine
+        self.inputContinuation = inputCont
+        self.analyzer = analyzer
+        self.analyzerFormat = analyzerFormat
+        self.bufferConverter = bufferConverter
+        self.audioDropTracker = dropTracker
+
         resultsCont.onTermination = { [weak self] _ in
-            Task { @MainActor in self?.stopInternal() }
+            Task { @MainActor in
+                self?.stopInternal(sessionID: sessionID)
+            }
         }
-        self.resultsTask = Task {
+        self.resultsTask = Task { @MainActor [weak self] in
             do {
-                for try await r in transcriber.results {
-                    let text = String(r.text.characters)
-                    if r.isFinal {
+                for try await result in transcriber.results {
+                    guard self?.activeSessionID == sessionID, !Task.isCancelled else { break }
+                    let text = String(result.text.characters)
+                    if result.isFinal {
                         resultsCont.yield(.final(text: text))
                     } else {
                         resultsCont.yield(.partial(text: text))
                     }
                 }
             } catch {
-                let message = VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "transcriber results failed")
-                Self.log.warning(
-                    "\(message, privacy: .public)"
+                let message = VoiceCaptureDiagnostics.externalErrorDescription(
+                    error,
+                    fallback: "transcriber results failed"
                 )
+                Self.log.warning("\(message, privacy: .public)")
             }
             resultsCont.finish()
         }
 
-        // Kick off the analyze task. SpeechAnalyzer drains the input
-        // sequence on its own queue; analyzeSequence returns when the
-        // input stream is finished.
-        self.analyzeTask = Task {
+        self.analyzeTask = Task { @MainActor [weak self] in
+            guard self?.activeSessionID == sessionID, !Task.isCancelled else { return }
             do {
                 try await analyzer.start(inputSequence: inputStream)
             } catch {
-                let message = VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "speech analysis failed")
-                Self.log.warning(
-                    "\(message, privacy: .public)"
+                let message = VoiceCaptureDiagnostics.externalErrorDescription(
+                    error,
+                    fallback: "speech analysis failed"
                 )
+                Self.log.warning("\(message, privacy: .public)")
             }
         }
 
-        // Retain the analyzer format + converter so the input tap can be re-armed
-        // against a NEW input format after an audio route change.
-        self.analyzerFormat = analyzerFormat
-        self.bufferConverter = bufferConverter
-
-        // Audio engine: installTap on input bus, push each buffer
-        // into the AsyncStream wrapped as AnalyzerInput.
-        installInputTap(converter: bufferConverter, continuation: inputCont, inputFormat: inputFormat)
+        installInputTap(
+            on: engine,
+            converter: bufferConverter,
+            continuation: inputCont,
+            inputFormat: inputFormat,
+            dropTracker: dropTracker
+        )
         do {
             try engine.start()
         } catch {
-            stopInternal()
+            stopInternal(sessionID: sessionID)
             throw SpeechError.audioEngineFailed(
                 VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "audio engine failed")
             )
         }
 
-        // HIGH (audit 2026-07-03): re-arm the input tap when the audio route
-        // changes (AirPods connect/disconnect, device switch). Without this the
-        // engine stops, the tap dies, and transcription silently ends while the UI
-        // still shows "recording" — a lost meeting. The analyzer + accumulated
-        // transcript stay alive; only the audio input is rebuilt for the new format.
         configChangeObserver = NotificationCenter.default.addObserver(
-            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.rearmInputTapAfterConfigurationChange() }
+            MainActor.assumeIsolated {
+                guard self?.activeSessionID == sessionID else { return }
+                self?.rearmInputTapAfterConfigurationChange(sessionID: sessionID)
+            }
         }
 
-        // MED-5 (audit 2026-07-03): mic permission can be revoked mid-meeting; the
-        // engine keeps "running" but the tap goes silent, so the UI keeps showing
-        // "recording" with no audio captured. Poll authorization while capturing and
-        // stop (ending the results stream) if it's revoked, so the stall isn't silent —
-        // the meeting ends and the user can re-grant permission and restart.
         permissionMonitorTask = Task { @MainActor [weak self] in
-            var rearmAttempts = 0  // RES-4: give up after several consecutive failed rearms
+            var rearmAttempts = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(4))
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled,
+                      let self,
+                      self.activeSessionID == sessionID else { return }
                 let status = AVCaptureDevice.authorizationStatus(for: .audio)
                 if status == .denied || status == .restricted {
                     Self.log.warning("microphone permission revoked mid-capture; stopping")
-                    self?.stopInternal()
+                    self.stopInternal(sessionID: sessionID)
                     return
                 }
-                // MED-6 (audit 2026-07-03): an interruption (Siri, a screen-share audio
-                // grab) can stop the engine WITHOUT posting an AVAudioEngineConfiguration
-                // Change, so the #28 observer wouldn't fire and transcription would die
-                // silently. If we're still meant to be capturing but the engine stopped,
-                // re-arm it (rearm handles its own errors, so a permanently-gone device
-                // just retries every few seconds rather than looping tightly).
-                if let self, self.didInstallInputTap, !self.engine.isRunning {
+                if let engine = self.engine,
+                   self.didInstallInputTap,
+                   !engine.isRunning {
                     rearmAttempts += 1
                     if rearmAttempts >= 3 {
-                        // RES-4 (audit 2026-07-03): audio input couldn't be restored after
-                        // several attempts (device physically removed?) — stop instead of
-                        // looping forever behind a "Recording" indicator that's lying. Ending
-                        // the stream stops the meeting so the user can restart.
                         Self.log.error("audio engine could not be restarted after \(rearmAttempts) attempts; stopping capture")
-                        self.stopInternal()
+                        self.stopInternal(sessionID: sessionID)
                         return
                     }
                     Self.log.warning("audio engine stopped unexpectedly (interruption?); re-arming (attempt \(rearmAttempts))")
-                    self.rearmInputTapAfterConfigurationChange()
+                    self.rearmInputTapAfterConfigurationChange(sessionID: sessionID)
                 } else {
-                    rearmAttempts = 0  // engine healthy again → reset the give-up counter
+                    rearmAttempts = 0
                 }
-                // MED-7: surface any audio dropped by backpressure since the last tick
-                // (off the render thread) so a resulting transcript gap isn't invisible.
-                if let dropped = self?.audioDropTracker.drain(), dropped > 0 {
+                let dropped = dropTracker.drain()
+                if dropped > 0 {
                     Self.log.warning("\(dropped) audio buffer(s) dropped under backpressure — possible transcript gap")
                 }
             }
         }
 
+        try requireCurrentSession(sessionID)
         Self.log.info("live transcription started")
+        shouldTearDownOnExit = false
         return resultsStream
     }
 
     /// Stop the live transcription and tear down the audio engine +
     /// analyzer. Safe to call multiple times; subsequent calls no-op.
-    public func stop() {
-        stopInternal()
+    public func stop(sessionID: UUID) {
+        stopInternal(sessionID: sessionID)
     }
 
-    private func stopInternal() {
+    private func beginSession(_ sessionID: UUID) {
+        if let activeSessionID {
+            stopInternal(sessionID: activeSessionID)
+        }
+        activeSessionID = sessionID
+    }
+
+    private func requireCurrentSession(_ sessionID: UUID) throws {
+        guard activeSessionID == sessionID, !Task.isCancelled else {
+            throw SpeechError.streamCancelled
+        }
+    }
+
+    private func stopInternal(sessionID: UUID) {
+        guard activeSessionID == sessionID else { return }
+        activeSessionID = nil
+        tearDownCurrentResources()
+    }
+
+    private func tearDownCurrentResources() {
         if let observer = configChangeObserver {
             NotificationCenter.default.removeObserver(observer)
             configChangeObserver = nil
         }
         permissionMonitorTask?.cancel()
         permissionMonitorTask = nil
-        if engine.isRunning {
+        if let engine, engine.isRunning {
             engine.stop()
         }
         if didInstallInputTap {
-            engine.inputNode.removeTap(onBus: 0)
+            engine?.inputNode.removeTap(onBus: 0)
             didInstallInputTap = false
         }
+        engine = nil
         inputContinuation?.finish()
         inputContinuation = nil
         resultsTask?.cancel()
@@ -371,6 +396,7 @@ public final class EpistemosSpeechAnalyzer {
         transcriber = nil
         bufferConverter = nil
         analyzerFormat = nil
+        audioDropTracker = nil
         Self.log.info("live transcription stopped")
     }
 
@@ -380,13 +406,12 @@ public final class EpistemosSpeechAnalyzer {
     /// captures only the (Sendable) converter + continuation — never `self` — so
     /// it adds no retain cycle with the engine.
     private func installInputTap(
+        on engine: AVAudioEngine,
         converter: SpeechAnalyzerAudioBufferConverter,
         continuation: AsyncStream<AnalyzerInput>.Continuation,
-        inputFormat: AVAudioFormat
+        inputFormat: AVAudioFormat,
+        dropTracker: AudioDropTracker
     ) {
-        // Bound to a local so the render-thread tap captures only Sendable values
-        // (converter, continuation, tracker) — never `self`.
-        let dropTracker = audioDropTracker
         engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { buffer, _ in
             guard let input = converter.makeAnalyzerInput(from: buffer) else { return }
             // MED-7: if the bounded input buffer drops this frame (backpressure), count
@@ -400,12 +425,16 @@ public final class EpistemosSpeechAnalyzer {
 
     /// Re-arm the mic tap after `.AVAudioEngineConfigurationChange` (route change).
     /// Rebuilds the converter for the NEW input format and restarts the engine,
-    /// keeping the analyzer + accumulated transcript alive. Degrades to a logged
-    /// error (never a crash) if the new format can't be converted.
-    private func rearmInputTapAfterConfigurationChange() {
-        guard didInstallInputTap,
+    /// keeping the analyzer + accumulated transcript alive. Stops the scoped
+    /// capture if the new format cannot be converted, so the UI cannot remain in
+    /// a false recording state with no installed input tap.
+    private func rearmInputTapAfterConfigurationChange(sessionID: UUID) {
+        guard activeSessionID == sessionID,
+              didInstallInputTap,
+              let engine,
               let analyzerFormat,
-              let continuation = inputContinuation else { return }
+              let continuation = inputContinuation,
+              let dropTracker = audioDropTracker else { return }
         Self.log.info("audio configuration changed; re-arming input tap")
         if engine.isRunning { engine.stop() }
         engine.inputNode.removeTap(onBus: 0)
@@ -416,36 +445,23 @@ public final class EpistemosSpeechAnalyzer {
             outputFormat: analyzerFormat
         ) else {
             Self.log.error("could not rebuild audio converter after configuration change")
+            stopInternal(sessionID: sessionID)
             return
         }
         bufferConverter = converter
-        installInputTap(converter: converter, continuation: continuation, inputFormat: inputFormat)
+        installInputTap(
+            on: engine,
+            converter: converter,
+            continuation: continuation,
+            inputFormat: inputFormat,
+            dropTracker: dropTracker
+        )
         do {
             try engine.start()
             Self.log.info("audio input re-armed after configuration change")
         } catch {
             let message = VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "audio engine failed")
             Self.log.error("\(message, privacy: .public)")
-        }
-    }
-
-    // MARK: - Route-change handling
-    //
-    // Wave 13 §"Phase 11" gotcha: AirPods connect/disconnect mid-
-    // stream changes the input format. The audio engine emits
-    // `configurationChangeNotification`; the public surface re-opens
-    // the stream automatically. Callers can subscribe to know they
-    // should drop their accumulated partial text.
-
-    public func observeRouteChanges(_ handler: @escaping @Sendable () -> Void) {
-        let routeChangeLog = Self.log
-        NotificationCenter.default.addObserver(
-            forName: .AVAudioEngineConfigurationChange,
-            object: engine,
-            queue: .main
-        ) { _ in
-            routeChangeLog.info("audio route changed; caller should restart capture")
-            handler()
         }
     }
 }

@@ -114,7 +114,7 @@ nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
     )
 
     static func load(
-        userDefaults: UserDefaults = .standard,
+        userDefaults: UserDefaults = FoundationSafety.runtimeUserDefaults,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> EpistemosRuntimeFeatureFlags {
         EpistemosRuntimeFeatureFlags(

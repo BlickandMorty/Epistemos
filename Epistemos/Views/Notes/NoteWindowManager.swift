@@ -296,7 +296,7 @@ final class NoteWindowManager {
     /// Open a note by ID — fetches the page, highlights in sidebar, opens as tab.
     /// Single entry point for sidebar / command palette note opens.
     /// Wikilink navigation uses NoteNavigationState.push() instead.
-    func open(pageId: String, initialMode: NoteWorkspaceMode = .document) {
+    func open(pageId: String, initialMode: NoteWorkspaceMode = .defaultMarkdown) {
         guard let bootstrap = AppBootstrap.shared else { return }
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
@@ -361,7 +361,7 @@ final class NoteWindowManager {
     // MARK: - Tab Windows
 
     /// Open a note in a new tab window. If already open, bring to front.
-    func openWindow(for page: SDPage, initialMode: NoteWorkspaceMode = .document) {
+    func openWindow(for page: SDPage, initialMode: NoteWorkspaceMode = .defaultMarkdown) {
         // If window already exists for this page, bring to front
         if let existing = windows[page.id], existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
@@ -391,7 +391,11 @@ final class NoteWindowManager {
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.minSize = Self.noteMinimumFrameSize
-        window.setFrameAutosaveName("note-\(page.id)")
+        if let autosaveName = FoundationSafety.runtimeWindowFrameAutosaveName(
+            "note-\(page.id)"
+        ) {
+            window.setFrameAutosaveName(autosaveName)
+        }
         normalizeNoteWindowFrame(window)
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
         window.tabbingMode = .preferred
@@ -489,10 +493,10 @@ final class NoteWindowManager {
             activeUserActivity?.resignCurrent()
             activeUserActivity = nil
         }
-        // Only record close activity for real note pages — browser/version tabs use
-        // synthetic keys ("browser-…"/"version-…") that were never recorded as opened,
+        // Only record close activity for real note pages — version tabs use
+        // synthetic keys ("version-…") that were never recorded as opened,
         // so a matching close event would just add noise to the activity digest.
-        if !pageId.hasPrefix("browser-") && !pageId.hasPrefix("version-") {
+        if !pageId.hasPrefix("version-") {
             AppBootstrap.shared?.activityTracker.recordNoteClosed(pageId: pageId, title: window.title)
         }
     }
@@ -565,29 +569,27 @@ final class NoteWindowManager {
             "Opened version tab: \(windowTitle, privacy: .public) (\(dateStr, privacy: .public))")
     }
 
-    /// Open the in-app browser as a TAB that shares the note-workspace window,
-    /// exactly like HTMLWorkspace / code-editor windows do (owner request
-    /// 2026-07-03). The browser joins the note tab strip so browsing lives right
-    /// alongside notes instead of being a separate home page.
-    func openBrowserTab(url: String? = nil) {
-        guard ProductCapabilityPolicy.isAvailable(.browser) else {
-            if let url, let externalURL = URL(string: url) {
-                NSWorkspace.shared.open(externalURL)
-            }
+    /// Hosts the same Metal-backed graph experience inside the native Notes
+    /// tab group. This is the explicit Multitask Graph destination; it does
+    /// not create a third graph renderer or the retired frameless overlay.
+    func openGraphTab() {
+        let key = "graph-multitask"
+        if let existing = windows[key], existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
             return
         }
         guard let bootstrap = AppBootstrap.shared else { return }
 
-        let view = BrowserView(initialAddress: url)
+        let view = HomeGraphEmbeddedView(host: .multitask)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
         let hostingController = NSHostingController(rootView: view)
+        hostingController.sceneBridgingOptions = [.all]
 
         let window = NSWindow(
-            // Owner 2026-07-03: open at the note default size (not a smaller 900x680)
-            // so the browser doesn't start compressed / snap on first resize.
             contentRect: NSRect(
-                x: 0, y: 0,
+                x: 0,
+                y: 0,
                 width: Self.noteDefaultFrameSize.width,
                 height: Self.noteDefaultFrameSize.height
             ),
@@ -595,7 +597,7 @@ final class NoteWindowManager {
             backing: .buffered,
             defer: false
         )
-        window.title = "Browser"
+        window.title = "Multitask Graph"
         window.contentViewController = NoteWindowThemeStyler.themedContentController(
             hostingController: hostingController,
             uiState: bootstrap.uiState
@@ -604,22 +606,21 @@ final class NoteWindowManager {
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.minSize = Self.noteMinimumFrameSize
-        window.setFrameAutosaveName("epistemos-browser-tab")
+        if let autosaveName = FoundationSafety.runtimeWindowFrameAutosaveName(
+            "epistemos-multitask-graph-tab"
+        ) {
+            window.setFrameAutosaveName(autosaveName)
+        }
         normalizeNoteWindowFrame(window)
-
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
         NoteWindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
-
-        // Join the note tab group so the browser shares the notes window.
         window.tabbingMode = .preferred
         window.tabbingIdentifier = Self.noteTabbingIdentifier
         if let existingWindow = Self.firstAvailableNoteTabGroupWindow(excluding: window) {
             existingWindow.addTabbedWindow(window, ordered: .above)
         }
-        window.makeKeyAndOrderFront(nil)
 
-        let key = "browser-\(UUID().uuidString)"
         let observer = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: window,
@@ -632,8 +633,17 @@ final class NoteWindowManager {
         }
         observers[key] = observer
         windows[key] = window
+        window.makeKeyAndOrderFront(nil)
+        Self.log.info("Opened Multitask Graph in the note-workspace tab group")
+    }
 
-        Self.log.info("Opened browser tab in the note-workspace window")
+    func closeGraphTab() {
+        windows["graph-multitask"]?.close()
+    }
+
+    var isGraphTabOpen: Bool {
+        guard let window = windows["graph-multitask"] else { return false }
+        return window.isVisible || window.isMiniaturized
     }
 
     /// Sync appearance of all note windows to the current theme.
@@ -788,7 +798,7 @@ private struct NoteTabShell: View {
     @State private var navState: NoteNavigationState
     let initialMode: NoteWorkspaceMode
 
-    init(pageId: String, pageTitle: String, initialMode: NoteWorkspaceMode = .document) {
+    init(pageId: String, pageTitle: String, initialMode: NoteWorkspaceMode = .defaultMarkdown) {
         self.initialMode = initialMode
         _navState = State(
             initialValue: NoteNavigationState(
@@ -799,7 +809,7 @@ private struct NoteTabShell: View {
     var body: some View {
         NoteDetailWorkspaceView(
             pageId: navState.currentPageId,
-            initialMode: navState.currentPageId == navState.rootPageId ? initialMode : .document
+            initialMode: navState.currentPageId == navState.rootPageId ? initialMode : .defaultMarkdown
         )
             .id(navState.currentPageId)
             .environment(navState)

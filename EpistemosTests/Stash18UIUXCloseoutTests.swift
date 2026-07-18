@@ -27,10 +27,9 @@ struct Stash18UIUXCloseoutTests {
         #expect(doc.contains("no\nlonger an active product-recovery queue item"))
     }
 
-    @Test("current fused surfaces stay present instead of raw stash downgrade")
-    func currentFusedSurfacesStayPresent() {
+    @Test("retained fused surfaces stay present instead of raw stash downgrade")
+    func retainedFusedSurfacesStayPresent() {
         let requiredCurrentFiles = [
-            "Epistemos/Views/Landing/Farm/LandingFarmView.swift",
             "Epistemos/Views/Graph/GraphFPSHUD.swift",
             "Epistemos/Views/Notes/EditableTransclusionView.swift",
         ]

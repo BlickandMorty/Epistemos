@@ -100,16 +100,7 @@ enum DataDetectionService {
                 NSWorkspace.shared.open(url)
             }
         case .link(let url):
-            // #12 (owner 2026-07-03): web links open in the in-app THEMED browser
-            // tab (palette + pixel headings, saveable to notes) instead of the
-            // system browser. Other schemes (mailto/tel/geo/etc.) still hand off.
-            if url.scheme == "http" || url.scheme == "https" {
-                Task { @MainActor in
-                    NoteWindowManager.shared.openBrowserTab(url: url.absoluteString)
-                }
-            } else {
-                NSWorkspace.shared.open(url)
-            }
+            NSWorkspace.shared.open(url)
         }
     }
 

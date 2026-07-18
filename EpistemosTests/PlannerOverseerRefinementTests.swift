@@ -120,18 +120,4 @@ struct PlannerOverseerRefinementTests {
         #expect(executionPlan.plan.depthBudget.maxToolCalls == 8)
     }
 
-    @Test("placeholder mask predictor fails closed")
-    func placeholderMaskPredictorFailsClosed() async {
-        let predictor = PlaceholderMaskPredictor()
-
-        let result = await predictor.predict(instruction: "Apply a learned sparse mask to the reasoning layers")
-
-        #expect(predictor.isAvailable == false)
-        switch result {
-        case .failure(.predictorUnavailable):
-            break
-        default:
-            Issue.record("Expected predictorUnavailable failure, got \(result)")
-        }
-    }
 }

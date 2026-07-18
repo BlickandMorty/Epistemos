@@ -72,7 +72,8 @@ struct AppStoreHardeningTests {
             "AtomicVaultWriter must atomically replace the vault file after the full temp buffer is synced."
         )
         #expect(
-            coordinatedWrite?.contains("try await AtomicVaultWriter.shared.write(content, to: url)") == true,
+            coordinatedWrite?.contains("try await AtomicVaultWriter.shared.write(") == true
+                && coordinatedWrite?.contains("ifCurrentMatches: expectedBaseline") == true,
             "VaultIndexActor.exportPage must route vault-file writeback through AtomicVaultWriter, not NoteFileStorage.writeTextAtomically or direct Data/String writes."
         )
         #expect(
@@ -429,35 +430,14 @@ struct AppStoreHardeningTests {
         )
     }
 
-    @Test("Vault lifecycle graph writes use AtomicVaultWriter")
-    func vaultLifecycleGraphWritesUseAtomicVaultWriter() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Vault/VaultLifecycleService.swift")
-        let sessionGraph = Self.sourceSection(
-            in: source,
-            startingAt: "nonisolated func generateSessionGraphLocal",
-            endingBefore: "nonisolated func generate_session_graph"
-        )
-        let vaultGraph = Self.sourceSection(
-            in: source,
-            startingAt: "nonisolated func merge_vault_graph",
-            endingBefore: "nonisolated func detectVaultContradictionsLocal"
-        )
+    @Test("retired vault lifecycle graph writer remains physically absent")
+    func retiredVaultLifecycleGraphWriterRemainsPhysicallyAbsent() {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/Vault/VaultLifecycleService.swift")
 
-        #expect(
-            sessionGraph?.contains("try AtomicVaultWriter.writeSynchronously(json, to: folderURL.appendingPathComponent(\"graph.json\"))") == true
-                && sessionGraph?.contains("try AtomicVaultWriter.writeSynchronously(\n        graphReport(for: graph, sessionID: sessionID),") == true,
-            "VaultLifecycleService must write session graph files through the coordinated temp-replace spine."
-        )
-        #expect(
-            vaultGraph?.contains("try AtomicVaultWriter.writeSynchronously(String(decoding: data, as: UTF8.self), to: outputURL)") == true,
-            "VaultLifecycleService must write vault_graph.json through the coordinated temp-replace spine."
-        )
-        #expect(
-            sessionGraph?.contains(".write(to:") == false
-                && sessionGraph?.contains("atomically: true") == false
-                && vaultGraph?.contains(".write(to:") == false,
-            "Vault lifecycle graph outputs must not use direct Data.write/String.write APIs."
-        )
+        #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
     }
 
     @Test("AtomicVaultWriter writes whole vault buffers through the coordinated durable path")
@@ -480,31 +460,6 @@ struct AppStoreHardeningTests {
         let binary = Data([0x00, 0x45, 0x50, 0x49, 0xFF, 0x10])
         try await AtomicVaultWriter.shared.write(binary, to: target)
         #expect(try Data(contentsOf: target) == binary)
-    }
-
-    @Test("VaultNoteEditor production seam uses coordinated vault IO")
-    func vaultNoteEditorProductionSeamUsesCoordinatedVaultIO() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Engine/VaultNoteEditor.swift")
-        let fileSystem = Self.sourceSection(
-            in: source,
-            startingAt: "static func fileSystem()",
-            endingBefore: "    /// Apply `edits` atomically"
-        )
-
-        #expect(
-            fileSystem?.contains("try Self.coordinatedRead(url)") == true
-                && source.contains("NSFileCoordinator(filePresenter: nil)"),
-            "VaultNoteEditor.fileSystem() must coordinate reads from user-selected vault files."
-        )
-        #expect(
-            fileSystem?.contains("AtomicVaultWriter.shared.write(content, to: url)") == true,
-            "VaultNoteEditor.fileSystem() must write vault files through AtomicVaultWriter, not String.write/Data.write."
-        )
-        #expect(
-            fileSystem?.contains("String(contentsOf:") == false
-                && fileSystem?.contains(".write(to: url") == false,
-            "VaultNoteEditor.fileSystem() must not directly read/write vault files with Foundation convenience APIs."
-        )
     }
 
     @Test("kill -9 during same-volume vault replacement never leaves a partial note")
@@ -758,63 +713,6 @@ struct AppStoreHardeningTests {
         )
     }
 
-    @Test("Experimental backend quit cleanup reaps process trees across 100 cycles")
-    func experimentalBackendQuitReapsProcessTreeForHundredCycleSoak() throws {
-        let supervisor = try loadMirroredSourceTextFile("Epistemos/ExperimentalAgent/ExperimentalRuntimeSupervisor.swift")
-        let appDelegate = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
-
-        #expect(
-            supervisor.contains("AppBootstrap.shared?.orphanCleanup.track(process)"),
-            "Experimental backend processes must be registered with OrphanSubprocessCleanup so app termination owns their process tree."
-        )
-        #expect(
-            supervisor.contains("cleanupProcessTree(rootPID: pid)"),
-            "ExperimentalRuntimeSupervisor.stop() must terminate the backend process tree, not only the root Process object."
-        )
-        #expect(
-            supervisor.contains("AgentSurfaceChildLedger.forget(pid: pid)"),
-            "Experimental backend cleanup must clear the crash-orphan ledger when the process exits or is deliberately stopped."
-        )
-        #expect(
-            appDelegate.contains("ExperimentalRuntimeSupervisor.shared.stop()"),
-            "EpistemosAppDelegate.performTeardown must stop the Experimental backend during app quit."
-        )
-
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        return
-        #else
-        let cleanup = OrphanSubprocessCleanup()
-        for cycle in 0..<100 {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/sh")
-            process.arguments = ["-c", "sleep 60 & wait"]
-            process.standardOutput = Pipe()
-            process.standardError = Pipe()
-            try process.run()
-            let rootPID = pid_t(process.processIdentifier)
-            cleanup.track(process)
-            defer {
-                cleanup.cleanupProcessTree(rootPID: rootPID)
-                cleanup.untrack(rootPID)
-            }
-
-            let childPIDs = try Self.waitForChildPIDs(of: rootPID, timeout: 1.0)
-            cleanup.cleanupProcessTree(rootPID: rootPID)
-            if process.isRunning {
-                process.terminate()
-            }
-            process.waitUntilExit()
-            cleanup.untrack(rootPID)
-
-            try Self.waitForPIDExit(rootPID, timeout: 1.0)
-            for childPID in childPIDs {
-                let message: Comment = "Cycle \(cycle): child PID \(childPID) survived Experimental quit cleanup."
-                #expect(try Self.waitForPIDExit(childPID, timeout: 1.0), message)
-            }
-        }
-        #endif
-    }
-
     @Test("iCloud materialization is async metadata-query based, never Thread.sleep polling")
     func iCloudMaterializerUsesAsyncMetadataQuery() throws {
         let materializer = try loadMirroredSourceTextFile("Epistemos/Sync/iCloudMaterializer.swift")
@@ -1007,14 +905,16 @@ struct AppStoreHardeningTests {
         #expect(
             fileFirstSave?.contains("NoteFileStorage.stageBodyForImmediateRead") == true
                 && fileFirstSave?.contains("page.applyInteractiveDerivedState(from: stagedBody)") == true
-                && fileFirstSave?.contains("scheduleBlockMirrorSync(pageId: pageId, body: stagedBody)") == true
-                && fileFirstSave?.contains("exportPage(pageId: pageId, to: vaultURL, bodyOverride: stagedBody)") == true,
+                && fileFirstSave?.contains("publishCommittedPageDerivedState(page: page, body: stagedBody)") == true
+                && fileFirstSave?.contains("let result = try await exportPage(") == true
+                && fileFirstSave?.contains("indexForSearch: false") == true
+                && fileFirstSave?.contains("initialMutationFingerprint == pageBodyMutationFingerprint(for: page)") == true,
             "The in-app body save path must stage only for immediate reads, refresh derived metadata, and write the exact whole buffer to the vault .md."
         )
         #expect(
             fileFirstSave?.contains("let predecessor = fileFirstSaveTails[pageId]") == true
                 && fileFirstSave?.contains("_ = await predecessor.value") == true
-                && fileFirstSave?.contains("performPageBodyFileFirstSave(pageId: pageId, body: body)") == true,
+                && fileFirstSave?.contains("generation: generation") == true,
             "Every file-first writer for one note must serialize the complete transaction before the next lens/caller begins."
         )
         #expect(
@@ -1965,8 +1865,8 @@ struct AppStoreHardeningTests {
         )
     }
 
-    @Test("Experimental agent surface is compile-parked in MAS source")
-    func experimentalAgentSurfaceIsCompileParkedInMASSource() throws {
+    @Test("Experimental agent sources are compile-parked and the retired supervisor is absent")
+    func experimentalAgentSourcesAreParkedAndRetiredSupervisorIsAbsent() throws {
         let parkedExperimentalFiles = [
             "Epistemos/ExperimentalAgent/ExperimentalGlassHostView.swift",
             "Epistemos/ExperimentalAgent/ExperimentalHostBridge.swift",
@@ -1990,36 +1890,13 @@ struct AppStoreHardeningTests {
             #expect(lastLine == "#endif", "\(path) must close the Experimental MAS exclusion guard at EOF.")
         }
 
-        let supervisor = try loadMirroredSourceTextFile("Epistemos/ExperimentalAgent/ExperimentalRuntimeSupervisor.swift")
-        let hostBridge = try loadMirroredSourceTextFile("Epistemos/ExperimentalAgent/ExperimentalHostBridge.swift")
         #expect(
-            supervisor.contains("#if EPISTEMOS_EXPERIMENTAL && (EPISTEMOS_APP_STORE || MAS_SANDBOX)")
-                && supervisor.contains("#error(\"EPISTEMOS_EXPERIMENTAL is a Developer-ID lane and must never coexist with App Store or MAS_SANDBOX builds\")")
-                && supervisor.contains("#if EPISTEMOS_EXPERIMENTAL && !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"),
-            "ExperimentalRuntimeSupervisor must fail impossible Experimental+MAS macro combinations and compile-park the implementation for MAS."
-        )
-        #expect(
-            supervisor.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("#endif"),
-            "ExperimentalRuntimeSupervisor.swift must close its Experimental MAS exclusion guard at EOF."
-        )
-        #expect(
-            supervisor.contains("private struct ExperimentalSpawnBox")
-                && supervisor.contains("let process = Process()")
-                && supervisor.contains("tar.executableURL = URL(fileURLWithPath: \"/usr/bin/tar\")")
-                && hostBridge.contains("URLSessionWebSocketTask"),
-            "Experimental process, tar unpacking, and host WebSocket markers should remain only inside the Experimental direct-lane guard."
-        )
-
-        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
-        let experimentalTeardownSection = Self.sourceSection(
-            in: app,
-            startingAt: "#if EPISTEMOS_EXPERIMENTAL && !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
-            endingBefore: "\n        guard let bootstrap"
-        )
-        #expect(
-            experimentalTeardownSection?.contains("ExperimentalRuntimeSupervisor.shared.stop()") == true
-                && experimentalTeardownSection?.contains("#endif") == true,
-            "EpistemosApp teardown must not reference the Experimental runtime supervisor in either App Store build flag."
+            !FileManager.default.fileExists(
+                atPath: try sourceMirrorURL(
+                    for: "Epistemos/ExperimentalAgent/ExperimentalRuntimeSupervisor.swift"
+                ).path
+            ),
+            "The retired ExperimentalRuntimeSupervisor source must remain absent rather than be restored for a stale legacy guard."
         )
     }
 
@@ -2506,50 +2383,6 @@ struct AppStoreHardeningTests {
             usleep(10_000)
         }
         throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: url.path])
-    }
-
-    private static func waitForChildPIDs(of rootPID: pid_t, timeout: TimeInterval) throws -> [pid_t] {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            let pids = childPIDs(of: rootPID)
-            if !pids.isEmpty {
-                return pids
-            }
-            usleep(10_000)
-        }
-        throw POSIXError(.ECHILD)
-    }
-
-    @discardableResult
-    private static func waitForPIDExit(_ pid: pid_t, timeout: TimeInterval) throws -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if !pidIsAlive(pid) {
-                return true
-            }
-            usleep(10_000)
-        }
-        return !pidIsAlive(pid)
-    }
-
-    private static func pidIsAlive(_ pid: pid_t) -> Bool {
-        guard pid > 0 else { return false }
-        if kill(pid, 0) == 0 { return true }
-        return errno == EPERM
-    }
-
-    private static func childPIDs(of parentPID: pid_t) -> [pid_t] {
-        var capacity = 8
-        while true {
-            var buffer = Array(repeating: pid_t(0), count: capacity)
-            let bufferSize = buffer.count * MemoryLayout<pid_t>.stride
-            let childCount = Int(proc_listchildpids(parentPID, &buffer, Int32(bufferSize)))
-            guard childCount > 0 else { return [] }
-            if childCount < capacity {
-                return Array(buffer.prefix(childCount))
-            }
-            capacity *= 2
-        }
     }
 
     // MARK: - Per-file MAS-branch subprocess-launch regressions (Phase S.2)

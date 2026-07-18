@@ -18,6 +18,26 @@ and bundled WKWebView assets. No hidden sidecar, runtime subprocess, local
 server, terminal/code-exec tool, stdio MCP, Node backend, or browser-use
 Chromium path belongs to the active MAS plan.
 
+## Free V1 Primary-Product Physical Removal Mandate — 2026-07-16
+
+The owner has superseded older June/agent direction for the current primary
+Free V1 build. Free V1 must be **fully and physically rid** of general AI,
+June, cloud/LLM/provider, attachment, agent, and related dead-code surfaces.
+Do not call a runtime guard, hidden UI, no-op façade, or target exclusion alone
+complete removal. Completion requires removal from Free target membership and
+generated build graph, source/resources/assets/scripts/routes/settings,
+persistence defaults, tests, artifacts, and user-facing strings, followed by
+physical source deletion wherever the closure is separable.
+
+The only retained intelligent/local capabilities are Kokoro read-aloud and
+audited, local embedding-backed paragraph semantic/hybrid note search; optimize
+that search for effectiveness and robustness. In shared/base code, delete every
+safe separable surface now. If an active externally modified closure prevents
+an atomic source deletion, map the whole closure, keep it completely out of the
+Free V1 build, and delete it atomically when safe. Never retain or restore a
+retired Free V1 surface merely to satisfy a stale test. This mandate supersedes
+the generic surgical-edit preference for the defined Free V1 removal scope.
+
 ## Golden Rules (non-negotiable)
 
 1. **Zero copy-paste.** If code exists, call it. If two things look similar, extract a shared function. Three similar lines is better than a premature abstraction, but four is not.
@@ -46,6 +66,13 @@ Chromium path belongs to the active MAS plan.
    products and archives from the build location. Produce and retain only one
    current app artifact for the active evidence leg. Record its exact path and
    identity; never use an older DerivedData or archive product as evidence.
+10. **Resource preflight.** Before any Epistemos build, test build, or archive,
+    record swap, `memory_pressure -Q`, `vm_stat`, available disk, and competing
+    Xcode/compiler/model/Epistemos processes. The owner-approved ceiling as of
+    2026-07-14 is swap used strictly below 16 GiB (16,384 MiB), with at least
+    25% free memory, zero pages throttled, and no competing process. Stop before
+    Xcode if any retained condition is red. A newer dated owner directive may
+    supersede this ceiling.
 
 ## Deep Reasoning And Verification Discipline
 

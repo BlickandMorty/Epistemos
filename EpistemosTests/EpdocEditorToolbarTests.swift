@@ -110,9 +110,22 @@ struct EpdocEditorToolbarTests {
         let toolbar = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorToolbar.swift")
 
         #expect(toolbar.contains("widthGroup"))
-        #expect(toolbar.contains(#"applyWidthMode(.custom(px: Int(rounded)))"#))
+        #expect(toolbar.contains("EditorContentWidthControl"))
+        #expect(toolbar.contains(#"apply(.custom(px: Int(rounded)))"#))
         #expect(toolbar.contains(#"Slider("#))
-        #expect(toolbar.contains(#".setContentWidth(mode: normalized)"#))
+        #expect(toolbar.contains(#".setContentWidth(mode: mode)"#))
+    }
+
+    @Test("full Epdoc toolbar remains reachable in narrow windows")
+    func fullToolbarUsesHorizontalOverflowInsteadOfClipping() throws {
+        let toolbar = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorToolbar.swift")
+
+        #expect(toolbar.contains("ScrollView(.horizontal)"))
+        #expect(toolbar.contains(".scrollIndicators(.hidden)"))
+        #expect(toolbar.contains("formattingGroup"))
+        #expect(toolbar.contains("extendedFormattingGroup"))
+        #expect(toolbar.contains("insertGroup"))
+        #expect(toolbar.contains("structureGroup"))
     }
 
     @Test("Find and Replace control exposes native popover commands")

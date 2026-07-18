@@ -427,13 +427,7 @@ final class HologramOverlay {
             prepareGraphCanvasForOpening(metalView)
             restoreFloatingPanelChromeIfNeeded(window, metalView: metalView)
             prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
-            // 2026-05-19: re-apply the Shaped Graph experimental chrome
-            // AFTER `prepareImmersiveOverlayWindow` — that call invokes
-            // `GraphOverlayPanel.applyPresentation(.floatingPanel)` which
-            // forces `hasShadow = true` (and so would overwrite our
-            // experimental hasShadow=false). Running our chrome last keeps
-            // experimental-mode invariants intact across every reopen.
-            applyShapedExperimentalChrome(to: window)
+            applyGraphWindowChrome(to: window)
             window.alphaValue = 0
             syncImmersivePointerPassthrough(for: window)
             window.orderFrontRegardless()
@@ -822,7 +816,7 @@ final class HologramOverlay {
 
         // 5. Stay on the square floating-panel presentation.
         prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
-        applyShapedExperimentalChrome(to: window)
+        applyGraphWindowChrome(to: window)
         attachFloatingPanelToMainWindow(window)
 
         window.orderFrontRegardless()
@@ -2074,19 +2068,11 @@ final class HologramOverlay {
         let contentView = NSView(frame: initialFrame)
         contentView.wantsLayer = true
         // 2026-05-20: macOS 26 liquid-glass corner radius. 28pt continuous
-        // ALWAYS (regardless of experimental). 28pt matches the Tahoe
+        // ALWAYS. 28pt matches the Tahoe
         // immersive-window curve (was 16pt, which left a visible
         // square-edged ring where the rectangular toolbar/sidebar
         // chrome met the window's mild round). `.continuous` cornerCurve
         // gives a smooth round all the way to the chrome edges.
-        //
-        // Shaped Graph (experimental, 2026-05-19): the toggle ONLY removes
-        // the blur + darken layers (handled by applyShapedExperimentalChrome).
-        // It does NOT remove the rounded corners — per the authoritative
-        // comment in applyShapedExperimentalChrome ("Content view rounded
-        // corners — always rounded, regardless of experimental"). The
-        // prior `isExperimental ? 0 : 28` here was stale code that got
-        // overwritten anyway on the very next call to applyShapedExperimentalChrome.
         contentView.layer?.cornerRadius = 28
         contentView.layer?.cornerCurve = .continuous
         contentView.layer?.masksToBounds = true
@@ -2127,11 +2113,7 @@ final class HologramOverlay {
         contentView.addSubview(darken)
         self.darkenLayer = darken
 
-        // Shaped Graph (experimental, 2026-05-19): apply the initial chrome
-        // state based on the current toggle. Re-applied on every reopen by
-        // `applyShapedExperimentalChrome(to:)` so a toggle change between
-        // close + reopen always takes effect.
-        applyShapedExperimentalChrome(to: window)
+        applyGraphWindowChrome(to: window)
 
         // Metal graph view (fills the panel). isMiniMode = true so it
         // skips the pixel-budget cap and uses the proven-fluid mini render
@@ -2147,14 +2129,6 @@ final class HologramOverlay {
         graphView.isHidden = !graphState.currentRoute.isCanvas
         graphView.alphaValue = graphState.currentRoute.isCanvas ? 1.0 : 0.0
         contentView.addSubview(graphView)
-
-        // Shaped Graph (experimental, 2026-05-19) — the shape-blur overlay
-        // was removed per user direction. They prefer the nodes-only view
-        // with no theme/blur on top. The toggle still controls the HUD
-        // chrome clearing (above) so the window background goes away when
-        // experimental mode is on, leaving just the Metal nodes against the
-        // desktop. The ShapedGraphBoundaryView file is kept dormant in case
-        // we revisit the shape overlay.
 
         // Graph Workspace Route overlay (SwiftUI hosted — panel-sized or pass-through).
         //
@@ -2192,7 +2166,7 @@ final class HologramOverlay {
                 let isCanvas = self.graphState.currentRoute.isCanvas
                 self.syncGraphWorkspaceChromeVisibility(isCanvas: isCanvas)
                 if let window = self.window {
-                    self.applyShapedExperimentalChrome(to: window)
+                    self.applyGraphWindowChrome(to: window)
                 }
             }
         }
@@ -2375,21 +2349,9 @@ final class HologramOverlay {
         }
     }
 
-    /// Re-applies the Shaped Graph (experimental) chrome state every time
-    /// the overlay reopens or the route changes. Pure idempotent: safe to
-    /// call on every `show()` and from the route observer.
-    ///
-    /// 2026-05-19 user direction (round 2): only the CANVAS route gets the
-    /// fully-transparent treatment; when the user opens a note or a folder
-    /// the HUD blur must reappear behind the panel so the text reads
-    /// against a themed backdrop instead of the bare desktop. So the
-    /// "hide chrome" predicate is `experimental && currentRoute == .canvas`,
-    /// not just `experimental`.
-    private func applyShapedExperimentalChrome(to window: NSWindow) {
-        let isExperimental = AppBootstrap.shared?.uiState.shapedGraphExperimental == true
-
-        let hideChrome = isExperimental && graphState.currentRoute.isCanvas
-
+    /// Reapplies the one supported hologram-window chrome after route and
+    /// presentation changes. Pure idempotent: safe on every reopen.
+    private func applyGraphWindowChrome(to window: NSWindow) {
         // 2026-05-20 (bugfix): the window MUST stay transparent ALWAYS.
         // The prior `hideChrome ? .clear : NSColor.windowBackgroundColor`
         // logic painted a solid gray windowBackgroundColor RECTANGLE
@@ -2407,20 +2369,13 @@ final class HologramOverlay {
         window.backgroundColor = .clear
         window.isOpaque = false
 
-        // Drop the NSWindow shadow when experimental is on. The shadow is
-        // the source of the "bubble" halo the user reported — it renders
-        // around the panel frame even when the panel itself is invisible,
-        // and is brighter on light desktops + when the window is key.
-        window.hasShadow = !hideChrome
+        window.hasShadow = true
 
-        // Content view rounded corners — always rounded, regardless of
-        // experimental. Per user direction (2026-05-20), 28pt continuous
+        // Content view rounded corners — always rounded. 28pt continuous
         // matches the macOS 26 immersive panel curve (was 22pt; bumped
         // for consistency with the initial show() + restore() paths and
         // to kill the visible "square corner" where rectangular chrome
-        // meets a too-mild round). In experimental mode the layer
-        // background is transparent so the desktop shows through inside
-        // the rounded shape.
+        // meets a too-mild round).
         if let contentView = window.contentView {
             contentView.wantsLayer = true
             contentView.layer?.cornerRadius = 28
@@ -2432,9 +2387,8 @@ final class HologramOverlay {
             contentView.layer?.isOpaque = false
         }
 
-        // HUD blur + tint visibility — same predicate as window chrome.
-        blurView?.isHidden = hideChrome
-        darkenLayer?.isHidden = hideChrome
+        blurView?.isHidden = false
+        darkenLayer?.isHidden = false
     }
 
     private func restoreFloatingPanelChromeIfNeeded(

@@ -5,6 +5,39 @@ enum NotePreviewPerformancePolicy {
     static let showsOverlayBadge = false
 }
 
+enum NotePreviewContentCache {
+    static let countLimit = 12
+    private static let totalCostLimit = 8 * 1024 * 1024
+
+    private final class Entry: NSObject {
+        let columns: [String]
+
+        init(columns: [String]) {
+            self.columns = columns
+        }
+    }
+
+    private static let storage: NSCache<NSString, Entry> = {
+        let cache = NSCache<NSString, Entry>()
+        cache.countLimit = countLimit
+        cache.totalCostLimit = totalCostLimit
+        return cache
+    }()
+
+    static func columns(for content: String) -> [String] {
+        let key = content as NSString
+        if let cached = storage.object(forKey: key) {
+            return cached.columns
+        }
+
+        let columns = NoteDualPreviewLayout.columnContents(in: content)
+        let retainedByteCost = content.utf8.count
+            + columns.reduce(into: 0) { $0 += $1.utf8.count }
+        storage.setObject(Entry(columns: columns), forKey: key, cost: retainedByteCost)
+        return columns
+    }
+}
+
 enum NotePreviewChromeMetrics {
     static let fallbackSingleTopInset: CGFloat = 46
     static let fallbackTabbedTopInset: CGFloat = 96
@@ -328,7 +361,7 @@ struct AdaptiveNotePreviewView2: View {
         self.hasMultipleTabs = hasMultipleTabs
         self.surfaceBackground = surfaceBackground
         self.chromeMinimumHeight = chromeMinimumHeight
-        self.pageContents = NoteDualPreviewLayout.columnContents(in: content)
+        self.pageContents = NotePreviewContentCache.columns(for: content)
     }
 
     var body: some View {

@@ -97,67 +97,11 @@ final class PinnedInspector: Identifiable {
                 return
             }
             
-            let prompt = buildSummaryPrompt(node: node, content: content)
-            
-            do {
-                let result = try await AppleIntelligenceService.shared.generate(
-                    prompt: prompt,
-                    systemPrompt: nil
-                )
-                guard !Task.isCancelled else { return }
-                
-                if TriageService.shouldRetryWithLocalModel(result) {
-                    throw AppleIntelligenceError.unavailable("Response inadequate")
-                }
-                summaryText = result
-                summaryCache[node.id] = result
-                displayedSummary = result
-            } catch {
-                guard !Task.isCancelled else { return }
-                if let triage = AppBootstrap.shared?.triageService {
-                    do {
-                        let result = try await triage.generateGeneral(
-                            prompt: prompt,
-                            systemPrompt: nil,
-                            operation: .brainstorm,
-                            contentLength: prompt.count,
-                            localSurface: .graph
-                        )
-                        guard !Task.isCancelled else { return }
-                        if !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            summaryText = result
-                            summaryCache[node.id] = result
-                        } else {
-                            summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
-                        }
-                        displayedSummary = summaryText
-                    } catch {
-                        guard !Task.isCancelled else { return }
-                        summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
-                        displayedSummary = summaryText
-                    }
-                } else {
-                    summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
-                    displayedSummary = summaryText
-                }
-            }
-        }
-    }
-    
-    private func buildSummaryPrompt(node: GraphNodeRecord, content: String) -> String {
-        let trimmed = String(content.prefix(2000))
-        switch node.type {
-        case .folder:
-            return "Summarize this folder's contents in 3-5 sentences. Focus on the main themes that connect these items.\n\n\(trimmed)"
-        case .quote:
-            if let quoteText = node.metadata.quoteText {
-                return "Explain what this quote is saying and why it matters in 3-5 sentences.\n\n\"\(quoteText)\"\n\nContext:\n\(trimmed)"
-            }
-            return "Summarize the key arguments and themes in 3-5 sentences.\n\n\(trimmed)"
-        case .tag:
-            return "Summarize the main patterns that emerge across the notes connected by this tag.\n\n\(trimmed)"
-        default:
-            return "Summarize this note in 3-5 sentences. Cover the main arguments, key insights, and implications.\n\n\(trimmed)"
+            let summary = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
+            guard !Task.isCancelled else { return }
+            summaryText = summary
+            summaryCache[node.id] = summary
+            displayedSummary = summary
         }
     }
     

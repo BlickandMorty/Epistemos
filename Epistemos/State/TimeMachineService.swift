@@ -137,25 +137,26 @@ final class TimeMachineService {
             }
         }
 
-        // 3. Reconstruct chat state via SDMessage.createdAt filter
-        let chatDate = date
-        let chatDesc = FetchDescriptor<SDChat>(
-            predicate: #Predicate<SDChat> { $0.createdAt <= chatDate },
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        let chats = fetchAll(chatDesc, label: "chats")
-        for chat in chats.prefix(20) {
-            let chatId = chat.id
-            let msgDesc = FetchDescriptor<SDMessage>(
-                predicate: #Predicate<SDMessage> { $0.chat?.id == chatId && $0.createdAt <= chatDate }
+        if ProductCapabilityPolicy.allowsChatPresentation {
+            let chatDate = date
+            let chatDesc = FetchDescriptor<SDChat>(
+                predicate: #Predicate<SDChat> { $0.createdAt <= chatDate },
+                sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
             )
-            let msgCount = fetchCount(msgDesc, label: "chat message count")
-            state.chatSnapshots.append(ChatSnapshot(
-                id: chat.id,
-                title: chat.title,
-                messageCount: msgCount,
-                lastMessageDate: chat.updatedAt <= date ? chat.updatedAt : nil
-            ))
+            let chats = fetchAll(chatDesc, label: "chats")
+            for chat in chats.prefix(20) {
+                let chatId = chat.id
+                let msgDesc = FetchDescriptor<SDMessage>(
+                    predicate: #Predicate<SDMessage> { $0.chat?.id == chatId && $0.createdAt <= chatDate }
+                )
+                let msgCount = fetchCount(msgDesc, label: "chat message count")
+                state.chatSnapshots.append(ChatSnapshot(
+                    id: chat.id,
+                    title: chat.title,
+                    messageCount: msgCount,
+                    lastMessageDate: chat.updatedAt <= date ? chat.updatedAt : nil
+                ))
+            }
         }
 
         // 4. Graph stats from SDGraphNode/Edge created before date
@@ -232,13 +233,14 @@ final class TimeMachineService {
         diff.removedNotes = noteDiff.removedTitles
         diff.modifiedNotes = noteDiff.modifiedNotes
 
-        // Chat delta
-        let currentChatCount = fetchCount(
-            FetchDescriptor<SDChat>(),
-            label: "current chat count"
-        )
-        diff.addedChats = max(0, currentChatCount - pastState.chatSnapshots.count)
-        diff.removedChats = max(0, pastState.chatSnapshots.count - currentChatCount)
+        if ProductCapabilityPolicy.allowsChatPresentation {
+            let currentChatCount = fetchCount(
+                FetchDescriptor<SDChat>(),
+                label: "current chat count"
+            )
+            diff.addedChats = max(0, currentChatCount - pastState.chatSnapshots.count)
+            diff.removedChats = max(0, pastState.chatSnapshots.count - currentChatCount)
+        }
 
         // Graph delta
         let currentNodeCount = fetchCount(

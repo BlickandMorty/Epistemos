@@ -12,26 +12,21 @@ extension View {
     func withAppEnvironment(_ bootstrap: AppBootstrap) -> some View {
         self
             .environment(bootstrap.uiState)
-            .environment(bootstrap.pipelineState)
             .environment(bootstrap.notesUI)
             .environment(bootstrap.eventBus)
-            .environment(bootstrap.inferenceState)
+            #if !EPISTEMOS_FREE_V1
+            .environment(bootstrap.runtimeState)
+            #endif
+            #if !EPISTEMOS_FREE_V1
             .environment(bootstrap.preparedModelRegistryState)
-            .environment(bootstrap.llmService)
-            .environment(bootstrap.triageService)
+            #endif
             .environment(bootstrap.vaultSync)
             .environment(bootstrap.workspaceService)
-            .environment(bootstrap.vaultChatMutator)
-            .environment(bootstrap.dailyBriefState)
             .environment(bootstrap.threadState)
             .environment(bootstrap.graphState)
             .environment(bootstrap.queryEngine)
             .environment(bootstrap.physicsCoordinator)
-            .environment(bootstrap.mcpBridge)
             .environment(bootstrap.epistemosConfig)
-            .environment(bootstrap.companionState)
-            .environment(bootstrap.chatApprovalQueue)
-            .environment(bootstrap.overseerAuditState)
             .environment(bootstrap.textCapturePipeline)
             .environment(bootstrap.contextualShadowsState)
             .environment(bootstrap.ambientFrequencyPlaybackState)

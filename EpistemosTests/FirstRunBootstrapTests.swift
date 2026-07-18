@@ -52,8 +52,10 @@ struct FirstRunBootstrapTests {
 
         #expect(FileManager.default.fileExists(atPath: receipt.metadataURL.path))
         #expect(receipt.metadata.schemaVersion == FirstRunBootstrap.schemaVersion)
-        #expect(receipt.metadata.embeddingModelPin == nil)
-        #expect(receipt.metadata.routerModelPin == nil)
+        let freshMetadata = try Data(contentsOf: receipt.metadataURL)
+        let freshMetadataText = String(decoding: freshMetadata, as: UTF8.self)
+        #expect(!freshMetadataText.contains("\"embedding_model_pin\""))
+        #expect(!freshMetadataText.contains("\"router_model_pin\""))
         #expect(!FirstRunBootstrap.isFresh(at: vault), "post-bootstrap must not be fresh")
     }
 
@@ -82,6 +84,109 @@ struct FirstRunBootstrapTests {
         let receipt = try FirstRunBootstrap.bootstrap(at: vault)
         let read = try FirstRunBootstrap.readMetadata(at: receipt.metadataURL)
         #expect(read == receipt.metadata)
+    }
+
+    @Test("existing metadata compatibility bytes remain inert and preserved")
+    func existingMetadataCompatibilityBytesRemainPreserved() throws {
+        let vault = try Self.makeTempVault()
+        defer { Self.cleanup(vault) }
+
+        let metadataDirectory = vault.appendingPathComponent(".epistemos", isDirectory: true)
+        try FileManager.default.createDirectory(at: metadataDirectory, withIntermediateDirectories: true)
+        let metadataURL = vault.appendingPathComponent(FirstRunBootstrap.metadataRelativePath)
+        let originalBytes = Data(
+            """
+            {
+              "schema_version": 1,
+              "created_at": "2026-07-15T00:00:00Z",
+              "embedding_model_pin": "historical-embedding-pin",
+              "router_model_pin": "historical-router-pin"
+            }
+            """.utf8
+        )
+        try originalBytes.write(to: metadataURL)
+
+        let receipt = try FirstRunBootstrap.bootstrap(at: vault)
+
+        #expect(!receipt.wasFresh)
+        #expect(receipt.metadata.schemaVersion == FirstRunBootstrap.schemaVersion)
+        #expect(try Data(contentsOf: metadataURL) == originalBytes)
+    }
+
+    @Test("invalid existing metadata fails before creating any scaffold folders")
+    func invalidExistingMetadataFailsBeforeScaffolding() throws {
+        let vault = try Self.makeTempVault()
+        defer { Self.cleanup(vault) }
+
+        let metadataDirectory = vault.appendingPathComponent(".epistemos", isDirectory: true)
+        try FileManager.default.createDirectory(at: metadataDirectory, withIntermediateDirectories: true)
+        let metadataURL = vault.appendingPathComponent(FirstRunBootstrap.metadataRelativePath)
+        let originalBytes = Data("{not-json}".utf8)
+        try originalBytes.write(to: metadataURL)
+
+        #expect(throws: Error.self) {
+            try FirstRunBootstrap.bootstrap(at: vault)
+        }
+        #expect(try Data(contentsOf: metadataURL) == originalBytes)
+        for relative in FirstRunBootstrap.scaffoldFolders {
+            #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(relative).path))
+        }
+    }
+
+    @Test("unsupported, duplicate, unknown, and oversized metadata fail closed")
+    func invalidMetadataEnvelopeFailsClosed() throws {
+        let invalidMetadata: [Data] = [
+            Data("{\"schema_version\":2,\"created_at\":\"2026-07-15T00:00:00Z\"}".utf8),
+            Data("{\"schema_version\":1,\"schema_version\":1,\"created_at\":\"2026-07-15T00:00:00Z\"}".utf8),
+            Data("{\"schema_version\":1,\"created_at\":\"2026-07-15T00:00:00Z\",\"unexpected\":true}".utf8),
+            Data(repeating: 0x61, count: FirstRunBootstrap.maxMetadataBytes + 1),
+        ]
+
+        for originalBytes in invalidMetadata {
+            let vault = try Self.makeTempVault()
+            defer { Self.cleanup(vault) }
+            let metadataDirectory = vault.appendingPathComponent(".epistemos", isDirectory: true)
+            try FileManager.default.createDirectory(at: metadataDirectory, withIntermediateDirectories: true)
+            let metadataURL = vault.appendingPathComponent(FirstRunBootstrap.metadataRelativePath)
+            try originalBytes.write(to: metadataURL)
+
+            #expect(throws: Error.self) {
+                try FirstRunBootstrap.bootstrap(at: vault)
+            }
+            #expect(try Data(contentsOf: metadataURL) == originalBytes)
+            #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent("notes").path))
+        }
+    }
+
+    @Test("unsafe existing filesystem objects do not become a vault scaffold")
+    func unsafeExistingFilesystemObjectsFailClosed() throws {
+        let fileManager = FileManager.default
+
+        let wrongTypeVault = try Self.makeTempVault()
+        defer { Self.cleanup(wrongTypeVault) }
+        try fileManager.createDirectory(at: wrongTypeVault, withIntermediateDirectories: true)
+        try Data("canary".utf8).write(to: wrongTypeVault.appendingPathComponent("notes"))
+        #expect(throws: Error.self) {
+            try FirstRunBootstrap.bootstrap(at: wrongTypeVault)
+        }
+        #expect(try Data(contentsOf: wrongTypeVault.appendingPathComponent("notes")) == Data("canary".utf8))
+
+        let symlinkVault = try Self.makeTempVault()
+        defer { Self.cleanup(symlinkVault) }
+        let metadataDirectory = symlinkVault.appendingPathComponent(".epistemos", isDirectory: true)
+        try fileManager.createDirectory(at: metadataDirectory, withIntermediateDirectories: true)
+        let outside = fileManager.temporaryDirectory
+            .appendingPathComponent("epistemos-bootstrap-external-\(UUID().uuidString)")
+        defer { try? fileManager.removeItem(at: outside) }
+        try Data("outside-canary".utf8).write(to: outside)
+        let metadataURL = symlinkVault.appendingPathComponent(FirstRunBootstrap.metadataRelativePath)
+        try fileManager.createSymbolicLink(at: metadataURL, withDestinationURL: outside)
+
+        #expect(throws: Error.self) {
+            try FirstRunBootstrap.bootstrap(at: symlinkVault)
+        }
+        #expect(try Data(contentsOf: outside) == Data("outside-canary".utf8))
+        #expect(!fileManager.fileExists(atPath: symlinkVault.appendingPathComponent("notes").path))
     }
 
     @Test("partial scaffold (some folders pre-created) recovers cleanly")
@@ -116,6 +221,8 @@ struct FirstRunBootstrapTests {
     @Test("default vault path lands at ~/Documents/Epistemos")
     func defaultVaultPath() {
         let url = FirstRunBootstrap.defaultVaultURL()
+        #expect(url.isFileURL)
+        #expect(url.path.hasPrefix("/"))
         #expect(url.lastPathComponent == "Epistemos")
         // The path must contain "Documents" or be a fallback under the home
         // directory; both are acceptable per the plan's fallback chain.
@@ -124,35 +231,37 @@ struct FirstRunBootstrapTests {
         #expect(acceptable, "default path must be Documents/Epistemos or a sane fallback: \(url.path)")
     }
 
-    @Test("router candidates have exactly one plan default = Qwen 2.5-1.5B")
-    func routerCandidatesPlanDefault() {
-        let defaults = FirstRunBootstrap.routerCandidates.filter { $0.isPlanDefault }
-        #expect(defaults.count == 1, "exactly one router candidate must be plan default")
+    @Test("Free bootstrap source remains a neutral vault scaffold")
+    func freeBootstrapSourceRemainsNeutral() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Vault/FirstRunBootstrap.swift")
 
-        let chosen = FirstRunBootstrap.defaultRouter
-        #expect(
-            chosen.huggingFaceID == "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
-            "PLAN §6.6.1 anchors the default at Qwen 2.5-1.5B"
-        )
-        #expect(chosen.isPlanDefault)
-    }
+        for retainedContract in [
+            "public enum FirstRunBootstrap",
+            "public static let scaffoldFolders",
+            "public static func bootstrap",
+            "public static func readMetadata"
+        ] {
+            #expect(source.contains(retainedContract))
+        }
 
-    @Test("router candidates cover all three plan-mentioned options")
-    func routerCandidatesCoverAllThree() {
-        let ids = FirstRunBootstrap.routerCandidates.map(\.huggingFaceID)
-        #expect(ids.contains(where: { $0.contains("Qwen2.5-1.5B") }))
-        #expect(ids.contains(where: { $0.contains("Qwen3.5-0.8B") }))
-        #expect(ids.contains(where: { $0.contains("Qwen3.5-2B") }))
-    }
-
-    @Test("embedding candidates have exactly one plan default = bge-small")
-    func embeddingCandidatesPlanDefault() {
-        let defaults = FirstRunBootstrap.embeddingCandidates.filter { $0.isPlanDefault }
-        #expect(defaults.count == 1)
-
-        let chosen = FirstRunBootstrap.defaultEmbedding
-        #expect(chosen.huggingFaceID == "mlx-community/bge-small-en-v1.5-mlx")
-        #expect(chosen.dims == 384)
+        for retiredCatalogIdentity in [
+            "RouterCandidate",
+            "EmbeddingCandidate",
+            "routerCandidates",
+            "embeddingCandidates",
+            "defaultRouter",
+            "defaultEmbedding",
+            "huggingFaceID",
+            "Qwen",
+            "BGE",
+            "Nomic",
+            "MLX",
+            "agent_core",
+            "model download",
+            "background model"
+        ] {
+            #expect(!source.contains(retiredCatalogIdentity))
+        }
     }
 
     /// End-to-end "first-run simulation" — combines the steps a real first
@@ -167,24 +276,12 @@ struct FirstRunBootstrapTests {
         // ~/Documents/Epistemos via defaultVaultURL).
         #expect(FirstRunBootstrap.isFresh(at: vault))
 
-        // Step 2 — model descriptors are known up front. Native model
-        // downloading is retired from first-run setup; this only validates
-        // the static descriptor surface.
-        let router = FirstRunBootstrap.defaultRouter
-        let embedding = FirstRunBootstrap.defaultEmbedding
-        #expect(!router.huggingFaceID.isEmpty)
-        #expect(!embedding.huggingFaceID.isEmpty)
-        // Combined resident set on the 16-GB constraint must be < the plan's
-        // 6-GB headroom for this stage of bootstrap.
-        let combinedMB = router.residentMB4Bit + embedding.residentMB
-        #expect(combinedMB < 6 * 1024, "router + embedding must fit headroom: \(combinedMB) MB")
-
-        // Step 3 — folder scaffold + metadata stamp.
+        // Step 2 — folder scaffold + metadata stamp.
         let receipt = try FirstRunBootstrap.bootstrap(at: vault)
         #expect(receipt.wasFresh)
         #expect(receipt.createdFolders.count == FirstRunBootstrap.scaffoldFolders.count)
 
-        // Step 4 — first-capture tooltip is a UI concern and not part of
+        // Step 3 — first-capture tooltip is a UI concern and not part of
         // this headless test. We confirm the precondition for it: the
         // `_inbox/` folder exists and a write to it would land cleanly.
         let inbox = vault.appendingPathComponent("_inbox", isDirectory: true)

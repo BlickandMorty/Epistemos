@@ -118,9 +118,67 @@ struct FilterEngineTests {
         #expect(!graph.isNodeTypeVisible(.folder))
         #expect(GraphState.userFilterableNodeTypes == GraphNodeType.visibleCases)
         #expect(graph.isNodeTypeVisible(.note))
-        #expect(graph.isNodeTypeVisible(.chat))
+        #expect(!graph.isNodeTypeVisible(.chat),
+                "Free V1 must not restore a paid chat graph filter from saved preferences.")
         #expect(graph.isNodeTypeVisible(.idea))
         #expect(graph.isNodeTypeVisible(.document))
+    }
+
+    @Test("legacy graph visibility preferences add Epdoc once")
+    func legacyGraphVisibilityPreferencesAddEpdocOnce() {
+        let defaults = FoundationSafety.runtimeUserDefaults
+        let visibilityKey = "epistemos.graph.visibleNodeTypes"
+        let versionKey = "epistemos.graph.visibleNodeTypes.version"
+        let previousVisibility = defaults.object(forKey: visibilityKey)
+        let previousVersion = defaults.object(forKey: versionKey)
+        defaults.set([GraphNodeType.note.rawValue], forKey: visibilityKey)
+        defaults.removeObject(forKey: versionKey)
+        defer {
+            if let previousVisibility {
+                defaults.set(previousVisibility, forKey: visibilityKey)
+            } else {
+                defaults.removeObject(forKey: visibilityKey)
+            }
+            if let previousVersion {
+                defaults.set(previousVersion, forKey: versionKey)
+            } else {
+                defaults.removeObject(forKey: versionKey)
+            }
+        }
+
+        let graph = GraphState()
+
+        #expect(graph.isNodeTypeVisible(.note))
+        #expect(graph.isNodeTypeVisible(.document))
+        #expect(defaults.integer(forKey: versionKey) == 1)
+    }
+
+    @Test("current graph visibility preferences can intentionally hide Epdoc")
+    func currentGraphVisibilityPreferencesCanHideEpdoc() {
+        let defaults = FoundationSafety.runtimeUserDefaults
+        let visibilityKey = "epistemos.graph.visibleNodeTypes"
+        let versionKey = "epistemos.graph.visibleNodeTypes.version"
+        let previousVisibility = defaults.object(forKey: visibilityKey)
+        let previousVersion = defaults.object(forKey: versionKey)
+        defaults.set([GraphNodeType.note.rawValue], forKey: visibilityKey)
+        defaults.set(1, forKey: versionKey)
+        defer {
+            if let previousVisibility {
+                defaults.set(previousVisibility, forKey: visibilityKey)
+            } else {
+                defaults.removeObject(forKey: visibilityKey)
+            }
+            if let previousVersion {
+                defaults.set(previousVersion, forKey: versionKey)
+            } else {
+                defaults.removeObject(forKey: versionKey)
+            }
+        }
+
+        let graph = GraphState()
+
+        #expect(graph.isNodeTypeVisible(.note))
+        #expect(!graph.isNodeTypeVisible(.document))
     }
 
     @Test("graph node visibility hides selected node without deleting store identity")

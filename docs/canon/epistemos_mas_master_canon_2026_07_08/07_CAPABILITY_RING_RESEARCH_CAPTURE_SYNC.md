@@ -4,6 +4,15 @@ Capability-ring features plug into the MAS fabric after the relevant KEELSTONE,
 LUMENLENS/Epdoc, and RECKONER seams are stable enough. They are not independent
 product lanes and free-V1 features do not wait for June.
 
+July 15 override: remove the LumenLens/Reckoner dependency from this statement.
+Retained non-AI capability work depends on KEELSTONE and the Epistemos Editor
+Core only. Reckoner is parked. All AI/agent/model/provider/generative work is
+canceled. Browser and ResearchHub remain deterministic future paid
+possibilities because the latest steer keeps non-AI work, but they remain absent
+from Free V1 and may contain no autonomous research, AI assistant, model,
+provider, scraping, Chromium, browser-use, server, or sidecar lane. Read
+`14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md` first.
+
 July 13 owner split:
 
 - Free V1: Meeting, Sync, Quick Capture, calendar/tasks, PDF/import,
@@ -14,6 +23,16 @@ July 13 owner split:
   provenance, or no-sidecar rules below.
 
 Read `11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md` first.
+
+## Free-V1 graph and state projection
+
+Graph/search remain free capabilities only for free workspace records. The
+free projection excludes chat sessions, agent runs, raw thought, tool traces,
+model/provider records, June state, Browser state, ResearchHub state, and
+other paid-only artifacts at every boundary: graph rebuild, stored-index query,
+default active types, filter/color controls, deep links, and state restoration.
+This is a visibility/projection rule, not a deletion rule: durable records stay
+available for a later paid edition, but cannot leak into free-V1 UI or search.
 
 ## Future paid ResearchHub / LODESTAR source policy
 

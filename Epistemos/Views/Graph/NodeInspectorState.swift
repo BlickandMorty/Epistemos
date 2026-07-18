@@ -1,11 +1,13 @@
 import Foundation
+#if !EPISTEMOS_FREE_V1
 import NaturalLanguage
+#endif
 import SwiftData
 
 // MARK: - NodeInspectorState
 // Observable state for the hologram node inspector panel.
 // Manages selected node info, summaries, and neutral node profiles.
-// Summaries use Apple Intelligence directly for quick on-device work.
+// Summaries use deterministic previews of the selected node's content.
 
 @MainActor @Observable
 final class NodeInspectorState {
@@ -341,54 +343,11 @@ final class NodeInspectorState {
                 return
             }
 
-            let prompt = buildSummaryPrompt(node: node, content: content)
-
-            // Try Apple Intelligence first for a fast summary, then the configured provider path.
-            do {
-                let result = try await AppleIntelligenceService.shared.generate(
-                    prompt: prompt,
-                    systemPrompt: nil
-                )
-                guard !Task.isCancelled, selectedNodeId == node.id else { return }
-
-                if TriageService.shouldRetryWithLocalModel(result) {
-                    throw AppleIntelligenceError.unavailable("Response inadequate")
-                }
-                summaryText = result
-                summaryCache[node.id] = result
-                startSummaryReveal()
-            } catch {
-                guard !Task.isCancelled, selectedNodeId == node.id else { return }
-                Log.engine.info("Apple Intelligence unavailable for summary, trying configured provider path: \(error.localizedDescription, privacy: .public)")
-                if let triage = AppBootstrap.shared?.triageService {
-                    do {
-                        let result = try await triage.generateGeneral(
-                            prompt: prompt,
-                            systemPrompt: nil,
-                            operation: .brainstorm,
-                            contentLength: prompt.count,
-                            localSurface: .graph
-                        )
-                        guard !Task.isCancelled, selectedNodeId == node.id else { return }
-                        if !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            summaryText = result
-                            summaryCache[node.id] = result
-                        } else {
-                            summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
-                        }
-                        startSummaryReveal()
-                    } catch {
-                        guard !Task.isCancelled, selectedNodeId == node.id else { return }
-                        Log.engine.info("Configured provider summary also unavailable: \(error.localizedDescription, privacy: .public)")
-                        summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
-                        startSummaryReveal()
-                    }
-                } else {
-                    guard selectedNodeId == node.id else { return }
-                    summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
-                    startSummaryReveal()
-                }
-            }
+            let summary = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
+            guard !Task.isCancelled, selectedNodeId == node.id else { return }
+            summaryText = summary
+            summaryCache[node.id] = summary
+            startSummaryReveal()
         }
     }
 
@@ -396,25 +355,6 @@ final class NodeInspectorState {
         revealTask?.cancel()
         let full = summaryText
         displayedSummary = full
-    }
-
-    private func buildSummaryPrompt(node: GraphNodeRecord, content: String) -> String {
-        // Trim content for on-device model — keep it focused.
-        let trimmed = String(content.prefix(2000))
-
-        switch node.type {
-        case .folder:
-            return "Summarize this folder's contents in 3-5 sentences. Focus on the main themes that connect these items.\n\n\(trimmed)"
-        case .quote:
-            if let quoteText = node.metadata.quoteText {
-                return "Explain what this quote is saying and why it matters in 3-5 sentences.\n\n\"\(quoteText)\"\n\nContext:\n\(trimmed)"
-            }
-            return "Summarize the key arguments and themes in 3-5 sentences.\n\n\(trimmed)"
-        case .tag:
-            return "Summarize the main patterns that emerge across the notes connected by this tag.\n\n\(trimmed)"
-        default:
-            return "Summarize this note in 3-5 sentences. Cover the main arguments, key insights, and implications.\n\n\(trimmed)"
-        }
     }
 
     // MARK: - Content Fetching

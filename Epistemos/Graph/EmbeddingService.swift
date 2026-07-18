@@ -9,14 +9,19 @@ nonisolated protocol TextEmbeddingLookup: Sendable {
     func vector(for token: String) -> [Float]?
 
     /// Whole-text embedding. Return nil to fall back to per-token averaging.
-    /// Lookups that support ANE-accelerated contextual embeddings (e.g.
-    /// `AppleContextualEmbeddingLookup`) should implement this to skip the
-    /// word-averaging code path entirely.
+    /// Lookups that support whole-sentence embeddings should implement this to
+    /// skip the word-averaging code path entirely.
     func textVector(for text: String) -> [Float]?
 }
 
 extension TextEmbeddingLookup {
     nonisolated func textVector(for text: String) -> [Float]? { nil }
+}
+
+private nonisolated func floatEmbeddingVector(_ vector: [Double]) -> [Float] {
+    var result = [Float](repeating: 0, count: vector.count)
+    vDSP.convertElements(of: vector, to: &result)
+    return result
 }
 
 private nonisolated final class DeferredTextEmbeddingLookupStorage: @unchecked Sendable {
@@ -62,6 +67,37 @@ nonisolated struct DeferredTextEmbeddingLookup: TextEmbeddingLookup, @unchecked 
     }
 }
 
+/// Explicit no-model lookup for product editions that prohibit embedding-model
+/// execution. Keeping the zero dimension at the lookup boundary makes every
+/// existing semantic caller fail closed before it can allocate or push vectors.
+nonisolated struct NoModelTextEmbeddingLookup: TextEmbeddingLookup {
+    let dimension = 0
+
+    func vector(for token: String) -> [Float]? { nil }
+
+    func textVector(for text: String) -> [Float]? { nil }
+}
+
+/// On-device sentence embeddings for semantic paragraph search. NaturalLanguage
+/// provides this model locally; this lookup never requests or downloads assets.
+nonisolated struct AppleSentenceEmbeddingLookup: TextEmbeddingLookup {
+    nonisolated var dimension: Int {
+        NLEmbedding.sentenceEmbedding(for: .english)?.dimension ?? 0
+    }
+
+    nonisolated func vector(for token: String) -> [Float]? { nil }
+
+    nonisolated func textVector(for text: String) -> [Float]? {
+        guard let embedding = NLEmbedding.sentenceEmbedding(for: .english),
+              let vector = embedding.vector(for: text) else {
+            return nil
+        }
+
+        return floatEmbeddingVector(vector)
+    }
+}
+
+#if !EPISTEMOS_FREE_V1
 nonisolated struct AppleWordEmbeddingLookup: TextEmbeddingLookup {
     nonisolated var dimension: Int {
         NLEmbedding.wordEmbedding(for: .english)?.dimension ?? 0
@@ -73,9 +109,7 @@ nonisolated struct AppleWordEmbeddingLookup: TextEmbeddingLookup {
             return nil
         }
 
-        var result = [Float](repeating: 0, count: vector.count)
-        vDSP.convertElements(of: vector, to: &result)
-        return result
+        return floatEmbeddingVector(vector)
     }
 }
 
@@ -249,6 +283,19 @@ nonisolated struct AppleHybridEmbeddingLookup: TextEmbeddingLookup, @unchecked S
         return contextual.textVector(for: text)
     }
 }
+#else
+typealias AppleHybridEmbeddingLookup = AppleSentenceEmbeddingLookup
+#endif
+
+private nonisolated enum ProductDefaultTextEmbeddingLookup {
+    static func make() -> any TextEmbeddingLookup {
+#if EPISTEMOS_FREE_V1
+        AppleSentenceEmbeddingLookup()
+#else
+        AppleWordEmbeddingLookup()
+#endif
+    }
+}
 
 /// Value-type snapshot of node data for cross-isolation transfer.
 private nonisolated struct EmbeddingNodeSnapshot: Sendable {
@@ -382,6 +429,10 @@ final class EmbeddingService {
             _swiftEmbeddingFallbackActive = newValue
         }
     }
+    nonisolated var isSwiftEmbeddingFallbackAvailable: Bool {
+        guard swiftEmbeddingFallbackActive else { return false }
+        return activeEmbeddingLookup.dimension > 0
+    }
     nonisolated(unsafe) private var _preparedQueryEmbeddingActive = false
     nonisolated private var preparedQueryEmbeddingActive: Bool {
         get {
@@ -412,7 +463,7 @@ final class EmbeddingService {
 
     init(
         maxCacheEntries: Int = EmbeddingCacheConfig.capacity,
-        embeddingLookup: any TextEmbeddingLookup = AppleWordEmbeddingLookup(),
+        embeddingLookup: any TextEmbeddingLookup = ProductDefaultTextEmbeddingLookup.make(),
         preparedRetrievalRuntimeResolver: any PreparedRetrievalRuntimeResolving = DefaultPreparedRetrievalRuntimeResolver()
     ) {
         self.defaultEmbeddingCacheCapacity = max(0, maxCacheEntries)
@@ -453,7 +504,7 @@ final class EmbeddingService {
     /// Compute embeddings for all graph nodes and push to the Rust engine.
     /// Call after commitGraphData() when the graph has been loaded.
     func computeAndPush(store: GraphStore) {
-        guard swiftEmbeddingFallbackActive else {
+        guard isSwiftEmbeddingFallbackAvailable else {
             cancelPendingTask()
             clearEmbeddingCache()
             dimension = 0
@@ -488,7 +539,9 @@ final class EmbeddingService {
         computeTask = Task.detached(priority: .utility) { [weak self] in
             let dim = embeddingLookup.dimension
             guard dim > 0 else {
+#if !EPISTEMOS_FREE_V1
                 await MainActor.run { Log.app.error("EmbeddingService: NLEmbedding unavailable") }
+#endif
                 return
             }
 
@@ -607,7 +660,7 @@ final class EmbeddingService {
     // MARK: - Block Embeddings
 
     nonisolated func queryEmbedding(for query: String, expectedDimension: Int? = nil) -> [Float]? {
-        guard swiftEmbeddingFallbackActive || preparedQueryEmbeddingActive else { return nil }
+        guard isSwiftEmbeddingFallbackAvailable || preparedQueryEmbeddingActive else { return nil }
         let embeddingLookup = activeEmbeddingLookup
         let dimension = expectedDimension ?? embeddingLookup.dimension
         guard dimension > 0 else { return nil }
@@ -619,11 +672,11 @@ final class EmbeddingService {
         )
     }
 
-    /// Compute embedding vectors for a set of blocks using NLEmbedding word-averaging.
-    /// Pure computation — does NOT push to Rust. Returns blockId -> vector dict.
-    /// Blocks with empty content or no recognized words are skipped.
+    /// Computes block vectors through the active lookup, preferring a whole-text vector.
+    /// Falls back to per-token averaging when supported; does not push to Rust.
+    /// Empty blocks or inputs unavailable to the lookup are skipped.
     nonisolated func computeBlockVectors(blocks: [(id: String, content: String)]) -> [String: [Float]] {
-        guard swiftEmbeddingFallbackActive else { return [:] }
+        guard isSwiftEmbeddingFallbackAvailable else { return [:] }
         let embeddingLookup = activeEmbeddingLookup
         let dim = embeddingLookup.dimension
         guard dim > 0 else { return [:] }
@@ -644,7 +697,8 @@ final class EmbeddingService {
     }
 
     func computeFallbackSemanticClusters(store: GraphStore) -> [String: UInt32] {
-        SemanticClusterService.computeClusters(
+        guard isSwiftEmbeddingFallbackAvailable else { return [:] }
+        return SemanticClusterService.computeClusters(
             store: store,
             embeddingLookup: fallbackEmbeddingLookup
         )

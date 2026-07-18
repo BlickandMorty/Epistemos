@@ -1,5 +1,7 @@
 import Foundation
+#if !EPISTEMOS_FREE_V1
 import SwiftUI
+#endif
 
 // MARK: - Branded Types
 // Type-safe wrappers for entity IDs. v3 SwiftData models use plain String IDs,
@@ -68,11 +70,12 @@ enum NavTab: String, Codable, Sendable, CaseIterable {
     }
 }
 
+#if !EPISTEMOS_FREE_V1
 /// LLM providers
 enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     case appleIntelligence
-    case localGGUF
     case localMLX
+    case localGGUF
     case openAI
     case anthropic
     case google
@@ -85,8 +88,8 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     nonisolated var displayName: String {
         switch self {
         case .appleIntelligence: "Apple Intelligence"
-        case .localGGUF: "Local GGUF"
         case .localMLX: "Local Model"
+        case .localGGUF: "Local GGUF"
         case .openAI: "OpenAI"
         case .anthropic: "Anthropic"
         case .google: "Google"
@@ -101,8 +104,8 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     nonisolated var iconName: String {
         switch self {
         case .appleIntelligence: "apple.intelligence"
-        case .localGGUF: "shippingbox"
         case .localMLX: "memorychip"
+        case .localGGUF: "shippingbox"
         case .openAI: "sparkles.rectangle.stack"
         case .anthropic: "brain.head.profile"
         case .google: "diamond"
@@ -117,8 +120,8 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     var badgeColor: Color {
         switch self {
         case .appleIntelligence: Color.purple
-        case .localGGUF: Color(red: 0.19, green: 0.58, blue: 0.64)
         case .localMLX: Color(red: 0.22, green: 0.64, blue: 0.78)
+        case .localGGUF: Color(red: 0.19, green: 0.58, blue: 0.64)
         case .openAI: Color(red: 0.07, green: 0.67, blue: 0.54)
         case .anthropic: Color(red: 0.77, green: 0.48, blue: 0.18)
         case .google: Color(red: 0.24, green: 0.52, blue: 0.96)
@@ -129,3 +132,4 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         }
     }
 }
+#endif

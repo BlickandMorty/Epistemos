@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 // MARK: - Typewriter Plain Text
-// Same progressive reveal but for plain Text views (Daily Brief).
+// Progressive reveal for plain text welcome and session views.
 // Uses LocalizedStringKey for markdown-lite rendering (bold, italic).
 
 struct TypewriterPlainText: View {

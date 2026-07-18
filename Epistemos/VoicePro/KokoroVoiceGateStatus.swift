@@ -84,9 +84,7 @@ nonisolated enum KokoroVoiceGateStatus {
     }
 
     static func defaultModelRoot(fileManager: FileManager = .default) -> URL? {
-        fileManager
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first?
+        FoundationSafety.userApplicationSupportDirectory(fileManager: fileManager)
             .appendingPathComponent("Epistemos", isDirectory: true)
             .appendingPathComponent("VoicePro", isDirectory: true)
     }
@@ -106,7 +104,7 @@ nonisolated enum KokoroVoiceGateStatus {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         modelRoot: URL? = defaultModelRoot(),
         fileManager: FileManager = .default,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = FoundationSafety.runtimeUserDefaults
     ) -> Status {
         let usesCache = usesDefaultStatusCache(
             environment: environment,
@@ -152,7 +150,7 @@ nonisolated enum KokoroVoiceGateStatus {
         defaults: UserDefaults
     ) -> Bool {
         fileManager === FileManager.default
-            && defaults === UserDefaults.standard
+            && defaults === FoundationSafety.runtimeUserDefaults
             && environment[flagName] == ProcessInfo.processInfo.environment[flagName]
             && isDefaultModelRoot(modelRoot)
     }

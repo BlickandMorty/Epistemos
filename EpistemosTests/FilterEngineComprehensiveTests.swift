@@ -118,7 +118,8 @@ struct FilterEngineTypeToggleTests {
         // Folder stays OFF by default (user direction 2026-05-15).
         // Toggling .note/.tag/.source doesn't affect the folder state.
         #expect(!engine.activeNodeTypes.contains(.folder))
-        #expect(engine.activeNodeTypes.contains(.chat))
+        #expect(!engine.activeNodeTypes.contains(.chat),
+                "Paid chat records must never become a Free V1 graph filter type.")
         #expect(engine.activeNodeTypes.contains(.idea))
         #expect(engine.activeNodeTypes.contains(.quote))
     }

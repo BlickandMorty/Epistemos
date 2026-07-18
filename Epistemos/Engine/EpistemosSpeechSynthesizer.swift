@@ -253,25 +253,21 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     )
     private let synthesizer = AVSpeechSynthesizer()
     private var inflight: [String: AVSpeechUtterance] = [:]
-    private let kokoroEngine = AVAudioEngine()
-    private let kokoroPlayer = AVAudioPlayerNode()
+    private var kokoroPlaybackGraph: KokoroPlaybackGraph?
     private var kokoroPlaybackTask: Task<Void, Never>?
     private var kokoroProgressTask: Task<Void, Never>?
     private var activeKokoroUtteranceID: String?
     private var activeKokoroCharactersTotal = 0
 
+#if DEBUG
+    var hasAllocatedKokoroPlaybackGraphForTesting: Bool {
+        kokoroPlaybackGraph != nil
+    }
+#endif
+
     private override init() {
         super.init()
         synthesizer.delegate = self
-        kokoroEngine.attach(kokoroPlayer)
-        if let format = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: Double(KokoroVoiceGateStatus.sampleRateHz),
-            channels: 1,
-            interleaved: false
-        ) {
-            kokoroEngine.connect(kokoroPlayer, to: kokoroEngine.mainMixerNode, format: format)
-        }
     }
 
     // MARK: - Speak API
@@ -379,8 +375,10 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     }
 
     public func pause() {
-        if kokoroPlayer.isPlaying, let activeKokoroUtteranceID {
-            kokoroPlayer.pause()
+        if let graph = kokoroPlaybackGraph,
+           graph.player.isPlaying,
+           let activeKokoroUtteranceID {
+            graph.player.pause()
             state = .paused(utteranceId: activeKokoroUtteranceID)
             return
         }
@@ -391,8 +389,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     public func resume() {
         if let activeKokoroUtteranceID,
            case let .paused(pausedID) = state,
-           pausedID == activeKokoroUtteranceID {
-            kokoroPlayer.play()
+           pausedID == activeKokoroUtteranceID,
+           let graph = kokoroPlaybackGraph {
+            graph.player.play()
             state = .speaking(
                 utteranceId: activeKokoroUtteranceID,
                 charactersTotal: activeKokoroCharactersTotal,
@@ -415,7 +414,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     }
 
     public var isSpeaking: Bool {
-        synthesizer.isSpeaking || kokoroPlayer.isPlaying || activeKokoroUtteranceID != nil
+        synthesizer.isSpeaking
+            || kokoroPlaybackGraph?.player.isPlaying == true
+            || activeKokoroUtteranceID != nil
     }
 
     public var isPaused: Bool {
@@ -431,6 +432,37 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         case audioTooLong
     }
 
+    private final class KokoroPlaybackGraph {
+        let engine: AVAudioEngine
+        let player: AVAudioPlayerNode
+
+        init(engine: AVAudioEngine, player: AVAudioPlayerNode) {
+            self.engine = engine
+            self.player = player
+        }
+    }
+
+    private func resolveKokoroPlaybackGraph() throws -> KokoroPlaybackGraph {
+        if let kokoroPlaybackGraph {
+            return kokoroPlaybackGraph
+        }
+        guard let format = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: Double(KokoroVoiceGateStatus.sampleRateHz),
+            channels: 1,
+            interleaved: false
+        ) else {
+            throw KokoroPlaybackError.invalidAudioFormat
+        }
+        let engine = AVAudioEngine()
+        let player = AVAudioPlayerNode()
+        engine.attach(player)
+        engine.connect(player, to: engine.mainMixerNode, format: format)
+        let graph = KokoroPlaybackGraph(engine: engine, player: player)
+        kokoroPlaybackGraph = graph
+        return graph
+    }
+
     private func playKokoroAudio(
         _ rendered: KokoroCoreMLSynthesizer.RenderedAudio,
         utteranceID: String,
@@ -439,22 +471,23 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     ) throws {
         guard activeKokoroUtteranceID == utteranceID else { return }
         let buffer = try pcmBuffer(for: rendered, effect: effect)
+        let graph = try resolveKokoroPlaybackGraph()
         let durationSeconds = Double(rendered.samples.count) / Double(max(1, rendered.sampleRateHz))
         Self.log.notice(
-            "Kokoro TTS playback preparing samples=\(rendered.samples.count, privacy: .public) sampleRate=\(rendered.sampleRateHz, privacy: .public) durationMs=\(Int(durationSeconds * 1000), privacy: .public) effect=\(effect.rawValue, privacy: .public) engineRunning=\(self.kokoroEngine.isRunning, privacy: .public)"
+            "Kokoro TTS playback preparing samples=\(rendered.samples.count, privacy: .public) sampleRate=\(rendered.sampleRateHz, privacy: .public) durationMs=\(Int(durationSeconds * 1000), privacy: .public) effect=\(effect.rawValue, privacy: .public) engineRunning=\(graph.engine.isRunning, privacy: .public)"
         )
-        if !kokoroEngine.isRunning {
-            try kokoroEngine.start()
+        if !graph.engine.isRunning {
+            try graph.engine.start()
             Self.log.notice("Kokoro TTS audio engine started")
         }
-        kokoroPlayer.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
+        graph.player.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
             Task { @MainActor in
                 self?.completeKokoroPlayback(utteranceID: utteranceID)
             }
         }
-        kokoroPlayer.play()
+        graph.player.play()
         Self.log.notice(
-            "Kokoro TTS playback started samples=\(rendered.samples.count, privacy: .public) playerPlaying=\(self.kokoroPlayer.isPlaying, privacy: .public)"
+            "Kokoro TTS playback started samples=\(rendered.samples.count, privacy: .public) playerPlaying=\(graph.player.isPlaying, privacy: .public)"
         )
         activeKokoroCharactersTotal = charactersTotal
         state = .speaking(
@@ -530,8 +563,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         EpistemosReadAloudDiagnostics.showFailureToast(
             Self.kokoroFailureUserMessage(error)
         )
-        kokoroPlayer.stop()
-        kokoroEngine.pause()
+        kokoroPlaybackGraph?.player.stop()
+        kokoroPlaybackGraph?.engine.pause()
+        kokoroPlaybackGraph = nil
         kokoroProgressTask?.cancel()
         kokoroProgressTask = nil
         activeKokoroUtteranceID = nil
@@ -569,7 +603,8 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         activeKokoroCharactersTotal = 0
         kokoroPlaybackTask = nil
         state = .idle
-        kokoroEngine.pause()
+        kokoroPlaybackGraph?.engine.pause()
+        kokoroPlaybackGraph = nil
     }
 
     private func stopKokoroPlayback() {
@@ -577,12 +612,13 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         kokoroPlaybackTask = nil
         kokoroProgressTask?.cancel()
         kokoroProgressTask = nil
-        if activeKokoroUtteranceID != nil || kokoroPlayer.isPlaying {
-            kokoroPlayer.stop()
+        if activeKokoroUtteranceID != nil || kokoroPlaybackGraph?.player.isPlaying == true {
+            kokoroPlaybackGraph?.player.stop()
         }
-        if kokoroEngine.isRunning {
-            kokoroEngine.pause()
+        if kokoroPlaybackGraph?.engine.isRunning == true {
+            kokoroPlaybackGraph?.engine.pause()
         }
+        kokoroPlaybackGraph = nil
         activeKokoroUtteranceID = nil
         activeKokoroCharactersTotal = 0
     }
@@ -614,12 +650,13 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         charactersTotal: Int,
         durationSeconds: Double
     ) {
-        guard kokoroPlayer.isPlaying,
+        guard let player = kokoroPlaybackGraph?.player,
+              player.isPlaying,
               activeKokoroUtteranceID == utteranceID,
               case let .speaking(currentID, _, currentSpoken) = state,
               currentID == utteranceID,
-              let renderTime = kokoroPlayer.lastRenderTime,
-              let playerTime = kokoroPlayer.playerTime(forNodeTime: renderTime),
+              let renderTime = player.lastRenderTime,
+              let playerTime = player.playerTime(forNodeTime: renderTime),
               playerTime.sampleRate > 0 else {
             return
         }
@@ -874,12 +911,12 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
 
     /// The user's chosen global default voice identifier (SS-QC voice picker), or nil if unset.
     /// Persisted so it applies across launches + every TTS surface.
-    nonisolated public static func globalDefaultVoiceIdentifier(defaults: UserDefaults = .standard) -> String? {
+    nonisolated public static func globalDefaultVoiceIdentifier(defaults: UserDefaults = FoundationSafety.runtimeUserDefaults) -> String? {
         defaults.string(forKey: globalDefaultVoiceKey)
     }
 
     /// Set the global default voice identifier (nil clears it).
-    nonisolated public static func setGlobalDefaultVoiceIdentifier(_ identifier: String?, defaults: UserDefaults = .standard) {
+    nonisolated public static func setGlobalDefaultVoiceIdentifier(_ identifier: String?, defaults: UserDefaults = FoundationSafety.runtimeUserDefaults) {
         if let identifier {
             defaults.set(identifier, forKey: globalDefaultVoiceKey)
         } else {

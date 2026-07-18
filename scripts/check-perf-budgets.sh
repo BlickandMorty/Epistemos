@@ -7,16 +7,13 @@
 #
 # Parses docs/perf-budgets.toml and asserts every measurable budget:
 #
-#   [binary]   — measures release Rust dylibs under each crate's
-#                target/aarch64-apple-darwin/release/ and fails the
-#                build if any dylib exceeds its ceiling.
-#                substrate-rt is OPTIONAL — absent dylib is OK
-#                (it ships in Wave 5).
+#   [binary]   — measures the retained Free MAS Rust dylib under its
+#                target/aarch64-apple-darwin/release/ path and fails the
+#                gate if it exceeds its ceiling.
 #
 #   [runtime]  — reads measurement JSON from [meta].runtime_results_path.
 #                If absent, prints "no measurement yet" and DOES NOT
-#                fail. Wave 2.6 (bench/morning-session.swift) wires
-#                the producer; this script is the consumer.
+#                fail. A current Free MAS harness must supply the producer.
 #
 #   [appstore] — informational only; the Patch 9 step in CI already
 #                enforces it via env EPISTEMOS_APPSTORE_BUNDLE_SIZE_LIMIT_MB.
@@ -116,28 +113,21 @@ json_get_flat() {
 # Binary budgets
 # ---------------------------------------------------------------------------
 
-# Map TOML key → (crate-dir, dylib-filename, optional?)
-# Optional means absent dylib is OK (substrate-rt ships in Wave 5).
+# Map TOML key → (crate-dir, dylib-filename).
 declare -a BINARY_TARGETS=(
-    "libagent_core_mb_max     | agent_core      | libagent_core.dylib      | required"
-    "libepistemos_core_mb_max | epistemos-core  | libepistemos_core.dylib  | required"
-    "libomega_mcp_mb_max      | omega-mcp       | libomega_mcp.dylib       | required"
-    "libomega_ax_mb_max       | omega-ax        | libomega_ax.dylib        | required"
-    "libsubstrate_rt_mb_max   | substrate-rt    | libsubstrate_rt.dylib    | optional"
+    "libepistemos_core_mb_max | epistemos-core  | libepistemos_core.dylib"
 )
 
 binary_failures=0
 binary_checked=0
-binary_skipped=0
 
 echo ""
 echo "==> [binary] budgets"
 for entry in "${BINARY_TARGETS[@]}"; do
-    IFS='|' read -r raw_key raw_crate raw_name raw_required <<< "${entry}"
+    IFS='|' read -r raw_key raw_crate raw_name <<< "${entry}"
     key="$(echo "${raw_key}" | xargs)"
     crate="$(echo "${raw_crate}" | xargs)"
     name="$(echo "${raw_name}" | xargs)"
-    required="$(echo "${raw_required}" | xargs)"
 
     budget_mb="$(toml_get binary "${key}")"
     if [[ -z "${budget_mb}" ]]; then
@@ -148,14 +138,8 @@ for entry in "${BINARY_TARGETS[@]}"; do
 
     dylib="${REPO_ROOT}/${crate}/target/aarch64-apple-darwin/release/${name}"
     if [[ ! -f "${dylib}" ]]; then
-        if [[ "${required}" == "optional" ]]; then
-            printf "  %-26s  budget %4s MB  — SKIP (optional, %s/release not built)\n" \
-                "${name}" "${budget_mb}" "${crate}"
-            binary_skipped=$((binary_skipped + 1))
-            continue
-        fi
-        echo "::warning::${dylib} not found — run 'cargo build --release --target aarch64-apple-darwin' in ${crate}" >&2
-        binary_skipped=$((binary_skipped + 1))
+        echo "::error::${dylib} not found — the retained Free MAS binary budget cannot be verified" >&2
+        binary_failures=$((binary_failures + 1))
         continue
     fi
 
@@ -176,13 +160,12 @@ done
 # ---------------------------------------------------------------------------
 
 runtime_results_path="$(toml_get meta runtime_results_path)"
-runtime_results_path="${runtime_results_path:-build/perf-budgets-runtime.json}"
+runtime_results_path="${runtime_results_path:-build/perf-budgets-free-mas-runtime.json}"
 runtime_results_full="${REPO_ROOT}/${runtime_results_path}"
 
 declare -a RUNTIME_KEYS=(
     "cold_start_ms_p99"
     "frame_ms_p99"
-    "mcp_invoke_ms_p99"
     "ffi_hot_path_us_p99"
 )
 
@@ -192,7 +175,7 @@ runtime_failures=0
 if [[ ! -f "${runtime_results_full}" ]]; then
     for key in "${RUNTIME_KEYS[@]}"; do
         budget="$(toml_get runtime "${key}")"
-        printf "  %-22s  budget %s  — no measurement yet (Wave 2.6 will write %s)\n" \
+        printf "  %-22s  budget %s  — no current Free MAS measurement (%s)\n" \
             "${key}" "${budget}" "${runtime_results_path}"
     done
 else
@@ -369,7 +352,7 @@ printf "  %-26s  budget %s MB  — enforced separately by the Patch 9 step\n" \
 
 echo ""
 echo "==> summary"
-echo "  binary:  ${binary_checked} checked, ${binary_skipped} skipped, ${binary_failures} failed"
+echo "  binary:  ${binary_checked} checked, ${binary_failures} failed"
 echo "  runtime: $([ -f "${runtime_results_full}" ] && echo "measured" || echo "no measurement file")"
 echo "  keelstone: ${keelstone_checked} checked, ${keelstone_missing} missing, ${keelstone_failures} failed"
 

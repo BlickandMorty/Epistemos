@@ -224,14 +224,16 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(identityGuard.lowerBound < loadingMutation.lowerBound)
     }
 
-    @Test("HTML workspace exposes explicit attachment helpers")
-    func htmlWorkspaceExposesExplicitAttachmentHelpers() throws {
+    @Test("HTML workspace retains its attachment type without retired chat reference UI")
+    func htmlWorkspaceRetainsAttachmentTypeWithoutRetiredChatReferenceUI() throws {
         let chatTypes = try loadMirroredSourceTextFile("Epistemos/Models/ChatTypes.swift")
-        let helpers = try loadMirroredSourceTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
+        let retiredReferencePopoverURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/Views/Chat/NotesMentionDropdown.swift")
 
         #expect(chatTypes.contains("case htmlWorkspace"))
-        #expect(helpers.contains("htmlWorkspaceAttachment("))
-        #expect(helpers.contains("htmlworkspace://"))
+        #expect(!FileManager.default.fileExists(atPath: retiredReferencePopoverURL.path))
     }
 
     @Test("HTML Workspace is a separate document surface, not an Epdoc overload")

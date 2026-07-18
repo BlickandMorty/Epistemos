@@ -2,9 +2,9 @@ import AppIntents
 import SwiftData
 
 // MARK: - Note Action Intents (Custom)
-// Quick actions on notes. QuickCapture creates a pre-filled note;
-// SummarizeNote runs AI on the active note. OpenVaultFile and
-// MoveNoteToFolder manage vault files as custom intents.
+// Quick actions on notes. Free V1 compiles deterministic capture,
+// open, move, and search actions; paid builds additionally compile
+// model-backed note summarization.
 
 // MARK: Quick Capture
 
@@ -51,68 +51,6 @@ struct QuickCaptureIntent: AppIntent {
         let entityInfo = result.entities.isEmpty ? "" : " · \(result.entities.count) entities"
         let taskInfo = result.tasks.isEmpty ? "" : " · \(result.tasks.count) tasks"
         return .result(dialog: "Captured \"\(result.title)\" in Epistemos\(entityInfo)\(taskInfo).")
-    }
-}
-
-
-// MARK: Summarize Note
-
-struct SummarizeNoteIntent: AppIntent {
-    static var title: LocalizedStringResource { "Summarize Note" }
-    static let isDiscoverable: Bool = false
-    static var description: IntentDescription {
-        IntentDescription("Summarizes the currently open note using AI.")
-    }
-    static var openAppWhenRun: Bool { true }
-
-    @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else {
-            throw ProductCapabilityUnavailableError(capability: .generativeActions)
-        }
-        guard let bootstrap = AppBootstrap.shared else { throw IntentError.appNotReady }
-
-        // Get the currently active page from NotesUI
-        guard let activePageId = bootstrap.notesUI.activePageId else {
-            return .result(dialog: "No note is currently open. Open a note first, then try again.")
-        }
-
-        let context = ModelContext(bootstrap.modelContainer)
-        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == activePageId })
-
-        let page: SDPage
-        do {
-            guard let fetchedPage = try context.fetch(descriptor).first else {
-                return .result(dialog: "Could not find the active note.")
-            }
-            page = fetchedPage
-        } catch {
-            Log.app.error(
-                "SummarizeNoteIntent: failed to fetch active note \(String(activePageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-            return .result(dialog: "Could not load the active note.")
-        }
-
-        let content = NoteWindowManager.shared.currentBody(for: page.id)
-
-        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return .result(dialog: "The note \"\(page.title)\" is empty — nothing to summarize.")
-        }
-
-        let response = try await bootstrap.triageService.generate(
-            prompt: """
-            Summarize this note in 3-5 sentences. Capture the key ideas, arguments, and open questions.
-
-            # \(page.title)
-
-            \(String(content.prefix(3000)))
-            """,
-            systemPrompt: nil,
-            operation: .summarize,
-            contentLength: content.count
-        )
-
-        return .result(dialog: "Summary of \"\(page.title)\":\n\(String(response.prefix(400)))")
     }
 }
 

@@ -14,12 +14,12 @@ public final class BudgetPreferences {
     private let key = "epistemos.budget.perSessionUSD"
     public var perSessionCapUSD: Double {
         didSet {
-            UserDefaults.standard.set(perSessionCapUSD, forKey: key)
+            FoundationSafety.runtimeUserDefaults.set(perSessionCapUSD, forKey: key)
         }
     }
 
     private init() {
-        let stored = UserDefaults.standard.double(forKey: key)
+        let stored = FoundationSafety.runtimeUserDefaults.double(forKey: key)
         self.perSessionCapUSD = stored > 0 ? stored : 0.50
     }
 }
@@ -33,14 +33,13 @@ public struct CostDashboardEntry: Identifiable, Sendable, Hashable {
     public let estimatedCostUSD: Double?
     public let startedAt: Date
 
-    // N1 Phase 1 — Anthropic prompt-cache telemetry (default 0
-    // for non-Anthropic providers; sourced from
-    // agent_core/src/session_insights.rs SessionMetrics fields).
+    // Paid-edition cache telemetry defaults to 0 for providers that do not
+    // report reusable input-token counters.
     public let cacheReadInputTokens: Int
     public let cacheCreationInputTokens: Int
 
     /// Computed: fraction of input tokens served from the prompt cache.
-    /// Mirrors `SessionMetrics::cached_tokens_share` on the Rust side.
+    /// Mirrors the paid runtime `cached_tokens_share` metric.
     /// Returns 0.0 when total billed input is 0.
     public var cachedTokensShare: Double {
         let total = inputTokens + cacheReadInputTokens
@@ -109,15 +108,7 @@ public struct CostDashboardView: View {
         }
     }
 
-    /// N1 Phase 1 — aggregate prompt-cache hit rate across all
-    /// sessions in this dashboard. Sourced from
-    /// `agent_core/src/session_insights.rs::AggregatedStats::aggregate_cached_tokens_share`
-    /// (mirrored client-side here so the dashboard works
-    /// identically when the FFI bridge isn't yet plumbed). The
-    /// metric is the load-bearing N1 success signal per
-    /// `docs/PROMPT_AS_DATA_SPEC.md §3` — Anthropic charges 90 %
-    /// less for cached prefix tokens, so this ratio directly
-    /// reflects the Relocation Trick's cost savings.
+    /// Aggregate prompt-cache hit rate across all sessions in this dashboard.
     @ViewBuilder
     private var cacheHitRateRow: some View {
         if aggregateBilledInput > 0 {
@@ -142,7 +133,7 @@ public struct CostDashboardView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(cacheAccessibilityLabel)
         } else {
-            // Empty / Anthropic-cache-untouched session set.
+            // Empty / paid-cache-untouched session set.
             // Honest "no signal yet" placeholder per
             // PLAN_V2.md §3.4 — show that the metric exists but
             // hasn't accumulated data, instead of hiding it.
@@ -304,10 +295,8 @@ public struct CostDashboardView: View {
         return min(max(Double(totalCacheReadTokens) / Double(aggregateBilledInput), 0.0), 1.0)
     }
 
-    /// Color the metric green when ≥30 % cached (the bake-in
-    /// threshold from PROMPT_AS_DATA_SPEC.md §6 — N1's success
-    /// criterion), orange when 0 < x < 30 % (signal but below the
-    /// promised win), gray when 0 % (no Anthropic activity yet).
+    /// Color the metric green when ≥30 % cached, orange when
+    /// 0 < x < 30 %, gray when 0 %.
     private var cacheTint: Color {
         if aggregateCachedShare >= 0.30 { return .green }
         if aggregateCachedShare > 0 { return .orange }
@@ -317,11 +306,11 @@ public struct CostDashboardView: View {
     private var emptyCacheCaption: String {
         entries.isEmpty
             ? "Awaiting first agent run"
-            : "No Anthropic prompt-cache activity yet"
+            : "No prompt-cache activity yet"
     }
 
     private var cacheHelpText: String {
-        "Anthropic charges 90% less for input tokens served from the prompt cache. Sustained ≥30% means the prompt tree is shaped efficiently."
+        "Paid runtimes may report reusable input-token counters. Sustained ≥30% means the prompt tree is shaped efficiently."
     }
 
     private var cacheAccessibilityLabel: String {
@@ -332,7 +321,7 @@ public struct CostDashboardView: View {
     }
 }
 
-#if DEBUG
+#if DEBUG && !EPISTEMOS_FREE_V1
 #Preview {
     CostDashboardView(entries: [
         .init(id: "s1", title: "Refactor TextStorage layer", provider: "claude-opus-4-7",

@@ -1,20 +1,22 @@
 import Foundation
 import CryptoKit
+#if !EPISTEMOS_FREE_V1
 import NaturalLanguage
+#endif
 import os
 import SwiftData
 
 // MARK: - Phase 6.5: Text Capture Pipeline
 //
 // The smallest real vertical slice of the Epistemos launch loop:
-//   capture → structure → memory → evidence → trace
+//   capture → structure → note/graph mutation
 //
 // Accepts raw text, produces a structured CaptureResult with:
 //   - title, summary, entities, tasks
 //   - source spans (provenance back to raw text)
 //   - persisted note via existing NoteFileStorage/SDPage
 //   - graph nodes/edges via existing GraphBuilder patterns
-//   - trace events via existing TraceCollector
+//   - deterministic mutation correlation for EventStore receipts
 //
 // No microphone, no STT, no cloud APIs required. Text-first.
 // Voice/STT plugs into the same pipeline later via AudioTranscriber.
@@ -159,126 +161,9 @@ enum TextCaptureError: Error, LocalizedError, Sendable, Equatable {
     }
 }
 
-// MARK: - Capture Trace Events
-
-extension TraceEvent {
-    static func captureReceived(
-        sessionId: String, traceId: String, textLength: Int
-    ) -> TraceEvent {
-        TraceEvent(
-            ts: isoNow(), type: .captureReceived, sessionId: sessionId, taskId: traceId,
-            harnessVersion: "capture-v1", turn: nil,
-            provider: nil, model: nil, tool: "text_capture", toolInput: nil, toolOutput: nil,
-            exitCode: nil, durationMs: nil, content: "length=\(textLength)",
-            tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
-            checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
-            thermalState: nil, domain: "capture", progressSnapshot: nil, bootstrapPacket: nil
-        )
-    }
-
-    /// MEET-7: the note title is derived from the first transcript line (meeting
-    /// content). Hash it so the persisted trace records correlation, not the user's
-    /// words, in `traces/production/*.jsonl` (which has no retention limit / user delete).
-    private static func redactedTitleHash(_ title: String) -> String {
-        guard !title.isEmpty else { return "(empty)" }
-        let hex = SHA256.hash(data: Data(title.utf8)).map { String(format: "%02x", $0) }.joined()
-        return String(hex.prefix(16))
-    }
-
-    static func structureGenerated(
-        sessionId: String, traceId: String,
-        entityCount: Int, taskCount: Int, title: String
-    ) -> TraceEvent {
-        TraceEvent(
-            ts: isoNow(), type: .structureGenerated, sessionId: sessionId, taskId: traceId,
-            harnessVersion: "capture-v1", turn: nil,
-            provider: nil, model: nil, tool: "text_capture", toolInput: nil, toolOutput: nil,
-            exitCode: nil, durationMs: nil,
-            content: "title_sha256=\(redactedTitleHash(title)) entities=\(entityCount) tasks=\(taskCount)",
-            tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
-            checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
-            thermalState: nil, domain: "capture", progressSnapshot: nil, bootstrapPacket: nil
-        )
-    }
-
-    static func notePersisted(
-        sessionId: String, traceId: String, noteId: String
-    ) -> TraceEvent {
-        TraceEvent(
-            ts: isoNow(), type: .notePersisted, sessionId: sessionId, taskId: traceId,
-            harnessVersion: "capture-v1", turn: nil,
-            provider: nil, model: nil, tool: "text_capture", toolInput: nil, toolOutput: nil,
-            exitCode: nil, durationMs: nil, content: "noteId=\(noteId)",
-            tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
-            checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
-            thermalState: nil, domain: "capture", progressSnapshot: nil, bootstrapPacket: nil
-        )
-    }
-
-    static func graphWriteAttempted(
-        sessionId: String, traceId: String, summary: GraphWriteSummary
-    ) -> TraceEvent {
-        let content: String
-        if let reason = summary.skippedReason {
-            content = "skipped: \(reason)"
-        } else {
-            content = "noteNode=\(summary.noteNodeCreated) entities=\(summary.entityNodesCreated) edges=\(summary.edgesCreated)"
-        }
-        return TraceEvent(
-            ts: isoNow(), type: .graphWriteAttempted, sessionId: sessionId, taskId: traceId,
-            harnessVersion: "capture-v1", turn: nil,
-            provider: nil, model: nil, tool: "text_capture", toolInput: nil, toolOutput: nil,
-            exitCode: nil, durationMs: nil, content: content,
-            tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
-            checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
-            thermalState: nil, domain: "capture", progressSnapshot: nil, bootstrapPacket: nil
-        )
-    }
-
-    static func mutationEnvelopeCommitted(
-        sessionId: String, traceId: String, envelope: MutationEnvelope
-    ) -> TraceEvent {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        let data = try? encoder.encode(envelope)
-        let content = data.flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
-        return TraceEvent(
-            ts: isoNow(), type: .mutationEnvelopeCommitted, sessionId: sessionId, taskId: traceId,
-            harnessVersion: "capture-v1", turn: nil,
-            provider: nil, model: nil, tool: "text_capture", toolInput: nil, toolOutput: nil,
-            exitCode: nil, durationMs: nil, content: content,
-            tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
-            checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
-            thermalState: nil, domain: "capture", progressSnapshot: nil, bootstrapPacket: nil
-        )
-    }
-
-    static func evidenceLinked(
-        sessionId: String, traceId: String, spanCount: Int
-    ) -> TraceEvent {
-        TraceEvent(
-            ts: isoNow(), type: .evidenceLinked, sessionId: sessionId, taskId: traceId,
-            harnessVersion: "capture-v1", turn: nil,
-            provider: nil, model: nil, tool: "text_capture", toolInput: nil, toolOutput: nil,
-            exitCode: nil, durationMs: nil, content: "spans=\(spanCount)",
-            tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
-            checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
-            thermalState: nil, domain: "capture", progressSnapshot: nil, bootstrapPacket: nil
-        )
-    }
-
-    private static let _isoFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-
-    fileprivate static func isoNow() -> String { _isoFormatter.string(from: Date()) }
-}
-
 // MARK: - Text Capture Pipeline
 
-/// Orchestrates the capture → structure → memory → evidence → trace pipeline.
+/// Orchestrates deterministic capture, structure, note persistence, and graph mutation.
 /// Text-first: no microphone, no STT, no cloud APIs.
 /// Deterministic extraction (NL framework + regex) — no LLM required.
 @MainActor @Observable
@@ -293,22 +178,16 @@ final class TextCapturePipeline {
     /// use this cap instead.
     nonisolated static let maxMeetingBodyCharacters = 2_000_000
 
-    private let traceCollector: TraceCollector
-    private let sessionId: String
     private let eventStoreProvider: @Sendable () -> EventStore?
 
     init(
-        traceCollector: TraceCollector = .shared,
-        sessionId: String = UUID().uuidString,
         eventStoreProvider: @escaping @Sendable () -> EventStore? = { EventStore.shared }
     ) {
-        self.traceCollector = traceCollector
-        self.sessionId = sessionId
         self.eventStoreProvider = eventStoreProvider
     }
 
     /// Run the full capture pipeline on raw text.
-    /// Returns a CaptureResult with the structured output, persisted note, graph writes, and trace.
+    /// Returns a CaptureResult with structured output and deterministic mutation correlation.
     ///
     /// - Parameters:
     ///   - rawText: The user's captured text input.
@@ -324,10 +203,6 @@ final class TextCapturePipeline {
         let traceId = UUID().uuidString
 
         // Step 1: Receive and clean
-        traceCollector.record(.captureReceived(
-            sessionId: sessionId, traceId: traceId, textLength: rawText.count
-        ))
-
         let cleaned = Self.stripHiddenCaptureMetadataComments(
             from: cleanText(rawText, maxCharacters: maxBodyCharacters)
         )
@@ -349,11 +224,6 @@ final class TextCapturePipeline {
         allSpans.append(contentsOf: entities.map(\.sourceSpan))
         allSpans.append(contentsOf: tasks.map(\.sourceSpan))
 
-        traceCollector.record(.structureGenerated(
-            sessionId: sessionId, traceId: traceId,
-            entityCount: entities.count, taskCount: tasks.count, title: title
-        ))
-
         // Step 3: Persist note
         var createdNoteID: String?
         if let context = modelContext {
@@ -368,9 +238,6 @@ final class TextCapturePipeline {
                     sourceMetadata: sourceMetadata,
                     context: context
                 )
-                traceCollector.record(.notePersisted(
-                    sessionId: sessionId, traceId: traceId, noteId: createdNoteID ?? "unknown"
-                ))
             } catch {
                 log.error("TextCapturePipeline: note persistence failed — \(error.localizedDescription)")
                 // Non-fatal: we still return the structured result
@@ -398,10 +265,6 @@ final class TextCapturePipeline {
             )
         }
 
-        traceCollector.record(.graphWriteAttempted(
-            sessionId: sessionId, traceId: traceId, summary: graphSummary
-        ))
-
         let mutationEnvelope: MutationEnvelope?
         let mutationEnvelopePersisted: Bool
         if let noteId = createdNoteID {
@@ -420,9 +283,6 @@ final class TextCapturePipeline {
                         "TextCapturePipeline: mutation envelope persistence failed for \(mutationEnvelope.mutationID, privacy: .public)"
                     )
                 }
-                traceCollector.record(.mutationEnvelopeCommitted(
-                    sessionId: sessionId, traceId: traceId, envelope: mutationEnvelope
-                ))
             } else {
                 mutationEnvelopePersisted = false
             }
@@ -430,11 +290,6 @@ final class TextCapturePipeline {
             mutationEnvelope = nil
             mutationEnvelopePersisted = false
         }
-
-        // Step 5: Evidence linking trace
-        traceCollector.record(.evidenceLinked(
-            sessionId: sessionId, traceId: traceId, spanCount: allSpans.count
-        ))
 
         return CaptureResult(
             rawText: rawText,
@@ -586,7 +441,10 @@ final class TextCapturePipeline {
             return stripped
         }
 
-        // Fall back to first sentence
+        // Fall back to first sentence.
+        #if EPISTEMOS_FREE_V1
+        var firstSentence = deterministicFirstSentence(in: text)
+        #else
         let tokenizer = NLTokenizer(unit: .sentence)
         tokenizer.string = text
         var firstSentence = ""
@@ -594,11 +452,24 @@ final class TextCapturePipeline {
             firstSentence = String(text[range]).trimmingCharacters(in: .whitespacesAndNewlines)
             return false // stop after first
         }
+        #endif
 
         if firstSentence.count > 120 {
             return String(firstSentence.prefix(117)) + "..."
         }
         return firstSentence.isEmpty ? String(text.prefix(120)) : firstSentence
+    }
+
+    nonisolated private func deterministicFirstSentence(in text: String) -> String {
+        guard let sentenceEnd = text.firstIndex(where: { character in
+            character == "." || character == "!" || character == "?" ||
+                character == "\n" || character == "\r"
+        }) else {
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        return String(text[...sentenceEnd])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Summary Extraction
@@ -630,6 +501,9 @@ final class TextCapturePipeline {
     nonisolated func extractEntities(from text: String) -> [ExtractedEntity] {
         guard !text.isEmpty else { return [] }
 
+        #if EPISTEMOS_FREE_V1
+        return []
+        #else
         let tagger = NLTagger(tagSchemes: [.nameType])
         tagger.string = text
 
@@ -676,6 +550,7 @@ final class TextCapturePipeline {
         }
 
         return entities
+        #endif
     }
 
     // MARK: - Task Extraction
@@ -775,7 +650,7 @@ final class TextCapturePipeline {
         context: ModelContext
     ) async throws -> String {
         let body = Self.stripHiddenCaptureMetadataComments(from: cleanedText)
-        guard let bootstrap = await AppBootstrap.shared,
+        guard let bootstrap = AppBootstrap.shared,
               let pageId = await bootstrap.vaultSync.createPage(
                 title: title,
                 body: body,
@@ -932,8 +807,8 @@ final class TextCapturePipeline {
     // MARK: - Audio Capture Entry Point
 
     /// Runs the capture pipeline on already-transcribed text.
-    /// The transcribed text flows through the same extraction/persist/graph/trace
-    /// path as typed text capture.
+    /// The transcribed text flows through the same extraction/persist/graph path
+    /// as typed text capture.
     ///
     /// - Parameters:
     ///   - transcription: Plain transcribed text.

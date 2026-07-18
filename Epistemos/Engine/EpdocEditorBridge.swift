@@ -916,6 +916,10 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
     case setMarkdown(markdown: String)
     /// Epoch-stamped Markdown host load.
     case setMarkdownForLoad(markdown: String, epoch: Int)
+    /// Replace only the first level-one heading for a clean host-owned title
+    /// change. The JS transaction preserves the live editor tree, selection,
+    /// viewport, and undo history while advancing the load epoch.
+    case replaceDocumentTitle(title: String, epoch: Int)
     /// Ask JS to synchronously emit the current JSON + Markdown snapshots.
     /// Used before host-side saves, lens switches, and teardown so the
     /// Swift save path does not depend on the editor's debounce timer.
@@ -984,6 +988,8 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             return "window.epistemos.setMarkdown(\(jsStringLiteral(markdown)))"
         case .setMarkdownForLoad(let markdown, let epoch):
             return "window.epistemos.setMarkdown(\(jsStringLiteral(markdown)), \(max(0, epoch)))"
+        case .replaceDocumentTitle(let title, let epoch):
+            return "window.epistemos.replaceDocumentTitle(\(jsStringLiteral(title)), \(max(0, epoch)))"
         case .flushDocumentSnapshot:
             return "window.epistemos.flushDocumentSnapshot()"
         case .focusStart:

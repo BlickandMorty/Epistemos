@@ -9,6 +9,60 @@ Epistemos Mac App Store pivot. It is not a raw dump and not a lazy repack. The
 root files are the active operating corpus. The original ZIPs are preserved
 unchanged under `source_archives/originals/` for provenance and audit.
 
+## Latest Owner Steer - 2026-07-15 Sequential Removal Then Rebuild
+
+Read `16_TWO_LANE_REMOVAL_AND_REBUILD_DIRECTIVE_2026_07_15.md` after 14 and
+15. It supersedes the review pause only for two bounded, non-overlapping
+implementation sessions executed in strict sequence:
+
+- Lane R removes/fail-closes the canceled AI/chat/June/LumenLens and parked
+  Reckoner product surface across compilation, query, presentation,
+  restoration, startup, and release gates while preserving compatibility data;
+- Lane R is the current session. Its legacy notebook removal is limited to the
+  retired Chat/Sheet/Body-strip workspace and does not remove the future
+  Epdoc-native notebook/structured-document concept;
+- after Lane R records a stable source checkpoint, Lane B restores rich native
+  JSON/TextKit 2 Epdoc behavior and repairs the
+  owner-observed blank Multitask Graph, then continues retained construction
+  only after those P0 defects have current evidence; and
+- the lanes use disjoint file ownership, leave Settings to its separate owner,
+  write scoped ledgers, and defer Xcode/app verification until both source
+  checkpoints are stable and one integration owner can produce one current
+  artifact.
+
+The current executable prompt is:
+
+- `docs/prompts/FREE_V1_REMOVAL_AND_FAIL_CLOSED_PROMPT_2026_07_15.md`
+
+The following build prompt is preserved but deferred until removal is stable:
+
+- `docs/prompts/RETAINED_BUILD_EPDOC_AND_MULTITASK_GRAPH_PROMPT_2026_07_15.md`
+
+## Prior Owner Steer - 2026-07-15 Scope Reduction, Coverage, and Pause
+
+Read `14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md`, then
+`15_OWNER_DIRECTIVE_COVERAGE_AND_HARDENING_CHECKPOINT_2026_07_15.md`. Document
+14 is the latest product-scope authority; document 15 is the complete
+directive/add-remove-harden-test router where older files conflict:
+
+- LumenLens as a named lane and all AI/agent/model/provider/generative work are
+  canceled, not future Free V1 work;
+- Reckoner, IronCalc/Univer integration, sheets, grids, datasets, formulas,
+  charts, and database-product surfaces are parked reversibly;
+- non-AI editor correctness formerly grouped under LumenLens remains active as
+  the Epistemos Editor Core: native JSON `.epdoc`, Markdown Prose/Preview/
+  MarkEdit Source, code, save/title/performance/navigation/accessibility;
+- all other requested non-AI work remains active except Reckoner, including
+  KEELSTONE, Sync, Quick Capture, planner/calendar/Meeting, PDF, graph/search,
+  native integrations, settings/performance hardening, export, and Kokoro;
+- Browser and ResearchHub remain deterministic future paid possibilities, but
+  are absent from Free V1 and may contain no AI/autonomous/scraping lane; and
+- implementation/builds are paused at the recorded evidence boundary until the
+  owner reviews the checkpoint.
+
+Do not execute Prompt 3 or the old combined Prompt 4. Do not delete preserved
+history, compatibility parsers, user records, or quarantined research receipts.
+
 ## Latest Owner Steer - 2026-07-13 Free V1
 
 Read `11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md` before
@@ -29,6 +83,23 @@ choosing feature order or visibility. The owner now requires:
 This dated steer overrides conflicting July 8 sequencing/visibility language
 only. It does not authorize a replacement agent, a non-MAS lane, or weaker
 storage/privacy/release evidence.
+
+## Latest Owner Steer - 2026-07-13 Workspace Surface and Source Recovery
+
+Read `12_LIVE_REFERENCE_AND_FREE_V1_SURFACE_REGISTRY_2026_07_13.md` before
+editing Source/Code, Epdoc notebook tabs, graph projections, settings, or
+RECKONER. It locks no free-V1 chat/agent/model/June/Browser/ResearchHub residue
+outside the Kokoro exception; the existing MarkEdit vendor as the Source-editor
+reference; a measured Epistemos-native Source upgrade; RECKONER real-source
+recovery with the owner-corrected IronCalc-front-end direction; and one
+edit/build owner who consolidates any delegated read-only audits.
+
+Read `13_EXECUTIVE_CONTINUITY_AND_FREE_V1_REMEDIATION_2026_07_13.md` after
+the registry for the current intent checkpoint, the pinned quarantined
+IronCalc/Univer source evidence, and the safe next action. IronCalc remains
+the eventual visible Free V1 spreadsheet front end and sole calculation
+authority; Univer is a required bounded supporting source, never a second
+engine or a replacement front end.
 
 ## July 8 Archive Fusion Steer
 
@@ -87,9 +158,8 @@ Active lane:
 - `Epistemos-AppStore`
 - `EPISTEMOS_APP_STORE`
 - `MAS_SANDBOX`
-- no active agent surface in free V1; MAS/June retained as the sole future paid
-  agent when explicitly reactivated
-- in-process `agent_core`
+- no active or queued agent surface; June/LumenLens/AI are canceled and retained
+  only as provenance/removal inventory
 - native Swift/AppKit/SwiftUI where the surface should feel native
 - bundled WKWebView assets where web is the honest best component host
 - Keychain for secrets
@@ -100,14 +170,15 @@ Active lane:
 Active build spine:
 
 1. KEELSTONE storage, release, pruning, and archive truth.
-2. Free-V1 product-capability boundary: June, Browser, ResearchHub, and
-   generative/agent features hidden and inert; Kokoro retained.
-3. LUMENLENS Epdoc editor/planner/provenance and RECKONER datasets inside one
-   workspace fabric.
+2. Free-V1 product-capability boundary: canceled AI/June/LumenLens and parked
+   Reckoner absent from compile/query/presentation; Browser/ResearchHub absent;
+   Kokoro retained.
+3. Non-AI Editor Core: native JSON Epdoc plus Markdown Prose/Preview/MarkEdit
+   Source, code, save/title/performance/navigation/accessibility.
 4. Free capability ring: Meeting, Sync, Quick Capture, calendar/tasks,
    PDF/import, Kokoro/local speech, graph/search, and export.
-5. Future paid capability preservation: MAS June/Epdoc Assist, Browser, and
-   ResearchHub remain MAS-safe but do not execute in free V1.
+5. Deferred deterministic paid possibilities: Browser and ResearchHub remain
+   absent from Free V1 and contain no AI/autonomous/scraping lane.
 6. Release evidence: entitlements, privacy manifests, required-reason APIs,
    archive scans, source legality, storage soak tests, and App Review notes.
 
@@ -134,26 +205,35 @@ The following are not active product lanes:
 - second data room
 
 Useful ideas from parked lanes may be salvaged only by rebuilding them through
-MAS-safe June, native Swift/AppKit/SwiftUI, bundled WKWebView assets,
-in-process `agent_core`, Keychain, sandbox-safe storage, and approval-gated
-tools.
+native Swift/AppKit/SwiftUI, bundled reviewed assets, Keychain, sandbox-safe
+storage, and explicit deterministic user actions. Canceled AI/June/agent code
+is not a salvage route under the July 15 boundary.
 
 ## Agent Read Order
 
 1. `00_READ_FIRST.md`
-2. `01_OWNER_LOCK_AND_CANONICAL_THESIS.md`
-3. `02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md`
-4. `03_MINIMAL_PROMPT_PACK.md`
-5. `11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md`
-6. The relevant domain doc: `04`, `05`, `06`, `07`, or `08`
-7. `10_LOCAL_AGENT_REDIRECT_AND_STATUS_TEMPLATES.md` before handoff/status work
-8. `09_PARKED_PROVENANCE_AND_SUPERSESSION_LEDGER.md` only when checking
+2. `14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md`
+3. `15_OWNER_DIRECTIVE_COVERAGE_AND_HARDENING_CHECKPOINT_2026_07_15.md`
+4. `16_TWO_LANE_REMOVAL_AND_REBUILD_DIRECTIVE_2026_07_15.md`
+5. `01_OWNER_LOCK_AND_CANONICAL_THESIS.md`
+6. `02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md`
+7. `03_MINIMAL_PROMPT_PACK.md`
+8. `11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md`
+9. `12_LIVE_REFERENCE_AND_FREE_V1_SURFACE_REGISTRY_2026_07_13.md`
+10. `13_EXECUTIVE_CONTINUITY_AND_FREE_V1_REMEDIATION_2026_07_13.md`
+11. The relevant surviving domain doc: `04`, `07`, or `08`; use `05` and `06`
+   only for canceled/parked provenance and non-AI salvage mapping
+12. `10_LOCAL_AGENT_REDIRECT_AND_STATUS_TEMPLATES.md` before handoff/status work
+13. `09_PARKED_PROVENANCE_AND_SUPERSESSION_LEDGER.md` only when checking
    provenance or resolving contradictions
 
-Recommended first build prompt:
+Current prompt boundary:
 
-`03_MINIMAL_PROMPT_PACK.md` / Prompt 1 - MAS Pivot Program Director, then
-Prompt 2 - KEELSTONE Storage and MAS Release Gate.
+Execute only one of canon 16's two scoped prompts per session. Both remain
+inside the existing Prompt 2 KEELSTONE execution key. Do not run Prompt 3 or
+the retired combined Prompt 4. Do not run Xcode or launch the app until both
+lane source checkpoints are stable and one integration owner holds the serial
+verification boundary.
 
 ## Never Do These Things
 

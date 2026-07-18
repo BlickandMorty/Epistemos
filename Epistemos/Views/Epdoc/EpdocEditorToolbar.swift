@@ -85,44 +85,54 @@ public final class EpdocEditorToolbarModel {
 
 // MARK: - Toolbar SwiftUI view
 
+nonisolated public enum EpdocEditorToolbarCapabilities: Sendable, Equatable {
+    case full
+    case nativeTextKit2
+
+    var supportsMath: Bool { self == .full }
+    var supportsTablesAndDividers: Bool { self == .full }
+    var supportsNestedStructures: Bool { self == .full }
+    var supportsReplace: Bool { self == .full }
+}
+
 @MainActor
 public struct EpdocEditorToolbar: View {
 
     @Bindable public var model: EpdocEditorToolbarModel
-    /// Triggered when the user hits ⌘S or the Save button. The host
-    /// runs the actual NSDocument save coordinator.
-    public var onSave: @Sendable @MainActor () -> Void = {}
-    @State private var isWidthPopoverPresented = false
-    @State private var customWidthPixels = Double(NoteWidthMode.defaultCustomPixels)
+    public let capabilities: EpdocEditorToolbarCapabilities
     @State private var findQuery = ""
     @State private var findReplacement = ""
     @State private var findCaseSensitive = false
 
     public init(
         model: EpdocEditorToolbarModel,
-        onSave: @escaping @Sendable @MainActor () -> Void = {}
+        capabilities: EpdocEditorToolbarCapabilities = .full
     ) {
         self.model = model
-        self.onSave = onSave
+        self.capabilities = capabilities
     }
 
     public var body: some View {
-        HStack(spacing: 12) {
-            formattingGroup
-            divider
-            extendedFormattingGroup
-            divider
-            insertGroup
-            divider
-            structureGroup
-            divider
-            widthGroup
-            divider
-            findGroup
+        ScrollView(.horizontal) {
+            HStack(spacing: 12) {
+                formattingGroup
+                divider
+                extendedFormattingGroup
+                divider
+                insertGroup
+                divider
+                structureGroup
+                divider
+                widthGroup
+                divider
+                findGroup
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 2)
         }
-        .fixedSize(horizontal: true, vertical: false)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 2)
+        .scrollIndicators(.hidden)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Groups
@@ -146,8 +156,10 @@ public struct EpdocEditorToolbar: View {
 
     @ViewBuilder
     private var extendedFormattingGroup: some View {
-        toolButton(symbol: "function",      shortcut: "⌘M",
-                   tip: "Display math",   command: .insertSlashChoice(blockType: "math-display"))  // DISC-14: was mislabeled "Inline math"
+        if capabilities.supportsMath {
+            toolButton(symbol: "function",      shortcut: "⌘M",
+                       tip: "Display math",   command: .insertSlashChoice(blockType: "math-display"))
+        }
         toolButton(symbol: "link",          shortcut: "⌘⇧K",
                    tip: "Link") {
             promptAndDispatchLink()
@@ -160,14 +172,18 @@ public struct EpdocEditorToolbar: View {
                    tip: "Image") {
             promptAndDispatchImage()
         }
-        toolButton(symbol: "tablecells",
-                   tip: "Table 3×3",      command: .insertSlashChoice(blockType: "table-3x3"))
+        if capabilities.supportsTablesAndDividers {
+            toolButton(symbol: "tablecells",
+                       tip: "Table 3×3",      command: .insertSlashChoice(blockType: "table-3x3"))
+        }
         toolButton(symbol: "rectangle.3.group",
                    tip: "HTML Workspace") {
             model.openHTMLWorkspace()
         }
-        toolButton(symbol: "minus",         shortcut: "⌘⇧R",
-                   tip: "Divider",        command: .insertSlashChoice(blockType: "divider"))
+        if capabilities.supportsTablesAndDividers {
+            toolButton(symbol: "minus",         shortcut: "⌘⇧R",
+                       tip: "Divider",        command: .insertSlashChoice(blockType: "divider"))
+        }
     }
 
     @ViewBuilder
@@ -202,67 +218,23 @@ public struct EpdocEditorToolbar: View {
         )
         .help(headingMenuTip + " (⌘1...6)")
         .accessibilityLabel(Text(headingMenuTip))
-        toolButton(symbol: "text.quote",    shortcut: "⌘⇧.",
-                   tip: "Quote",          command: .insertSlashChoice(blockType: "blockquote"))
-        toolButton(symbol: "list.bullet",   shortcut: "⌘⇧8",
-                   tip: "Bulleted list",  command: .insertSlashChoice(blockType: "bullet-list"))
-        toolButton(symbol: "list.number",   shortcut: "⌘⇧7",
-                   tip: "Numbered list",  command: .insertSlashChoice(blockType: "numbered-list"))
-        toolButton(symbol: "checklist",     shortcut: "⌘⇧9",
-                   tip: "Task list",      command: .insertSlashChoice(blockType: "task-list"))
+        if capabilities.supportsNestedStructures {
+            toolButton(symbol: "text.quote",    shortcut: "⌘⇧.",
+                       tip: "Quote",          command: .insertSlashChoice(blockType: "blockquote"))
+            toolButton(symbol: "list.bullet",   shortcut: "⌘⇧8",
+                       tip: "Bulleted list",  command: .insertSlashChoice(blockType: "bullet-list"))
+            toolButton(symbol: "list.number",   shortcut: "⌘⇧7",
+                       tip: "Numbered list",  command: .insertSlashChoice(blockType: "numbered-list"))
+            toolButton(symbol: "checklist",     shortcut: "⌘⇧9",
+                       tip: "Task list",      command: .insertSlashChoice(blockType: "task-list"))
+        }
     }
 
     @ViewBuilder
     private var widthGroup: some View {
-        Button {
-            syncCustomWidthFromModel()
-            isWidthPopoverPresented.toggle()
-        } label: {
-            Label(widthModeTip, systemImage: "arrow.left.and.right")
-                .labelStyle(.iconOnly)
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 24, height: 24)
+        EditorContentWidthControl(mode: $model.widthMode, label: "Epdoc width") { mode in
+            model.dispatch(.setContentWidth(mode: mode))
         }
-        .buttonStyle(.borderless)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(model.widthMode.normalized == .normal ? Color.clear : Color.accentColor.opacity(0.15))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(model.widthMode.normalized == .normal ? Color.clear : Color.accentColor.opacity(0.45), lineWidth: 1)
-        )
-        .help(widthModeTip)
-        .accessibilityLabel(Text(widthModeTip))
-        .popover(isPresented: $isWidthPopoverPresented, arrowEdge: .bottom) {
-            widthPopover
-        }
-    }
-
-    private var widthPopover: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                widthChoiceButton(title: "Normal", symbol: "text.alignleft", mode: .normal)
-                widthChoiceButton(title: "Wide", symbol: "rectangle.expand.vertical", mode: .wide)
-            }
-            HStack(spacing: 8) {
-                Image(systemName: "textformat.size.smaller")
-                    .foregroundStyle(.secondary)
-                Slider(
-                    value: customWidthBinding,
-                    in: Double(NoteWidthMode.minimumCustomPixels)...Double(NoteWidthMode.maximumCustomPixels),
-                    step: 20
-                )
-                Image(systemName: "textformat.size.larger")
-                    .foregroundStyle(.secondary)
-            }
-            Text("\(Int(customWidthPixels.rounded())) px")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-        }
-        .padding(12)
-        .frame(width: 270)
     }
 
     @ViewBuilder
@@ -304,22 +276,39 @@ public struct EpdocEditorToolbar: View {
                     dispatchFindNext()
                 }
             }
-            HStack(spacing: 8) {
-                findActionButton("Replace", systemImage: "arrow.triangle.2.circlepath") {
-                    dispatchReplaceCurrent()
+            if capabilities.supportsReplace {
+                HStack(spacing: 8) {
+                    findActionButton("Replace", systemImage: "arrow.triangle.2.circlepath") {
+                        dispatchReplaceCurrent()
+                    }
+                    findActionButton("All", systemImage: "text.badge.checkmark") {
+                        dispatchReplaceAll()
+                    }
+                    Spacer()
+                    Button {
+                        clearFind()
+                    } label: {
+                        Image(systemName: "xmark.circle")
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Clear")
                 }
-                findActionButton("All", systemImage: "text.badge.checkmark") {
-                    dispatchReplaceAll()
+            } else {
+                HStack {
+                    Text("Replace is unavailable in the native JSON editor.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        clearFind()
+                    } label: {
+                        Image(systemName: "xmark.circle")
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Clear")
                 }
-                Spacer()
-                Button {
-                    clearFind()
-                } label: {
-                    Image(systemName: "xmark.circle")
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.borderless)
-                .help("Clear")
             }
         }
         .padding(12)
@@ -336,47 +325,6 @@ public struct EpdocEditorToolbar: View {
     }
 
     // MARK: - Helpers
-
-    private func widthChoiceButton(title: String, symbol: String, mode: NoteWidthMode) -> some View {
-        Button {
-            applyWidthMode(mode)
-        } label: {
-            Label(title, systemImage: symbol)
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.bordered)
-        .tint(model.widthMode.normalized == mode.normalized ? Color.accentColor : Color.gray)
-    }
-
-    private var customWidthBinding: Binding<Double> {
-        Binding(
-            get: {
-                customWidthPixels
-            },
-            set: { newValue in
-                let rounded = (newValue / 20).rounded() * 20
-                customWidthPixels = rounded
-                applyWidthMode(.custom(px: Int(rounded)))
-            }
-        )
-    }
-
-    private var widthModeTip: String {
-        "Note width: \(model.widthMode.displayTitle)"
-    }
-
-    private func syncCustomWidthFromModel() {
-        customWidthPixels = Double(model.widthMode.customPixelsOrDefault)
-    }
-
-    private func applyWidthMode(_ mode: NoteWidthMode) {
-        let normalized = mode.normalized
-        model.widthMode = normalized
-        if case .custom(let pixels) = normalized {
-            customWidthPixels = Double(pixels)
-        }
-        model.dispatch(.setContentWidth(mode: normalized))
-    }
 
     private func findActionButton(
         _ title: String,
@@ -575,6 +523,99 @@ public struct EpdocEditorToolbar: View {
         case "svg": return "image/svg+xml"
         default: return "image/png"
         }
+    }
+}
+
+/// Compact, shared presentation-width control used by all three editing
+/// surfaces. The binding is view state only; callers decide how to apply it.
+@MainActor
+struct EditorContentWidthControl: View {
+    @Binding var mode: NoteWidthMode
+    var label: String = "Content width"
+    var onChange: @MainActor (NoteWidthMode) -> Void = { _ in }
+
+    @State private var isPresented = false
+    @State private var customPixels = Double(NoteWidthMode.defaultCustomPixels)
+
+    var body: some View {
+        Button {
+            customPixels = Double(mode.customPixelsOrDefault)
+            isPresented.toggle()
+        } label: {
+            Image(systemName: "arrow.left.and.right")
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 24, height: 24)
+        }
+        .buttonStyle(.borderless)
+        .background {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(mode.normalized == .normal ? Color.clear : Color.accentColor.opacity(0.15))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(
+                    mode.normalized == .normal ? Color.clear : Color.accentColor.opacity(0.45),
+                    lineWidth: 1
+                )
+        }
+        .help("\(label): \(mode.displayTitle)")
+        .accessibilityLabel(Text("\(label): \(mode.displayTitle)"))
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    choice(title: "Normal", symbol: "text.alignleft", value: .normal)
+                    choice(title: "Wide", symbol: "rectangle.expand.vertical", value: .wide)
+                }
+                HStack(spacing: 8) {
+                    Image(systemName: "textformat.size.smaller")
+                        .foregroundStyle(.secondary)
+                    Slider(
+                        value: Binding(
+                            get: { customPixels },
+                            set: { value in
+                                let rounded = (value / 20).rounded() * 20
+                                customPixels = rounded
+                                apply(.custom(px: Int(rounded)))
+                            }
+                        ),
+                        in: Double(NoteWidthMode.minimumCustomPixels)...Double(NoteWidthMode.maximumCustomPixels),
+                        step: 20
+                    )
+                    Image(systemName: "textformat.size.larger")
+                        .foregroundStyle(.secondary)
+                }
+                Text("\(Int(customPixels.rounded())) px")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            .padding(12)
+            .frame(width: 270)
+        }
+    }
+
+    private func choice(
+        title: String,
+        symbol: String,
+        value: NoteWidthMode
+    ) -> some View {
+        Button {
+            apply(value)
+        } label: {
+            Label(title, systemImage: symbol)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .tint(mode.normalized == value.normalized ? Color.accentColor : Color.gray)
+    }
+
+    private func apply(_ value: NoteWidthMode) {
+        let normalized = value.normalized
+        mode = normalized
+        if case .custom(let pixels) = normalized {
+            customPixels = Double(pixels)
+        }
+        onChange(normalized)
     }
 }
 

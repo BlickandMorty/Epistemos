@@ -113,17 +113,34 @@ struct MarkEditCoreEditorState: Equatable {
         )
     }
 
-    // #7: `themeName` and `isEditable` are intentionally EXCLUDED here. A theme flip used to
+    func replacingLineWrapping(_ nextLineWrapping: Bool) -> MarkEditCoreEditorState {
+        MarkEditCoreEditorState(
+            text: text,
+            mode: mode,
+            themeName: themeName,
+            themePalette: themePalette,
+            fontFace: fontFace,
+            fontSize: fontSize,
+            lineHeight: lineHeight,
+            wrapLines: nextLineWrapping,
+            showLineNumbers: showLineNumbers,
+            showInvisibles: showInvisibles,
+            useSpaces: useSpaces,
+            tabWidth: tabWidth,
+            isEditable: isEditable
+        )
+    }
+
+    // `themeName`, `isEditable`, and `wrapLines` are intentionally excluded here. A theme flip used to
     // force a full `loadEditor` reload, which re-embeds the last-synced text
     // and drops any keystroke typed inside the ~250ms reload window (plus a
     // blank flash). Lease handoffs had the same problem for read-only changes.
-    // The coordinator now pushes both through live CoreEditor config bridges.
+    // The coordinator now pushes all three through live CoreEditor config bridges.
     func requiresReload(comparedTo other: MarkEditCoreEditorState) -> Bool {
         mode != other.mode ||
             fontFace != other.fontFace ||
             fontSize != other.fontSize ||
             lineHeight != other.lineHeight ||
-            wrapLines != other.wrapLines ||
             showLineNumbers != other.showLineNumbers ||
             showInvisibles != other.showInvisibles ||
             useSpaces != other.useSpaces ||

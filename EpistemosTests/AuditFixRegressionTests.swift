@@ -4,27 +4,12 @@ import Testing
 
 @Suite("Audit Fix Regression")
 struct AuditFixRegressionTests {
-    @Test("skill evolution uses SkillTraceEvent and accepts live harness traces")
-    func skillEvolutionUsesSkillTraceEventAndLiveHarnessTraces() throws {
-        let source = try loadAuditSource("Epistemos/Vault/SkillEvolutionService.swift")
-
-        #expect(source.contains("SkillTraceEvent"))
-        #expect(source.contains("lastPathComponent == \"trace.json\""))
-        #expect(source.contains("pathExtension == \"jsonl\""))
-        #expect(source.contains("loadHarnessTraceSessions()"))
-    }
-
-    @Test("vault registry and session browser expose the shared helpers required by vault services")
-    func vaultRegistryAndSessionBrowserExposeSharedHelpers() throws {
+    @Test("vault registry exposes the shared helpers required by vault services")
+    func vaultRegistryExposesSharedHelpers() throws {
         let registry = try loadAuditSource("Epistemos/Vault/VaultRegistry.swift")
-        let browser = try loadAuditSource("Epistemos/Vault/SessionBrowser.swift")
 
         #expect(registry.contains("static let shared = VaultRegistry()"))
         #expect(registry.contains("func resolveVaultPath(for identity: VaultIdentity) -> String?"))
-        #expect(browser.contains("static let shared = SessionBrowser()"))
-        #expect(browser.contains("var sessionId: String { id }"))
-        #expect(browser.contains("var sessions: [SessionInfo] { groups.flatMap(\\.sessions) }"))
-        #expect(browser.contains("func refreshSessions(for vaultIdentity: VaultIdentity)"))
     }
 
     @Test("code editor stays editor-only and drops inline assistant chrome")
@@ -323,56 +308,14 @@ struct AuditFixRegressionTests {
         #expect(graphData.nodes.contains(where: { $0.id == "session_session_knowledge_graph" }))
     }
 
-    @Test("vault lifecycle merge writes a vault graph after filling missing session graphs")
-    func vaultLifecycleMergeWritesVaultGraph() async throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        let sessionsRoot = root.appendingPathComponent("sessions", isDirectory: true)
-        let sessionFolder = sessionsRoot.appendingPathComponent("2026-04-09_release_audit", isDirectory: true)
-        try FileManager.default.createDirectory(at: sessionFolder, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+    @Test("retired vault lifecycle graph maintenance service remains physically absent")
+    func retiredVaultLifecycleGraphMaintenanceServiceRemainsPhysicallyAbsent() {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/Vault/VaultLifecycleService.swift")
 
-        try """
-        {
-          "id": "release-audit-session",
-          "model": "gemma-4-4b",
-          "provider": "local",
-          "started_at": "2026-04-09T18:00:00Z",
-          "status": "completed",
-          "turn_count": 3
-        }
-        """.write(
-            to: sessionFolder.appendingPathComponent("session.json"),
-            atomically: true,
-            encoding: .utf8
-        )
-        try """
-        {"content":"We used the release checklist and graph audit.","tool_calls":[{"name":"vault_search"}]}
-        """.write(
-            to: sessionFolder.appendingPathComponent("transcript.jsonl"),
-            atomically: true,
-            encoding: .utf8
-        )
-        try """
-        # Summary
-
-        ## Key Decisions
-        Restore the buttery graph camera baseline.
-        """.write(
-            to: sessionFolder.appendingPathComponent("summary.md"),
-            atomically: true,
-            encoding: .utf8
-        )
-
-        let lifecycle = VaultLifecycleService(vaultPath: root.path)
-        await lifecycle.mergeVaultGraphs()
-
-        let mergedGraphURL = root.appendingPathComponent("vault_graph.json")
-        #expect(FileManager.default.fileExists(atPath: mergedGraphURL.path))
-
-        let mergedGraph = try String(contentsOf: mergedGraphURL, encoding: .utf8)
-        #expect(mergedGraph.contains("\"nodes\""))
-        #expect(mergedGraph.contains("\"edges\""))
+        #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
     }
 }
 

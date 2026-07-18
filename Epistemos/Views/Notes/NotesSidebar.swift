@@ -443,6 +443,20 @@ enum NotesSidebarMetrics {
     static let changesPanelHeight: CGFloat = 400
 }
 
+enum NotesSidebarOpenDestination: String, CaseIterable, Identifiable {
+    case home
+    case multitask
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .home: "Home"
+        case .multitask: "Multitask"
+        }
+    }
+}
+
 enum NotesSidebarGlyph: Sendable {
     case vaultChanges
 
@@ -655,6 +669,63 @@ private struct NotesSidebarRowChrome: View {
     }
 }
 
+private struct NotesSidebarDestinationPicker: View {
+    @Binding var destination: NotesSidebarOpenDestination
+    let onHomeGraph: () -> Void
+    let onMultitaskGraph: () -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Text("Notes Sidebar")
+                    .font(AppDisplayTypography.font(size: 12, weight: .semibold, allowDisplayFont: false))
+                Text("\u{2318}2")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Command 2")
+                Spacer(minLength: 8)
+                Menu {
+                    Button("Home Graph") {
+                        onHomeGraph()
+                    }
+                    .keyboardShortcut("g", modifiers: .command)
+                    Button("Multitask Graph") {
+                        onMultitaskGraph()
+                    }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
+                } label: {
+                    Label("Graph", systemImage: "point.3.connected.trianglepath.dotted")
+                        .font(AppDisplayTypography.font(size: 11, weight: .medium, allowDisplayFont: false))
+                }
+                .menuStyle(.borderlessButton)
+                .help("Choose Home Graph or Multitask Graph")
+                .accessibilityLabel("Graph destinations")
+            }
+
+            Picker("Open files in", selection: $destination) {
+                ForEach(NotesSidebarOpenDestination.allCases) { destination in
+                    Text(destination.label).tag(destination)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .help("Home reveals the selected file in Home. Multitask opens it in the native tab workspace.")
+            .accessibilityLabel("Open selected files in Home or Multitask")
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+        .background {
+            NotesSidebarHeaderChrome(theme: theme)
+        }
+        .help("Notes Sidebar (Command-2)")
+    }
+}
+
 // MARK: - Notes Sidebar
 // Obsidian-style file tree: vault → folders (SDFolder) → pages.
 // Loose pages (not in any folder) appear at root level alongside folders.
@@ -676,6 +747,11 @@ struct NotesSidebar: View {
     @Environment(GraphState.self) private var graphState
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @AppStorage(
+        "epistemos.notesSidebar.openDestination",
+        store: FoundationSafety.runtimeUserDefaults
+    ) private var openDestination = NotesSidebarOpenDestination.multitask
 
     @State private var bodySearchResults: [SidebarPageItem] = []
     @State private var pendingDeletePage: SidebarPageItem?
@@ -1056,6 +1132,15 @@ struct NotesSidebar: View {
         // 2026-05-19: removed the duplicate "Notes" title header.
         // Letting the sidebar start at the search bar unifies the surface.
         VStack(spacing: 0) {
+            NotesSidebarDestinationPicker(
+                destination: $openDestination,
+                onHomeGraph: {
+                    KnowledgeGraphShortcutDispatcher.showHomeGraph(reduceMotion: reduceMotion)
+                },
+                onMultitaskGraph: {
+                    KnowledgeGraphShortcutDispatcher.openMultitaskGraph()
+                }
+            )
             searchBar
             // ISSUE-2026-05-12-001 — Fresh-user no-vault banner.
             // Fires when no vault is connected AND there is no cached
@@ -1313,7 +1398,7 @@ struct NotesSidebar: View {
         let loose = cachedLoosePageItems
         VStack(alignment: .leading, spacing: 0) {
             if !loose.isEmpty || !folders.isEmpty {
-                Text("Files")
+                Text("Markdown (.md)")
                     .font(AppHeadingRole.section.font)
                     .foregroundStyle(theme.fontAccent)
                     .textCase(.uppercase)
@@ -1774,10 +1859,11 @@ struct NotesSidebar: View {
     // (all rows check highlight state) that blocks the main thread before the
     // editor can appear.
 
-    private func openInEditor(_ pageId: String, initialMode: NoteWorkspaceMode = .document) {
-        // Owner 2026-07-05: Epdoc (.document) is the default note view. Both reading views
-        // (.edit prose + .document Epdoc) select in-place when a main pane is wired; other
-        // modes (.source) open a window. All toggles remain; only the default changed.
+    private func openInEditor(_ pageId: String, initialMode: NoteWorkspaceMode = .defaultMarkdown) {
+        if openDestination == .home {
+            HomeDocumentRouter.openPage(pageId, initialMode: initialMode)
+            return
+        }
         if initialMode == .edit || initialMode == .document, let onSelectPage {
             onSelectPage(pageId)
         } else {
@@ -1786,12 +1872,9 @@ struct NotesSidebar: View {
     }
 
     private func preferredInitialMode(for page: SDPage) -> NoteWorkspaceMode {
-        // Owner 2026-07-05: non-code notes default to Epdoc (.document), not Prose (.edit).
-        // Code pages still open in .source. resolvedNoteMode gracefully falls back if a page
-        // doesn't support .document. Users can still switch to any view via the toggles.
         guard let path = page.filePath,
               CodeLanguage.detect(from: path) != nil
-        else { return .document }
+        else { return .defaultMarkdown }
         return .source
     }
 
@@ -2074,6 +2157,10 @@ struct NotesSidebar: View {
             }
 
         case .openDocument(let url):
+            if openDestination == .home {
+                HomeDocumentRouter.openDocument(url)
+                return
+            }
             if url.pathExtension == "htmlworkspace" {
                 do {
                     try NSDocumentController.shared.openHTMLWorkspaceDocument(at: url)
@@ -2104,7 +2191,7 @@ struct NotesSidebar: View {
             withAnimation(reduceMotion ? nil : Motion.snap) { notesUI.collapseAllFolders() }
 
         case .openInGraph(let id):
-            HologramController.shared.revealPage(id)
+            KnowledgeGraphShortcutDispatcher.revealPage(id)
         }
     }
 
@@ -2855,7 +2942,7 @@ private struct DocumentsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Documents")
+            Text("JSON Documents (.epdoc)")
                 .font(AppHeadingRole.section.font)
                 .foregroundStyle(theme.fontAccent)
                 .textCase(.uppercase)
@@ -2926,6 +3013,8 @@ private struct DocumentRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("JSON Document: \(item.title)")
+        .accessibilityHint("Open JSON-backed Epdoc package")
         .notesSidebarHoverTick(style: .file)
         .contextMenu {
             Button("Open Document") {
@@ -3375,7 +3464,9 @@ private struct EditorActionsBar: View {
         HStack(spacing: 2) {
             SidebarIconButton(
                 icon: "square.and.pencil",
-                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Note" : "New Note"
+                tooltip: vaultSync.vaultURL == nil
+                    ? "Select Vault to Create Markdown (.md)"
+                    : "New Markdown (.md)"
             ) {
                 onNewPage()
             }
@@ -3570,8 +3661,7 @@ enum CodeFileCreationController {
         let fileURL = try service.createCodeFile(
             relativeDirectory: directory,
             name: baseName,
-            kind: kind,
-            provenance: CodeProvenance(producer: .human)
+            kind: kind
         )
         let body = (try? String(contentsOf: fileURL, encoding: .utf8))
             ?? kind.newFileTemplate(name: baseName)
@@ -3655,16 +3745,6 @@ enum CodeFileCreationController {
     private static func rollbackCreatedFile(_ fileURL: URL, vaultURL: URL) {
         let fileManager = FileManager.default
         try? fileManager.removeItem(at: fileURL)
-        let vaultPath = vaultURL.standardizedFileURL.path
-        let filePath = fileURL.standardizedFileURL.path
-        let prefix = vaultPath.hasSuffix("/") ? vaultPath : "\(vaultPath)/"
-        guard filePath.hasPrefix(prefix) else { return }
-        let relativePath = String(filePath.dropFirst(prefix.count))
-        let sidecar = CodeSidecarPath.sidecarURL(
-            forVaultRoot: vaultURL,
-            vaultRelativePath: relativePath
-        )
-        try? fileManager.removeItem(at: sidecar)
     }
 }
 

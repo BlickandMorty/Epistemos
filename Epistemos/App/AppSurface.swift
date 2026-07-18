@@ -6,5 +6,4 @@ enum AppSurface: String, Sendable {
 
     var isSandboxed: Bool { true }
     var allowsSubprocessCapabilities: Bool { false }
-    var rendersCompanionPresence: Bool { false }
 }

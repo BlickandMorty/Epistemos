@@ -20,10 +20,111 @@ import Synchronization
 // methods to avoid actor-hop overhead. The actor serializes only the async diff sync.
 
 enum SearchIndexError: Error {
+    case diffVerificationFailed(expectedPageCount: Int, actualPageCount: Int, remainingOrphanBlockCount: Int)
+    case duplicateRequiredPage(String)
     case noAppSupportDirectory
     case integrityCheckFailed(String)
     case journalModeRejected(String)
+    case missingRequiredPage(String)
     case recoveryReopenFailed(String)
+}
+
+private nonisolated func searchIndexChangedDependencies(
+    pagesChanged: Bool,
+    blocksChanged: Bool
+) -> Set<QueryDependencyKey> {
+    var dependencies = Set<QueryDependencyKey>()
+    if pagesChanged {
+        dependencies.insert(.searchPages)
+    }
+    if blocksChanged {
+        dependencies.insert(.searchBlocks)
+    }
+    return dependencies
+}
+
+nonisolated struct SearchIndexMutationReceipt: Sendable, Equatable {
+    let upsertedPageCount: Int
+    let deletedPageCount: Int
+    let upsertedBlockCount: Int
+    let deletedBlockCount: Int
+
+    static let empty = SearchIndexMutationReceipt(
+        upsertedPageCount: 0,
+        deletedPageCount: 0,
+        upsertedBlockCount: 0,
+        deletedBlockCount: 0
+    )
+
+    var changedDependencies: Set<QueryDependencyKey> {
+        searchIndexChangedDependencies(
+            pagesChanged: upsertedPageCount > 0 || deletedPageCount > 0,
+            blocksChanged: upsertedBlockCount > 0 || deletedBlockCount > 0
+        )
+    }
+
+    func merging(_ other: SearchIndexMutationReceipt) -> SearchIndexMutationReceipt {
+        SearchIndexMutationReceipt(
+            upsertedPageCount: upsertedPageCount + other.upsertedPageCount,
+            deletedPageCount: deletedPageCount + other.deletedPageCount,
+            upsertedBlockCount: upsertedBlockCount + other.upsertedBlockCount,
+            deletedBlockCount: deletedBlockCount + other.deletedBlockCount
+        )
+    }
+}
+
+nonisolated struct SearchIndexDiffReceipt: Sendable, Equatable {
+    let sourcePageCount: Int
+    let upsertedPageCount: Int
+    let deletedPageCount: Int
+    let deletedBlockCount: Int
+    let finalIndexedPageCount: Int
+    let finalIndexedBlockCount: Int
+    let remainingOrphanBlockCount: Int
+
+    var mutationReceipt: SearchIndexMutationReceipt {
+        SearchIndexMutationReceipt(
+            upsertedPageCount: upsertedPageCount,
+            deletedPageCount: deletedPageCount,
+            upsertedBlockCount: 0,
+            deletedBlockCount: deletedBlockCount
+        )
+    }
+
+    var changedDependencies: Set<QueryDependencyKey> {
+        mutationReceipt.changedDependencies
+    }
+}
+
+nonisolated struct SearchIndexSynchronizationReceipt: Sendable, Equatable {
+    let suppressedImport: SearchIndexMutationReceipt
+    let diff: SearchIndexDiffReceipt
+
+    var total: SearchIndexMutationReceipt {
+        suppressedImport.merging(diff.mutationReceipt)
+    }
+
+    var changedDependencies: Set<QueryDependencyKey> {
+        total.changedDependencies
+    }
+}
+
+nonisolated struct SearchIndexPageDeletionReceipt: Sendable, Equatable {
+    let deletedPageCount: Int
+    let deletedBlockCount: Int
+
+    var mutationReceipt: SearchIndexMutationReceipt {
+        SearchIndexMutationReceipt(
+            upsertedPageCount: 0,
+            deletedPageCount: deletedPageCount,
+            upsertedBlockCount: 0,
+            deletedBlockCount: deletedBlockCount
+        )
+    }
+
+    var changedDependencies: Set<QueryDependencyKey> {
+        mutationReceipt.changedDependencies
+    }
 }
 
 nonisolated struct SearchIndexIntegrityDiagnostics: Sendable, Equatable {
@@ -156,19 +257,12 @@ actor SearchIndexService {
     nonisolated private let supportsPageFTS5: Bool
     nonisolated private let supportsBlockFTS5: Bool
     nonisolated private let supportsReadableBlocksFTS5: Bool
-    nonisolated private let agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder
-    nonisolated private let directPageSyncSearchToolSequence = Mutex<UInt64>(0)
-    nonisolated private let blockSyncSearchToolSequence = Mutex<UInt64>(0)
-    nonisolated private let fusedSyncSearchToolSequence = Mutex<UInt64>(0)
-    private var agentProvenanceRecorder: AgentToolProvenanceRecorder?
-    private var directPageAsyncSearchToolSequence: UInt64 = 0
-    private var blockAsyncSearchToolSequence: UInt64 = 0
-    private var fusedAsyncSearchToolSequence: UInt64 = 0
+#if DEBUG
+    nonisolated private let forceTruncateCheckpointFailureForTesting = Mutex(false)
+#endif
 
     init(
-        databaseURL providedDatabaseURL: URL? = nil,
-        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil,
-        agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder = AgentToolProvenanceSyncRecorder()
+        databaseURL providedDatabaseURL: URL? = nil
     ) throws {
         let resolvedDatabaseURL: URL
         if let providedURL = providedDatabaseURL {
@@ -196,9 +290,6 @@ actor SearchIndexService {
         supportsPageFTS5 = prepared.features.pageFTS5
         supportsBlockFTS5 = prepared.features.blockFTS5
         supportsReadableBlocksFTS5 = prepared.features.readableBlocksFTS5
-        self.agentProvenanceRecorder = agentProvenanceRecorder
-        self.agentProvenanceSyncRecorder = agentProvenanceSyncRecorder
-
         log.info(
             "SearchIndexService initialized at \(resolvedDatabaseURL.path, privacy: .public) fts5_pages=\(prepared.features.pageFTS5) fts5_blocks=\(prepared.features.blockFTS5) fts5_readable_blocks=\(prepared.features.readableBlocksFTS5)"
         )
@@ -332,10 +423,13 @@ actor SearchIndexService {
                 PRAGMA page_size = 4096;
                 PRAGMA foreign_keys = ON;
                 PRAGMA wal_autocheckpoint = 1000;
-                PRAGMA optimize;
                 PRAGMA fullfsync = 0;
                 PRAGMA checkpoint_fullfsync = 0;
             """)
+
+            if !db.configuration.readonly {
+                try db.execute(sql: "PRAGMA optimize;")
+            }
 
             let journalMode = try String.fetchOne(db, sql: "PRAGMA journal_mode")?.lowercased()
             guard journalMode == "wal" else {
@@ -665,6 +759,8 @@ actor SearchIndexService {
     // nonisolated: DatabasePool is Sendable and let-bound, safe to access without actor hop.
 
     nonisolated func search(query: String, limit: Int = 50) throws -> [SearchResult] {
+        let checkedLimit = try SearchRequestBounds.validatedResultLimit(limit)
+        guard let checkedQuery = try SearchRequestBounds.validatedQuery(query) else { return [] }
         // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / storage).
         // Wraps the FTS5 page search dispatch. Per dpp §1.1 Task 0.1.
         // begin/defer-end pattern (not closure wrapper) for TSAN safety.
@@ -672,347 +768,51 @@ actor SearchIndexService {
         let state = Sig.storage.beginInterval("search", id: signpostId)
         defer { Sig.storage.endInterval("search", state) }
 
-        let terms = Self.normalizedSearchTerms(query)
+        let terms = Self.normalizedSearchTerms(checkedQuery)
         guard !terms.isEmpty else { return [] }
-        let recorder = agentProvenanceSyncRecorder
-        let runID = "search-index-page-sync-\(UUID().uuidString.uppercased())"
-        let toolCallID = nextDirectPageSyncSearchToolCallID()
-        let argumentsJSON = Self.limitedSearchArgumentsJSON(query: query, terms: terms, limit: limit)
-        let baseMetadata = Self.limitedSearchMetadata(
-            surface: "search",
-            query: query,
-            terms: terms,
-            limit: limit
-        )
-        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
-        let lifecycleStart = DispatchTime.now()
-
-        recordDirectPageSyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallRequested,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .requested,
-            metadata: baseMetadata
-        )
-        recordDirectPageSyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallStarted,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .started,
-            metadata: baseMetadata
-        )
-
-        do {
-            let results = try searchPages(terms: terms, limit: limit)
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let resultJSON = Self.searchIndexAgentJSON([
-                "elapsed_ms": elapsedMs,
-                "hit_count": results.count
-            ])
-            var metadata = baseMetadata
-            metadata["hit_count"] = "\(results.count)"
-            recordDirectPageSyncAgentEvent(
-                recorder: recorder,
-                runID: runID,
-                kind: .toolCallCompleted,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                resultJSON: resultJSON,
-                durationMs: elapsedMs,
-                status: .completed,
-                metadata: metadata
-            )
-            return results
-        } catch {
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let failureClass = Self.searchIndexFailureClass(for: error)
-            recordDirectPageSyncFailure(
-                recorder: recorder,
-                runID: runID,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                durationMs: elapsedMs,
-                failureClass: failureClass,
-                metadata: baseMetadata
-            )
-            throw error
-        }
+        return try searchPages(terms: terms, limit: checkedLimit)
     }
 
     func searchAsync(query: String, limit: Int = 50) async throws -> [SearchResult] {
-        let terms = Self.normalizedSearchTerms(query)
+        let checkedLimit = try SearchRequestBounds.validatedResultLimit(limit)
+        guard let checkedQuery = try SearchRequestBounds.validatedQuery(query) else { return [] }
+        let terms = Self.normalizedSearchTerms(checkedQuery)
         guard !terms.isEmpty else { return [] }
-        let recorder = await resolvedAgentProvenanceRecorder()
-        let runID = "search-index-page-async-\(UUID().uuidString.uppercased())"
-        let toolCallID = nextDirectPageAsyncSearchToolCallID()
-        let argumentsJSON = Self.limitedSearchArgumentsJSON(query: query, terms: terms, limit: limit)
-        let baseMetadata = Self.limitedSearchMetadata(
-            surface: "search_async",
-            query: query,
-            terms: terms,
-            limit: limit
-        )
-        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
-        let lifecycleStart = DispatchTime.now()
-
-        await recordDirectPageAsyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallRequested,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .requested,
-            metadata: baseMetadata
-        )
-        await recordDirectPageAsyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallStarted,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .started,
-            metadata: baseMetadata
-        )
-
         if Task.isCancelled {
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            await recordDirectPageAsyncFailure(
-                recorder: recorder,
-                runID: runID,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                durationMs: elapsedMs,
-                failureClass: .cancelled,
-                metadata: baseMetadata
-            )
             throw CancellationError()
         }
 
-        do {
-            let results = try await offloadSearch { [self, terms, limit] cancellation in
-                try cancellation.check()
-                let signpostId = Sig.storage.makeSignpostID()
-                let state = Sig.storage.beginInterval("search", id: signpostId)
-                defer { Sig.storage.endInterval("search", state) }
-                return try searchPages(terms: terms, limit: limit, cancellation: cancellation)
-            }
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let resultJSON = Self.searchIndexAgentJSON([
-                "elapsed_ms": elapsedMs,
-                "hit_count": results.count
-            ])
-            var metadata = baseMetadata
-            metadata["hit_count"] = "\(results.count)"
-            await recordDirectPageAsyncAgentEvent(
-                recorder: recorder,
-                runID: runID,
-                kind: .toolCallCompleted,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                resultJSON: resultJSON,
-                durationMs: elapsedMs,
-                status: .completed,
-                metadata: metadata
-            )
-            return results
-        } catch {
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let failureClass = Self.searchIndexFailureClass(for: error)
-            await recordDirectPageAsyncFailure(
-                recorder: recorder,
-                runID: runID,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                durationMs: elapsedMs,
-                failureClass: failureClass,
-                metadata: baseMetadata
-            )
-            throw error
+        return try await offloadSearch { [self, terms, checkedLimit] cancellation in
+            try cancellation.check()
+            let signpostId = Sig.storage.makeSignpostID()
+            let state = Sig.storage.beginInterval("search", id: signpostId)
+            defer { Sig.storage.endInterval("search", state) }
+            return try searchPages(terms: terms, limit: checkedLimit, cancellation: cancellation)
         }
     }
 
     // MARK: - Block Search
 
     nonisolated func searchBlocks(query: String, limit: Int = 50) throws -> [BlockSearchResult] {
-        let terms = Self.normalizedSearchTerms(query)
+        let checkedLimit = try SearchRequestBounds.validatedResultLimit(limit)
+        guard let checkedQuery = try SearchRequestBounds.validatedQuery(query) else { return [] }
+        let terms = Self.normalizedSearchTerms(checkedQuery)
         guard !terms.isEmpty else { return [] }
-        let recorder = agentProvenanceSyncRecorder
-        let runID = "search-index-block-sync-\(UUID().uuidString.uppercased())"
-        let toolCallID = nextBlockSyncSearchToolCallID()
-        let argumentsJSON = Self.limitedSearchArgumentsJSON(query: query, terms: terms, limit: limit)
-        let baseMetadata = Self.limitedSearchMetadata(
-            surface: "search_blocks",
-            query: query,
-            terms: terms,
-            limit: limit
-        )
-        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
-        let lifecycleStart = DispatchTime.now()
-
-        recordBlockSearchSyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallRequested,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .requested,
-            metadata: baseMetadata
-        )
-        recordBlockSearchSyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallStarted,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .started,
-            metadata: baseMetadata
-        )
-
-        do {
-            let results = try searchBlocks(terms: terms, limit: limit)
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let resultJSON = Self.searchIndexAgentJSON([
-                "elapsed_ms": elapsedMs,
-                "hit_count": results.count
-            ])
-            var metadata = baseMetadata
-            metadata["hit_count"] = "\(results.count)"
-            recordBlockSearchSyncAgentEvent(
-                recorder: recorder,
-                runID: runID,
-                kind: .toolCallCompleted,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                resultJSON: resultJSON,
-                durationMs: elapsedMs,
-                status: .completed,
-                metadata: metadata
-            )
-            return results
-        } catch {
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let failureClass = Self.searchIndexFailureClass(for: error)
-            recordBlockSearchSyncFailure(
-                recorder: recorder,
-                runID: runID,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                durationMs: elapsedMs,
-                failureClass: failureClass,
-                metadata: baseMetadata
-            )
-            throw error
-        }
+        return try searchBlocks(terms: terms, limit: checkedLimit)
     }
 
     func searchBlocksAsync(query: String, limit: Int = 50) async throws -> [BlockSearchResult] {
-        let terms = Self.normalizedSearchTerms(query)
+        let checkedLimit = try SearchRequestBounds.validatedResultLimit(limit)
+        guard let checkedQuery = try SearchRequestBounds.validatedQuery(query) else { return [] }
+        let terms = Self.normalizedSearchTerms(checkedQuery)
         guard !terms.isEmpty else { return [] }
-        let recorder = await resolvedAgentProvenanceRecorder()
-        let runID = "search-index-block-async-\(UUID().uuidString.uppercased())"
-        let toolCallID = nextBlockAsyncSearchToolCallID()
-        let argumentsJSON = Self.limitedSearchArgumentsJSON(query: query, terms: terms, limit: limit)
-        let baseMetadata = Self.limitedSearchMetadata(
-            surface: "search_blocks_async",
-            query: query,
-            terms: terms,
-            limit: limit
-        )
-        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
-        let lifecycleStart = DispatchTime.now()
-
-        await recordBlockSearchAsyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallRequested,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .requested,
-            metadata: baseMetadata
-        )
-        await recordBlockSearchAsyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallStarted,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .started,
-            metadata: baseMetadata
-        )
-
         if Task.isCancelled {
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            await recordBlockSearchAsyncFailure(
-                recorder: recorder,
-                runID: runID,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                durationMs: elapsedMs,
-                failureClass: .cancelled,
-                metadata: baseMetadata
-            )
             throw CancellationError()
         }
 
-        do {
-            let results = try await offloadSearch { [self, terms, limit] cancellation in
-                try cancellation.check()
-                return try searchBlocks(terms: terms, limit: limit, cancellation: cancellation)
-            }
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let resultJSON = Self.searchIndexAgentJSON([
-                "elapsed_ms": elapsedMs,
-                "hit_count": results.count
-            ])
-            var metadata = baseMetadata
-            metadata["hit_count"] = "\(results.count)"
-            await recordBlockSearchAsyncAgentEvent(
-                recorder: recorder,
-                runID: runID,
-                kind: .toolCallCompleted,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                resultJSON: resultJSON,
-                durationMs: elapsedMs,
-                status: .completed,
-                metadata: metadata
-            )
-            return results
-        } catch {
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let failureClass = Self.searchIndexFailureClass(for: error)
-            await recordBlockSearchAsyncFailure(
-                recorder: recorder,
-                runID: runID,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                durationMs: elapsedMs,
-                failureClass: failureClass,
-                metadata: baseMetadata
-            )
-            throw error
+        return try await offloadSearch { [self, terms, checkedLimit] cancellation in
+            try cancellation.check()
+            return try searchBlocks(terms: terms, limit: checkedLimit, cancellation: cancellation)
         }
     }
 
@@ -1046,58 +846,21 @@ actor SearchIndexService {
         weights: FusionWeights = .default,
         now: Date = Date()
     ) throws -> [FusedResult] {
+        let validatedWeights = try weights.validated(now: now)
+        guard let checkedQuery = try SearchRequestBounds.validatedQuery(query) else {
+            Self.recordEmptyFusedSearchMetricsSnapshot()
+            return []
+        }
         let signpostId = Sig.storage.makeSignpostID()
         let state = Sig.storage.beginInterval("fused_search", id: signpostId)
         defer { Sig.storage.endInterval("fused_search", state) }
 
-        let terms = Self.normalizedSearchTerms(query)
+        let terms = Self.normalizedSearchTerms(checkedQuery)
         guard !terms.isEmpty else {
             Self.recordEmptyFusedSearchMetricsSnapshot()
             return []
         }
         let sanitized = Self.sanitizeFTS5Query(terms)
-        let recorder = agentProvenanceSyncRecorder
-        let runID = "search-index-fused-sync-\(UUID().uuidString.uppercased())"
-        let toolCallID = nextFusedSyncSearchToolCallID()
-        let weightsProfile = weights == .default ? "default" : "custom"
-        let queryCharacterCount = min(query.count, 500)
-        let nowMs = Self.millisecondsSinceEpoch(now)
-        let argumentsJSON = Self.searchIndexAgentJSON([
-            "now_ms": nowMs,
-            "query_char_count": queryCharacterCount,
-            "query_term_count": terms.count,
-            "weights_profile": weightsProfile
-        ])
-        let baseMetadata = [
-            "source": "search_index_service",
-            "surface": "fused_search",
-            "query_char_count": "\(queryCharacterCount)",
-            "query_term_count": "\(terms.count)",
-            "weights_profile": weightsProfile
-        ]
-        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
-        let lifecycleStart = DispatchTime.now()
-
-        recordFusedSyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallRequested,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .requested,
-            metadata: baseMetadata
-        )
-        recordFusedSyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallStarted,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .started,
-            metadata: baseMetadata
-        )
         let startTime = DispatchTime.now()
 
         do {
@@ -1106,11 +869,16 @@ actor SearchIndexService {
                 let includeBlockSearch = try Self.tableExists("block_search", db: db)
                 let includeReadableBlocks = try Self.tableExists("readable_blocks_fts", db: db)
                 guard includePageSearch, includeBlockSearch else {
-                    return try Self.fusedSearchFallback(terms: terms, weights: weights, in: db)
+                    return try Self.fusedSearchFallback(
+                        terms: terms,
+                        weights: validatedWeights,
+                        now: now,
+                        in: db
+                    )
                 }
                 return try RRFFusionQuery.execute(
                     query: sanitized,
-                    weights: weights,
+                    weights: validatedWeights,
                     now: now,
                     includeReadableBlocks: includeReadableBlocks,
                     in: db
@@ -1118,40 +886,9 @@ actor SearchIndexService {
             }
             let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
             SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
-            let lifecycleElapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let resultJSON = Self.searchIndexAgentJSON([
-                "elapsed_ms": lifecycleElapsedMs,
-                "hit_count": results.count
-            ])
-            var metadata = baseMetadata
-            metadata["hit_count"] = "\(results.count)"
-            recordFusedSyncAgentEvent(
-                recorder: recorder,
-                runID: runID,
-                kind: .toolCallCompleted,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                resultJSON: resultJSON,
-                durationMs: lifecycleElapsedMs,
-                status: .completed,
-                metadata: metadata
-            )
             return results
         } catch {
             SearchFusionMetrics.shared.recordError(error)
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let failureClass = Self.searchIndexFailureClass(for: error)
-            recordFusedSyncFailure(
-                recorder: recorder,
-                runID: runID,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                durationMs: elapsedMs,
-                failureClass: failureClass,
-                metadata: baseMetadata
-            )
             throw error
         }
     }
@@ -1163,612 +900,66 @@ actor SearchIndexService {
         weights: FusionWeights = .default,
         now: Date = Date()
     ) async throws -> [FusedResult] {
-        let terms = Self.normalizedSearchTerms(query)
+        let validatedWeights = try weights.validated(now: now)
+        guard let checkedQuery = try SearchRequestBounds.validatedQuery(query) else {
+            Self.recordEmptyFusedSearchMetricsSnapshot()
+            return []
+        }
+        let terms = Self.normalizedSearchTerms(checkedQuery)
         guard !terms.isEmpty else {
             Self.recordEmptyFusedSearchMetricsSnapshot()
             return []
         }
         let sanitized = Self.sanitizeFTS5Query(terms)
-        let recorder = await resolvedAgentProvenanceRecorder()
-        let runID = "search-index-fused-async-\(UUID().uuidString.uppercased())"
-        let toolCallID = nextFusedAsyncSearchToolCallID()
-        let weightsProfile = weights == .default ? "default" : "custom"
-        let queryCharacterCount = min(query.count, 500)
-        let nowMs = Self.millisecondsSinceEpoch(now)
-        let argumentsJSON = Self.searchIndexAgentJSON([
-            "now_ms": nowMs,
-            "query_char_count": queryCharacterCount,
-            "query_term_count": terms.count,
-            "weights_profile": weightsProfile
-        ])
-        let baseMetadata = [
-            "source": "search_index_service",
-            "surface": "fused_search_async",
-            "query_char_count": "\(queryCharacterCount)",
-            "query_term_count": "\(terms.count)",
-            "weights_profile": weightsProfile
-        ]
-        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
-        let lifecycleStart = DispatchTime.now()
-
-        await recordFusedAsyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallRequested,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .requested,
-            metadata: baseMetadata
-        )
-        await recordFusedAsyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallStarted,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            status: .started,
-            metadata: baseMetadata
-        )
-
         if Task.isCancelled {
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            await recordFusedAsyncFailure(
-                recorder: recorder,
-                runID: runID,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                durationMs: elapsedMs,
-                failureClass: .cancelled,
-                metadata: baseMetadata
-            )
             throw CancellationError()
         }
 
-        do {
-            let results = try await offloadSearch { [self, sanitized, weights, now] cancellation in
-                try cancellation.check()
-                let signpostId = Sig.storage.makeSignpostID()
-                let state = Sig.storage.beginInterval("fused_search", id: signpostId)
-                defer { Sig.storage.endInterval("fused_search", state) }
+        return try await offloadSearch { [self, sanitized, validatedWeights, now] cancellation in
+            try cancellation.check()
+            let signpostId = Sig.storage.makeSignpostID()
+            let state = Sig.storage.beginInterval("fused_search", id: signpostId)
+            defer { Sig.storage.endInterval("fused_search", state) }
 
-                let startTime = DispatchTime.now()
+            let startTime = DispatchTime.now()
 
-                do {
-                    let results = try dbPool.read { db in
-                        return try Self.withSQLiteCancellation(db: db, cancellation: cancellation) {
-                            let includePageSearch = try Self.tableExists("page_search", db: db)
-                            let includeBlockSearch = try Self.tableExists("block_search", db: db)
-                            let includeReadableBlocks = try Self.tableExists("readable_blocks_fts", db: db)
-                            guard includePageSearch, includeBlockSearch else {
-                                return try Self.fusedSearchFallback(terms: terms, weights: weights, in: db)
-                            }
-                            return try RRFFusionQuery.execute(
-                                query: sanitized,
-                                weights: weights,
+            do {
+                let results = try dbPool.read { db in
+                    return try Self.withSQLiteCancellation(db: db, cancellation: cancellation) {
+                        let includePageSearch = try Self.tableExists("page_search", db: db)
+                        let includeBlockSearch = try Self.tableExists("block_search", db: db)
+                        let includeReadableBlocks = try Self.tableExists("readable_blocks_fts", db: db)
+                        guard includePageSearch, includeBlockSearch else {
+                            return try Self.fusedSearchFallback(
+                                terms: terms,
+                                weights: validatedWeights,
                                 now: now,
-                                includeReadableBlocks: includeReadableBlocks,
                                 in: db
                             )
                         }
+                        return try RRFFusionQuery.execute(
+                            query: sanitized,
+                            weights: validatedWeights,
+                            now: now,
+                            includeReadableBlocks: includeReadableBlocks,
+                            in: db
+                        )
                     }
-                    let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
-                    SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
-                    return results
-                } catch {
-                    SearchFusionMetrics.shared.recordError(error)
-                    throw error
                 }
+                let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
+                SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
+                return results
+            } catch {
+                SearchFusionMetrics.shared.recordError(error)
+                throw error
             }
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let resultJSON = Self.searchIndexAgentJSON([
-                "elapsed_ms": elapsedMs,
-                "hit_count": results.count
-            ])
-            var metadata = baseMetadata
-            metadata["hit_count"] = "\(results.count)"
-            await recordFusedAsyncAgentEvent(
-                recorder: recorder,
-                runID: runID,
-                kind: .toolCallCompleted,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                resultJSON: resultJSON,
-                durationMs: elapsedMs,
-                status: .completed,
-                metadata: metadata
-            )
-            return results
-        } catch {
-            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let failureClass = Self.searchIndexFailureClass(for: error)
-            await recordFusedAsyncFailure(
-                recorder: recorder,
-                runID: runID,
-                actor: actor,
-                toolCallID: toolCallID,
-                argumentsJSON: argumentsJSON,
-                durationMs: elapsedMs,
-                failureClass: failureClass,
-                metadata: baseMetadata
-            )
-            throw error
         }
-    }
-
-    private enum SearchIndexFailureClass: String, Sendable {
-        case cancelled
-        case sqlError = "sql_error"
-        case unknownError = "unknown_error"
-    }
-
-    private func resolvedAgentProvenanceRecorder() async -> AgentToolProvenanceRecorder {
-        if let agentProvenanceRecorder {
-            return agentProvenanceRecorder
-        }
-        let recorder = await MainActor.run {
-            AgentToolProvenanceRecorder()
-        }
-        agentProvenanceRecorder = recorder
-        return recorder
-    }
-
-    private func nextFusedAsyncSearchToolCallID() -> String {
-        fusedAsyncSearchToolSequence += 1
-        return "search-index-fused-async:\(fusedAsyncSearchToolSequence)"
-    }
-
-    private func nextDirectPageAsyncSearchToolCallID() -> String {
-        directPageAsyncSearchToolSequence += 1
-        return "search-index-page-async:\(directPageAsyncSearchToolSequence)"
-    }
-
-    private func nextBlockAsyncSearchToolCallID() -> String {
-        blockAsyncSearchToolSequence += 1
-        return "search-index-block-async:\(blockAsyncSearchToolSequence)"
-    }
-
-    private nonisolated func nextFusedSyncSearchToolCallID() -> String {
-        let sequence = fusedSyncSearchToolSequence.withLock { value -> UInt64 in
-            value += 1
-            return value
-        }
-        return "search-index-fused-sync:\(sequence)"
-    }
-
-    private nonisolated func nextDirectPageSyncSearchToolCallID() -> String {
-        let sequence = directPageSyncSearchToolSequence.withLock { value -> UInt64 in
-            value += 1
-            return value
-        }
-        return "search-index-page-sync:\(sequence)"
-    }
-
-    private nonisolated func nextBlockSyncSearchToolCallID() -> String {
-        let sequence = blockSyncSearchToolSequence.withLock { value -> UInt64 in
-            value += 1
-            return value
-        }
-        return "search-index-block-sync:\(sequence)"
-    }
-
-    private func recordDirectPageAsyncFailure(
-        recorder: AgentToolProvenanceRecorder,
-        runID: String,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        durationMs: UInt64,
-        failureClass: SearchIndexFailureClass,
-        metadata: [String: String]
-    ) async {
-        let resultJSON = Self.searchIndexAgentJSON([
-            "elapsed_ms": durationMs,
-            "hit_count": 0
-        ])
-        var failedMetadata = metadata
-        failedMetadata["failure_class"] = failureClass.rawValue
-        await recordDirectPageAsyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallFailed,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: .failed,
-            errorMessage: failureClass.rawValue,
-            metadata: failedMetadata
-        )
-    }
-
-    private nonisolated func recordDirectPageSyncFailure(
-        recorder: AgentToolProvenanceSyncRecorder,
-        runID: String,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        durationMs: UInt64,
-        failureClass: SearchIndexFailureClass,
-        metadata: [String: String]
-    ) {
-        let resultJSON = Self.searchIndexAgentJSON([
-            "elapsed_ms": durationMs,
-            "hit_count": 0
-        ])
-        var failedMetadata = metadata
-        failedMetadata["failure_class"] = failureClass.rawValue
-        recordDirectPageSyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallFailed,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: .failed,
-            errorMessage: failureClass.rawValue,
-            metadata: failedMetadata
-        )
-    }
-
-    private func recordBlockSearchAsyncFailure(
-        recorder: AgentToolProvenanceRecorder,
-        runID: String,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        durationMs: UInt64,
-        failureClass: SearchIndexFailureClass,
-        metadata: [String: String]
-    ) async {
-        let resultJSON = Self.searchIndexAgentJSON([
-            "elapsed_ms": durationMs,
-            "hit_count": 0
-        ])
-        var failedMetadata = metadata
-        failedMetadata["failure_class"] = failureClass.rawValue
-        await recordBlockSearchAsyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallFailed,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: .failed,
-            errorMessage: failureClass.rawValue,
-            metadata: failedMetadata
-        )
-    }
-
-    private nonisolated func recordBlockSearchSyncFailure(
-        recorder: AgentToolProvenanceSyncRecorder,
-        runID: String,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        durationMs: UInt64,
-        failureClass: SearchIndexFailureClass,
-        metadata: [String: String]
-    ) {
-        let resultJSON = Self.searchIndexAgentJSON([
-            "elapsed_ms": durationMs,
-            "hit_count": 0
-        ])
-        var failedMetadata = metadata
-        failedMetadata["failure_class"] = failureClass.rawValue
-        recordBlockSearchSyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallFailed,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: .failed,
-            errorMessage: failureClass.rawValue,
-            metadata: failedMetadata
-        )
-    }
-
-    private func recordFusedAsyncFailure(
-        recorder: AgentToolProvenanceRecorder,
-        runID: String,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        durationMs: UInt64,
-        failureClass: SearchIndexFailureClass,
-        metadata: [String: String]
-    ) async {
-        let resultJSON = Self.searchIndexAgentJSON([
-            "elapsed_ms": durationMs,
-            "hit_count": 0
-        ])
-        var failedMetadata = metadata
-        failedMetadata["failure_class"] = failureClass.rawValue
-        await recordFusedAsyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallFailed,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: .failed,
-            errorMessage: failureClass.rawValue,
-            metadata: failedMetadata
-        )
-    }
-
-    private nonisolated func recordFusedSyncFailure(
-        recorder: AgentToolProvenanceSyncRecorder,
-        runID: String,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        durationMs: UInt64,
-        failureClass: SearchIndexFailureClass,
-        metadata: [String: String]
-    ) {
-        let resultJSON = Self.searchIndexAgentJSON([
-            "elapsed_ms": durationMs,
-            "hit_count": 0
-        ])
-        var failedMetadata = metadata
-        failedMetadata["failure_class"] = failureClass.rawValue
-        recordFusedSyncAgentEvent(
-            recorder: recorder,
-            runID: runID,
-            kind: .toolCallFailed,
-            actor: actor,
-            toolCallID: toolCallID,
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: .failed,
-            errorMessage: failureClass.rawValue,
-            metadata: failedMetadata
-        )
-    }
-
-    private func recordFusedAsyncAgentEvent(
-        recorder: AgentToolProvenanceRecorder,
-        runID: String,
-        kind: AgentProvenanceEventKind,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        resultJSON: String? = nil,
-        durationMs: UInt64? = nil,
-        status: AgentToolEventStatus,
-        errorMessage: String? = nil,
-        metadata: [String: String]
-    ) async {
-        await recorder.recordToolEvent(
-            runID: runID,
-            traceID: nil,
-            kind: kind,
-            actor: actor,
-            toolCallID: toolCallID,
-            toolName: "search_index.fused_search_async",
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: status,
-            errorMessage: errorMessage,
-            metadata: metadata
-        )
-    }
-
-    private func recordDirectPageAsyncAgentEvent(
-        recorder: AgentToolProvenanceRecorder,
-        runID: String,
-        kind: AgentProvenanceEventKind,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        resultJSON: String? = nil,
-        durationMs: UInt64? = nil,
-        status: AgentToolEventStatus,
-        errorMessage: String? = nil,
-        metadata: [String: String]
-    ) async {
-        await recorder.recordToolEvent(
-            runID: runID,
-            traceID: nil,
-            kind: kind,
-            actor: actor,
-            toolCallID: toolCallID,
-            toolName: "search_index.search_async",
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: status,
-            errorMessage: errorMessage,
-            metadata: metadata
-        )
-    }
-
-    private func recordBlockSearchAsyncAgentEvent(
-        recorder: AgentToolProvenanceRecorder,
-        runID: String,
-        kind: AgentProvenanceEventKind,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        resultJSON: String? = nil,
-        durationMs: UInt64? = nil,
-        status: AgentToolEventStatus,
-        errorMessage: String? = nil,
-        metadata: [String: String]
-    ) async {
-        await recorder.recordToolEvent(
-            runID: runID,
-            traceID: nil,
-            kind: kind,
-            actor: actor,
-            toolCallID: toolCallID,
-            toolName: "search_index.search_blocks_async",
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: status,
-            errorMessage: errorMessage,
-            metadata: metadata
-        )
-    }
-
-    private nonisolated func recordFusedSyncAgentEvent(
-        recorder: AgentToolProvenanceSyncRecorder,
-        runID: String,
-        kind: AgentProvenanceEventKind,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        resultJSON: String? = nil,
-        durationMs: UInt64? = nil,
-        status: AgentToolEventStatus,
-        errorMessage: String? = nil,
-        metadata: [String: String]
-    ) {
-        recorder.recordToolEvent(
-            runID: runID,
-            traceID: nil,
-            kind: kind,
-            actor: actor,
-            toolCallID: toolCallID,
-            toolName: "search_index.fused_search",
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: status,
-            errorMessage: errorMessage,
-            metadata: metadata
-        )
-    }
-
-    private nonisolated func recordDirectPageSyncAgentEvent(
-        recorder: AgentToolProvenanceSyncRecorder,
-        runID: String,
-        kind: AgentProvenanceEventKind,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        resultJSON: String? = nil,
-        durationMs: UInt64? = nil,
-        status: AgentToolEventStatus,
-        errorMessage: String? = nil,
-        metadata: [String: String]
-    ) {
-        recorder.recordToolEvent(
-            runID: runID,
-            traceID: nil,
-            kind: kind,
-            actor: actor,
-            toolCallID: toolCallID,
-            toolName: "search_index.search",
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: status,
-            errorMessage: errorMessage,
-            metadata: metadata
-        )
-    }
-
-    private nonisolated func recordBlockSearchSyncAgentEvent(
-        recorder: AgentToolProvenanceSyncRecorder,
-        runID: String,
-        kind: AgentProvenanceEventKind,
-        actor: AgentProvenanceActor,
-        toolCallID: String,
-        argumentsJSON: String,
-        resultJSON: String? = nil,
-        durationMs: UInt64? = nil,
-        status: AgentToolEventStatus,
-        errorMessage: String? = nil,
-        metadata: [String: String]
-    ) {
-        recorder.recordToolEvent(
-            runID: runID,
-            traceID: nil,
-            kind: kind,
-            actor: actor,
-            toolCallID: toolCallID,
-            toolName: "search_index.search_blocks",
-            argumentsJSON: argumentsJSON,
-            resultJSON: resultJSON,
-            durationMs: durationMs,
-            status: status,
-            errorMessage: errorMessage,
-            metadata: metadata
-        )
-    }
-
-    private nonisolated static func searchIndexFailureClass(for error: Error) -> SearchIndexFailureClass {
-        if error is CancellationError {
-            return .cancelled
-        }
-        if error is DatabaseError {
-            return .sqlError
-        }
-        return .unknownError
-    }
-
-    private nonisolated static func limitedSearchArgumentsJSON(
-        query: String,
-        terms: [String],
-        limit: Int
-    ) -> String {
-        searchIndexAgentJSON([
-            "limit": limit,
-            "query_char_count": min(query.count, 500),
-            "query_term_count": terms.count
-        ])
-    }
-
-    private nonisolated static func limitedSearchMetadata(
-        surface: String,
-        query: String,
-        terms: [String],
-        limit: Int
-    ) -> [String: String] {
-        [
-            "source": "search_index_service",
-            "surface": surface,
-            "query_char_count": "\(min(query.count, 500))",
-            "query_term_count": "\(terms.count)",
-            "limit": "\(limit)"
-        ]
     }
 
     private nonisolated static func millisecondsSinceEpoch(_ date: Date) -> Int64 {
         let milliseconds = date.timeIntervalSince1970 * 1_000
         guard milliseconds.isFinite else { return 0 }
         return Int64(milliseconds.rounded())
-    }
-
-    private nonisolated static func elapsedMilliseconds(since start: DispatchTime) -> UInt64 {
-        (DispatchTime.now().uptimeNanoseconds &- start.uptimeNanoseconds) / 1_000_000
-    }
-
-    private nonisolated static func searchIndexAgentJSON(_ payload: [String: Any]) -> String {
-        guard JSONSerialization.isValidJSONObject(payload),
-              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
-              let json = String(data: data, encoding: .utf8) else {
-            return "{}"
-        }
-        return json
     }
 
     private nonisolated static func recordEmptyFusedSearchMetricsSnapshot() {
@@ -1790,7 +981,7 @@ actor SearchIndexService {
             stmt.setUncheckedArguments([blockId, pageId, content])
             try stmt.execute()
         }
-        Self.notifyIndexChanged([.searchBlocks])
+        notifyIndexChanged([.searchBlocks])
     }
 
     nonisolated func deleteBlock(blockId: String) throws {
@@ -1800,7 +991,7 @@ actor SearchIndexService {
             stmt.setUncheckedArguments([blockId])
             try stmt.execute()
         }
-        Self.notifyIndexChanged([.searchBlocks])
+        notifyIndexChanged([.searchBlocks])
     }
 
     /// Atomically replace ALL block rows for a page: delete the page's prior rows,
@@ -1811,7 +1002,12 @@ actor SearchIndexService {
     /// empty. Derivative index — a failure here degrades block search only, and
     /// self-heals on the next save. Block ids are the stable SDBlock.id so
     /// "jump to block" from a search hit resolves.
-    nonisolated func replaceBlocksForPage(pageId: String, blocks: [(blockId: String, content: String)]) throws {
+    @discardableResult
+    nonisolated func replaceBlocksForPage(
+        pageId: String,
+        blocks: [(blockId: String, content: String)],
+        notifyObservers: Bool = true
+    ) throws -> SearchIndexMutationReceipt {
         // RECONCILE, not truncate-reload. The incoming SDBlock.ids are STABLE across
         // edits (BlockMirror preserves them), so we touch only rows whose content
         // actually changed. indexed_blocks is external-content FTS5 with per-row
@@ -1820,8 +1016,9 @@ actor SearchIndexService {
         // tokenizations. With this reconcile it pays ~2 (matters for the 100-500+
         // block long-form docs this index targets). End state is byte-identical to
         // the truncate-reload because the ids match.
-        var didChange = false
-        try dbPool.write { db in
+        let changed = try dbPool.write { db -> (upserted: Int, deleted: Int) in
+            var upsertedBlockCount = 0
+            var deletedBlockCount = 0
             var existing: [String: String] = [:]
             let existingRows = try Row.fetchAll(
                 db,
@@ -1837,7 +1034,7 @@ actor SearchIndexService {
             // Drop rows whose block no longer exists on the page.
             for blockId in existing.keys where !incomingIds.contains(blockId) {
                 try db.execute(sql: "DELETE FROM indexed_blocks WHERE block_id = ?", arguments: [blockId])
-                didChange = true
+                deletedBlockCount += db.changesCount
             }
             // Insert new blocks; update only content-changed ones; skip unchanged
             // (their FTS rows are never re-tokenized).
@@ -1848,7 +1045,7 @@ actor SearchIndexService {
                             sql: "UPDATE indexed_blocks SET content = ?, page_id = ? WHERE block_id = ?",
                             arguments: [block.content, pageId, block.blockId]
                         )
-                        didChange = true
+                        upsertedBlockCount += db.changesCount
                     }
                     // else: unchanged — leave the row (and its FTS entry) untouched.
                 } else {
@@ -1864,14 +1061,22 @@ actor SearchIndexService {
                         """,
                         arguments: [block.blockId, pageId, block.content]
                     )
-                    didChange = true
+                    upsertedBlockCount += db.changesCount
                 }
             }
+            return (upsertedBlockCount, deletedBlockCount)
         }
+        let receipt = SearchIndexMutationReceipt(
+            upsertedPageCount: 0,
+            deletedPageCount: 0,
+            upsertedBlockCount: changed.upserted,
+            deletedBlockCount: changed.deleted
+        )
         // Only wake block-search observers when the index actually moved.
-        if didChange {
-            Self.notifyIndexChanged([.searchBlocks])
+        if notifyObservers, !receipt.changedDependencies.isEmpty {
+            notifyIndexChanged(receipt.changedDependencies)
         }
+        return receipt
     }
 
     /// Remove all block rows for a page (on page delete) — the block-index analogue
@@ -1880,13 +1085,21 @@ actor SearchIndexService {
         try dbPool.write { db in
             try db.execute(sql: "DELETE FROM indexed_blocks WHERE page_id = ?", arguments: [pageId])
         }
-        Self.notifyIndexChanged([.searchBlocks])
+        notifyIndexChanged([.searchBlocks])
     }
 
     // MARK: - Upsert / Delete
 
-    nonisolated func upsert(id: String, title: String, body: String, tags: String, updatedAt: Date) throws {
-        try dbPool.write { db in
+    @discardableResult
+    nonisolated func upsert(
+        id: String,
+        title: String,
+        body: String,
+        tags: String,
+        updatedAt: Date,
+        notifyObservers: Bool = true
+    ) throws -> SearchIndexMutationReceipt {
+        let upsertedPageCount = try dbPool.write { db in
             // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement (hot path).
             let stmt = try db.cachedStatement(sql: """
                 INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
@@ -1899,72 +1112,50 @@ actor SearchIndexService {
             """)
             stmt.setUncheckedArguments([id, title, body, tags, updatedAt.timeIntervalSinceReferenceDate])
             try stmt.execute()
+            return db.changesCount
         }
-        Self.mirrorPageToEidosIfOpen(id: id, title: title, body: body, tags: tags)
-        Self.notifyIndexChanged([.searchPages])
+        let receipt = SearchIndexMutationReceipt(
+            upsertedPageCount: upsertedPageCount,
+            deletedPageCount: 0,
+            upsertedBlockCount: 0,
+            deletedBlockCount: 0
+        )
+        if notifyObservers, !receipt.changedDependencies.isEmpty {
+            notifyIndexChanged(receipt.changedDependencies)
+        }
+        return receipt
     }
 
     nonisolated func upsertPages(
-        _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)]
+        _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)],
+        notifyObservers: Bool = true
     ) throws {
         guard !pages.isEmpty else { return }
 
         try dbPool.write { db in
-            // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement reused across batch.
-            // 2026-05-13 hardening: switched from `cachedStatement` to a
-            // freshly-prepared `makeStatement` for the batch. The cached
-            // statement was occasionally left in a SQLITE error-state
-            // after a row-level failure (constraint violation, large-blob
-            // boundary, etc.), and the NEXT call to upsertPages would
-            // retrieve the same cached statement and trip "invalid reuse
-            // after initialization failure" because GRDB's reset path
-            // returns the lingering step error. Preparing once per batch
-            // costs a single `sqlite3_prepare_v2` but eliminates the
-            // cross-call statement reuse hazard. Logged with `log.error`
-            // on failure so future reproductions surface in Console.app.
-            let stmt: Statement
-            do {
-                stmt = try db.makeStatement(sql: """
-                    INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET
-                        title = excluded.title,
-                        body = excluded.body,
-                        tags = excluded.tags,
-                        updatedAt = excluded.updatedAt
-                """)
-            } catch {
-                self.log.error("SearchIndexService.upsertPages prepare failed: \(String(describing: error), privacy: .public)")
-                throw error
-            }
-            for page in pages {
-                stmt.setUncheckedArguments([
-                    page.id,
-                    page.title,
-                    page.body,
-                    page.tags,
-                    page.updatedAt.timeIntervalSinceReferenceDate,
-                ])
-                do {
-                    try stmt.execute()
-                } catch {
-                    self.log.error("SearchIndexService.upsertPages execute failed for id=\(page.id, privacy: .public): \(String(describing: error), privacy: .public)")
-                    throw error
-                }
-            }
+            try upsertPages(pages, in: db)
         }
-        Self.mirrorPagesToEidosIfOpen(pages)
-        Self.notifyIndexChanged([.searchPages])
+        if notifyObservers {
+            notifyIndexChanged([.searchPages])
+        }
     }
 
-    nonisolated func delete(pageId: String) throws {
-        try dbPool.write { db in
-            // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement (hot path).
-            let stmt = try db.cachedStatement(sql: "DELETE FROM indexed_pages WHERE id = ?")
-            stmt.setUncheckedArguments([pageId])
-            try stmt.execute()
+    @discardableResult
+    nonisolated func delete(
+        pageId: String,
+        notifyObservers: Bool = true
+    ) throws -> SearchIndexPageDeletionReceipt {
+        let deleted = try dbPool.write { db in
+            try Self.deletePageRows(ids: [pageId], in: db)
         }
-        Self.notifyIndexChanged([.searchPages])
+        let receipt = SearchIndexPageDeletionReceipt(
+            deletedPageCount: deleted.pages,
+            deletedBlockCount: deleted.blocks
+        )
+        if notifyObservers, !receipt.changedDependencies.isEmpty {
+            notifyIndexChanged(receipt.changedDependencies)
+        }
+        return receipt
     }
 
     // MARK: - Test Hooks
@@ -1985,6 +1176,14 @@ actor SearchIndexService {
         }
     }
 
+#if DEBUG
+    nonisolated func setForceTruncateCheckpointFailureForTesting(_ enabled: Bool) {
+        forceTruncateCheckpointFailureForTesting.withLock { forced in
+            forced = enabled
+        }
+    }
+#endif
+
     // MARK: - Maintenance
 
     nonisolated func passiveCheckpoint() throws {
@@ -1998,12 +1197,21 @@ actor SearchIndexService {
 
     nonisolated func truncateCheckpoint() throws {
         let stats = try dbPool.barrierWriteWithoutTransaction { db in
+#if DEBUG
+            if forceTruncateCheckpointFailureForTesting.withLock({ $0 }) {
+                throw NSError(
+                    domain: "SearchIndexService.ForcedTruncateCheckpointFailure",
+                    code: 1
+                )
+            }
+#endif
+            let stats = try db.checkpoint(.truncate)
             try Self.recordManifestValue(
                 db,
                 key: "last_truncate_checkpoint_at",
                 value: String(Date().timeIntervalSinceReferenceDate)
             )
-            return try db.checkpoint(.truncate)
+            return stats
         }
         log.info(
             "SearchIndexService truncate checkpoint completed walFrames=\(stats.walFrameCount) checkpointed=\(stats.checkpointedFrameCount)"
@@ -2013,14 +1221,25 @@ actor SearchIndexService {
     // MARK: - Change Notification
 
     /// Post searchIndexDidUpdate on the main actor with the affected index domains.
-    /// Static because nonisolated callers can't access instance state.
-    private nonisolated static func notifyIndexChanged(_ dependencies: Set<QueryDependencyKey>) {
-        Task { @MainActor in
+    private nonisolated func notifyIndexChanged(_ dependencies: Set<QueryDependencyKey>) {
+        Task {
+            await notifyIndexChangedAsync(dependencies)
+        }
+    }
+
+    @discardableResult
+    nonisolated func notifyIndexChangedAsync(
+        _ dependencies: Set<QueryDependencyKey>,
+        when shouldNotify: (@MainActor @Sendable () -> Bool)? = nil
+    ) async -> Bool {
+        await MainActor.run {
+            guard shouldNotify?() ?? true else { return false }
             NotificationCenter.default.post(
                 name: .searchIndexDidUpdate,
-                object: nil,
+                object: self,
                 userInfo: QueryDependencyKey.userInfo(for: dependencies)
             )
+            return true
         }
     }
 
@@ -2029,7 +1248,7 @@ actor SearchIndexService {
     nonisolated func rebuildFromSwiftData(
         _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)]
     ) throws {
-        try dbPool.write { db in
+        let deletedOrphanBlockCount = try dbPool.write { db -> Int in
             try db.execute(sql: "DELETE FROM indexed_pages")
             if supportsPageFTS5 {
                 try db.execute(sql: "INSERT INTO page_search(page_search) VALUES('rebuild')")
@@ -2047,6 +1266,7 @@ actor SearchIndexService {
                     ]
                 )
             }
+            let deletedOrphanBlockCount = try Self.deleteOrphanBlockRows(in: db)
             try Self.recordManifestValue(
                 db,
                 key: "last_full_rebuild_page_count",
@@ -2057,59 +1277,20 @@ actor SearchIndexService {
                 key: "last_full_rebuild_at",
                 value: String(Date().timeIntervalSinceReferenceDate)
             )
+            return deletedOrphanBlockCount
         }
-        try truncateCheckpoint()
-        log.info("Rebuilt search index with \(pages.count) pages")
-        Self.mirrorPagesToEidosIfOpen(pages)
-        Self.notifyIndexChanged([.searchPages])
-    }
-
-    private nonisolated static func mirrorPagesToEidosIfOpen(
-        _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)]
-    ) {
-        guard EidosBridge.vaultStatus()?.isOpen == true else { return }
-        for page in pages {
-            mirrorPageToEidos(
-                id: page.id,
-                title: page.title,
-                body: page.body,
-                tags: page.tags
+        do {
+            try truncateCheckpoint()
+        } catch {
+            log.error(
+                "Full rebuild committed but truncate checkpoint maintenance failed: \(String(describing: error), privacy: .public)"
             )
         }
-    }
-
-    private nonisolated static func mirrorPageToEidosIfOpen(
-        id: String,
-        title: String,
-        body: String,
-        tags: String
-    ) {
-        guard EidosBridge.vaultStatus()?.isOpen == true else { return }
-        mirrorPageToEidos(id: id, title: title, body: body, tags: tags)
-    }
-
-    private nonisolated static func mirrorPageToEidos(
-        id: String,
-        title: String,
-        body: String,
-        tags: String
-    ) {
-        _ = EidosBridge.insertVaultNote(
-            documentId: id,
-            body: eidosDocumentBody(title: title, body: body, tags: tags),
-            kind: .note
-        )
-    }
-
-    private nonisolated static func eidosDocumentBody(
-        title: String,
-        body: String,
-        tags: String
-    ) -> String {
-        [title, tags, body]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n\n")
+        log.info("Rebuilt search index with \(pages.count) pages")
+        notifyIndexChanged(searchIndexChangedDependencies(
+            pagesChanged: true,
+            blocksChanged: deletedOrphanBlockCount > 0
+        ))
     }
 
     func rebuildFromSwiftDataAsync(
@@ -2122,22 +1303,27 @@ actor SearchIndexService {
 
     // MARK: - Diff Sync
 
+    @discardableResult
     nonisolated func diffSync(
         swiftDataPages: [(id: String, updatedAt: Date)],
-        fullPageProvider: @Sendable (String) async -> (title: String, body: String, tags: String, updatedAt: Date)?
-    ) async throws {
+        fullPageProvider: @Sendable (String) async -> (title: String, body: String, tags: String, updatedAt: Date)?,
+        notifyObservers: Bool = true
+    ) async throws -> SearchIndexDiffReceipt {
         let grdbPages = try fetchAllTimestamps()
 
-        let swiftDataIds = Set(swiftDataPages.map(\.id))
+        var swiftDataIds = Set<String>()
+        swiftDataIds.reserveCapacity(swiftDataPages.count)
+        for page in swiftDataPages where !swiftDataIds.insert(page.id).inserted {
+            throw SearchIndexError.duplicateRequiredPage(page.id)
+        }
         let grdbIds = Set(grdbPages.keys)
 
-        // Delete stale pages (in GRDB but not SwiftData)
         let toDelete = grdbIds.subtracting(swiftDataIds)
-        if !toDelete.isEmpty {
-            try deletePages(ids: toDelete)
-        }
 
-        // Upsert pages newer in SwiftData or missing from GRDB
+        // Resolve the complete replacement set before making any destructive
+        // change. A missing source row means the projection is incomplete, so
+        // deleting stale rows first would turn a recoverable read failure into
+        // a partially-applied index.
         var pagesToUpsert: [(id: String, title: String, body: String, tags: String, updatedAt: Date)] = []
         pagesToUpsert.reserveCapacity(swiftDataPages.count)
         for sd in swiftDataPages {
@@ -2150,29 +1336,42 @@ actor SearchIndexService {
             }
 
             if needsUpsert {
-                if let full = await fullPageProvider(sd.id) {
-                    pagesToUpsert.append((
-                        id: sd.id,
-                        title: full.title,
-                        body: full.body,
-                        tags: full.tags,
-                        updatedAt: full.updatedAt
-                    ))
+                guard let full = await fullPageProvider(sd.id) else {
+                    throw SearchIndexError.missingRequiredPage(sd.id)
                 }
+                pagesToUpsert.append((
+                    id: sd.id,
+                    title: full.title,
+                    body: full.body,
+                    tags: full.tags,
+                    updatedAt: full.updatedAt
+                ))
             }
         }
 
-        if !pagesToUpsert.isEmpty {
-            try upsertPages(pagesToUpsert)
-        } else if !toDelete.isEmpty {
-            Self.notifyIndexChanged([.searchPages])
+        let receipt = try applyDiff(
+            sourcePageCount: swiftDataIds.count,
+            deletingPageIDs: toDelete,
+            upsertingPages: pagesToUpsert
+        )
+        if notifyObservers, !receipt.changedDependencies.isEmpty {
+            await notifyIndexChangedAsync(receipt.changedDependencies)
         }
 
         if pagesToUpsert.count + toDelete.count >= Self.bulkCheckpointThreshold {
-            try truncateCheckpoint()
+            do {
+                try truncateCheckpoint()
+            } catch {
+                log.error(
+                    "Diff sync committed but passive checkpoint maintenance failed: \(String(describing: error), privacy: .public)"
+                )
+            }
         }
 
-        log.info("Diff sync complete: \(pagesToUpsert.count) upserted, \(toDelete.count) deleted")
+        log.info(
+            "Diff sync complete: \(receipt.upsertedPageCount) upserted, \(receipt.deletedPageCount) pages deleted, \(receipt.deletedBlockCount) blocks deleted"
+        )
+        return receipt
     }
 
     // MARK: - Diff Sync Helpers (synchronous)
@@ -2191,14 +1390,132 @@ actor SearchIndexService {
         }
     }
 
-    /// Delete a set of page IDs from the GRDB index.
-    private nonisolated func deletePages(ids: Set<String>) throws {
+    private nonisolated func applyDiff(
+        sourcePageCount: Int,
+        deletingPageIDs: Set<String>,
+        upsertingPages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)]
+    ) throws -> SearchIndexDiffReceipt {
         try dbPool.write { db in
-            // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement reused across batch.
-            let stmt = try db.cachedStatement(sql: "DELETE FROM indexed_pages WHERE id = ?")
-            for id in ids {
-                stmt.setUncheckedArguments([id])
-                try stmt.execute()
+            let deleted = try Self.deletePageRows(
+                ids: deletingPageIDs.sorted(),
+                in: db
+            )
+            let historicalOrphanBlockCount = try Self.deleteOrphanBlockRows(in: db)
+
+            try upsertPages(upsertingPages, in: db)
+
+            let finalPageCount = try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM indexed_pages"
+            ) ?? 0
+            let finalBlockCount = try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM indexed_blocks"
+            ) ?? 0
+            let remainingOrphanBlockCount = try Int.fetchOne(db, sql: """
+                SELECT COUNT(*)
+                FROM indexed_blocks
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM indexed_pages
+                    WHERE indexed_pages.id = indexed_blocks.page_id
+                )
+            """) ?? 0
+            guard finalPageCount == sourcePageCount,
+                  remainingOrphanBlockCount == 0 else {
+                throw SearchIndexError.diffVerificationFailed(
+                    expectedPageCount: sourcePageCount,
+                    actualPageCount: finalPageCount,
+                    remainingOrphanBlockCount: remainingOrphanBlockCount
+                )
+            }
+
+            return SearchIndexDiffReceipt(
+                sourcePageCount: sourcePageCount,
+                upsertedPageCount: upsertingPages.count,
+                deletedPageCount: deleted.pages,
+                deletedBlockCount: deleted.blocks + historicalOrphanBlockCount,
+                finalIndexedPageCount: finalPageCount,
+                finalIndexedBlockCount: finalBlockCount,
+                remainingOrphanBlockCount: remainingOrphanBlockCount
+            )
+        }
+    }
+
+    private nonisolated static func deleteOrphanBlockRows(in db: Database) throws -> Int {
+        try db.execute(sql: """
+            DELETE FROM indexed_blocks
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM indexed_pages
+                WHERE indexed_pages.id = indexed_blocks.page_id
+            )
+        """)
+        return db.changesCount
+    }
+
+    private nonisolated static func deletePageRows(
+        ids: [String],
+        in db: Database
+    ) throws -> (pages: Int, blocks: Int) {
+        guard !ids.isEmpty else { return (0, 0) }
+        let blockStatement = try db.makeStatement(
+            sql: "DELETE FROM indexed_blocks WHERE page_id = ?"
+        )
+        let pageStatement = try db.makeStatement(
+            sql: "DELETE FROM indexed_pages WHERE id = ?"
+        )
+        var deletedPageCount = 0
+        var deletedBlockCount = 0
+        for id in ids {
+            blockStatement.setUncheckedArguments([id])
+            try blockStatement.execute()
+            deletedBlockCount += db.changesCount
+
+            pageStatement.setUncheckedArguments([id])
+            try pageStatement.execute()
+            deletedPageCount += db.changesCount
+        }
+        return (deletedPageCount, deletedBlockCount)
+    }
+
+    private nonisolated func upsertPages(
+        _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)],
+        in db: Database
+    ) throws {
+        guard !pages.isEmpty else { return }
+        let statement: Statement
+        do {
+            statement = try db.makeStatement(sql: """
+                INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title,
+                    body = excluded.body,
+                    tags = excluded.tags,
+                    updatedAt = excluded.updatedAt
+            """)
+        } catch {
+            log.error(
+                "SearchIndexService.upsertPages prepare failed: \(String(describing: error), privacy: .public)"
+            )
+            throw error
+        }
+        for page in pages {
+            statement.setUncheckedArguments([
+                page.id,
+                page.title,
+                page.body,
+                page.tags,
+                page.updatedAt.timeIntervalSinceReferenceDate,
+            ])
+            do {
+                try statement.execute()
+            } catch {
+                log.error(
+                    "SearchIndexService.upsertPages execute failed for id=\(page.id, privacy: .public): \(String(describing: error), privacy: .public)"
+                )
+                throw error
             }
         }
     }
@@ -2408,6 +1725,40 @@ actor SearchIndexService {
         return try operation()
     }
 
+    private nonisolated static func fusedSearchPagesFallback(
+        _ db: Database,
+        terms: [String],
+        limit: Int
+    ) throws -> [(result: SearchResult, updatedAtUnix: Double?)] {
+        let filter = likeFilter(columns: ["title", "body", "coalesce(tags, '')"], terms: terms)
+        let rows = try Row.fetchAll(db, sql: """
+            SELECT
+                id,
+                title,
+                CASE
+                    WHEN body = '' THEN title
+                    ELSE substr(body, 1, 160)
+                END AS snippet,
+                updatedAt
+            FROM indexed_pages
+            WHERE \(filter.sql)
+            ORDER BY id ASC
+            LIMIT ?
+        """, arguments: StatementArguments(filter.arguments + [limit]))
+
+        return rows.map { row in
+            (
+                result: SearchResult(
+                    pageId: row["id"],
+                    title: row["title"],
+                    snippet: row["snippet"] ?? "",
+                    rank: 0.0
+                ),
+                updatedAtUnix: unixTimestamp(fromReferenceDate: row["updatedAt"])
+            )
+        }
+    }
+
     private nonisolated static func searchPagesFallback(
         _ db: Database,
         terms: [String],
@@ -2442,6 +1793,7 @@ actor SearchIndexService {
     private nonisolated static func fusedSearchFallback(
         terms: [String],
         weights: FusionWeights,
+        now: Date,
         in db: Database
     ) throws -> [FusedResult] {
         let finalLimit = max(0, weights.maxResults)
@@ -2451,7 +1803,7 @@ actor SearchIndexService {
         struct Accumulator {
             var entityKind: String
             var parentDocID: String
-            var fusedScore: Double
+            var rawFusedScore: Double
             var bestSourceRank: Int64
             var snippetBlockID: String?
             var snippet: String?
@@ -2470,9 +1822,9 @@ actor SearchIndexService {
             updatedAtUnix: Double?
         ) {
             let rank = Int64(sourceRank)
-            let score = sourceWeight / (Phase3FusionConsts.K_RRF + Double(sourceRank))
+            let rawScore = sourceWeight / (Phase3FusionConsts.K_RRF + Double(sourceRank))
             if var existing = rolledUp[entityID] {
-                existing.fusedScore += score
+                existing.rawFusedScore += rawScore
                 if let updatedAtUnix {
                     existing.updatedAtUnix = existing.updatedAtUnix.map {
                         max($0, updatedAtUnix)
@@ -2489,7 +1841,7 @@ actor SearchIndexService {
                 rolledUp[entityID] = Accumulator(
                     entityKind: entityKind,
                     parentDocID: entityID,
-                    fusedScore: score,
+                    rawFusedScore: rawScore,
                     bestSourceRank: rank,
                     snippetBlockID: snippetBlockID,
                     snippet: snippet,
@@ -2498,27 +1850,53 @@ actor SearchIndexService {
             }
         }
 
-        for (offset, result) in try searchPagesFallback(db, terms: terms, limit: sourceLimit).enumerated() {
+        func sourceWinners<Result>(
+            _ results: [Result],
+            pageID: (Result) -> String
+        ) -> [(result: Result, sourceRank: Int)] {
+            var seenPageIDs = Set<String>()
+            var winners: [(result: Result, sourceRank: Int)] = []
+            winners.reserveCapacity(results.count)
+
+            for (offset, result) in results.enumerated() {
+                guard seenPageIDs.insert(pageID(result)).inserted else { continue }
+                winners.append((result: result, sourceRank: offset + 1))
+            }
+
+            return winners
+        }
+
+        for winner in sourceWinners(
+            try fusedSearchPagesFallback(db, terms: terms, limit: sourceLimit),
+            pageID: { $0.result.pageId }
+        ) {
+            let fallbackResult = winner.result
+            let result = fallbackResult.result
             merge(
                 entityID: result.pageId,
                 entityKind: "page",
                 sourceWeight: weights.pageWeight,
-                sourceRank: offset + 1,
+                sourceRank: winner.sourceRank,
                 snippetBlockID: nil,
                 snippet: result.snippet,
-                updatedAtUnix: result.rank > 0 ? result.rank : nil
+                updatedAtUnix: fallbackResult.updatedAtUnix
             )
         }
 
-        for (offset, result) in try searchBlocksFallback(db, terms: terms, limit: sourceLimit).enumerated() {
+        for winner in sourceWinners(
+            try fusedSearchBlocksFallback(db, terms: terms, limit: sourceLimit),
+            pageID: { $0.result.pageId }
+        ) {
+            let fallbackResult = winner.result
+            let result = fallbackResult.result
             merge(
                 entityID: result.pageId,
                 entityKind: "block",
                 sourceWeight: weights.blockWeight,
-                sourceRank: offset + 1,
+                sourceRank: winner.sourceRank,
                 snippetBlockID: result.blockId,
                 snippet: result.snippet,
-                updatedAtUnix: nil
+                updatedAtUnix: fallbackResult.updatedAtUnix
             )
         }
 
@@ -2528,7 +1906,12 @@ actor SearchIndexService {
                     entityID: entityID,
                     entityKind: hit.entityKind,
                     parentDocID: hit.parentDocID,
-                    fusedScore: hit.fusedScore,
+                    fusedScore: recencyAdjustedScore(
+                        rawScore: hit.rawFusedScore,
+                        updatedAtUnix: hit.updatedAtUnix,
+                        weights: weights,
+                        now: now
+                    ),
                     bestSourceRank: hit.bestSourceRank,
                     snippetBlockID: hit.snippetBlockID,
                     snippet: hit.snippet,
@@ -2536,18 +1919,54 @@ actor SearchIndexService {
                 )
             }
             .sorted { lhs, rhs in
-                if lhs.fusedScore == rhs.fusedScore {
-                    let leftUpdated = lhs.updatedAtUnix ?? 0
-                    let rightUpdated = rhs.updatedAtUnix ?? 0
-                    if leftUpdated == rightUpdated {
-                        return lhs.entityID < rhs.entityID
-                    }
-                    return leftUpdated > rightUpdated
+                guard lhs.fusedScore == rhs.fusedScore else {
+                    return lhs.fusedScore > rhs.fusedScore
                 }
-                return lhs.fusedScore > rhs.fusedScore
+                switch (lhs.updatedAtUnix, rhs.updatedAtUnix) {
+                case let (left?, right?) where left != right:
+                    return left > right
+                case (.some, .none):
+                    return true
+                case (.none, .some):
+                    return false
+                default:
+                    return lhs.entityID < rhs.entityID
+                }
             }
             .prefix(finalLimit)
             .map { $0 }
+    }
+
+    private nonisolated static func fusedSearchBlocksFallback(
+        _ db: Database,
+        terms: [String],
+        limit: Int
+    ) throws -> [(result: BlockSearchResult, updatedAtUnix: Double?)] {
+        let filter = likeFilter(columns: ["indexed_blocks.content"], terms: terms)
+        let rows = try Row.fetchAll(db, sql: """
+            SELECT
+                indexed_blocks.block_id,
+                indexed_blocks.page_id,
+                substr(indexed_blocks.content, 1, 160) AS snippet,
+                indexed_pages.updatedAt AS updatedAt
+            FROM indexed_blocks
+            LEFT JOIN indexed_pages ON indexed_pages.id = indexed_blocks.page_id
+            WHERE \(filter.sql)
+            ORDER BY indexed_blocks.page_id ASC, indexed_blocks.block_id ASC
+            LIMIT ?
+        """, arguments: StatementArguments(filter.arguments + [limit]))
+
+        return rows.map { row in
+            (
+                result: BlockSearchResult(
+                    blockId: row["block_id"],
+                    pageId: row["page_id"],
+                    snippet: row["snippet"] ?? "",
+                    rank: 0.0
+                ),
+                updatedAtUnix: unixTimestamp(fromReferenceDate: row["updatedAt"])
+            )
+        }
     }
 
     private nonisolated static func searchBlocksFallback(
@@ -2575,6 +1994,25 @@ actor SearchIndexService {
                 rank: 0.0
             )
         }
+    }
+
+    private nonisolated static func unixTimestamp(fromReferenceDate value: Double?) -> Double? {
+        guard let value, value.isFinite else { return nil }
+        let unixTimestamp = value + Date.timeIntervalBetween1970AndReferenceDate
+        return unixTimestamp.isFinite ? unixTimestamp : nil
+    }
+
+    private nonisolated static func recencyAdjustedScore(
+        rawScore: Double,
+        updatedAtUnix: Double?,
+        weights: FusionWeights,
+        now: Date
+    ) -> Double {
+        guard let updatedAtUnix, updatedAtUnix.isFinite else { return rawScore }
+        let ageDays = max(0, now.timeIntervalSince1970 - updatedAtUnix) / 86_400
+        return rawScore * Foundation.exp(
+            -Phase3FusionConsts.RECENCY_LN_2 * ageDays / weights.halfLifeDays
+        )
     }
 
     private nonisolated static func likeFilter(
@@ -2614,10 +2052,10 @@ actor SearchIndexService {
             }
             .map { $0.replacingOccurrences(of: "\"", with: "") }
             .filter { !$0.isEmpty }
-        return uniqueSearchTerms(vaultRecallSignalTerms(from: terms), limit: 20)
+        return uniqueSearchTerms(searchSignalTerms(from: terms), limit: 20)
     }
 
-    private nonisolated static let vaultRecallBoilerplateTerms: Set<String> = [
+    private nonisolated static let searchBoilerplateTerms: Set<String> = [
         "about",
         "called",
         "find",
@@ -2650,9 +2088,9 @@ actor SearchIndexService {
         "vault",
     ]
 
-    private nonisolated static func vaultRecallSignalTerms(from terms: [String]) -> [String] {
+    private nonisolated static func searchSignalTerms(from terms: [String]) -> [String] {
         guard terms.count > 1 else { return terms }
-        let stripped = terms.filter { !vaultRecallBoilerplateTerms.contains($0) }
+        let stripped = terms.filter { !searchBoilerplateTerms.contains($0) }
         return stripped.isEmpty ? terms : stripped
     }
 
@@ -2678,142 +2116,6 @@ actor SearchIndexService {
         return terms.map { "\"\($0)\"*" }.joined(separator: " ")
     }
 
-    nonisolated static func vaultRecallTrace(
-        query: String,
-        limit: Int,
-        results: [SearchResult],
-        generatedAtMs: UInt64? = nil
-    ) -> VaultRecallTrace {
-        let effectiveQuery = vaultRecallEffectiveQuery(query)
-        let candidates = results.enumerated().map { index, result in
-            VaultRecallCandidate(
-                path: result.pageId,
-                title: result.title.isEmpty ? nil : result.title,
-                snippet: result.snippet.isEmpty ? nil : result.snippet,
-                fusedScore: lexicalScore(rank: result.rank, index: index),
-                signals: [
-                    VaultRecallSignalScore(
-                        signal: .lexical,
-                        raw: result.rank,
-                        normalized: lexicalScore(rank: result.rank, index: index)
-                    )
-                ],
-                selectionReason: "search-index page FTS lexical hit"
-            )
-        }
-        return VaultRecallTrace(
-            query: query,
-            effectiveQuery: effectiveQuery,
-            ladderTier: "vault-search-index-v1",
-            candidatePoolSize: results.count,
-            candidatesRetained: candidates.count,
-            candidates: candidates,
-            signalSummary: effectiveQuery.isEmpty ? [] : [.lexical],
-            generatedAtMs: generatedAtMs ?? vaultRecallGeneratedAtMs(),
-            notes: vaultRecallNotes(limit: limit, resultCount: results.count, source: "SearchIndexService.search"),
-            allChatterFallback: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && effectiveQuery.isEmpty,
-            pageGather: searchIndexPageGatherTrace(
-                source: "SearchIndexService.search",
-                candidatePoolSize: results.count,
-                candidatesRetained: candidates.count
-            )
-        )
-    }
-
-    nonisolated static func vaultRecallTrace(
-        query: String,
-        limit: Int,
-        fusedResults: [FusedResult],
-        generatedAtMs: UInt64? = nil
-    ) -> VaultRecallTrace {
-        let effectiveQuery = vaultRecallEffectiveQuery(query)
-        let candidates = fusedResults.map { result in
-            VaultRecallCandidate(
-                path: result.parentDocID,
-                title: nil,
-                snippet: result.snippet?.isEmpty == false ? result.snippet : nil,
-                fusedScore: result.fusedScore,
-                signals: [
-                    VaultRecallSignalScore(
-                        signal: .lexical,
-                        raw: Double(result.bestSourceRank),
-                        normalized: reciprocalRankScore(result.bestSourceRank)
-                    )
-                ],
-                selectionReason: "search-index RRF fused hit (\(result.entityKind))"
-            )
-        }
-        return VaultRecallTrace(
-            query: query,
-            effectiveQuery: effectiveQuery,
-            ladderTier: "vault-rrf-fusion-v1",
-            candidatePoolSize: fusedResults.count,
-            candidatesRetained: candidates.count,
-            candidates: candidates,
-            signalSummary: effectiveQuery.isEmpty ? [] : [.lexical],
-            generatedAtMs: generatedAtMs ?? vaultRecallGeneratedAtMs(),
-            notes: vaultRecallNotes(limit: limit, resultCount: fusedResults.count, source: "SearchIndexService.fusedSearch"),
-            allChatterFallback: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && effectiveQuery.isEmpty,
-            pageGather: searchIndexPageGatherTrace(
-                source: "SearchIndexService.fusedSearch",
-                candidatePoolSize: fusedResults.count,
-                candidatesRetained: candidates.count
-            )
-        )
-    }
-
-    private nonisolated static func searchIndexPageGatherTrace(
-        source: String,
-        candidatePoolSize: Int,
-        candidatesRetained: Int
-    ) -> PageGatherEscalationTrace {
-        PageGatherEscalationTrace(
-            source: source,
-            candidatePoolSize: candidatePoolSize,
-            candidatesRetained: candidatesRetained
-        )
-    }
-
-    private nonisolated static func vaultRecallEffectiveQuery(_ query: String) -> String {
-        let terms = normalizedSearchTerms(query)
-        let stripped = terms.filter { !vaultRecallBoilerplateTerms.contains($0) }
-        if stripped.isEmpty, !terms.isEmpty {
-            return ""
-        }
-        return stripped.joined(separator: " ")
-    }
-
-    private nonisolated static func vaultRecallGeneratedAtMs() -> UInt64 {
-        let value = millisecondsSinceEpoch(Date())
-        guard value > 0 else { return 0 }
-        return UInt64(value)
-    }
-
-    private nonisolated static func lexicalScore(rank: Double, index: Int) -> Double {
-        let denominator = 1.0 + abs(rank)
-        guard denominator.isFinite, denominator > 0 else {
-            return reciprocalRankScore(Int64(index + 1))
-        }
-        return min(1.0, max(0.0, 1.0 / denominator))
-    }
-
-    private nonisolated static func reciprocalRankScore(_ rank: Int64) -> Double {
-        let boundedRank = max(1, rank)
-        return 1.0 / Double(boundedRank)
-    }
-
-    private nonisolated static func vaultRecallNotes(
-        limit: Int,
-        resultCount: Int,
-        source: String
-    ) -> [String] {
-        [
-            "\(source) production trace",
-            "requested_limit=\(limit)",
-            "candidate_pool_size reflects returned SearchIndexService rows",
-            "lexical signal only; semantic/graph/MMR remain degraded until their producers are wired"
-        ]
-    }
 }
 
 // MARK: - SearchResult

@@ -3,7 +3,7 @@ import Testing
 
 @Suite("MarkEdit L3-CHROME mode split guards (Plan 2)")
 nonisolated struct MarkEditChromeModeSplitTests {
-    @Test("Note workspace exposes Prose, Document, Preview, and Source as explicit markdown modes")
+    @Test("Markdown note workspace exposes Prose Preview and Source while Epdoc stays separate")
     func noteWorkspaceExposesExplicitMarkdownModes() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         let modePicker = try Self.extractFunction(
@@ -15,14 +15,15 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains(#""Document""#))
         #expect(source.contains(#""Preview""#))
         #expect(source.contains(#""Source""#))
-        #expect(source.contains("modes: sourceRoute == nil ? [.edit, .document, .preview] : [.edit, .document, .preview, .source]"))
+        #expect(source.contains("NoteWorkspaceMode.markdownModes(hasSourceRoute: sourceRoute != nil)"))
+        #expect(source.contains("hasSourceRoute ? [.edit, .preview, .source] : [.edit, .preview]"))
         #expect(modePicker.contains("ForEach(modes, id: \\.self)"))
         #expect(modePicker.contains("surfaceModeToolbarButton("))
         #expect(!modePicker.contains("Picker("))
         #expect(!modePicker.contains(".pickerStyle(.segmented)"))
         #expect(!modePicker.contains(".frame(width: modes.count"))
         #expect(source.contains(#".accessibilityLabel(mode.label)"#))
-        #expect(source.contains(#""Switch between Prose, Document, Preview, and Source""#))
+        #expect(source.contains(#""Switch between Prose, Preview, and Source""#))
         #expect(modePicker.contains("setNoteMode(mode, for: page, options: options)"))
     }
 
@@ -69,7 +70,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("showLivePreview.toggle()"))
         #expect(livePreview.contains("HTMLWorkspacePreviewView("))
         #expect(livePreview.contains("livePreviewPackage"))
-        #expect(iconSource.contains("struct CodeFileIdentityChip: View"))
+        #expect(iconSource.contains("struct CodeFileIconView: View"))
         #expect(iconSource.contains("static func identity(forFilePath filePath: String?, language: String) -> CodeFileIdentity"))
         #expect(!iconSource.contains("NSWorkspace.shared.icon(forFile: filePath)"))
         #expect(!iconSource.contains("UTType(filenameExtension: pathExtension)"))
@@ -80,13 +81,13 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(iconSource.contains(#"displayName: "Rust""#))
     }
 
-    @Test("CodeEditorView top controls show file-kind icon without duplicating the file title")
-    func codeEditorTopControlsShowFileKindIconWithoutDuplicatingTheFileTitle() throws {
+    @Test("CodeEditorView top controls omit the deprecated duplicate file identity")
+    func codeEditorTopControlsOmitDuplicateFileIdentity() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
         let topBar = try Self.extractBlock(named: "codeEditorTopBar", from: source)
 
         #expect(topBar.contains(#"Text("Ln \(cursorLine), Col \(cursorCol)")"#))
-        #expect(topBar.contains("CodeFileIdentityChip(filePath: filePath, language: language, theme: codeEditorTheme)"))
+        #expect(!topBar.contains("CodeFileIdentityChip("))
         #expect(topBar.contains("showLivePreview.toggle()"))
         #expect(topBar.contains("showSearchBar.toggle()"))
         #expect(!topBar.contains("Text(codeEditorDisplayName)"))

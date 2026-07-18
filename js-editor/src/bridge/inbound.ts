@@ -7,9 +7,7 @@
 
 import type { Editor } from '@tiptap/core';
 import '@tiptap/markdown';
-import { suggestChangesKey } from '@handlewithcare/prosemirror-suggest-changes';
 import { Fragment, type Node as ProseMirrorNode, type ResolvedPos } from '@tiptap/pm/model';
-import type { Transaction } from '@tiptap/pm/state';
 import { TextSelection } from '@tiptap/pm/state';
 import type { RectPayload, SelectionPayload } from './outbound';
 import { postBridge } from './outbound';
@@ -21,7 +19,6 @@ import {
   EPOCH_META,
   HOST_LOAD_META,
   type LoadEpoch,
-  USER_INPUT_META,
 } from './document-load-state';
 import { completeImageAssetRequest } from '../extensions/image-asset-bridge';
 import {
@@ -32,20 +29,14 @@ import {
   replaceCurrent,
   setFindQuery,
 } from '../extensions/find-replace';
-import { epdocAIDiffIsPreviewCommand } from '../extensions/ai-diff';
-import type { SuggestionAdapter } from '../suggestions/SuggestionAdapter';
-import {
-  suggestionIdFromArgs,
-  suggestionPayloadFromArgs,
-  type SuggestionPayload,
-} from './suggestion-payload';
 
 export interface InboundCallbacks {
   /** Re-emit a bubble-menu request after the host accepts a slash choice. */
   emitBubbleMenu?: (selection: SelectionPayload, anchor: RectPayload) => void;
-  suggestionAdapter?: SuggestionAdapter;
   resetMarkdownWritebackBaseline?: (editor: Editor, markdown: string) => void;
+  postContentSnapshot?: (editor: Editor) => void;
   postMarkdownSnapshot?: (editor: Editor) => void;
+  setMarkdownProjectionMode?: (enabled: boolean) => void;
 }
 
 export function installInboundCommands(editor: Editor, callbacks: InboundCallbacks = {}): void {
@@ -62,12 +53,12 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
     setContent(json: string, epoch?: number): void {
       try {
         const parsed = JSON.parse(json);
+        callbacks.setMarkdownProjectionMode?.(false);
         const loadEpoch = beginLoad(editor.view, undefined, normalizeLoadEpoch(epoch));
         editor
           .chain()
           .setMeta(HOST_LOAD_META, true)
           .setMeta(EPOCH_META, loadEpoch)
-          .setMeta(suggestChangesKey, { skip: true })
           .setContent(parsed, { emitUpdate: false })
           .run();
         callbacks.resetMarkdownWritebackBaseline?.(editor, editor.getMarkdown?.() ?? '');
@@ -83,12 +74,12 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
 
     setMarkdown(markdown: string, epoch?: number): void {
       try {
+        callbacks.setMarkdownProjectionMode?.(true);
         const loadEpoch = beginLoad(editor.view, undefined, normalizeLoadEpoch(epoch));
         editor
           .chain()
           .setMeta(HOST_LOAD_META, true)
           .setMeta(EPOCH_META, loadEpoch)
-          .setMeta(suggestChangesKey, { skip: true })
           .setContent(markdown, { emitUpdate: false, contentType: 'markdown' })
           .run();
         callbacks.resetMarkdownWritebackBaseline?.(editor, markdown);
@@ -96,6 +87,33 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
       } catch (e) {
         console.warn('[epdoc inbound] setMarkdown: invalid Markdown', e);
       }
+    },
+
+    replaceDocumentTitle(title: string, epoch?: number): boolean {
+      if (title.trim().length === 0) return false;
+      const heading = firstTopLevelHeading(editor);
+      if (!heading) return false;
+
+      const scrollingElement = document.scrollingElement;
+      const scrollLeft = scrollingElement?.scrollLeft ?? 0;
+      const scrollTop = scrollingElement?.scrollTop ?? 0;
+      const loadEpoch = beginLoad(editor.view, undefined, normalizeLoadEpoch(epoch));
+      const from = heading.position + 1;
+      const to = from + heading.node.content.size;
+      const transaction = editor.state.tr
+        .insertText(title, from, to)
+        .setMeta(HOST_LOAD_META, true)
+        .setMeta(EPOCH_META, loadEpoch)
+        .setMeta('addToHistory', false);
+      editor.view.dispatch(transaction);
+      callbacks.resetMarkdownWritebackBaseline?.(editor, editor.getMarkdown?.() ?? '');
+      settleHostLoad();
+      requestAnimationFrame(() => {
+        if (scrollingElement?.isConnected) {
+          scrollingElement.scrollTo(scrollLeft, scrollTop);
+        }
+      });
+      return true;
     },
 
     setContentWidth(value: string): void {
@@ -107,7 +125,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
 
     flushDocumentSnapshot(): void {
       postDocumentStats(editor);
-      postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+      postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
     },
 
     setFindQuery(query: string, caseSensitive = false): boolean {
@@ -126,7 +144,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
       const didRun = replaceCurrent(editor, query, replacement, caseSensitive === true);
       if (didRun) {
         postDocumentStats(editor);
-        postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+        postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
       }
       return didRun;
     },
@@ -135,7 +153,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
       const didRun = replaceAll(editor, query, replacement, caseSensitive === true);
       if (didRun) {
         postDocumentStats(editor);
-        postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+        postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
       }
       return didRun;
     },
@@ -163,7 +181,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
       const didRun = applySlashChoice(editor, blockType);
       if (didRun) {
         postDocumentStats(editor);
-        postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+        postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
       }
     },
 
@@ -181,7 +199,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
         const didRun = editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
         if (didRun) {
           postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+          postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
         }
         return didRun;
       }
@@ -191,7 +209,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
         const didRun = editor.chain().focus().insertEpdocImage(image).run();
         if (didRun) {
           postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+          postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
         }
         return didRun;
       }
@@ -207,7 +225,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
         const didRun = insertEpdocFrontmatter(editor);
         if (didRun) {
           postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+          postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
         }
         return didRun;
       }
@@ -215,7 +233,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
         const didRun = toggleEpdocCodeBlock(editor);
         if (didRun) {
           postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+          postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
         }
         return didRun;
       }
@@ -225,7 +243,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
         const didRun = setHeadingLevel(editor, level);
         if (didRun) {
           postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+          postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
         }
         return didRun;
       }
@@ -233,7 +251,7 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
         const didRun = setParagraph(editor);
         if (didRun) {
           postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+          postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
         }
         return didRun;
       }
@@ -243,55 +261,15 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
         const didRun = completeImageAssetRequest(editor, response.requestID, response.src);
         if (didRun) {
           postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
-        }
-        return didRun;
-      }
-      if (name === 'applySuggestion') {
-        const payload = suggestionPayloadFromArgs(args);
-        const adapter = callbacks.suggestionAdapter;
-        if (!payload || !adapter) return false;
-        const tr = adapter.ingestAgentEdit(editor.state, payload);
-        if (!tr.docChanged) return false;
-        editor.view.dispatch(stampCurrentEpoch(editor, tr).scrollIntoView());
-        postSuggestionApplied(editor, payload);
-        postDocumentStats(editor);
-        postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
-        return true;
-      }
-      if (name === 'acceptSuggestion') {
-        const id = suggestionIdFromArgs(args);
-        const adapter = callbacks.suggestionAdapter;
-        if (!id || !adapter) return false;
-        const didRun = adapter.applySuggestion(editor.state, id, (tr) => {
-          editor.view.dispatch(stampCurrentEpoch(editor, tr));
-        });
-        if (didRun) {
-          postSuggestionResolved(editor, id, 'accepted');
-          postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
-        }
-        return didRun;
-      }
-      if (name === 'rejectSuggestion') {
-        const id = suggestionIdFromArgs(args);
-        const adapter = callbacks.suggestionAdapter;
-        if (!id || !adapter) return false;
-        const didRun = adapter.revertSuggestion(editor.state, id, (tr) => {
-          editor.view.dispatch(stampCurrentEpoch(editor, tr));
-        });
-        if (didRun) {
-          postSuggestionResolved(editor, id, 'rejected');
-          postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+          postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
         }
         return didRun;
       }
       const didRun = runEditorCommand(editor, name, args);
       if (didRun !== null) {
-        if (didRun && !epdocAIDiffIsPreviewCommand(name)) {
+        if (didRun) {
           postDocumentStats(editor);
-          postDocumentSnapshot(editor, callbacks.postMarkdownSnapshot);
+          postDocumentSnapshot(editor, callbacks.postContentSnapshot, callbacks.postMarkdownSnapshot);
         }
         return didRun;
       }
@@ -302,15 +280,20 @@ export function installInboundCommands(editor: Editor, callbacks: InboundCallbac
   window.epistemos = epistemos;
 }
 
+function firstTopLevelHeading(
+  editor: Editor,
+): { position: number; node: ProseMirrorNode } | null {
+  let result: { position: number; node: ProseMirrorNode } | null = null;
+  editor.state.doc.forEach((node, position) => {
+    if (result || node.type.name !== 'heading' || node.attrs.level !== 1) return;
+    result = { position, node };
+  });
+  return result;
+}
+
 function normalizeLoadEpoch(epoch: number | undefined): LoadEpoch | undefined {
   if (epoch === undefined || !Number.isFinite(epoch) || epoch < 0) return undefined;
   return Math.trunc(epoch) as LoadEpoch;
-}
-
-function stampCurrentEpoch(editor: Editor, tr: Transaction): Transaction {
-  return tr
-    .setMeta(EPOCH_META, currentLoadEpoch(editor.state))
-    .setMeta(USER_INPUT_META, true);
 }
 
 function sanitizeContentWidth(value: string): string {
@@ -507,14 +490,19 @@ function postDocumentStats(editor: Editor): void {
 
 function postDocumentSnapshot(
   editor: Editor,
+  postContentSnapshot?: (editor: Editor) => void,
   postMarkdownSnapshot?: (editor: Editor) => void,
 ): void {
   const epoch = currentLoadEpoch(editor.state);
-  postBridge({
-    type: 'contentDidChange',
-    epoch,
-    json: JSON.stringify(editor.getJSON()),
-  });
+  if (postContentSnapshot) {
+    postContentSnapshot(editor);
+  } else {
+    postBridge({
+      type: 'contentDidChange',
+      epoch,
+      json: JSON.stringify(editor.getJSON()),
+    });
+  }
   if (typeof editor.getMarkdown === 'function') {
     if (postMarkdownSnapshot) {
       postMarkdownSnapshot(editor);
@@ -592,38 +580,4 @@ function imageAssetResponseArgs(args: unknown[]): { requestID: string; src: stri
   const trimmedSrc = src.trim();
   if (trimmedRequestID.length === 0 || trimmedSrc.length === 0) return null;
   return { requestID: trimmedRequestID, src: trimmedSrc };
-}
-
-function postSuggestionResolved(editor: Editor, suggestionId: string, state: 'accepted' | 'rejected'): void {
-  postBridge({
-    type: 'suggestionResolved',
-    epoch: currentLoadEpoch(editor.state),
-    suggestionId,
-    state,
-  });
-}
-
-function postSuggestionApplied(editor: Editor, payload: SuggestionPayload): void {
-  postBridge({
-    type: 'suggestionApplied',
-    epoch: currentLoadEpoch(editor.state),
-    id: payload.id,
-    author: payload.author,
-    turnId: payload.turnId,
-    kind: payload.kind ?? inferredSuggestionKind(payload),
-    from: payload.from,
-    to: payload.to,
-    mapVersion: payload.mapVersion ?? 0,
-    before: payload.before,
-    after: payload.after,
-    ...(payload.rationale ? { rationale: payload.rationale } : {}),
-    ...(payload.sourceCitation ? { sourceCitation: payload.sourceCitation } : {}),
-    ...(payload.claimId ? { claimId: payload.claimId } : {}),
-  });
-}
-
-function inferredSuggestionKind(payload: SuggestionPayload): 'insertion' | 'deletion' | 'replacement' {
-  if (payload.before.length === 0) return 'insertion';
-  if (payload.after.length === 0) return 'deletion';
-  return 'replacement';
 }

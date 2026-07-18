@@ -51,8 +51,8 @@ struct MeetingSTTCodepackPlan3Tests {
         #expect(!view.contains("textBackgroundColor"))
         #expect(!view.contains(".foregroundStyle(.secondary)"))
         #expect(buttons.contains("MeetingNoteLandingGateStatus.status().isActive"))
-        #expect(buttons.contains("AVCaptureDevice.authorizationStatus(for: .audio)"))
-        #expect(buttons.contains("microphone access in System Settings"))
+        #expect(!buttons.contains("AVCaptureDevice.authorizationStatus(for: .audio)"))
+        #expect(buttons.contains("Microphone permission is requested when recording starts."))
     }
 
     @Test("codepack preserves Plan 3 boundaries and MAS honesty")

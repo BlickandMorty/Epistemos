@@ -202,6 +202,7 @@ extension HTMLWorkspaceEditorView {
         }
     }
 
+    #if !EPISTEMOS_FREE_V1
     func restorePreviousSurface() {
         guard let name = restoreSnapshotName else {
             statusText = "No restore snapshot"
@@ -221,6 +222,7 @@ extension HTMLWorkspaceEditorView {
             statusText = failedStatus("Restore", error: error)
         }
     }
+    #endif
 
     func testAppBridge() {
         guard package.manifest.sandboxPolicy.allowAppBridge else {
@@ -240,31 +242,11 @@ extension HTMLWorkspaceEditorView {
         statusText = "Console capture probe requested"
     }
 
-    func testPythonRuntime() {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        statusText = HTMLWorkspacePythonRuntime.availabilityStatusText
-        #else
-        guard package.manifest.sandboxPolicy.allowPythonRuntime else {
-            statusText = "Python runtime disabled"
-            return
-        }
-        consoleExpanded = true
-        layoutMode = .split
-        pythonProbeNonce &+= 1
-        statusText = HTMLWorkspacePythonRuntime.isAvailable
-            ? "Python runtime probe requested"
-            : "Python runtime probe requested; \(HTMLWorkspacePythonRuntime.availabilityStatusText)"
-        #endif
-    }
-
     func testRuntimeBridgeProbes() {
         consoleExpanded = true
         layoutMode = .split
         appBridgeProbeNonce &+= 1
         consoleProbeNonce &+= 1
-        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-        pythonProbeNonce &+= 1
-        #endif
         statusText = "Runtime bridge probes requested"
     }
 
@@ -280,26 +262,6 @@ extension HTMLWorkspaceEditorView {
         } catch {
             statusText = failedStatus("App bridge demo", error: error)
         }
-    }
-
-    func insertPythonDemo() {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        statusText = HTMLWorkspacePythonRuntime.availabilityStatusText
-        #else
-        do {
-            let updated = try HTMLWorkspacePythonDemoScaffold.apply(to: package)
-            package = updated
-            previewPackage = updated
-            selectedPane = .js
-            layoutMode = .split
-            consoleExpanded = true
-            statusText = HTMLWorkspacePythonRuntime.isAvailable
-                ? "Python demo inserted"
-                : "Python demo inserted; \(HTMLWorkspacePythonRuntime.availabilityStatusText)"
-        } catch {
-            statusText = failedStatus("Python demo", error: error)
-        }
-        #endif
     }
 
     func importHTML() {

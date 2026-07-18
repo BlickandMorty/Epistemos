@@ -171,7 +171,7 @@ public final class EpistemosDocumentController: NSDocumentController {
     static func shouldSuppressRestorableDocumentReopen(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
-        SavedApplicationStatePurger.shouldPurgeAtLaunch(
+        SavedApplicationStatePurger.shouldSuppressRestorableStateAtLaunch(
             processInfoEnvironment: processInfoEnvironment
         )
     }

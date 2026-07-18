@@ -1,5 +1,4 @@
 import AppKit
-import AVFoundation
 import SwiftData
 import SwiftUI
 
@@ -13,10 +12,15 @@ struct MeetingNoteView: View {
     @State private var showingDiscardConfirmation = false
     @State private var pendingStartAfterDiscardConfirmation = false
     @State private var showingHomeLeaveConfirmation = false
+    private let tearsDownOnUtilityWindowClose: Bool
 
-    init(voiceInput: LiveVoiceInputService = .shared) {
+    init(
+        voiceInput: LiveVoiceInputService = .shared,
+        tearsDownOnUtilityWindowClose: Bool = false
+    ) {
         _voiceInput = State(initialValue: voiceInput)
         _service = State(initialValue: MeetingNoteCaptureService(voiceInput: voiceInput))
+        self.tearsDownOnUtilityWindowClose = tearsDownOnUtilityWindowClose
     }
 
     var body: some View {
@@ -54,12 +58,22 @@ struct MeetingNoteView: View {
         .onChange(of: voiceInput.finalTranscript) { _, _ in
             service.refreshFromVoiceInput()
         }
+        .onChange(of: voiceInput.state) { _, _ in
+            service.refreshFromVoiceInput()
+        }
+        .onChange(of: voiceInput.modelDownloadProgress) { _, _ in
+            service.refreshFromVoiceInput()
+        }
         .onAppear {
             registerMeetingReadAloudProvider()
             service.refreshRecoverableDraft()
         }
         .onDisappear {
             EpistemosVisibleReadAloudRegistry.shared.unregister(.meetingTranscript)
+            service.tearDownCapture()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .meetingUtilityWindowWillClose)) { _ in
+            guard tearsDownOnUtilityWindowClose else { return }
             service.tearDownCapture()
         }
         .confirmationDialog(
@@ -337,13 +351,11 @@ struct MeetingNoteView: View {
         }
     }
 
-    /// Audit 2026-07-04: the meeting is errored AND the mic is actually denied/restricted —
-    /// offer a one-click deep-link to Privacy > Microphone so a denied permission is
-    /// recoverable in place, not a dead end. Status check (not string match) is robust.
+    /// The capture service records the typed permission failure at the explicit
+    /// start boundary, so SwiftUI rendering never polls TCC authorization state.
     private var microphoneAccessDenied: Bool {
         guard case .error = service.state else { return false }
-        let status = AVCaptureDevice.authorizationStatus(for: .audio)
-        return status == .denied || status == .restricted
+        return service.microphoneAccessDenied
     }
 
     private var durationLabel: String {

@@ -12,9 +12,8 @@ import Foundation
 // the canonical Swift shape; mirror the Rust `ShadowHit` /
 // `ShadowDocument` / `ShadowStats` in `epistemos-shadow/src/lib.rs`.
 
-/// Domain partition for the index. The Wave 8 backend keeps two
-/// independent usearch + tantivy indices so a query against `notes`
-/// never sees `chats` results and vice versa.
+/// Domain value retained only to decode historical Shadow records. Free V1
+/// projects notes and never executes chat-domain retrieval.
 nonisolated public enum ShadowDomain: String, Sendable, Codable, Hashable, CaseIterable {
     case notes = "note"
     case chats = "chat"
@@ -80,13 +79,10 @@ nonisolated public enum HaloState: Sendable, Hashable {
     /// Search returned ≥ 1 result above the score threshold. Halo
     /// glyph appears; the count drives the badge label.
     case available(count: Int)
-    /// User clicked the Halo glyph; panel is open showing results
-    /// for the current domain.
+    /// User clicked the Halo glyph; panel is open showing note results.
     case open(domain: ShadowDomain)
     /// User opened a result for inline edit inside the panel.
     case editingNote(id: String)
-    /// User opened a chat result for inline summarisation.
-    case summarizingChat(id: String)
     /// Recoverable error (e.g. backend not yet ready). Halo shows a
     /// neutral "snapshot" glyph; the user can retry.
     case errorRecoverable(String)
@@ -97,7 +93,7 @@ nonisolated public enum HaloState: Sendable, Hashable {
     public var isVisible: Bool {
         switch self {
         case .dormant, .sensing: return false
-        case .available, .open, .editingNote, .summarizingChat, .errorRecoverable:
+        case .available, .open, .editingNote, .errorRecoverable:
             return true
         }
     }
@@ -118,7 +114,7 @@ nonisolated public enum HaloState: Sendable, Hashable {
     /// or drilled into a result).
     public var isPanelOpen: Bool {
         switch self {
-        case .open, .editingNote, .summarizingChat: return true
+        case .open, .editingNote: return true
         default: return false
         }
     }

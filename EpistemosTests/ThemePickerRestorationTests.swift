@@ -22,8 +22,8 @@ struct ThemePickerRestorationTests {
     }
 
     @MainActor
-    @Test("custom theme pair resolves semantic tokens without custom window overlays")
-    func customThemePairResolvesSemanticTokensWithoutWindowOverlays() {
+    @Test("preset theme pair resolves semantic tokens without window overlays")
+    func presetThemePairResolvesSemanticTokensWithoutWindowOverlays() {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -36,7 +36,6 @@ struct ThemePickerRestorationTests {
 
             #expect(uiState.activePair == .platinumViolet)
             #expect(uiState.themeMode == .custom)
-            #expect(uiState.customThemesEnabled)
             #expect(uiState.theme == .platinumViolet)
             #expect(uiState.preferredColorScheme == nil)
             #expect(uiState.shouldUseThemeWorkarounds == false)
@@ -74,22 +73,20 @@ struct ThemePickerRestorationTests {
         #expect(settings.contains("AppearanceThemePairSection("))
         #expect(settings.contains("ForEach(ThemePair.allCases, id: \\.self)"))
         #expect(settings.contains("ThemePairCard("))
-        // Owner P6.4b: every theme pair shows the PIXEL-ART PALETTE preview (the
-        // cinematic mock-UI card was replaced). Custom shows its editable slots; every
-        // other pair shows its resolved light/dark palette — as hard pixel-art
-        // rectangles (no rounding), matching the app identity.
+        // Every preset pair shows its resolved light/dark palette as hard pixel-art
+        // rectangles, matching the app identity.
         #expect(settings.contains("ThemePairPaletteSwatch(pair: pair)"))
-        #expect(settings.contains("CustomThemePaletteSwatch()"))
         #expect(settings.contains("paletteRow(theme: pair.lightTheme, label: \"Light\")"))
         #expect(settings.contains("paletteRow(theme: pair.darkTheme, label: \"Dark\")"))
         #expect(settings.contains("Pixel-art palette swatch"))
         // The busy cinematic mock-UI preview is gone for good (lock the replacement).
         #expect(!settings.contains("ThemePairCinematicPreview"))
         #expect(!settings.contains("ThemePairCinematicHalf"))
-        // Owner P6.4c: the custom-theme editor aligns with the pixel-art-minimal look
-        // (hard rectangles) — same identity as the palette swatch above it.
-        #expect(settings.contains("Pixel-art custom-theme editor"))
-        #expect(settings.contains("Pixel-art custom-theme live preview"))
+        #expect(!settings.contains("AppearanceCustomThemeSection"))
+        #expect(!settings.contains("CustomThemePaletteSwatch"))
+        #expect(!settings.contains("CustomThemeColorTile"))
+        #expect(!settings.contains("CustomThemeLivePreview"))
+        #expect(!settings.contains("customExperimentalEnabled"))
         #expect(settings.contains("ui.setPair(pair)"))
         #expect(!settings.contains("Toggle(\"Follow macOS\""))
         #expect(!settings.contains("Follows macOS"))

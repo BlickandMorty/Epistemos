@@ -12,7 +12,7 @@ struct NonAgentPruningValidationTests {
         #expect(!source.contains("Screen Recording"))
         #expect(!source.contains("OmegaPermissions.checkAccessibility()"))
         #expect(!source.contains("case .permissions"))
-        #expect(source.contains("vault sync, fast search, provenance, skills, tools, and MCP"))
+        #expect(source.contains("without agent or generative-model features."))
     }
 
     @Test("setup assistant explains vault sync instead of claiming live markdown-only storage")
@@ -40,21 +40,6 @@ struct NonAgentPruningValidationTests {
         #expect(!source.contains("window.isMovableByWindowBackground = false"))
         #expect(!source.contains("if window.isMovableByWindowBackground"))
         #expect(source.contains("enum WindowPresentationPolicy"))
-    }
-
-    @Test("session intelligence is removed from landing and global command paths")
-    func sessionIntelligenceIsRemovedFromLandingAndGlobalCommandPaths() throws {
-        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
-        let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
-        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let quitSave = try loadRepoTextFile("Epistemos/Views/Landing/QuitSavePanelController.swift")
-
-        #expect(!app.contains("toggleSessionIntelligence"))
-        #expect(!app.contains("Session Intelligence"))
-        #expect(!root.contains("showSessionIntelligence"))
-        #expect(!root.contains("SessionIntelligenceOverlay"))
-        #expect(!landing.contains("Session Intelligence"))
-        #expect(!quitSave.contains("GlobalSessionIntelligence"))
     }
 
     @Test("setup assistant sheet uses shared app environment injection")
@@ -228,15 +213,6 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains("decodedContentBlocks()"))
     }
 
-    @Test("daily brief recent note context prefers live editor text before disk fallback")
-    func dailyBriefRecentContextPrefersLiveEditorBodies() throws {
-        let source = try loadRepoTextFile("Epistemos/State/DailyBriefState.swift")
-
-        #expect(source.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
-        #expect(!source.contains("page.loadBody(mapped: true)"))
-        #expect(source.contains("let body = persistedOrLiveBody.isEmpty ? page.body : persistedOrLiveBody"))
-    }
-
     @Test("instant recall seed rebuild prefers captured live editor text before disk fallback")
     func instantRecallSeedRebuildPrefersLiveEditorBodies() throws {
         let source = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
@@ -271,13 +247,13 @@ struct NonAgentPruningValidationTests {
         #expect(journalEntity.contains("NoteWindowManager.shared.currentBody(for: id)"))
     }
 
-    @Test("note analysis and summarize intents prefer live editor text before disk fallback")
-    func noteAnalysisAndSummarizeIntentsPreferLiveEditorBodies() throws {
-        let analysis = try loadRepoTextFile("Epistemos/Intents/Custom/AnalysisIntents.swift")
+    @Test("retained note actions prefer live editor text before disk fallback")
+    func noteActionsPreferLiveEditorBodies() throws {
         let noteActions = try loadRepoTextFile("Epistemos/Intents/Custom/NoteActionIntents.swift")
 
-        #expect(analysis.contains("NoteWindowManager.shared.currentBody(for: page.id, mapped: true)"))
         #expect(noteActions.contains("let content = NoteWindowManager.shared.currentBody(for: page.id)"))
+        let analysisIntentURL = try sourceMirrorURL(for: "Epistemos/Intents/Custom/AnalysisIntents.swift")
+        #expect(!FileManager.default.fileExists(atPath: analysisIntentURL.path))
     }
 
     @Test("core app surfaces do not foreground deferred Omega shortcuts or training claims")

@@ -13,8 +13,7 @@
 //   5. W7.9 custom         — EpdocChartNode, legacy inert diagrams
 //   6. W7.17.b chrome     — BubbleMenu, FloatingMenu, DragHandle
 //   7. W7.17.a bridge     — slash menu, caret-rect emitter
-//   8. Plan 2 Stage 4     — settled-batch AI diff preview
-//   9. CharacterCount     — drives the W7.17 stats badge
+//   8. CharacterCount     — drives the W7.17 stats badge
 //
 // Bridge contract documented in README.md + src/bridge/{outbound,inbound}.ts.
 
@@ -47,10 +46,9 @@ import { imageAssetBridge } from './extensions/image-asset-bridge';
 import { CalloutNode } from './extensions/callout-node';
 import { epdocMarkdownInputRules } from './extensions/markdown-input-rules';
 import { EpdocFindReplace } from './extensions/find-replace';
-import { EpdocAIDiff } from './extensions/ai-diff';
 import { CaretRectEmitter } from './extensions/caret-rect-emitter';
 import { buildSlashMenu } from './extensions/slash-menu';
-import { pasteClassifierBridge } from './extensions/paste-classifier-bridge';
+import { pasteHandlingBridge } from './extensions/paste-classifier-bridge';
 import { EpdocLink, EpdocWikiLinkMarkdown } from './markdown/epdoc-markdown-nodes';
 import { MarkdownWritebackTracker } from './markdown/writeback-tracker';
 import { postBridge } from './bridge/outbound';
@@ -58,17 +56,10 @@ import { installInboundCommands } from './bridge/inbound';
 import {
   currentLoadEpoch,
   hasHostDocumentLoaded,
+  HOST_LOAD_META,
   isDocumentLoadSettling,
   LoadStateExtension,
 } from './bridge/document-load-state';
-import { HwcSuggestionAdapter } from './suggestions/SuggestionAdapter';
-import {
-  DeletionSuggestionMark,
-  EpdocSuggestionDocument,
-  InsertionSuggestionMark,
-  ModificationSuggestionMark,
-  SuggestChangesExtension,
-} from './suggestions/marks';
 
 import 'katex/dist/katex.min.css';
 import './editor.css';
@@ -79,12 +70,9 @@ if (!mountNode) {
 }
 const editorRoot = mountNode;
 
-// AP8 — JS-side debounce on the update stream (Wave 13 §"Phase 4 perf —
-// AP8 Tiptap update debounce"). Tiptap fires `onTransaction` on every
-// keystroke (~50/s during typing); the SwiftUI complexity meter +
-// canonical-save pipeline only need ~5/s. Debouncing here drops the
-// per-keystroke contentDidChange cost from 50 Hz → ~5 Hz, which the
-// Wave 13 perf compass measures as -80% complexity-meter CPU.
+// AP8 — JS-side debounce on the update stream. Tiptap can fire
+// `onTransaction` on every keystroke; the host only needs coalesced change
+// notices and small Markdown writeback regions during ordinary typing.
 //
 // 200 ms is the JS-side window — short enough that the user-visible
 // "saved" badge still feels live, long enough to coalesce the typical
@@ -93,11 +81,18 @@ const editorRoot = mountNode;
 // the canonical-save invariant is preserved.
 const CONTENT_DID_CHANGE_DEBOUNCE_MS = 200;
 const DOCUMENT_STATS_DEBOUNCE_MS = 250;
+const ADAPTIVE_HEADING_SYNC_DEBOUNCE_MS = 750;
+const LARGE_DOCUMENT_NODE_SIZE = 200_000;
+const MARKDOWN_FULL_SNAPSHOT_IDLE_MS = 1_500;
 let contentDidChangeTimer: ReturnType<typeof setTimeout> | null = null;
 let documentStatsTimer: ReturnType<typeof setTimeout> | null = null;
+let adaptiveHeadingSizeTimer: ReturnType<typeof setTimeout> | null = null;
+let deferredMarkdownSnapshotTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingContentEditor: Editor | null = null;
 let pendingStatsEditor: Editor | null = null;
+let pendingDeferredMarkdownEditor: Editor | null = null;
 let adaptiveHeadingSizeFrame: number | null = null;
+let markdownProjectionMode = false;
 const markdownWritebackTracker = new MarkdownWritebackTracker();
 
 function editorIsLive(ed: Editor | null): ed is Editor {
@@ -112,17 +107,40 @@ function scheduleContentDidChange(ed: Editor): void {
     const editor = pendingContentEditor;
     pendingContentEditor = null;
     if (!editorIsLive(editor)) return;
+    if (markdownProjectionMode) {
+      postMarkdownDidChange(editor, { preferWriteback: true });
+      return;
+    }
     postBridge({
       type: 'contentDidChange',
       epoch: currentLoadEpoch(editor.state),
       json: JSON.stringify(editor.getJSON()),
     });
-    postMarkdownDidChange(editor);
+    postMarkdownDidChange(editor, { preferWriteback: false });
   }, CONTENT_DID_CHANGE_DEBOUNCE_MS);
 }
 
-function postMarkdownDidChange(ed: Editor): void {
+function postMarkdownDidChange(
+  ed: Editor,
+  options: { preferWriteback?: boolean } = {},
+): void {
   if (typeof ed.getMarkdown !== 'function') return;
+  if (options.preferWriteback) {
+    const writeback = markdownWritebackTracker.consume(ed) ?? undefined;
+    if (writeback) {
+      postBridge({
+        type: 'markdownDidChange',
+        epoch: currentLoadEpoch(ed.state),
+        markdown: '',
+        writeback,
+      });
+      return;
+    }
+    if (documentIsLarge(ed)) {
+      scheduleDeferredFullMarkdownSnapshot(ed);
+      return;
+    }
+  }
   const markdown = markdownSnapshotWithVisibleTextFallback(ed);
   const writeback = markdownWritebackTracker.consume(ed, markdown) ?? undefined;
   postBridge({
@@ -133,10 +151,36 @@ function postMarkdownDidChange(ed: Editor): void {
   });
 }
 
+function postContentDidChangeSnapshot(ed: Editor): void {
+  if (markdownProjectionMode) return;
+  postBridge({
+    type: 'contentDidChange',
+    epoch: currentLoadEpoch(ed.state),
+    json: JSON.stringify(ed.getJSON()),
+  });
+}
+
+function documentIsLarge(ed: Editor): boolean {
+  return ed.state.doc.content.size >= LARGE_DOCUMENT_NODE_SIZE;
+}
+
+function scheduleDeferredFullMarkdownSnapshot(ed: Editor): void {
+  pendingDeferredMarkdownEditor = ed;
+  if (deferredMarkdownSnapshotTimer !== null) return;
+  deferredMarkdownSnapshotTimer = setTimeout(() => {
+    deferredMarkdownSnapshotTimer = null;
+    const editor = pendingDeferredMarkdownEditor;
+    pendingDeferredMarkdownEditor = null;
+    if (!editorIsLive(editor)) return;
+    postMarkdownDidChange(editor, { preferWriteback: false });
+  }, MARKDOWN_FULL_SNAPSHOT_IDLE_MS);
+}
+
 function markdownSnapshotWithVisibleTextFallback(ed: Editor): string {
   const markdown = ed.getMarkdown();
+  if (markdownBodyText(markdown).trim().length > 0) return markdown;
   const visibleText = ed.state.doc.textBetween(0, ed.state.doc.content.size, '\n\n', '\n\n');
-  if (visibleText.trim().length > 0 && markdownBodyText(markdown).trim().length === 0) {
+  if (visibleText.trim().length > 0) {
     return visibleText;
   }
   return markdown;
@@ -173,6 +217,14 @@ function scheduleDocumentStats(ed: Editor): void {
 }
 
 function scheduleAdaptiveHeadingSizeSync(): void {
+  if (adaptiveHeadingSizeTimer !== null) return;
+  adaptiveHeadingSizeTimer = setTimeout(() => {
+    adaptiveHeadingSizeTimer = null;
+    scheduleAdaptiveHeadingSizeSyncFrame();
+  }, ADAPTIVE_HEADING_SYNC_DEBOUNCE_MS);
+}
+
+function scheduleAdaptiveHeadingSizeSyncFrame(): void {
   if (adaptiveHeadingSizeFrame !== null) return;
   adaptiveHeadingSizeFrame = window.requestAnimationFrame(() => {
     adaptiveHeadingSizeFrame = null;
@@ -210,20 +262,14 @@ function headingSizeLimits(level: number): { full: number; medium: number; long:
 const editor = new Editor({
   element: mountNode,
   extensions: [
-    EpdocSuggestionDocument,
     StarterKit.configure({
       codeBlock: false,
       blockquote: false,
-      document: false,
       link: false,
       listItem: false,
     }),
     EpdocBlockquote,
     EpdocListItem,
-    InsertionSuggestionMark,
-    DeletionSuggestionMark,
-    ModificationSuggestionMark,
-    SuggestChangesExtension,
     UniqueId.configure({
       types: ['heading', 'paragraph', 'codeBlock', 'blockquote'],
     }),
@@ -257,7 +303,6 @@ const editor = new Editor({
       indentation: { style: 'space', size: 2 },
       markedOptions: { breaks: false, gfm: true },
     }),
-    EpdocAIDiff,
     EpdocFindReplace,
     LoadStateExtension,
     BubbleMenu.configure({ pluginKey: 'epdocBubble' }),
@@ -281,19 +326,25 @@ const editor = new Editor({
     }),
     imageAssetBridge(),
     epdocMarkdownInputRules(),
-    pasteClassifierBridge(),
+    pasteHandlingBridge(),
   ],
   content: { type: 'doc', content: [{ type: 'paragraph' }] },
-  onUpdate: ({ editor: ed }) => {
+  onUpdate: ({ editor: ed, transaction }) => {
     // AP8 — debounce content-change emissions. We use `onUpdate`
     // rather than `onTransaction` so selection-only transactions
     // (caret moves, focus changes) don't burn the timer; those are
     // already covered by CaretRectEmitter.
-    if (hasHostDocumentLoaded() && !isDocumentLoadSettling(ed.state)) {
+    if (
+      transaction.getMeta(HOST_LOAD_META) !== true
+      && hasHostDocumentLoaded()
+      && !isDocumentLoadSettling(ed.state)
+    ) {
       scheduleContentDidChange(ed);
     }
     scheduleDocumentStats(ed);
-    scheduleAdaptiveHeadingSizeSync();
+    if (ed.state.doc.content.size < LARGE_DOCUMENT_NODE_SIZE) {
+      scheduleAdaptiveHeadingSizeSync();
+    }
   },
   onTransaction: ({ editor: ed, transaction }) => {
     markdownWritebackTracker.recordTransaction(ed, transaction);
@@ -307,12 +358,13 @@ const editor = new Editor({
 
 // Expose for the Swift inbound bridge + dev console.
 window.epdocEditor = editor;
-const suggestionAdapter = new HwcSuggestionAdapter({ view: () => editor.view });
-editor.view.dispatch = suggestionAdapter.decorateDispatch(editor.view.dispatch.bind(editor.view));
 installInboundCommands(editor, {
-  suggestionAdapter,
   resetMarkdownWritebackBaseline: (ed, markdown) => {
     markdownWritebackTracker.reset(ed, markdown);
   },
-  postMarkdownSnapshot: postMarkdownDidChange,
+  postContentSnapshot: postContentDidChangeSnapshot,
+  postMarkdownSnapshot: (ed) => postMarkdownDidChange(ed, { preferWriteback: false }),
+  setMarkdownProjectionMode: (enabled) => {
+    markdownProjectionMode = enabled;
+  },
 });

@@ -325,7 +325,11 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             if let uiState = AppBootstrap.shared?.uiState {
                 NoteWindowThemeStyler.apply(to: window, uiState: uiState)
             }
-            window.setFrameAutosaveName("HTMLWorkspaceDocumentWindow.\(self.package.manifest.id)")
+            if let autosaveName = FoundationSafety.runtimeWindowFrameAutosaveName(
+                "HTMLWorkspaceDocumentWindow.\(self.package.manifest.id)"
+            ) {
+                window.setFrameAutosaveName(autosaveName)
+            }
 
             let windowController = NSWindowController(window: window)
             self.addWindowController(windowController)

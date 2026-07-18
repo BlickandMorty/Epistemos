@@ -16,20 +16,14 @@ import OSLog
 //
 // ## Discovery
 //
-// Walks the vault for two known content kinds today:
+// Walks only deterministic note Markdown:
 //   <vault>/notes/**/*.md     → ShadowDomain.note
-//   <vault>/chats/**/*.json   → ShadowDomain.chat
-//
-// (Future expansion: other CodeArtifactKind / ArtifactKind sources;
-// the W7.14 graph projector + W7.15 thought bridge already write
-// metadata that hints at additional roots.)
 //
 // ## Throughput
 //
 // Per-batch enqueue against ShadowIndexingService — the existing
-// debounce + coalescer absorbs the burst without thrashing the
-// embedder. Batch size 64 matches usearch's typical reserve growth
-// step + tantivy's writer-heap-friendly chunk cadence.
+// debounce + coalescer absorbs the burst without blocking the
+// lexical index. Batch size 64 keeps the writer cadence bounded.
 //
 // ## Progress reporting
 //
@@ -48,7 +42,9 @@ import OSLog
 
 nonisolated public enum ShadowVaultDomain: Sendable, Hashable {
     case notes  // .md files under <vault>/notes/
-    case chats  // .json files under <vault>/chats/
+    /// Retained only so persisted bootstrap-progress payloads remain
+    /// decodable. Free bootstrap never discovers or emits this case.
+    case chats
 }
 
 nonisolated public struct ShadowVaultBootstrapProgress: Sendable, Hashable {
@@ -83,7 +79,7 @@ public actor ShadowVaultBootstrapper {
     /// without writing to the user's vault.
     private let vaultRoot: URL
     private let indexer: ShadowIndexingService
-    /// Batch size — 64 matches usearch's reserve growth step.
+    /// Batch size bounds one cooperative lexical indexing burst.
     private let batchSize: Int
 
     public let progress: AsyncStream<ShadowVaultBootstrapProgress>
@@ -110,8 +106,7 @@ public actor ShadowVaultBootstrapper {
     /// Idempotent — re-running on a populated vault updates in place
     /// thanks to the indexer's delete-then-add semantics.
     public func bootstrap() async {
-        await crawl(domain: .notes)
-        await crawl(domain: .chats)
+        await crawlNotes()
         progressContinuation.finish()
     }
 
@@ -125,12 +120,12 @@ public actor ShadowVaultBootstrapper {
         return String(relative)
     }
 
-    private func crawl(domain: ShadowVaultDomain) async {
-        let files = discover(domain: domain)
+    private func crawlNotes() async {
+        let files = discoverNotes()
         // Pre-emit a "scanning complete, total = N" tick so the chip
         // can switch from spinner → progress bar.
         progressContinuation.yield(.init(
-            domain: domain,
+            domain: .notes,
             enqueued: 0,
             total: files.count,
             isComplete: files.isEmpty
@@ -140,12 +135,12 @@ public actor ShadowVaultBootstrapper {
         var enqueued = 0
         for batch in files.chunked(into: batchSize) {
             for url in batch {
-                guard let dto = await loadDocument(url: url, domain: domain) else { continue }
+                guard let dto = await loadNoteDocument(url: url) else { continue }
                 await indexer.enqueueInsert(dto)
                 enqueued += 1
             }
             progressContinuation.yield(.init(
-                domain: domain,
+                domain: .notes,
                 enqueued: enqueued,
                 total: files.count,
                 isComplete: enqueued == files.count
@@ -158,12 +153,10 @@ public actor ShadowVaultBootstrapper {
 
     // MARK: - Discovery
 
-    /// Enumerate all files matching the domain's contract under the
-    /// vault root. Returns the absolute URLs in stable lexicographic
-    /// order so progress reporting is reproducible across runs.
-    nonisolated private func discover(domain: ShadowVaultDomain) -> [URL] {
-        let (subdirectory, fileExtension) = domainContract(domain)
-        let root = vaultRoot.appendingPathComponent(subdirectory, isDirectory: true)
+    /// Enumerate note Markdown only. The chats directory is deliberately
+    /// not addressed or enumerated in the Free bootstrap path.
+    nonisolated private func discoverNotes() -> [URL] {
+        let root = vaultRoot.appendingPathComponent("notes", isDirectory: true)
         guard let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: [.isRegularFileKey],
@@ -173,7 +166,7 @@ public actor ShadowVaultBootstrapper {
         }
         var found: [URL] = []
         for case let url as URL in enumerator {
-            guard url.pathExtension.lowercased() == fileExtension else { continue }
+            guard url.pathExtension.lowercased() == "md" else { continue }
             let isFile = (try? url.resourceValues(forKeys: [.isRegularFileKey]))?
                 .isRegularFile ?? false
             guard isFile else { continue }
@@ -182,29 +175,15 @@ public actor ShadowVaultBootstrapper {
         return found.sorted { $0.path < $1.path }
     }
 
-    /// Map a domain to (subdirectory, file-extension).
-    nonisolated private func domainContract(_ domain: ShadowVaultDomain) -> (String, String) {
-        switch domain {
-        case .notes: return ("notes", "md")
-        case .chats: return ("chats", "json")
-        }
-    }
-
     // MARK: - Loaders
 
-    /// Read + normalise a single file into a ShadowDocumentDTO. Returns
-    /// nil on read / parse failure (logs but doesn't abort the crawl).
-    nonisolated private func loadDocument(
-        url: URL,
-        domain: ShadowVaultDomain
-    ) async -> ShadowDocumentDTO? {
+    /// Read a bounded Markdown prefix into a notes-only document. Returns nil
+    /// on read failure without aborting the rest of the crawl.
+    nonisolated private func loadNoteDocument(url: URL) async -> ShadowDocumentDTO? {
         // Sidecar metadata (commit 389ba93f3 + e1f8a1862): tag every
         // emitted doc with the vault directory's name as
-        // `originVaultKey`. Matches the convention AppBootstrap uses
-        // when it builds `vaultID = rawName` from the vault root's
-        // last path component for the R.3 gateway, so the lenient
-        // nil-passthrough vault filter on the Halo side can match
-        // against the same identifier used elsewhere.
+        // `originVaultKey` so a note can be associated with its vault
+        // without recording an absolute path.
         //
         // Absolute path would be over-fitted (user moving their vault
         // breaks the key); the folder name stays stable across
@@ -214,30 +193,16 @@ public actor ShadowVaultBootstrapper {
             ? nil
             : vaultRoot.lastPathComponent
         do {
-            switch domain {
-            case .notes:
-                let body = try Self.loadMarkdownBodyPrefix(from: url)
-                let title = url.deletingPathExtension().lastPathComponent
-                let docID = vaultRelativePath(url) ?? url.path
-                return ShadowDocumentDTO(
-                    docId: docID,
-                    title: title,
-                    body: body,
-                    domain: .notes,
-                    originVaultKey: vaultKey
-                )
-            case .chats:
-                let data = try Data(contentsOf: url)
-                let chat = try JSONDecoder().decode(ShadowVaultChatPayload.self, from: data)
-                let docID = vaultRelativePath(url) ?? url.path
-                return ShadowDocumentDTO(
-                    docId: docID,
-                    title: chat.title ?? url.deletingPathExtension().lastPathComponent,
-                    body: chat.flattened(),
-                    domain: .chats,
-                    originVaultKey: vaultKey
-                )
-            }
+            let body = try Self.loadMarkdownBodyPrefix(from: url)
+            let title = url.deletingPathExtension().lastPathComponent
+            let docID = vaultRelativePath(url) ?? url.path
+            return ShadowDocumentDTO(
+                docId: docID,
+                title: title,
+                body: body,
+                domain: .notes,
+                originVaultKey: vaultKey
+            )
         } catch {
             Self.log.warning(
                 "ShadowVaultBootstrapper: failed to load \(url.path, privacy: .public) — \(String(describing: error), privacy: .public)"
@@ -256,34 +221,6 @@ public actor ShadowVaultBootstrapper {
     nonisolated private func vaultRelativePath(_ url: URL) -> String? {
         Self.vaultRelativeDocId(for: url, vaultRoot: vaultRoot)
     }
-}
-
-// MARK: - Chat payload normalisation
-//
-// Minimal local decoder for chat JSON files — the canonical SDChat /
-// SDMessage SwiftData types live elsewhere; we only need title +
-// flattened text for the Halo encoder. Loose schema (every field
-// optional) so older chat-export shapes round-trip.
-
-nonisolated private struct ShadowVaultChatPayload: Decodable {
-    let title: String?
-    let messages: [ShadowVaultChatMessage]?
-
-    func flattened() -> String {
-        guard let messages else { return "" }
-        return messages
-            .compactMap { msg -> String? in
-                guard let text = msg.content, !text.isEmpty else { return nil }
-                let role = msg.role ?? "?"
-                return "[\(role)] \(text)"
-            }
-            .joined(separator: "\n\n")
-    }
-}
-
-nonisolated private struct ShadowVaultChatMessage: Decodable {
-    let role: String?
-    let content: String?
 }
 
 // MARK: - Array.chunked

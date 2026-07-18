@@ -38,7 +38,7 @@ struct SSTHXHtmlWorkspaceThemeTests {
         let editor = try loadMirroredSourceTextFile(
             "Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
         // The themed root passes the raw live in-app theme as the `theme` prop; the editor applies
-        // its workspace surface variant exactly once so Ember/Platinum/custom palettes do not drift.
+        // its workspace surface variant exactly once so preset palettes do not drift.
         #expect(doc.contains("theme: ui.theme,"))
         #expect(!doc.contains("theme: ui.theme.surfaceVariant(.other),"))
         #expect(editor.contains("private var workspaceTheme: EpistemosTheme"))

@@ -97,7 +97,7 @@ private struct KaTeXWebView: NSViewRepresentable {
         // missed \r + the JS line-terminator code points and could break the call.
         let escaped = jsStringLiteral(formula)
         let displayFlag = displayMode == .display ? "true" : "false"
-        // #9: keep KaTeX text in the active theme's foreground (incl. custom theme),
+        // #9: keep KaTeX text in the active preset theme's foreground,
         // re-applied here so a live theme change recolors the formula.
         let color = EpistemosWebThemeCSS.color(theme.resolved.foreground)
         let js = """

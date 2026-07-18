@@ -589,52 +589,20 @@ struct RuntimeValidationTests {
     // LocalRuntimeHealthSnapshot / setLatestLocalRuntimeProfile / localRuntimeStatus*) was deleted
     // with the MLX/GGUF stack; the app is cloud-only.
 
-    @Test("live notes route through the global staged vault approval flow")
-    func liveNotesRouteThroughGlobalStagedVaultApprovalFlow() throws {
-        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let appEnvironment = try loadRepoTextFile("Epistemos/App/AppEnvironment.swift")
-        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
-        let liveNoteExecutor = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
+    @Test("retired live note executor remains physically absent")
+    func retiredLiveNoteExecutorRemainsPhysicallyAbsent() {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/Vault/LiveNoteExecutor.swift")
 
-        #expect(appBootstrap.contains("let vaultChatMutator"))
-        #expect(appBootstrap.contains("let liveNoteScheduler = LiveNoteSchedulerService()"))
-        #expect(appBootstrap.contains("refreshLiveNoteScheduler()"))
-        #expect(appBootstrap.contains("approvalMutator: vaultChatMutator"))
-        #expect(appEnvironment.contains(".environment(bootstrap.vaultChatMutator)"))
-        #expect(app.contains("DiffApprovalSheet("))
-        #expect(liveNoteExecutor.contains("stageFileMutation("))
-        #expect(!liveNoteExecutor.contains("try? body.write(to: fileURL"))
-    }
-
-    @Test("live note approval restores managed note state if persistence fails before commit")
-    func liveNoteApprovalRestoresManagedNoteStateIfPersistenceFails() throws {
-        let source = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
-
-        #expect(source.contains("let originalFilePath = page.filePath"))
-        #expect(source.contains("let originalFrontMatter = page.frontMatter"))
-        #expect(source.contains("let originalWordCount = page.wordCount"))
-        #expect(source.contains("let originalLastSyncedBodyHash = page.lastSyncedBodyHash"))
-        #expect(source.contains("let approvedProjection = self.editorProjection(from: diff.after, fileURL: diff.fileURL)"))
-        #expect(source.contains("BlockMirror.sync(pageId: page.id, body: originalEditorBody, modelContext: context)"))
-        #expect(source.contains("page.filePath = originalFilePath"))
-        #expect(source.contains("page.frontMatter = originalFrontMatter"))
-        #expect(source.contains("page.lastSyncedBodyHash = originalLastSyncedBodyHash"))
-        #expect(source.contains("page.needsVaultSync = originalNeedsVaultSync"))
-    }
-
-    @Test("live note scheduler timer stays on the main queue to avoid actor isolation crashes")
-    func liveNoteSchedulerTimerStaysOnMainQueue() throws {
-        let source = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
-
-        #expect(source.contains("DispatchSource.makeTimerSource(queue: .main)"))
-        #expect(!source.contains("DispatchSource.makeTimerSource(queue: .global(qos: .utility))"))
+        #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
     }
 
     @Test("live note scans use the fast body-read path to avoid repeated launch hangs")
     func liveNoteScansUseFastBodyReadPath() throws {
         let scanner = try loadRepoTextFile("Epistemos/Vault/LiveNoteScanner.swift")
         let pageModel = try loadRepoTextFile("Epistemos/Models/SDPage.swift")
-        let executor = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
 
         #expect(scanner.contains("func scanForLiveNotes(modelContainer: ModelContainer) async -> [LiveNoteTask]"))
         #expect(scanner.contains("let context = ModelContext(modelContainer)"))
@@ -645,7 +613,6 @@ struct RuntimeValidationTests {
         #expect(scanner.contains("VaultIndexActor.decodedBodyFromReadableVaultFile"))
         #expect(!scanner.contains("NoteFileStorage.readBody"))
         #expect(!scanner.contains("NoteFileStorage.bodyExists"))
-        #expect(executor.contains("let tasks = await scanner.scanForLiveNotes(modelContainer: container)"))
         #expect(!scanner.contains("func scanForLiveNotes(context: ModelContext) async -> [LiveNoteTask]"))
     }
 
@@ -697,9 +664,16 @@ struct RuntimeValidationTests {
         #expect(app.contains("_bootstrap = State(initialValue: bootstrap)"))
         #expect(app.contains("private static func viableHomeWindow() -> NSWindow?"))
         #expect(app.contains("window.frame.height >= WindowPresentationPolicy.mainWindowMinimumSize.height"))
-        #expect(app.contains("AppStoreFirstWindowPresenter.shared.schedule(bootstrap: bootstrap)"))
+        #expect(!app.contains("func scheduleAfterLaunch("))
+        #expect(!app.contains("private var didSchedule"))
         #expect(app.contains("window.isReleasedWhenClosed = false"))
         #expect(app.contains("guard !Self.isRunningTests else { return }"))
+        let reopenStart = try #require(app.range(of: "func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool"))
+        let reopenEnd = try #require(app.range(of: "func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool"))
+        let reopen = String(app[reopenStart.lowerBound..<reopenEnd.lowerBound])
+        #expect(reopen.contains("ensureHomeWindow()"))
+        #expect(reopen.contains("return false"))
+        #expect(!reopen.contains("schedule"))
         #expect(!app.contains("ModularZoomWindowObserver"))
         #expect(!app.contains("applyMainWindowPolicyIfNeeded"))
         #expect(!app.contains("NSWindow.didBecomeMainNotification"))
@@ -859,6 +833,76 @@ struct RuntimeValidationTests {
         try? fileManager.removeItem(at: overrideRoot)
     }
 
+    @Test("runtime audit isolation requires stable defaults and disposable roots")
+    func runtimeAuditIsolationRequiresStableDefaultsAndDisposableRoots() {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("Epistemos-RuntimeIsolation-\(UUID().uuidString)", isDirectory: true)
+        let applicationSupportRoot = root.appendingPathComponent("Application Support", isDirectory: true)
+        let appGroupRoot = root.appendingPathComponent("App Group", isDirectory: true)
+        let suiteName = "com.epistemos.audit.runtime.\(UUID().uuidString)"
+        let environment = [
+            FoundationSafety.applicationSupportOverrideEnvironmentKey: applicationSupportRoot.path,
+            FoundationSafety.auditRuntimeAppGroupRootEnvironmentKey: appGroupRoot.path,
+            FoundationSafety.auditRuntimeDefaultsSuiteEnvironmentKey: suiteName,
+        ]
+
+        #expect(
+            FoundationSafety.auditRuntimeDefaultsSuiteName(
+                processInfoEnvironment: environment
+            ) == suiteName
+        )
+        #expect(
+            FoundationSafety.auditRuntimeAppGroupDirectory(
+                fileManager: fileManager,
+                processInfoEnvironment: environment
+            ) == appGroupRoot.standardizedFileURL
+        )
+        #expect(
+            FoundationSafety.isAuditRuntimeIsolationActive(
+                fileManager: fileManager,
+                processInfoEnvironment: environment
+            )
+        )
+        #expect(
+            SavedApplicationStatePurger.shouldSuppressRestorableStateAtLaunch(
+                processInfoEnvironment: environment
+            )
+        )
+        #expect(
+            !SavedApplicationStatePurger.shouldPurgeAtLaunch(
+                processInfoEnvironment: environment
+            )
+        )
+        #expect(
+            EpistemosDocumentController.shouldSuppressRestorableDocumentReopen(
+                processInfoEnvironment: environment
+            )
+        )
+
+        var invalidSuiteEnvironment = environment
+        invalidSuiteEnvironment[FoundationSafety.auditRuntimeDefaultsSuiteEnvironmentKey] =
+            "com.epistemos.production"
+        #expect(
+            !FoundationSafety.isAuditRuntimeIsolationActive(
+                fileManager: fileManager,
+                processInfoEnvironment: invalidSuiteEnvironment
+            )
+        )
+
+        var relativeGroupEnvironment = environment
+        relativeGroupEnvironment[FoundationSafety.auditRuntimeAppGroupRootEnvironmentKey] =
+            "relative/app-group"
+        #expect(
+            !FoundationSafety.isAuditRuntimeIsolationActive(
+                fileManager: fileManager,
+                processInfoEnvironment: relativeGroupEnvironment
+            )
+        )
+
+        try? fileManager.removeItem(at: root)
+    }
+
     @Test("test-safe application support routing stays centralized")
     func testSafeApplicationSupportRoutingStaysCentralized() throws {
         let extensions = try loadRepoTextFile("Epistemos/Engine/Extensions.swift")
@@ -876,10 +920,8 @@ struct RuntimeValidationTests {
         let watchdog = try loadRepoTextFile("Epistemos/State/MainThreadWatchdog.swift")
         let pageEditorCache = try loadRepoTextFile("Epistemos/Views/Notes/PageEditorCache.swift")
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
-        let conversationPersistence = try loadRepoTextFile("Epistemos/Vault/ConversationPersistence.swift")
         let appGroupContainer = try loadRepoTextFile("Epistemos/App/AppGroupContainer.swift")
         let quarantineArchive = try loadRepoTextFile("Epistemos/Engine/QuarantineArchive.swift")
-        let capabilityManifest = try loadRepoTextFile("Epistemos/Engine/CapabilityManifestBuilder.swift")
         // deviceAgent (DeviceAgentService.swift) removed with cloud-only/Omega removal 2026-07-03
         let traceInspector = try loadRepoTextFile("Epistemos/Views/Capture/TraceInspectorView.swift")
 
@@ -904,10 +946,8 @@ struct RuntimeValidationTests {
             watchdog,
             pageEditorCache,
             app,
-            conversationPersistence,
             appGroupContainer,
             quarantineArchive,
-            capabilityManifest,
             traceInspector,
         ] {
             #expect(source.contains("FoundationSafety.userApplicationSupportDirectory"))
@@ -1258,6 +1298,32 @@ struct RuntimeValidationTests {
         #expect(graphEngine.contains("--features bolt-graph,shared-position-buffers"))
     }
 
+    @Test("graph-engine staging releases its owned lock after publishing")
+    func graphEngineStagingReleasesItsOwnedLockAfterPublishing() throws {
+        let graphEngine = try loadRepoTextFile("build-rust.sh")
+
+        #expect(!graphEngine.contains("rm -rf \"$STAGING_LOCK\""))
+        #expect(
+            graphEngine.contains(
+                "rm -f \"$STAGING_LOCK/pid\"\n"
+                    + "                if rmdir \"$STAGING_LOCK\" 2>/dev/null; then\n"
+                    + "                    continue\n"
+                    + "                fi"
+            ),
+            "Dead lock recovery must remove only the stale ownership record and an empty lock directory."
+        )
+        #expect(
+            graphEngine.contains(
+                "acquire_staging_lock\n"
+                    + "rm -f ../build-rust/libgraph_engine.a\n"
+                    + "mv -f \\\"$TEMP_OUTPUT\\\" ../build-rust/libgraph_engine.a\n"
+                    + "cleanup_temp_output\n"
+                    + "trap - EXIT"
+            ),
+            "A successful graph-engine publish must release only its own staging lock; otherwise the next build waits on a dead PID."
+        )
+    }
+
     @Test("shadow git checkpoint dead code remains deleted")
     func shadowGitCheckpointDeadCodeRemainsDeleted() throws {
         let shadowGitURL = try sourceMirrorURL(for: "Epistemos/Omega/Safety/ShadowGitCheckpoint.swift")
@@ -1583,7 +1649,7 @@ struct RuntimeValidationTests {
 
         #expect(vaultSync.contains("await Self.performInitialImport("))
         #expect(vaultSync.contains("private nonisolated static func performInitialImport("))
-        #expect(vaultSync.contains("private nonisolated static func rebuildInstantRecallIndex("))
+        #expect(vaultSync.contains("private nonisolated static func prepareInstantRecallMutation("))
     }
 
     @Test("instant recall rebuild snapshots SwiftData page primitives before awaiting body reads")
@@ -1820,7 +1886,7 @@ struct RuntimeValidationTests {
         #expect(graphState.contains("guard semanticClusteringAvailable else"))
         #expect(graphState.contains("func canRunFallbackSemanticSearch() -> Bool"))
         #expect(graphState.contains("func semanticSearch(query: String, limit: Int = 20)"))
-        #expect(graphState.contains("for hit in semanticSearch(query: query, limit: limit)"))
+        #expect(graphState.contains("for hit in semanticSearch(query: checkedQuery, limit: checkedLimit)"))
         #expect(graphState.contains("embeddingService.computeFallbackSemanticClusters(store: store)"))
         #expect(!clustering.contains("NLEmbedding.wordEmbedding"))
         #expect(infrastructure.contains("var usesSwiftEmbeddingFallback: Bool"))
@@ -1859,7 +1925,7 @@ struct RuntimeValidationTests {
         #expect(graphState.contains("func semanticSearch(query: String, limit: Int = 20)"))
         #expect(graphState.contains("graph_engine_embedding_count(engine) > 0"))
         #expect(graphState.contains("Int(graph_engine_embedding_dimension(engine)) == embeddingService.dimension"))
-        #expect(queryRuntime.contains("graphState.semanticSearch(query: query, limit: limit)"))
+        #expect(queryRuntime.contains("graphState.semanticSearch(query: checkedQuery, limit: checkedLimit)"))
     }
 
     @Test("native semantic runtime exposes an explicit dimension reset boundary")
@@ -2302,9 +2368,9 @@ struct RuntimeValidationTests {
         #expect(sidebar.contains("case .notes"))
         #expect(sidebar.contains("case .query"))
         #expect(!sidebar.contains("case .chat"))
-        #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarWidth.v1\")"))
-        #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarHeight.v1\")"))
-        #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarCollapsed.notesQuery.v1\")"))
+        #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarWidth.v1\", store: FoundationSafety.runtimeUserDefaults)"))
+        #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarHeight.v1\", store: FoundationSafety.runtimeUserDefaults)"))
+        #expect(sidebar.contains("@AppStorage(\"epistemos.graphSidebarCollapsed.notesQuery.v1\", store: FoundationSafety.runtimeUserDefaults)"))
         #expect(!sidebar.contains("ChatComposerTextEditor("))
         #expect(!sidebar.contains(".assistantComposerChrome("))
         #expect(!sidebar.contains("graphComposerControlResetKey"))
@@ -2411,13 +2477,13 @@ struct RuntimeValidationTests {
         #expect(inspectorView.contains("inspectorState.ensureSummary(for: node, store: graphState.store, modelContext: modelContext)"))
     }
 
-    @Test("graph summaries still prefer Apple Intelligence before local Qwen fallback")
-    func graphSummariesStayAppleFirst() throws {
+    @Test("graph summaries use deterministic bounded previews")
+    func graphSummariesUseDeterministicBoundedPreviews() throws {
         let inspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
 
-        // "…then local Qwen." copy assertion removed with cloud-only/Omega removal 2026-07-03 —
-        // the local-Qwen fallback clause is gone; graph summaries stay on Apple Intelligence (kept).
-        #expect(inspector.contains("AppleIntelligenceService.shared.generate("))
+        #expect(inspector.contains("String(content.prefix(300))"))
+        #expect(inspector.contains("summaryCache[node.id] = summary"))
+        #expect(!inspector.contains("AppleIntelligenceService.shared.generate("))
     }
 
     @Test("node inspector derives profiles off the main actor and caches them by node version")
@@ -2606,14 +2672,15 @@ struct RuntimeValidationTests {
 
         #expect(service.contains("func rebuildIndexAsync(notes: [(id: String, text: String)]) async"))
         #expect(service.contains("Task.detached(priority: .utility)"))
-        #expect(vaultSync.contains("await service.rebuildIndexAsync(notes: notes)"))
-        #expect(!vaultSync.contains("instantRecallService.rebuildIndex(notes: notes)"))
+        #expect(service.contains("func replaceIndex(with preparedDocuments: [String: String])"))
+        #expect(vaultSync.contains("private nonisolated static func prepareInstantRecallMutation("))
+        #expect(vaultSync.contains("service.replaceIndex(with: documents)"))
+        #expect(!vaultSync.contains("service.rebuildIndex(notes:"))
     }
 
     @Test("landing note picker observes vault sync manifest updates instead of relying on bootstrap singleton state")
     func landingNotePickerObservesVaultSyncManifestUpdates() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let coordinator = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
         let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
 
         #expect(landing.contains("vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest"))
@@ -2621,7 +2688,6 @@ struct RuntimeValidationTests {
         #expect(!landing.contains("manifest: AppBootstrap.shared?.ambientManifest"))
 
         #expect(vaultSync.contains("var ambientManifest: VaultManifest?"))
-        #expect(coordinator.contains("vaultSync.ambientManifest = manifest"))
     }
 
     @Test("node inspector profile copy avoids synthetic knowledge cluster filler text")
@@ -2925,8 +2991,8 @@ struct RuntimeValidationTests {
         #expect(landing.contains(".pixelPanel(theme: theme, surface: welcomeBackPanelSurface(for: theme))"))
     }
 
-    @Test("welcome back info strips reasoning artifacts from restored summaries")
-    func welcomeBackInfoStripsReasoningArtifactsFromRestoredSummaries() {
+    @Test("free V1 retains sanitized summaries but hides them from welcome back")
+    func welcomeBackInfoHidesStoredModelSummariesInFreeV1() {
         let info = WelcomeBackInfo(
             intentSummary: "<think>debug trace</think>\nShip mode summary is ready.",
             userNote: "",
@@ -2937,11 +3003,11 @@ struct RuntimeValidationTests {
             editedNoteTitles: []
         )
 
-        #expect(info.sanitizedIntentSummary == "Ship mode summary is ready.")
+        #expect(WelcomeBackInfo.cleanedSummaryText(from: info.intentSummary) == "Ship mode summary is ready.")
+        #expect(info.sanitizedIntentSummary.isEmpty)
         #expect(!info.displayText.contains("<think>"))
         #expect(info.displayText.contains("Resume Point"))
-        #expect(info.displayText.contains("- Ship mode summary is ready."))
-        #expect(info.displayText.contains("Ship mode summary is ready."))
+        #expect(!info.displayText.contains("Ship mode summary is ready."))
     }
 
     @Test("app bootstrap startup recovery avoids silent fetch delete and timer failures")
@@ -3045,7 +3111,7 @@ struct RuntimeValidationTests {
         #expect(resetBody.contains("try context.delete(model: SDWorkspace.self)"))
         #expect(!resetBody.contains("SDModelProfile"))
         #expect(resetBody.contains("NoteFileStorage.removeAllManagedBodies()"))
-        #expect(resetBody.contains("UserDefaults.standard.set(false, forKey: \"epistemos.setupComplete\")"))
+        #expect(resetBody.contains("FoundationSafety.runtimeUserDefaults.set(false, forKey: \"epistemos.setupComplete\")"))
         #expect(resetBody.contains("clearVaultLifecycleRuntimeState("))
         #expect(appBootstrap.contains("queryEngine.resetForVaultLifecycle()"))
         #expect(appBootstrap.contains("contextualShadowsState.resetForVaultLifecycle()"))
@@ -3221,37 +3287,14 @@ struct RuntimeValidationTests {
         #expect(renameFolder.contains("if wasCollection"))
     }
 
-    @Test("vault organizer persists approved suggestions before file-system side effects")
-    func vaultOrganizerPersistsApprovedSuggestionsBeforeFileSystemSideEffects() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Notes/VaultOrganizerView.swift")
+    @Test("retired Vault Organizer remains physically absent")
+    func retiredVaultOrganizerRemainsPhysicallyAbsent() {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/Views/Notes/VaultOrganizerView.swift")
 
-        func section(from startMarker: String, to endMarker: String) throws -> String {
-            let start = try #require(source.range(of: startMarker))
-            let end = try #require(
-                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
-            )
-            return String(source[start.lowerBound..<end.lowerBound])
-        }
-
-        let applySuggestion = try section(
-            from: "private func applySuggestion(_ suggestion: OrgSuggestion)",
-            to: "private func dismissSuggestion"
-        )
-
-        #expect(source.contains("private func persistSuggestionMutation("))
-        #expect(applySuggestion.contains("let originalTags = page.tags"))
-        #expect(applySuggestion.contains("page.tags = originalTags"))
-        #expect(applySuggestion.contains("let originalFolder = page.folder"))
-        #expect(applySuggestion.contains("let originalSubfolder = page.subfolder"))
-        #expect(applySuggestion.contains("page.subfolder = folder.relativePath"))
-        #expect(applySuggestion.contains("page.subfolder = originalSubfolder"))
-        #expect(applySuggestion.contains("vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath)"))
-        #expect(applySuggestion.contains("persistSuggestionMutation("))
-        #expect(applySuggestion.contains("reason: \"organizer folder create\""))
-        #expect(applySuggestion.contains("modelContext.delete(folder)"))
-        #expect(applySuggestion.contains("guard applied else { return }"))
-        #expect(applySuggestion.contains("appliedCount += 1"))
-        #expect(applySuggestion.contains("suggestions.removeAll { $0.id == suggestion.id }"))
+        #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
     }
 
     @Test("prose editor title sync restores failed title saves before renaming the vault file")
@@ -3365,45 +3408,6 @@ struct RuntimeValidationTests {
         #expect(storeSummary.contains("workspace.lastSummaryAt = originalLastSummaryAt"))
     }
 
-    @Test("daily brief follow-up saves restore failed mutation state")
-    func dailyBriefRestoresFailedMutationState() throws {
-        let appCoordinator = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
-
-        let dailyStart = try #require(appCoordinator.range(of: "if let pageId = await self.vaultSync.createPage("))
-        let dailyEnd = try #require(
-            appCoordinator.range(of: "} else {", range: dailyStart.lowerBound..<appCoordinator.endIndex)
-        )
-        let dailyBriefPersist = String(appCoordinator[dailyStart.lowerBound..<dailyEnd.lowerBound])
-
-        #expect(dailyBriefPersist.contains("let originalFolder = page.folder"))
-        #expect(dailyBriefPersist.contains("let originalTags = page.tags"))
-        #expect(dailyBriefPersist.contains("page.folder = originalFolder"))
-        #expect(dailyBriefPersist.contains("page.tags = originalTags"))
-    }
-
-    @Test("daily brief cleanup removes failed temporary folder page and block mutations")
-    func dailyBriefCleanupRemovesFailedTemporaryState() throws {
-        let source = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
-        let start = try #require(source.range(of: "private func saveDailyBrief(content: String)"))
-        let end = try #require(
-            source.range(of: "// MARK: - Vault Manifest", range: start.lowerBound..<source.endIndex)
-        )
-        let saveDailyBrief = String(source[start.lowerBound..<end.lowerBound])
-
-        #expect(saveDailyBrief.contains("let createdFolder: Bool"))
-        #expect(saveDailyBrief.contains("func discardNewDailyBriefFolderIfNeeded()"))
-        #expect(saveDailyBrief.contains("CollectionRegistry.shared.setCollection(\"Daily Briefs\", false)"))
-        #expect(saveDailyBrief.contains("func discardFailedFallbackPage(_ page: SDPage)"))
-        #expect(saveDailyBrief.contains("FetchDescriptor<SDBlock>("))
-        #expect(saveDailyBrief.contains("context.delete(page)"))
-        #expect(saveDailyBrief.contains("context.delete(folder)"))
-        #expect(saveDailyBrief.contains("let failedPageId = page.id"))
-        #expect(saveDailyBrief.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
-        #expect(saveDailyBrief.contains("guard !alreadySaved else {"))
-        #expect(saveDailyBrief.contains("discardNewDailyBriefFolderIfNeeded()"))
-        #expect(saveDailyBrief.contains("discardFailedFallbackPage(page)"))
-    }
-
     @Test("shared-context page journal failures restore local mutations without global rollback")
     func sharedContextPageJournalPersistenceFailuresAvoidGlobalRollback() throws {
         let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
@@ -3466,7 +3470,6 @@ struct RuntimeValidationTests {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
         let statusBar = try loadRepoTextFile("Epistemos/App/StatusBar.swift")
-        let coordinator = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
         let workspaceService = try loadRepoTextFile("Epistemos/State/WorkspaceService.swift")
 
         #expect(rootView.contains("static let sceneIdentifier = \"main\""))
@@ -3475,7 +3478,6 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("mainWindow.orderFrontRegardless()"))
         #expect(app.contains("HomeWindowIdentity.surfaceHomeWindow()"))
         #expect(statusBar.contains("HomeWindowIdentity.surfaceHomeWindow()"))
-        #expect(coordinator.contains("HomeWindowIdentity.surfaceHomeWindow()"))
         #expect(workspaceService.contains("HomeWindowIdentity.surfaceHomeWindow()"))
     }
 
@@ -3541,11 +3543,13 @@ struct RuntimeValidationTests {
         #expect(appSupervisor.contains("Self.log.warning(\"Unknown subsystem for restart: \\(name)\")"))
     }
 
-    @Test("supervisor escalation triggers orphan cleanup")
-    func supervisorEscalationTriggersOrphanCleanup() throws {
+    @Test("supervisor escalation has no orphan subprocess cleanup facade")
+    func supervisorEscalationHasNoOrphanSubprocessCleanupFacade() throws {
         let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
 
-        #expect(appSupervisor.contains("AppBootstrap.shared?.orphanCleanup.cleanupAll()"))
+        #expect(!appSupervisor.contains("orphanCleanup"))
+        #expect(appSupervisor.contains("subsystemStatus[spec.id] = false"))
+        #expect(appSupervisor.contains("// rest_for_one: cancel all children registered AFTER the failed child"))
     }
 
     @Test("supervisor latches start and ignores stale child exits")
@@ -3567,31 +3571,6 @@ struct RuntimeValidationTests {
         #expect(appSupervisor.contains("pendingRestartTasks.removeValue(forKey: name)?.cancel()"))
         #expect(appSupervisor.contains("pendingRestartTasks.removeValue(forKey: dependent.id)?.cancel()"))
     }
-
-    // Hermes subprocess orphan-cleanup test removed 2026-05-05 with the
-    // rest of the Hermes-agent removal — see
-    // docs/_archive/hermes-removal-2026-05-05/README.md.
-    #if false
-    @Test("orphan cleanup skips signal handler registration under tests")
-    func orphanCleanupSkipsSignalHandlerRegistrationUnderTests() throws {
-        let orphanCleanup = try loadRepoTextFile("Epistemos/State/OrphanSubprocessCleanup.swift")
-
-        #expect(orphanCleanup.contains("processInfoEnvironment[\"XCTestConfigurationFilePath\"] == nil"))
-        #expect(orphanCleanup.contains("cleanupLog.info(\"Skipping subprocess signal handlers under tests\")"))
-    }
-
-    @Test("orphan cleanup snapshots descendant process trees before termination")
-    func orphanCleanupSnapshotsDescendantProcessTrees() throws {
-        let orphanCleanup = try loadRepoTextFile("Epistemos/State/OrphanSubprocessCleanup.swift")
-
-        #expect(orphanCleanup.contains("snapshotTrackedProcessTreePIDs()"))
-        #expect(orphanCleanup.contains("proc_listchildpids(parentPID, &buffer, Int32(bufferSize))"))
-        #expect(orphanCleanup.contains("func cleanupProcessTree(rootPID: pid_t)"))
-    }
-
-    @Test("Hermes termination uses process-tree cleanup instead of a fake process-group API")
-    func hermesTerminationUsesProcessTreeCleanup() throws {}
-    #endif
 
     @Test("note editor cache persistence avoids silent try-question-mark fallbacks")
     func noteEditorCachePersistenceAvoidsSilentTryQuestionMarkFallbacks() throws {
@@ -4693,37 +4672,15 @@ struct InferenceCloudSelectionTests {
     func agentRuntimeRouteSupportsAccountBackedCloudCredentials() throws {}
     #endif
 
-    @Test("vault registry and session browser expose shared helpers for vault services")
-    func vaultRegistryAndSessionBrowserExposeSharedHelpersForVaultServices() throws {
+    @Test("vault registry exposes shared helpers for vault services")
+    func vaultRegistryExposesSharedHelpersForVaultServices() throws {
         let registry = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Vault/VaultRegistry.swift",
-            testsFilePath: #filePath
-        )
-        let browser = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Vault/SessionBrowser.swift",
             testsFilePath: #filePath
         )
 
         #expect(registry.contains("static let shared = VaultRegistry()"))
         #expect(registry.contains("func resolveVaultPath(for identity: VaultIdentity) -> String?"))
-        #expect(browser.contains("static let shared = SessionBrowser()"))
-        #expect(browser.contains("var sessions: [SessionInfo]"))
-        #expect(browser.contains("func refreshSessions(for vaultIdentity: VaultIdentity)"))
-        #expect(browser.contains("var sessionId: String { id }"))
-    }
-
-    @Test("skill evolution uses dedicated trace models and live trace inputs")
-    func skillEvolutionUsesDedicatedTraceModelsAndLiveTraceInputs() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Vault/SkillEvolutionService.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(source.contains("struct SkillTraceEvent"))
-        #expect(!source.contains("struct TraceEvent"))
-        #expect(source.contains("lastPathComponent == \"trace.json\""))
-        #expect(source.contains("pathExtension == \"jsonl\""))
-        #expect(source.contains("SkillMutationProposal(from: decodedProposal)"))
     }
 
     @Test("channel agent entry points keep reads human-approved")
@@ -4843,45 +4800,26 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("throw TextCaptureError.persistenceFailed"))
     }
 
-    @Test("daily brief persistence invalidates graph structure after saving")
-    func dailyBriefPersistenceInvalidatesGraphStructure() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/AppCoordinator.swift",
-            testsFilePath: #filePath
-        )
+    @Test("retired App Coordinator source remains physically absent")
+    func retiredAppCoordinatorSourceRemainsPhysicallyAbsent() {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/App/AppCoordinator.swift")
 
-        #expect(source.contains("AppBootstrap.shared?.graphState.needsRefresh = true"))
-        #expect(!source.contains("if let existing = try? context.fetch(folderDesc).first"))
-        #expect(!source.contains("let alreadySaved = (try? context.fetch(dupDesc))?.isEmpty == false"))
-        #expect(!source.contains("if let page = try? context.fetch(pageQuery).first"))
-        #expect(source.contains("AppCoordinator: failed to fetch Daily Briefs folder"))
-        #expect(source.contains("AppCoordinator: failed to check existing daily brief"))
+        #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
     }
 
-    @Test("diff restore and chat loading log fetch failures instead of silently no-oping")
-    func diffRestoreAndChatLoadingLogFetchFailures() throws {
+    @Test("diff restore logs fetch failures instead of silently no-oping")
+    func diffRestoreLogsFetchFailures() throws {
         let diffSource = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Views/Notes/DiffSheetView.swift",
-            testsFilePath: #filePath
-        )
-        let coordinatorSource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/AppCoordinator.swift",
-            testsFilePath: #filePath
-        )
-        let organizerSource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Notes/VaultOrganizerView.swift",
             testsFilePath: #filePath
         )
 
         #expect(!diffSource.contains("guard let page = try? modelContext.fetch(desc).first else { return }"))
         #expect(diffSource.contains("DiffSheetView: failed to fetch page for restore"))
         #expect(diffSource.contains("DiffSheetView: failed to fetch page for undo restore"))
-        #expect(!coordinatorSource.contains("guard let sdChat = try? modelContainer.mainContext.fetch(descriptor).first else { return }"))
-        #expect(coordinatorSource.contains("AppCoordinator: failed to fetch chat"))
-        #expect(!organizerSource.contains("guard let page = try? modelContext.fetch(descriptor).first else { return }"))
-        #expect(!organizerSource.contains("guard let page = try? modelContext.fetch(pageDescriptor).first,"))
-        #expect(organizerSource.contains("VaultOrganizerView: failed to fetch page for tag suggestion"))
-        #expect(organizerSource.contains("VaultOrganizerView: failed to fetch suggestion targets"))
     }
 
     @Test("graph entity fetch paths log failures instead of treating them as missing data")
@@ -4962,12 +4900,8 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("Failed to save captured version for page"))
     }
 
-    @Test("live note and block mirror fetch paths log failures instead of mutating from empty fallbacks")
-    func liveNoteAndBlockMirrorFetchPathsLogFailures() throws {
-        let executorSource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Vault/LiveNoteExecutor.swift",
-            testsFilePath: #filePath
-        )
+    @Test("live note scanning and block mirror fetch paths log failures instead of mutating from empty fallbacks")
+    func liveNoteScanningAndBlockMirrorFetchPathsLogFailures() throws {
         let scannerSource = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Vault/LiveNoteScanner.swift",
             testsFilePath: #filePath
@@ -4977,8 +4911,6 @@ struct InferenceCloudSelectionTests {
             testsFilePath: #filePath
         )
 
-        #expect(!executorSource.contains("return (try? context.fetch(descriptor))?.first"))
-        #expect(executorSource.contains("LiveNoteExecutor: failed to fetch page"))
         #expect(!scannerSource.contains("let pages = (try? context.fetch(descriptor)) ?? []"))
         #expect(scannerSource.contains("LiveNoteScanner: failed to fetch active pages"))
         #expect(!mirrorSource.contains("let existing = (try? modelContext.fetch(descriptor)) ?? []"))
@@ -5098,8 +5030,8 @@ struct InferenceCloudSelectionTests {
         #expect(meaningAnchorSource.contains("MeaningAnchor: failed to fetch chats for backfill"))
     }
 
-    @Test("app intents log fetch failures instead of quietly returning empty note and folder results")
-    func appIntentsLogFetchFailures() throws {
+    @Test("retained app intents log fetch failures instead of quietly returning empty note and folder results")
+    func retainedAppIntentsLogFetchFailures() throws {
         let noteEntitySource = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Intents/Entities/NoteEntity.swift",
             testsFilePath: #filePath
@@ -5110,14 +5042,6 @@ struct InferenceCloudSelectionTests {
         )
         let noteActionsSource = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Intents/Custom/NoteActionIntents.swift",
-            testsFilePath: #filePath
-        )
-        let analysisSource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Intents/Custom/AnalysisIntents.swift",
-            testsFilePath: #filePath
-        )
-        let dailyBriefSource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Intents/Custom/DailyBriefingIntent.swift",
             testsFilePath: #filePath
         )
         let journalSource = try loadRepoTextFileWithRetry(
@@ -5146,15 +5070,20 @@ struct InferenceCloudSelectionTests {
         #expect(noteActionsSource.contains("MoveNoteToFolderIntent: failed to fetch note"))
         #expect(noteActionsSource.contains("MoveNoteToFolderIntent: failed to fetch folder"))
 
-        #expect(!analysisSource.contains("let recent = (try? context.fetch(SDPage.recentDescriptor(limit: 5))) ?? []"))
-        #expect(analysisSource.contains("AskAboutNotesIntent: failed to fetch recent notes"))
-
-        #expect(!dailyBriefSource.contains("let recentPages = (try? context.fetch(desc)) ?? []"))
-        #expect(dailyBriefSource.contains("DailyBriefingIntent: failed to fetch recent pages"))
-
         #expect(!journalSource.contains("if let page = (try? context.fetch(descriptor))?.first"))
         #expect(journalSource.contains("JournalEntityQuery: failed to fetch journal entry"))
         #expect(journalSource.contains("CreateJournalIntent: failed to fetch created journal page"))
+
+        for retiredIntent in [
+            "Epistemos/Intents/Custom/AnalysisIntents.swift",
+            "Epistemos/Intents/Custom/DailyBriefingIntent.swift",
+        ] {
+            let intentURL = try sourceMirrorURL(for: retiredIntent)
+            #expect(
+                !FileManager.default.fileExists(atPath: intentURL.path),
+                "Free V1 must physically remove \(retiredIntent)."
+            )
+        }
     }
 
     @Test("landing and remaining schema intents log fetch failures instead of degrading into empty UI")

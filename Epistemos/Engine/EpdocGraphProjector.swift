@@ -21,7 +21,7 @@ import Foundation
 // One projection per `.epdoc`:
 //   nodeID     == manifest.id              (stable across saves)
 //   nodeLabel  == manifest.title           (refreshed on every save)
-//   nodeWeight == complexity scalar 0..1   (W7.12)
+//   nodeWeight == 1.0 neutral graph weight
 //
 // Edges (every edge is directed; the source is always nodeID):
 //   For each EpdocProvenance.derivedFrom     → .derivedFrom edge
@@ -59,7 +59,8 @@ nonisolated struct EpdocGraphProjection: Sendable, Hashable {
     let nodeID: String
     /// Doc title at write time.
     let nodeLabel: String
-    /// 0..1 complexity scalar from `EpdocComplexityCalculator`.
+    /// Neutral document-node weight. Graph layout/render policy owns any
+    /// future visual weighting without rescanning the editor document.
     let nodeWeight: Double
     /// Graph node type derived from the package's ArtifactKind.
     let nodeType: GraphNodeType
@@ -90,7 +91,7 @@ nonisolated struct EpdocGraphProjection: Sendable, Hashable {
         let kind: GraphEdgeType
         /// 1.0 by default; `.derivedFrom` and `.reference` weights
         /// can be tuned by the caller (e.g. multiplying by the
-        /// upstream doc's complexity).
+        /// upstream document's graph weight).
         let weight: Double
         /// True when the target is a label / wikilink string (not an
         /// id) — the persistence step needs to resolve it.
@@ -124,24 +125,10 @@ nonisolated enum EpdocGraphProjector {
     /// nodes. When nil, only provenance edges are emitted (used by
     /// W7.14's first-pass indexer that hasn't read the body yet).
     ///
-    /// `complexityWeights` defaults to the canonical W7.12 weights;
-    /// callers tuning the graph render can supply a custom weight
-    /// vector.
     static func project(
         manifest: EpdocManifest,
-        contentJSON: Data? = nil,
-        complexityWeights: ComplexityWeights = .default
+        contentJSON: Data? = nil
     ) -> EpdocGraphProjection {
-        // Compute the W7.12 complexity scalar. Empty body → score 0.0
-        // (the projector stays valid even when the body isn't loaded).
-        let complexity: Double
-        if let data = contentJSON,
-           let scored = EpdocComplexityCalculator.complexity(jsonData: data, weights: complexityWeights) {
-            complexity = scored
-        } else {
-            complexity = 0.0
-        }
-
         var edges: [EpdocGraphProjection.Edge] = []
 
         // Provenance edges. Each ref id becomes a stable target id.
@@ -157,7 +144,7 @@ nonisolated enum EpdocGraphProjector {
 
         // Wikilink edges from the body, if loaded.
         if let data = contentJSON,
-           let doc = try? JSONDecoder().decode(ProseMirrorNode.self, from: data) {
+           let doc = EpdocContentCompatibilityProjection.proseMirrorNode(from: data) {
             let labels = wikilinkLabels(in: doc)
             for label in labels {
                 edges.append(.init(
@@ -180,7 +167,7 @@ nonisolated enum EpdocGraphProjector {
         return EpdocGraphProjection(
             nodeID: manifest.id,
             nodeLabel: manifest.title,
-            nodeWeight: complexity,
+            nodeWeight: 1.0,
             nodeType: GraphNodeType(from: manifest.kind),
             edges: edges
         )

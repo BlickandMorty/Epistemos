@@ -5,7 +5,7 @@
 // Three pieces:
 //
 //   - Swift Codable mirrors for the T21 `VaultRecallTrace` substrate
-//     (`agent_core/src/storage/retrieval_trace.rs`). Wire shape pinned
+//     local retrieval trace schema.
 //     by the Rust serde derives; JSON round-trips byte-equal both ways.
 //
 //   - `VaultRecallFlags` — UserDefaults gate for
@@ -27,7 +27,7 @@ import os
 // MARK: - Backend honesty
 //
 // The fallback Rust bridge currently builds a scaffold trace inside
-// `agent_core::bridge::vault_recall_trace_json`: hardcoded
+// local retrieval trace bridge: hardcoded
 // `notes/sample.md` + `notes/decoy.md` candidates with
 // `ladder_tier = "scaffold-lexical"`. Swift live retrieval emits
 // `vault-*` traces from the installed `SearchIndexService` provider;
@@ -64,7 +64,7 @@ nonisolated public enum VaultRecallBackend: String, Sendable, Hashable {
 
 // MARK: - VaultRecallTrace mirrors
 
-/// Mirrors Rust `VaultRecallSignal` (`agent_core/src/storage/retrieval_trace.rs`).
+/// Signal emitted by local vault retrieval.
 /// `#[serde(rename_all = "lowercase")]` on the Rust side, so we use
 /// lowercase raw values here.
 nonisolated public enum VaultRecallSignal: String, Codable, Hashable, Sendable, CaseIterable {
@@ -279,7 +279,7 @@ nonisolated public enum VaultRecallFlags {
     public static let userDefaultsKey = "EPISTEMOS_VAULT_RECALL_CONTRACT_V1"
 
     public static var isEnabled: Bool {
-        if UserDefaults.standard.bool(forKey: userDefaultsKey) {
+        if FoundationSafety.runtimeUserDefaults.bool(forKey: userDefaultsKey) {
             return true
         }
         return ProcessInfo.processInfo.environment[userDefaultsKey] == "1"
@@ -606,26 +606,7 @@ nonisolated public enum VaultRecallBridge {
             }
         }
 
-        do {
-            let raw = try vaultRecallTraceJson(query: query)
-            guard let data = raw.data(using: .utf8) else {
-                VaultRecallMetrics.shared.recordError(
-                    NSError(domain: "VaultRecallBridge", code: 1,
-                            userInfo: [NSLocalizedDescriptionKey: "non-utf8 JSON"])
-                )
-                return nil
-            }
-            let trace = try JSONDecoder().decode(VaultRecallTrace.self, from: data)
-            return recordTrace(trace, query: query, started: started)
-        } catch {
-            VaultRecallMetrics.shared.recordError(error)
-            let message = RetrievalDiagnostics.statusMessage(
-                for: error,
-                fallback: "VaultRecall trace failed"
-            )
-            log.error("\(message, privacy: .public)")
-            return nil
-        }
+        return nil
     }
 
     public static func recordProductionTrace(_ trace: VaultRecallTrace, latencyMs: Double) {

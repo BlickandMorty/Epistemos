@@ -17,6 +17,7 @@ struct HTMLWorkspaceEditorView: View {
     @State var statusText: String?
     @State var liveDOMSnapshot: HTMLWorkspaceDOMSnapshot?
     @State var selectedElementInspection: HTMLWorkspaceElementInspection?
+    #if !EPISTEMOS_FREE_V1
     @State var regenerateSheetPresented = false
     @State var regenerateInstruction = ""
     @State var regenerateStreamText = ""
@@ -30,20 +31,24 @@ struct HTMLWorkspaceEditorView: View {
     @State var regenerateErrorText: String?
     @State var regenerateTask: Task<Void, Never>?
     @State var isRegenerating = false
+    #else
+    /// Free V1 has no model-backed regeneration task. Keeping this stable
+    /// false preserves the editor's ordinary file/route action availability.
+    private var isRegenerating: Bool { false }
+    #endif
     @State private var sourceCursorLine = 1
     @State private var sourceCursorColumn = 1
     @State private var sourceTotalLines = 1
     @State var appBridgeProbeNonce = 0
     @State var consoleProbeNonce = 0
-    @State var pythonProbeNonce = 0
 
-    @AppStorage("codeEditor.wrapLines") private var sourceWrapLines = false
-    @AppStorage("codeEditor.showInvisibles") private var sourceShowInvisibles = false
-    @AppStorage("codeEditor.invisiblesDefaultReset.20260702") private var didResetInvisiblesDefault = false
-    @AppStorage("codeEditor.fontSize") private var sourceFontSize: Double = 15
-    @AppStorage("codeEditor.useSpaces") private var sourceUseSpaces = true
-    @AppStorage("codeEditor.tabWidth") private var sourceTabWidth = 4
-    @AppStorage("epistemos.codeEditor.showLineGutter") private var sourceShowLineGutter = true
+    @AppStorage("codeEditor.wrapLines", store: FoundationSafety.runtimeUserDefaults) private var sourceWrapLines = false
+    @AppStorage("codeEditor.showInvisibles", store: FoundationSafety.runtimeUserDefaults) private var sourceShowInvisibles = false
+    @AppStorage("codeEditor.invisiblesDefaultReset.20260702", store: FoundationSafety.runtimeUserDefaults) private var didResetInvisiblesDefault = false
+    @AppStorage("codeEditor.fontSize", store: FoundationSafety.runtimeUserDefaults) private var sourceFontSize: Double = 15
+    @AppStorage("codeEditor.useSpaces", store: FoundationSafety.runtimeUserDefaults) private var sourceUseSpaces = true
+    @AppStorage("codeEditor.tabWidth", store: FoundationSafety.runtimeUserDefaults) private var sourceTabWidth = 4
+    @AppStorage("epistemos.codeEditor.showLineGutter", store: FoundationSafety.runtimeUserDefaults) private var sourceShowLineGutter = true
     init(
         package: Binding<HTMLWorkspacePackage>,
         theme: EpistemosTheme? = nil,
@@ -54,6 +59,19 @@ struct HTMLWorkspaceEditorView: View {
         self.externalRevision = externalRevision
         self._previewPackage = State(initialValue: package.wrappedValue)
     }
+
+    #if !EPISTEMOS_FREE_V1
+    private var regenerateSheetBinding: Binding<Bool> {
+        Binding(
+            get: {
+                ProductCapabilityPolicy.allowsHTMLWorkspaceRegeneration && regenerateSheetPresented
+            },
+            set: { isPresented in
+                regenerateSheetPresented = ProductCapabilityPolicy.allowsHTMLWorkspaceRegeneration && isPresented
+            }
+        )
+    }
+    #endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -68,7 +86,9 @@ struct HTMLWorkspaceEditorView: View {
             if let previewRouteName, newValue.routes[previewRouteName] == nil {
                 self.previewRouteName = nil
             }
+            #if !EPISTEMOS_FREE_V1
             expirePendingRegeneratePreviewIfNeeded(for: newValue)
+            #endif
             registerHTMLWorkspaceReadAloudProvider()
             schedulePreviewUpdate(newValue)
         }
@@ -108,12 +128,15 @@ struct HTMLWorkspaceEditorView: View {
             EpistemosVisibleReadAloudRegistry.shared.unregister(.htmlWorkspaceSource)
             previewUpdateTask?.cancel()
             previewUpdateTask = nil
+            #if !EPISTEMOS_FREE_V1
             regenerateTask?.cancel()
             regenerateTask = nil
             regenerateContextTask?.cancel()
             regenerateContextTask = nil
+            #endif
         }
-        .sheet(isPresented: $regenerateSheetPresented) {
+        #if !EPISTEMOS_FREE_V1
+        .sheet(isPresented: regenerateSheetBinding) {
             HTMLWorkspaceRegenerateSheet(
                 instruction: $regenerateInstruction,
                 streamedText: $regenerateStreamText,
@@ -155,6 +178,7 @@ struct HTMLWorkspaceEditorView: View {
             .frame(width: 680, height: 560)
             .preferredColorScheme(workspaceTheme.isDark ? .dark : .light)
         }
+        #endif
         .background(workspaceTheme.resolved.background.color)
         .htmlWorkspaceDataFeed(package: $package, statusText: $statusText)
     }
@@ -208,22 +232,26 @@ struct HTMLWorkspaceEditorView: View {
             .labelStyle(.titleAndIcon)
             .help("Save")
 
-            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-            Button {
-                openRegenerateSheet()
-            } label: {
-                Label("Regenerate", systemImage: isRegenerating ? "hourglass" : "wand.and.sparkles")
+            #if !EPISTEMOS_FREE_V1 && !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+            if ProductCapabilityPolicy.allowsHTMLWorkspaceRegeneration {
+                Button {
+                    openRegenerateSheet()
+                } label: {
+                    Label("Regenerate", systemImage: isRegenerating ? "hourglass" : "wand.and.sparkles")
+                }
+                .labelStyle(.titleAndIcon)
+                .disabled(isRegenerating)
+                .help("Regenerate surface")
             }
-            .labelStyle(.titleAndIcon)
-            .disabled(isRegenerating)
-            .help("Regenerate surface")
             #endif
 
             Menu {
                 Section("Surface") {
+                    #if !EPISTEMOS_FREE_V1
                     Button("Restore Previous Surface", systemImage: "arrow.uturn.backward.circle", action: restorePreviousSurface)
                         .disabled(restoreSnapshotName == nil || isRegenerating)
                         .help(restorePreviousSurfaceHelpText)
+                    #endif
                     Button("Capture Snapshot", systemImage: "camera.viewfinder") {
                         captureSnapshot()
                     }
@@ -270,14 +298,6 @@ struct HTMLWorkspaceEditorView: View {
                     ) {
                         self.setAppBridgeEnabled(!package.manifest.sandboxPolicy.allowAppBridge)
                     }
-                    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-                    Button(
-                        package.manifest.sandboxPolicy.allowPythonRuntime ? "Disable Python Runtime" : "Enable Python Runtime",
-                        systemImage: "chevron.left.forwardslash.chevron.right"
-                    ) {
-                        self.setPythonRuntimeEnabled(!package.manifest.sandboxPolicy.allowPythonRuntime)
-                    }
-                    #endif
                     Button("Test Runtime Bridges", systemImage: "stethoscope", action: testRuntimeBridgeProbes)
                         .disabled(isRegenerating)
                     Button("Test App Bridge", systemImage: "point.3.connected.trianglepath", action: testAppBridge)
@@ -286,12 +306,6 @@ struct HTMLWorkspaceEditorView: View {
                         .disabled(isRegenerating)
                     Button("Test Console Capture", systemImage: "terminal", action: testConsoleCapture)
                         .disabled(isRegenerating)
-                    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-                    Button("Test Python Runtime", systemImage: "chevron.left.forwardslash.chevron.right", action: testPythonRuntime)
-                        .disabled(!package.manifest.sandboxPolicy.allowPythonRuntime || isRegenerating)
-                    Button("Insert Python Demo", systemImage: "chevron.left.forwardslash.chevron.right", action: insertPythonDemo)
-                        .disabled(isRegenerating)
-                    #endif
                 }
             } label: {
                 Label("Tools", systemImage: "slider.horizontal.3")
@@ -546,8 +560,7 @@ struct HTMLWorkspaceEditorView: View {
                             statusText = "Selected \(boundedInspectorSelectorStatus(inspection.selector))"
                         },
                         appBridgeProbeNonce: appBridgeProbeNonce,
-                        consoleProbeNonce: consoleProbeNonce,
-                        pythonProbeNonce: pythonProbeNonce
+                        consoleProbeNonce: consoleProbeNonce
                     )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
@@ -567,7 +580,6 @@ struct HTMLWorkspaceEditorView: View {
             routeNames: sortedRouteNames,
             previewRouteName: $previewRouteName,
             bridgeStatusText: bridgeStatusText,
-            pythonRuntimeStatusText: pythonRuntimeStatusText,
             headerFill: headerFill,
             theme: workspaceTheme
         )
@@ -593,7 +605,6 @@ struct HTMLWorkspaceEditorView: View {
             dataStatus: dataStatus,
             generationProvenanceText: generationProvenanceText,
             bridgeStatusText: bridgeStatusText,
-            pythonRuntimeStatusText: pythonRuntimeStatusText,
             panelFill: panelFill,
             theme: workspaceTheme,
             onCopySelector: copyInspectorSelector,
@@ -604,17 +615,16 @@ struct HTMLWorkspaceEditorView: View {
         )
     }
 
-    private var bridgeStatusText: String {
-        package.manifest.sandboxPolicy.allowAppBridge ? "Bridge enabled" : "No bridge"
+    /// Keeps a selected DOM selector useful in the retained inspector status
+    /// without letting an unusually long selector dominate the editor chrome.
+    private func boundedInspectorSelectorStatus(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 96 else { return trimmed }
+        return String(trimmed.prefix(93)) + "..."
     }
 
-    private var pythonRuntimeStatusText: String {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        return "Python parked"
-        #else
-        guard package.manifest.sandboxPolicy.allowPythonRuntime else { return "Python off" }
-        return HTMLWorkspacePythonRuntime.availabilityStatusText
-        #endif
+    private var bridgeStatusText: String {
+        package.manifest.sandboxPolicy.allowAppBridge ? "Bridge enabled" : "No bridge"
     }
 
     private var generationProvenanceText: String {
@@ -817,31 +827,6 @@ struct HTMLWorkspaceEditorView: View {
         statusText = enabled ? "App bridge enabled" : "App bridge disabled"
     }
 
-    private func setPythonRuntimeEnabled(_ enabled: Bool) {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        if enabled {
-            statusText = HTMLWorkspacePythonRuntime.availabilityStatusText
-        }
-        #else
-        guard package.manifest.sandboxPolicy.allowPythonRuntime != enabled else { return }
-        var updated = package
-        updated.manifest.sandboxPolicy.allowPythonRuntime = enabled
-        updated.manifest.updatedAt = Int64(Date().timeIntervalSince1970 * 1_000)
-        updated.manifest.contentHash = updated.currentContentHash
-        package = updated
-        previewUpdateTask?.cancel()
-        previewUpdateTask = nil
-        liveDOMSnapshot = nil
-        previewPackage = updated
-        if enabled, !HTMLWorkspacePythonRuntime.isAvailable {
-            statusText = "Python enabled, \(HTMLWorkspacePythonRuntime.availabilityStatusText)"
-        } else {
-            statusText = enabled ? "Python runtime enabled" : "Python runtime disabled"
-        }
-        #endif
-    }
-
-
     private func copyPatchContext(for pane: HTMLWorkspaceSourcePane) {
         let surface = documentSurface(for: pane)
         let context = """
@@ -913,7 +898,9 @@ struct HTMLWorkspaceEditorView: View {
         let requestedLimit = Int(limitField.stringValue) ?? existingFeed?.limit ?? HTMLWorkspaceDataFeed.defaultLimit
         let limit = HTMLWorkspaceDataFeed.clampedLimit(requestedLimit)
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: limit)
+        #if !EPISTEMOS_FREE_V1
         clearPendingRegeneratePreview()
+        #endif
         if package.isStarterTemplateContent {
             var updatedPackage = package
             updatedPackage.applyVaultSearchDashboardTemplate(query: query, limit: limit)
@@ -931,7 +918,9 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func clearVaultSearchFeed() {
+        #if !EPISTEMOS_FREE_V1
         clearPendingRegeneratePreview()
+        #endif
         package.manifest.dataFeed = nil
         package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)
         stampPackageContentRevision()

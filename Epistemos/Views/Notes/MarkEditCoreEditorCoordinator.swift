@@ -85,6 +85,38 @@ private final class MarkEditCoreEditorLiveTextQueryPromise {
 }
 
 @MainActor
+private final class MarkEditEpdocCheckpointQueryPromise {
+    private enum State {
+        case pending
+        case resolved(MarkEditEpdocCheckpoint?)
+    }
+
+    private var state: State = .pending
+    private var waiters: [CheckedContinuation<MarkEditEpdocCheckpoint?, Never>] = []
+
+    func resume(returning value: MarkEditEpdocCheckpoint?) {
+        guard case .pending = state else { return }
+        state = .resolved(value)
+        let currentWaiters = waiters
+        waiters.removeAll(keepingCapacity: false)
+        for waiter in currentWaiters {
+            waiter.resume(returning: value)
+        }
+    }
+
+    func value() async -> MarkEditEpdocCheckpoint? {
+        switch state {
+        case .resolved(let value):
+            return value
+        case .pending:
+            return await withCheckedContinuation { continuation in
+                waiters.append(continuation)
+            }
+        }
+    }
+}
+
+@MainActor
 final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply {
     var text: Binding<String>
     var cursorLine: Binding<Int>
@@ -98,6 +130,7 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
     private var pendingSelectionRequest: CoreEditorSelectionRequest?
     private var loadingState: MarkEditCoreEditorState?
     private var lastAppliedState: MarkEditCoreEditorState?
+    private var inFlightResetState: MarkEditCoreEditorState?
     private var lastSelectionRequestID: UUID?
     private var isApplyingFromSwift = false
     private var hasPendingEditorTextSnapshot = false
@@ -107,7 +140,14 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
     private var bootstrapResetGeneration: Int?
     private var terminalLoadFailureGeneration: Int?
     private var readOnlyApplicationGeneration = 0
+    private var lineWrappingApplicationGeneration = 0
+    private var resetApplicationGeneration: UInt64 = 0
     private var liveTextRegistration: MarkEditCoreEditorLiveTextRegistry.Registration?
+    private weak var epdocController: EpdocEditorChromeController?
+    private var epdocLoadEpoch: Int?
+    private var epdocDeltaMirror: MarkEditEpdocDeltaMirror?
+    private var epdocMutationGeneration: UInt64 = 0
+    private var contentWidthMode: NoteWidthMode = .wide
 
     init(
         text: Binding<String>,
@@ -123,6 +163,35 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         self.onContentDirty = onContentDirty
     }
 
+    func attachEpdocController(_ controller: EpdocEditorChromeController?) {
+        guard epdocController !== controller else { return }
+        epdocController?.detachEditorDispatch()
+        epdocController?.detachMarkdownSnapshotProvider()
+        epdocController = controller
+        epdocLoadEpoch = controller?.currentLoadEpoch
+        guard let controller else { return }
+        if epdocDeltaMirror == nil {
+            epdocDeltaMirror = MarkEditEpdocDeltaMirror(
+                text: controller.latestMarkdownSnapshot ?? text.wrappedValue
+            )
+        }
+        controller.installEditorDispatch { [weak self] command in
+            self?.dispatchEpdocCommand(command)
+        }
+        controller.installMarkdownSnapshotProvider { [weak self] in
+            guard let self, let webView = self.webView else { return nil }
+            return await self.fetchCurrentEditorText(from: webView)
+        }
+    }
+
+    func updateContentWidth(_ mode: NoteWidthMode, in webView: WKWebView) {
+        let normalized = mode.normalized
+        let changed = normalized != contentWidthMode
+        contentWidthMode = normalized
+        guard hasLoadedEditor, changed else { return }
+        applyContentWidth(normalized, in: webView)
+    }
+
     func loadEditor(into webView: WKWebView, initialState: MarkEditCoreEditorState) {
         isDetached = false
         loadGeneration += 1
@@ -132,12 +201,20 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         pendingSelectionRequest = nil
         loadingState = initialState
         lastAppliedState = nil
+        inFlightResetState = nil
         lastSelectionRequestID = nil
         isApplyingFromSwift = false
         hasPendingEditorTextSnapshot = false
         didReportPendingContentDirty = false
         bootstrapResetGeneration = nil
         terminalLoadFailureGeneration = nil
+        resetApplicationGeneration &+= 1
+        epdocMutationGeneration = 0
+        if initialState.mode == .epdocMarkdown {
+            let mirror = epdocDeltaMirror ?? MarkEditEpdocDeltaMirror(text: initialState.text)
+            mirror.resetDocument(text: initialState.text)
+            epdocDeltaMirror = mirror
+        }
         let html = MarkEditCoreEditorDocument.html(for: initialState)
         webView.loadHTMLString(html, baseURL: MarkEditCoreEditorBridge.baseURL)
     }
@@ -166,6 +243,7 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         pendingState = nil
         pendingSelectionRequest = nil
         loadingState = nil
+        inFlightResetState = nil
         isApplyingFromSwift = false
         hasPendingEditorTextSnapshot = false
         didReportPendingContentDirty = false
@@ -178,6 +256,13 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             contentWorld: .page
         )
         webView.stopLoading()
+        epdocController?.detachEditorDispatch()
+        epdocController?.detachMarkdownSnapshotProvider()
+        epdocController = nil
+        epdocLoadEpoch = nil
+        epdocDeltaMirror = nil
+        epdocMutationGeneration = 0
+        resetApplicationGeneration &+= 1
         self.webView = nil
         lastAppliedState = nil
         lastSelectionRequestID = nil
@@ -201,10 +286,51 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
     private func fetchCurrentEditorText(from webView: WKWebView) async -> String? {
         guard !isDetached, hasLoadedEditor, !webView.isLoading else { return nil }
         let generation = loadGeneration
+        if let epdocController {
+            let checkpoint = await Self.requestEpdocCheckpoint(from: webView).value()
+            guard !isDetached,
+                  generation == loadGeneration,
+                  let checkpoint else { return nil }
+            let mirror = epdocDeltaMirror ?? MarkEditEpdocDeltaMirror(text: checkpoint.text)
+            mirror.reconcile(
+                text: checkpoint.text,
+                documentInstance: checkpoint.documentInstance,
+                revision: checkpoint.revision
+            )
+            epdocDeltaMirror = mirror
+            hasPendingEditorTextSnapshot = false
+            didReportPendingContentDirty = false
+            if let applied = lastAppliedState ?? inFlightResetState {
+                lastAppliedState = applied.replacingText(checkpoint.text)
+            }
+            if let pendingState {
+                self.pendingState = pendingState.replacingText(checkpoint.text)
+            }
+            epdocController.reconcileCodeMirrorMarkdownCheckpoint(checkpoint.text)
+            return checkpoint.text
+        }
         let promise = Self.requestCurrentEditorText(from: webView)
         let value = await promise.value()
         guard !isDetached, generation == loadGeneration else { return nil }
         return value
+    }
+
+    private static func requestEpdocCheckpoint(
+        from webView: WKWebView
+    ) -> MarkEditEpdocCheckpointQueryPromise {
+        let promise = MarkEditEpdocCheckpointQueryPromise()
+        webView.evaluateJavaScript("window.__epistemosMarkEditCheckpoint?.()") { value, error in
+            guard error == nil,
+                  let payload = value as? [String: Any] else {
+                promise.resume(returning: nil)
+                return
+            }
+            promise.resume(returning: MarkEditEpdocCheckpoint(payload: payload))
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            promise.resume(returning: nil)
+        }
+        return promise
     }
 
     private static func requestCurrentEditorText(
@@ -224,6 +350,333 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         return promise
     }
 
+    private func dispatchEpdocCommand(_ command: EpdocEditorCommand) {
+        guard let webView, !isDetached else { return }
+        switch command {
+        case .setMarkdown(let markdown):
+            applyEpdocMarkdown(markdown, epoch: epdocController?.currentLoadEpoch, in: webView)
+        case .setMarkdownForLoad(let markdown, let epoch):
+            epdocLoadEpoch = epoch
+            applyEpdocMarkdown(markdown, epoch: epoch, in: webView)
+        case .replaceDocumentTitle(_, let epoch):
+            epdocLoadEpoch = epoch
+            guard let markdown = epdocController?.latestMarkdownSnapshot else { return }
+            applyEpdocMarkdown(markdown, epoch: epoch, in: webView)
+        case .setContent, .setContentForLoad:
+            guard let markdown = epdocController?.latestMarkdownSnapshot else { return }
+            applyEpdocMarkdown(markdown, epoch: epdocController?.currentLoadEpoch, in: webView)
+        case .flushDocumentSnapshot:
+            flushEpdocMarkdownSnapshot(from: webView)
+        case .focusStart:
+            evaluateEpdocScript(Self.focusStartScript, in: webView)
+        case .focusEnd:
+            evaluateEpdocScript(Self.focusEndScript, in: webView)
+        case .dismissSlashMenu, .dismissBubbleMenu:
+            evaluateEpdocScript("window.editor?.focus();", in: webView)
+        case .insertSlashChoice(let blockType):
+            dispatchEpdocSlashChoice(blockType, in: webView)
+        case .runCommand(let name, let argsJSON):
+            dispatchEpdocRunCommand(name, argsJSON: argsJSON, in: webView)
+        case .setContentWidth(let mode):
+            updateContentWidth(mode, in: webView)
+        case .setFindQuery(let query, let caseSensitive):
+            updateEpdocSearch(query: query, replacement: nil, caseSensitive: caseSensitive, in: webView)
+        case .findNext(let query, let caseSensitive):
+            updateEpdocSearch(query: query, replacement: nil, caseSensitive: caseSensitive, in: webView)
+            callEpdocJavaScript(
+                "return window.webModules?.search?.findNext?.({ search });",
+                arguments: ["search": query],
+                in: webView
+            )
+        case .findPrevious(let query, let caseSensitive):
+            updateEpdocSearch(query: query, replacement: nil, caseSensitive: caseSensitive, in: webView)
+            callEpdocJavaScript(
+                "return window.webModules?.search?.findPrevious?.({ search });",
+                arguments: ["search": query],
+                in: webView
+            )
+        case .replaceCurrent(let query, let replacement, let caseSensitive):
+            updateEpdocSearch(
+                query: query,
+                replacement: replacement,
+                caseSensitive: caseSensitive,
+                in: webView
+            )
+            evaluateEpdocScript("window.webModules?.search?.replaceNext?.();", in: webView)
+        case .replaceAll(let query, let replacement, let caseSensitive):
+            updateEpdocSearch(
+                query: query,
+                replacement: replacement,
+                caseSensitive: caseSensitive,
+                in: webView
+            )
+            evaluateEpdocScript("window.webModules?.search?.replaceAll?.();", in: webView)
+        case .clearFindHighlights:
+            evaluateEpdocScript("window.webModules?.search?.setState?.({ enabled: false });", in: webView)
+        case .stageAIDiff,
+             .acceptAIDiff,
+             .rejectAIDiff,
+             .clearAIDiff,
+             .applySuggestion,
+             .acceptSuggestion,
+             .rejectSuggestion:
+            break
+        }
+    }
+
+    private func applyEpdocMarkdown(_ markdown: String, epoch: Int?, in webView: WKWebView) {
+        guard hasLoadedEditor, !webView.isLoading,
+              let currentState = lastAppliedState ?? pendingState ?? loadingState else {
+            return
+        }
+        let mirror = epdocDeltaMirror ?? MarkEditEpdocDeltaMirror(text: markdown)
+        epdocDeltaMirror = mirror
+        if hasPendingEditorTextSnapshot {
+            guard let liveMarkdown = mirror.checkpointText() else {
+                flushEpdocMarkdownSnapshot(from: webView)
+                return
+            }
+            settleEpdocMarkdownApplication(
+                liveMarkdown,
+                epoch: epoch,
+                didApply: true
+            )
+            return
+        }
+        let nextState = currentState.replacingText(markdown)
+        let mirrorTextBeforeReset = mirror.checkpointText()
+        let mutationGenerationBeforeReset = epdocMutationGeneration
+        mirror.replaceTextPreservingClock(markdown)
+        let settle: @MainActor (Bool) -> Void = { [weak self] didApply in
+            guard let self else { return }
+            guard didApply else {
+                if self.epdocMutationGeneration == mutationGenerationBeforeReset {
+                    if let mirrorTextBeforeReset {
+                        mirror.replaceTextPreservingClock(mirrorTextBeforeReset)
+                    } else {
+                        mirror.invalidate()
+                    }
+                }
+                return
+            }
+            let settledMarkdown = self.epdocMutationGeneration == mutationGenerationBeforeReset
+                ? markdown
+                : mirror.checkpointText() ?? markdown
+            self.settleEpdocMarkdownApplication(
+                settledMarkdown,
+                epoch: epoch,
+                didApply: true
+            )
+        }
+        guard currentState.text != markdown else {
+            settle(true)
+            return
+        }
+        resetEditor(
+            to: nextState,
+            in: webView,
+            documentChanged: true,
+            completion: settle
+        )
+    }
+
+    private func settleEpdocMarkdownApplication(
+        _ markdown: String,
+        epoch: Int?,
+        didApply: Bool
+    ) {
+        guard didApply, let controller = epdocController else { return }
+        controller.handleBridgeMessage(
+            .markdownDidChange(markdown: markdown, writeback: nil),
+            epoch: epoch
+        )
+        controller.handleBridgeMessage(.loadSettled, epoch: epoch)
+    }
+
+    private func flushEpdocMarkdownSnapshot(from webView: WKWebView) {
+        let epoch = epdocLoadEpoch ?? epdocController?.currentLoadEpoch
+        Task { @MainActor [weak self, weak webView] in
+            guard let self, let webView,
+                  let markdown = await self.fetchCurrentEditorText(from: webView),
+                  let controller = self.epdocController else { return }
+            controller.handleBridgeMessage(
+                .markdownDidChange(markdown: markdown, writeback: nil),
+                epoch: epoch
+            )
+        }
+    }
+
+    private func dispatchEpdocSlashChoice(_ blockType: String, in webView: WKWebView) {
+        let script: String?
+        switch blockType {
+        case "blockquote":
+            script = "window.webModules?.format?.toggleBlockquote?.();"
+        case "bullet-list":
+            script = "window.webModules?.format?.toggleBullet?.();"
+        case "numbered-list":
+            script = "window.webModules?.format?.toggleNumbering?.();"
+        case "task-list":
+            script = "window.webModules?.format?.toggleTodo?.();"
+        case "math-display":
+            script = "window.webModules?.format?.insertMathBlock?.();"
+        case "table-3x3":
+            script = "window.webModules?.format?.insertTable?.({ columnName: 'Column', itemName: 'Item' });"
+        case "divider":
+            script = "window.webModules?.format?.insertHorizontalRule?.();"
+        default:
+            script = nil
+        }
+        guard let script else { return }
+        evaluateEpdocScript(script, in: webView)
+    }
+
+    private func dispatchEpdocRunCommand(_ name: String, argsJSON: Data, in webView: WKWebView) {
+        let script: String?
+        switch name {
+        case "toggleBold":
+            script = "window.webModules?.format?.toggleBold?.();"
+        case "toggleItalic":
+            script = "window.webModules?.format?.toggleItalic?.();"
+        case "toggleStrike":
+            script = "window.webModules?.format?.toggleStrikethrough?.();"
+        case "toggleCode":
+            script = "window.webModules?.format?.toggleInlineCode?.();"
+        case "toggleCodeBlock":
+            script = "window.webModules?.format?.insertCodeBlock?.();"
+        case "toggleHighlight":
+            script = Self.toggleHighlightScript
+        case "setParagraph":
+            script = "window.webModules?.format?.toggleHeading?.({ level: 0 });"
+        case "setHeadingLevel":
+            guard let level = Self.firstCommandArgument(in: argsJSON)?["level"] as? Int,
+                  (1...6).contains(level) else { return }
+            callEpdocJavaScript(
+                "window.webModules?.format?.toggleHeading?.({ level });",
+                arguments: ["level": level],
+                in: webView
+            )
+            return
+        case "setLink":
+            guard let href = Self.firstCommandArgument(in: argsJSON)?["href"] as? String else { return }
+            callEpdocJavaScript(
+                "window.webModules?.format?.insertHyperLink?.({ title: '', url: href, prefix: '' });",
+                arguments: ["href": href],
+                in: webView
+            )
+            return
+        case "insertEpdocImage":
+            guard let arguments = Self.firstCommandArgument(in: argsJSON),
+                  let src = arguments["src"] as? String else { return }
+            let alt = arguments["alt"] as? String ?? ""
+            insertEpdocMarkdown("![\(alt)](\(src))", in: webView)
+            return
+        default:
+            script = nil
+        }
+        guard let script else { return }
+        evaluateEpdocScript(script, in: webView)
+    }
+
+    private func insertEpdocMarkdown(_ markdown: String, in webView: WKWebView) {
+        callEpdocJavaScript(
+            """
+            if (!window.editor) { return false; }
+            const state = window.editor.state;
+            window.editor.dispatch(state.replaceSelection(markdown));
+            window.editor.focus();
+            return true;
+            """,
+            arguments: ["markdown": markdown],
+            in: webView
+        )
+    }
+
+    private func applyContentWidth(_ mode: NoteWidthMode, in webView: WKWebView) {
+        let widthRule: String
+        let maxWidthRule: String
+        switch mode.normalized {
+        case .wide:
+            widthRule = "calc(100% - 120px)"
+            maxWidthRule = "none"
+        case .normal, .custom:
+            maxWidthRule = mode.cssMaxWidthValue
+            widthRule = "min(calc(100% - 120px), \(maxWidthRule))"
+        }
+        callEpdocJavaScript(
+            """
+            let style = document.getElementById('epistemos-epdoc-width');
+            if (!style) {
+              style = document.createElement('style');
+              style.id = 'epistemos-epdoc-width';
+              document.head.appendChild(style);
+            }
+            style.textContent = `.cm-content { width: ${widthRule}; max-width: ${maxWidth}; margin-inline: auto; }`;
+            window.editor?.requestMeasure?.();
+            """,
+            arguments: [
+                "widthRule": widthRule,
+                "maxWidth": maxWidthRule,
+            ],
+            in: webView
+        )
+    }
+
+    private func updateEpdocSearch(
+        query: String,
+        replacement: String?,
+        caseSensitive: Bool,
+        in webView: WKWebView
+    ) {
+        callEpdocJavaScript(
+            """
+            window.webModules?.search?.updateQuery?.({
+              options: {
+                search: query,
+                caseSensitive,
+                diacriticInsensitive: false,
+                wholeWord: false,
+                literal: true,
+                regexp: false,
+                refocus: false,
+                replace: replacement ?? '',
+              },
+            });
+            """,
+            arguments: [
+                "query": query,
+                "replacement": replacement ?? "",
+                "caseSensitive": caseSensitive,
+            ],
+            in: webView
+        )
+    }
+
+    private func evaluateEpdocScript(_ script: String, in webView: WKWebView) {
+        guard hasLoadedEditor, !webView.isLoading else { return }
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    private func callEpdocJavaScript(
+        _ script: String,
+        arguments: [String: Any],
+        in webView: WKWebView
+    ) {
+        guard hasLoadedEditor, !webView.isLoading else { return }
+        webView.callAsyncJavaScript(
+            script,
+            arguments: arguments,
+            in: nil,
+            in: .page
+        ) { _ in }
+    }
+
+    private static func firstCommandArgument(in data: Data) -> [String: Any]? {
+        guard let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return nil
+        }
+        return array.first
+    }
+
     func update(
         webView: WKWebView,
         state: MarkEditCoreEditorState,
@@ -239,8 +692,23 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         }
     }
 
-    private func apply(state: MarkEditCoreEditorState, to webView: WKWebView) {
+    private func apply(state incomingState: MarkEditCoreEditorState, to webView: WKWebView) {
+        var state = incomingState
         guard !isDetached, hasLoadedEditor, !webView.isLoading else {
+            pendingState = state
+            return
+        }
+        if epdocController != nil, hasPendingEditorTextSnapshot {
+            guard let mirroredText = epdocDeltaMirror?.checkpointText() else {
+                pendingState = state
+                return
+            }
+            state = state.replacingText(mirroredText)
+            if let applied = lastAppliedState {
+                lastAppliedState = applied.replacingText(mirroredText)
+            }
+        }
+        guard !isApplyingFromSwift else {
             pendingState = state
             return
         }
@@ -276,6 +744,16 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
                 to: webView
             )
             lastAppliedState = last.replacingEditable(state.isEditable)
+        }
+
+        if let last = lastAppliedState,
+           state.wrapLines != last.wrapLines {
+            applyLineWrapping(
+                enabled: state.wrapLines,
+                desiredState: state,
+                to: webView
+            )
+            lastAppliedState = last.replacingLineWrapping(state.wrapLines)
         }
 
         guard state != lastAppliedState else { return }
@@ -334,18 +812,78 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         }
     }
 
+    private func applyLineWrapping(
+        enabled: Bool,
+        desiredState: MarkEditCoreEditorState,
+        to webView: WKWebView
+    ) {
+        guard !isDetached, hasLoadedEditor, !webView.isLoading else {
+            pendingState = desiredState
+            return
+        }
+        lineWrappingApplicationGeneration += 1
+        let applicationGeneration = lineWrappingApplicationGeneration
+        let currentLoadGeneration = loadGeneration
+        let script = """
+        if (!window.webModules?.config?.setLineWrapping || !window.config) {
+          return false;
+        }
+        window.webModules.config.setLineWrapping({ enabled: enabled });
+        return window.config.lineWrapping === enabled;
+        """
+        webView.callAsyncJavaScript(
+            script,
+            arguments: ["enabled": enabled],
+            in: nil,
+            in: .page
+        ) { [weak self, weak webView] result in
+            guard let self,
+                  let webView,
+                  !self.isDetached,
+                  currentLoadGeneration == self.loadGeneration,
+                  applicationGeneration == self.lineWrappingApplicationGeneration else { return }
+
+            let didApply: Bool
+            switch result {
+            case .success(let value):
+                didApply = value as? Bool == true
+            case .failure:
+                didApply = false
+            }
+            guard !didApply else { return }
+
+            let currentState = self.lastAppliedState ?? desiredState
+            self.lastAppliedState = currentState.replacingLineWrapping(!desiredState.wrapLines)
+            let retryState = (self.pendingState ?? currentState)
+                .replacingLineWrapping(desiredState.wrapLines)
+            self.pendingState = retryState
+            guard !self.hasPendingEditorTextSnapshot else { return }
+            self.pendingState = nil
+            self.loadEditor(into: webView, initialState: retryState)
+        }
+    }
+
     private func resetEditor(
         to state: MarkEditCoreEditorState,
         in webView: WKWebView,
-        documentChanged: Bool
+        documentChanged: Bool,
+        completion: (@MainActor (Bool) -> Void)? = nil
     ) {
         guard !isDetached, hasLoadedEditor, !webView.isLoading else {
             pendingState = state
+            completion?(false)
             return
         }
-        guard let json = state.resetMessageJSON(documentChanged: documentChanged) else { return }
+        guard let json = state.resetMessageJSON(documentChanged: documentChanged) else {
+            completion?(false)
+            return
+        }
         isApplyingFromSwift = true
+        resetApplicationGeneration &+= 1
+        let resetGeneration = resetApplicationGeneration
+        inFlightResetState = state
         let generation = loadGeneration
+        let mutationGeneration = epdocMutationGeneration
         let previousState = lastAppliedState
         let expectedLength = state.text.utf16.count
         let script = """
@@ -401,14 +939,16 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             error: String(error?.stack || error?.message || error),
           };
         } finally {
-          setTimeout(() => { window.__epistemosApplyingMarkEditState = false; }, 0);
+          window.__epistemosApplyingMarkEditState = false;
         }
         """
         webView.callAsyncJavaScript(script, in: nil, in: .page) { [weak self, weak webView] result in
             guard let self,
                   generation == self.loadGeneration,
+                  resetGeneration == self.resetApplicationGeneration,
                   !self.isDetached else { return }
             self.isApplyingFromSwift = false
+            self.inFlightResetState = nil
             if webView?.isLoading == true {
                 self.lastAppliedState = previousState
                 self.pendingState = state
@@ -429,10 +969,21 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
                 if let webView {
                     self.applyTheme(themeName: state.themeName, palette: state.themePalette, to: webView)
                 }
-                self.lastAppliedState = state
+                if state.mode == .epdocMarkdown,
+                   mutationGeneration != self.epdocMutationGeneration {
+                    if let mirroredText = self.epdocDeltaMirror?.checkpointText() {
+                        self.lastAppliedState = state.replacingText(mirroredText)
+                    } else {
+                        self.lastAppliedState = previousState
+                        self.pendingState = self.pendingState ?? state
+                    }
+                } else {
+                    self.lastAppliedState = state
+                }
                 if let webView {
                     self.flushPendingState(in: webView)
                 }
+                completion?(true)
             } else {
                 self.lastAppliedState = previousState
                 self.pendingState = state
@@ -442,6 +993,7 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
                         message: "MarkEdit CoreEditor reset failed: \(Self.resetFailureMessage(result: scriptResult, error: scriptError))"
                     )
                 }
+                completion?(false)
             }
         }
     }
@@ -558,13 +1110,28 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
     private func finishLoadingEditor(in webView: WKWebView) {
         guard !isDetached, !webView.isLoading else { return }
         hasLoadedEditor = true
+        applyContentWidth(contentWidthMode, in: webView)
         installSnapshotBridge(into: webView)
         let state = pendingState ?? loadingState
         pendingState = nil
         loadingState = nil
         if let state {
             applyTheme(themeName: state.themeName, palette: state.themePalette, to: webView)
-            resetEditor(to: state, in: webView, documentChanged: true)
+            if let epdocController {
+                resetEditor(
+                    to: state,
+                    in: webView,
+                    documentChanged: true
+                ) { [weak self, weak epdocController] didApply in
+                    guard didApply,
+                          let self,
+                          !self.isDetached,
+                          self.epdocController === epdocController else { return }
+                    epdocController?.handleBridgeMessage(.editorReady)
+                }
+            } else {
+                resetEditor(to: state, in: webView, documentChanged: true)
+            }
         } else {
             flushPendingState(in: webView)
         }
@@ -679,7 +1246,7 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             return
         }
         let hadPendingEditorTextSnapshot = hasPendingEditorTextSnapshot
-        let recoveryText = Self.preferredRecoveryText(
+        let recoveryText = epdocDeltaMirror?.checkpointText() ?? Self.preferredRecoveryText(
             hostText: text.wrappedValue,
             stateText: recoveryState.text
         )
@@ -756,9 +1323,34 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         }
 
         let applying = payload["applying"] as? Bool ?? false
+        if payload["kind"] as? String == "transaction",
+           epdocController != nil {
+            hasPendingEditorTextSnapshot = true
+            let mirror = epdocDeltaMirror ?? MarkEditEpdocDeltaMirror(text: text.wrappedValue)
+            epdocDeltaMirror = mirror
+            let result: MarkEditEpdocDeltaApplyResult
+            if let transaction = MarkEditEpdocTransaction(payload: payload) {
+                result = mirror.apply(transaction)
+            } else {
+                mirror.invalidate()
+                result = .requiresCheckpoint
+            }
+            switch result {
+            case .accepted, .requiresCheckpoint:
+                epdocMutationGeneration &+= 1
+                didReportPendingContentDirty = true
+                onContentDirty?()
+            case .ignoredDuplicate, .ignoredStaleInstance:
+                break
+            }
+            return
+        }
         if payload["contentDirty"] as? Bool == true {
             hasPendingEditorTextSnapshot = true
-            if !isApplyingFromSwift, !applying, !didReportPendingContentDirty {
+            let isEpdocDirtyEdge = epdocController != nil && payload["kind"] as? String == "dirty"
+            if !isApplyingFromSwift,
+               !applying,
+               (isEpdocDirtyEdge || !didReportPendingContentDirty) {
                 didReportPendingContentDirty = true
                 self.onContentDirty?()
             }
@@ -769,7 +1361,15 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
 
         hasPendingEditorTextSnapshot = false
         didReportPendingContentDirty = false
-        text.wrappedValue = next
+        if let epdocController {
+            let epoch = epdocLoadEpoch ?? epdocController.currentLoadEpoch
+            epdocController.handleBridgeMessage(
+                .markdownDidChange(markdown: next, writeback: nil),
+                epoch: epoch
+            )
+        } else {
+            text.wrappedValue = next
+        }
         if let applied = lastAppliedState {
             lastAppliedState = applied.replacingText(next)
         }
@@ -818,30 +1418,8 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
 
     private static func nativeBridgeReply(moduleName: String?, methodName: String?) -> Any? {
         switch (moduleName, methodName) {
-        case ("api", "listFiles"):
-            return []
-        case ("api", "getPasteboardItems"):
-            return "[]"
-        case ("api", "getPasteboardString"),
-             ("api", "getFileContent"),
-             ("api", "getFileObject"),
-             ("api", "getFileInfo"),
-             ("foundationModels", "createSession"):
-            return nil
-        case ("api", "showAlert"):
-            return 0
-        case ("api", "showTextBox"):
-            return nil
-        case ("foundationModels", "availability"):
-            return #"{"available":false}"#
-        case ("foundationModels", "isResponding"):
-            return false
-        case ("foundationModels", "respondTo"):
-            return #"{"content":"","error":"Foundation Models are unavailable in the embedded Source editor."}"#
         case ("preview", "show"):
             return #"{"handledBy":"epistemos-embedded-source"}"#
-        case ("translation", "translate"):
-            return #"{"error":"Translation is unavailable in the embedded Source editor."}"#
         case ("tokenizer", "tokenize"):
             return ["from": 0, "to": 0]
         case ("tokenizer", "moveWordBackward"),
@@ -850,25 +1428,55 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         case ("history", "canUndo"),
              ("history", "canRedo"):
             return false
-        case ("api", "saveDocument"),
-             ("api", "closeDocument"),
-             ("api", "showSavePanel"),
-             ("api", "runService"),
-             ("api", "openFile"),
-             ("api", "createFile"),
-             ("api", "deleteFile"),
-             ("api", "moveFile"),
-             ("api", "revealFile"):
-            return false
         default:
             return nil
         }
     }
 
+    private static let focusStartScript = """
+    (() => {
+      if (!window.editor || !window.MarkEdit?.editorAPI) { return false; }
+      window.MarkEdit.editorAPI.setSelections([{ from: 0, to: 0 }]);
+      window.editor.focus();
+      window.webModules?.selection?.scrollToSelection?.();
+      return true;
+    })();
+    """
+
+    private static let focusEndScript = """
+    (() => {
+      if (!window.editor || !window.MarkEdit?.editorAPI) { return false; }
+      const end = window.editor.state.doc.length;
+      window.MarkEdit.editorAPI.setSelections([{ from: end, to: end }]);
+      window.editor.focus();
+      window.webModules?.selection?.scrollToSelection?.();
+      return true;
+    })();
+    """
+
+    private static let toggleHighlightScript = """
+    (() => {
+      if (!window.editor) { return false; }
+      const state = window.editor.state;
+      const range = state.selection.main;
+      const selected = state.sliceDoc(range.from, range.to);
+      const body = selected.length > 0 ? selected : 'highlight';
+      const inserted = `==${body}==`;
+      window.editor.dispatch({
+        changes: { from: range.from, to: range.to, insert: inserted },
+        selection: { anchor: range.from + 2, head: range.from + 2 + body.length },
+      });
+      window.editor.focus();
+      return true;
+    })();
+    """
+
     private static let snapshotBridgeScript = """
     (() => {
       if (window.__epistemosMarkEditSnapshotInstalled) { return true; }
       window.__epistemosMarkEditSnapshotInstalled = true;
+
+      const isEpdoc = window.config?.epistemosMode === "epdoc";
 
       let lastText = null;
       let lastLine = -1;
@@ -882,6 +1490,21 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
       const metadataPending = { value: false };
       let textSnapshotTimer = null;
       let contentDirty = { value: false };
+      const documentInstance = globalThis.crypto?.randomUUID?.()
+        ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      let transactionRevision = 0;
+
+      window.__epistemosMarkEditCheckpoint = () => {
+        if (!window.editor || !window.webModules?.core?.getEditorText) { return null; }
+        const text = window.webModules.core.getEditorText();
+        lastText = text;
+        contentDirty.value = false;
+        return {
+          text,
+          documentInstance,
+          revision: transactionRevision,
+        };
+      };
 
       const textSnapshotDelay = () => {
         const length = window.editor?.state?.doc?.length ?? 0;
@@ -962,21 +1585,73 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         }, textSnapshotDelay());
       };
 
-      document.addEventListener("input", scheduleTextSnapshot, true);
+      const postTransactions = (update) => {
+        const applying = Boolean(window.__epistemosApplyingMarkEditState);
+        for (const transaction of update.transactions) {
+          if (!transaction.docChanged) { continue; }
+          const changes = [];
+          transaction.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+            changes.push({
+              fromUTF16: fromA,
+              toUTF16: toA,
+              insertedText: inserted.sliceString(
+                0,
+                inserted.length,
+                transaction.startState.lineBreak
+              ),
+            });
+          });
+          transactionRevision += 1;
+          contentDirty.value = true;
+          const head = transaction.newSelection.main.head;
+          const line = transaction.newDoc.lineAt(head);
+          window.webkit?.messageHandlers?.epistemosMarkEditCoreEditor?.postMessage({
+            kind: "transaction",
+            documentInstance,
+            revision: transactionRevision,
+            startUTF16Length: transaction.startState.doc.length,
+            endUTF16Length: transaction.newDoc.length,
+            changes,
+            line: line.number,
+            column: head - line.from + 1,
+            lineCount: transaction.newDoc.lines,
+            applying,
+            contentDirty: true,
+          });
+        }
+        scheduleMetadataSnapshot();
+      };
+
+      if (
+        isEpdoc &&
+        window.MarkEdit?.addExtension &&
+        window.MarkEdit?.codemirror?.view?.EditorView?.updateListener
+      ) {
+        const listener = window.MarkEdit.codemirror.view.EditorView.updateListener.of(update => {
+          if (update.docChanged) {
+            postTransactions(update);
+          }
+        });
+        window.MarkEdit.addExtension(listener);
+      } else {
+        document.addEventListener("input", scheduleTextSnapshot, true);
+      }
       document.addEventListener("keyup", scheduleMetadataSnapshot, true);
       document.addEventListener("mouseup", scheduleMetadataSnapshot, true);
       document.addEventListener("selectionchange", scheduleMetadataSnapshot, true);
-      window.addEventListener("pagehide", () => postTextSnapshot("pagehide"));
-      window.addEventListener("beforeunload", () => postTextSnapshot("beforeunload"));
-      setInterval(() => {
-        if (contentDirty.value) {
-          scheduleTextSnapshot();
-        } else {
-          postSnapshot("cursor", { includeText: false });
-        }
-      }, 1000);
-      setTimeout(() => postSnapshot("ready", { includeText: true }), 0);
-      setTimeout(() => postSnapshot("ready", { includeText: true }), 250);
+      if (!isEpdoc) {
+        window.addEventListener("pagehide", () => postTextSnapshot("pagehide"));
+        window.addEventListener("beforeunload", () => postTextSnapshot("beforeunload"));
+        setInterval(() => {
+          if (contentDirty.value) {
+            scheduleTextSnapshot();
+          } else {
+            postSnapshot("cursor", { includeText: false });
+          }
+        }, 1000);
+      }
+      setTimeout(() => postSnapshot("ready", { includeText: !isEpdoc }), 0);
+      setTimeout(() => postSnapshot("ready", { includeText: !isEpdoc }), 250);
       return true;
     })();
     """

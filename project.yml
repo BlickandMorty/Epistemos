@@ -6,7 +6,7 @@ options:
   xcodeVersion: "16.0"
   defaultConfig: Debug
 # MAS-only build configuration set. The normal `Epistemos` scheme builds the
-# canonical `Epistemos-AppStore` target, with June and its in-process agent core.
+# canonical Free V1 `Epistemos-AppStore` target and its deterministic note tools.
 configs:
   Debug: debug
   Release: release
@@ -23,11 +23,6 @@ settings:
       SWIFT_OPTIMIZATION_LEVEL: "-Onone"
       GCC_OPTIMIZATION_LEVEL: "0"
       SWIFT_COMPILATION_MODE: "singlefile"
-      # Wave 5 follow-up: EPISTEMOS_LINK_SUBSTRATE_RT enables the
-      # RustEventRingClient at compile time. The host links libsubstrate_rt.a
-      # via OTHER_LDFLAGS below. With the flag off the file compiles to
-      # nothing and the host falls back to InMemoryEventRingClient.
-      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG EPISTEMOS_LINK_SUBSTRATE_RT"
       ONLY_ACTIVE_ARCH: true
       ENABLE_PREVIEWS: true
       DEBUG_INFORMATION_FORMAT: "dwarf"
@@ -54,36 +49,16 @@ targets:
       - path: Epistemos
         type: syncedFolder
         excludes:
-          - Omega/Knowledge/ODIATraceGenerator.swift
-          - Omega/Knowledge/TraceDataMixer.swift
           - Resources/CoreEditor/chunks/**
-          - Resources/chunks/**
-          - Vault/KnowledgeGraphService.swift
-      - path: LocalPackages/MarkEdit/MarkEditMac/Sources
-        type: syncedFolder
-        excludes:
-          - Main/Application/**
-          - Main/AppDocumentController.swift
-          - Shortcuts/**
-          - Scripting/EditorDocument+Scripting.swift
-          - Scripting/NSColor+Scripting.swift
-          - Updater/**
       - path: build-rust/swift-bindings
         type: syncedFolder
         includes:
-          - "*.swift"
+          - epistemos_core.swift
     resources:
       - path: Epistemos/Resources
         excludes:
           - CoreEditor/chunks/**
-          - chunks/**
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
-      - path: LocalPackages/MarkEdit/MarkEditMac/Resources
-        excludes:
-          - Assets.xcassets/**
-      - path: LocalPackages/MarkEdit/MarkEditMac/Base.lproj
-      - path: LocalPackages/MarkEdit/MarkEditMac/mul.lproj
-      - path: LocalPackages/MarkEdit/MarkEditMac/AppShortcuts.xcstrings
     settings:
       base:
         PRODUCT_NAME: Epistemos
@@ -105,76 +80,40 @@ targets:
           - "@executable_path"
           - "@executable_path/../Frameworks"
           - "@loader_path/../Frameworks"
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt
-        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lepistemos_core -lepistemos_shadow -lepistemos_code_index -lc++
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "-"
           DEVELOPMENT_TEAM: 3BNL2669SL
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1 EPISTEMOS_LINK_SUBSTRATE_RT"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1"
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
           DEVELOPMENT_TEAM: 3BNL2669SL
           ENABLE_HARDENED_RUNTIME: true
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1 EPISTEMOS_LINK_SUBSTRATE_RT"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1"
     preBuildScripts:
       - name: Build Rust Engine
         script: |
           set -euo pipefail
           bash "${SRCROOT}/build-rust.sh"
           bash "${SRCROOT}/build-syntax-core.sh"
-          MAS_SANDBOX=1 bash "${SRCROOT}/build-omega-mcp.sh"
           MAS_SANDBOX=1 bash "${SRCROOT}/build-epistemos-core.sh"
-          MAS_SANDBOX=1 bash "${SRCROOT}/build-agent-core.sh"
           bash "${SRCROOT}/build-epistemos-shadow.sh"
           bash "${SRCROOT}/build-epistemos-code-index.sh"
-          bash "${SRCROOT}/build-substrate-rt.sh"
           bash "${SRCROOT}/build-tiptap-bundle.sh"
           bash "${SRCROOT}/build-coreeditor-bundle.sh"
-          if [ "${EPISTEMOS_PRODUCT_EDITION:-}" != "FREE_V1" ]; then
-            bash "${SRCROOT}/build-june-web.sh"
-          fi
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
         script: bash "${SRCROOT}/bundle-app-runtime-assets.sh"
         basedOnDependencyAnalysis: false
-      - name: Scrub Pro Frameworks
-        script: |
-          set -euo pipefail
-          frameworks_dir="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
-        basedOnDependencyAnalysis: false
     dependencies:
       - package: GRDB
       - package: Grape
-      # June selected local models: pinned in-process llama.cpp; no subprocess,
-      # server, JIT, or downloaded executable runtime.
-      - package: EpistemosLlama
-        product: EpistemosLlama
       - package: KokoroPipeline
         product: KokoroPipeline
       - package: MarkEditCore
-      - package: MarkEditKit
-      - package: MarkEditModules
-        product: AppKitControls
-      - package: MarkEditModules
-        product: AppKitExtensions
-      - package: MarkEditModules
-        product: FileDrop
-      - package: MarkEditModules
-        product: FileVersion
-      - package: MarkEditModules
-        product: FontPicker
-      - package: MarkEditModules
-        product: Previewer
-      - package: MarkEditModules
-        product: SettingsUI
-      - package: MarkEditModules
-        product: Statistics
-      - package: MarkEditModules
-        product: TextBundle
-      - package: MarkEditModules
-        product: TextCompletion
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -185,57 +124,6 @@ targets:
       - sdk: AppIntents.framework
       - sdk: CoreSpotlight.framework
 
-  # AR1 — Control Center widget extension (Wave 15 §"#3").
-  # macOS surfaces ControlWidgets ONLY from a `.appex` extension
-  # bundle. The control entry points (`EpistemosCaptureControl`,
-  # `EpistemosSandboxControl`) live in the main-app target source
-  # at `Epistemos/Intents/Schemas/EpistemosControlWidget.swift`
-  # because they reference the cognitive intents the main app owns;
-  # this target's `@main` entry lives in `EpistemosWidgets/`.
-  EpistemosWidgets:
-    type: app-extension
-    platform: macOS
-    sources:
-      - path: EpistemosWidgets
-        type: syncedFolder
-      # Pull in the control sources + the cognitive intents they
-      # reference. xcodegen scopes the includes per-target so the
-      # main app target still compiles them too (no duplicate-symbol
-      # risk because each target is a separate bundle).
-      - path: Epistemos/Intents/Schemas/EpistemosControlWidget.swift
-      - path: Epistemos/Intents/Schemas/CognitiveIntents.swift
-      - path: Epistemos/App/ProductCapabilityPolicy.swift
-      - path: Epistemos/Engine/EpistemosSpeechSynthesizer.swift
-      - path: Epistemos/Engine/QuarantineArchive.swift
-      - path: Epistemos/Engine/EpistemosSidecar.swift
-      - path: Epistemos/Engine/SidecarCache.swift
-      - path: Epistemos/Engine/ConversationStateClassifier.swift
-      - path: Epistemos/Engine/SessionTelemetryClassifier.swift
-      - path: Epistemos/Engine/AFMSessionPool.swift
-    settings:
-      base:
-        PRODUCT_NAME: EpistemosWidgets
-        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.app.widgets
-        INFOPLIST_FILE: EpistemosWidgets/Info.plist
-        GENERATE_INFOPLIST_FILE: false
-        MACOSX_DEPLOYMENT_TARGET: "26.0"
-        SKIP_INSTALL: false
-        LD_RUNPATH_SEARCH_PATHS:
-          - "@executable_path/../../../../Frameworks"
-        CODE_SIGN_STYLE: Automatic
-      configs:
-        Debug:
-          CODE_SIGN_IDENTITY: "-"
-          DEVELOPMENT_TEAM: 3BNL2669SL
-        Release:
-          CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: 3BNL2669SL
-          ENABLE_HARDENED_RUNTIME: true
-    dependencies:
-      - sdk: WidgetKit.framework
-      - sdk: SwiftUI.framework
-      - sdk: AppIntents.framework
-
   EpistemosAppStoreKeelstoneTests:
     type: bundle.unit-test
     platform: macOS
@@ -244,21 +132,32 @@ targets:
         type: syncedFolder
     dependencies:
       - target: Epistemos-AppStore
+      - package: GRDB
     postBuildScripts:
       - name: Stage Repository Source Guards
         script: |
           set -euo pipefail
           fixture_root="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RepositorySourceFixtures"
-          source_guard="${SRCROOT}/EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift"
+          source_guards="
+          ${SRCROOT}/EpistemosAppStoreKeelstoneTests/AppStoreKeelstoneLaneTests.swift
+          ${SRCROOT}/EpistemosAppStoreKeelstoneTests/FreeV1BuildContractTests.swift
+          "
 
           /bin/rm -rf "${fixture_root}"
           /bin/mkdir -p "${fixture_root}"
 
-          /usr/bin/sed -n 's/.*loadRepoTextFile("\([^"]*\)").*/\1/p' "${source_guard}" \
-            | /usr/bin/sort -u \
+          for source_guard in ${source_guards}; do
+            /usr/bin/sed -n 's/.*loadRepoTextFile("\([^"]*\)").*/\1/p' "${source_guard}"
+          done | /usr/bin/sort -u \
             | while IFS= read -r relative_path; do
                 source_path="${SRCROOT}/${relative_path}"
                 destination_path="${fixture_root}/${relative_path}"
+                case "${relative_path}" in
+                  Epistemos/JuneAgent/*)
+                    echo "note: skipping intentionally absent Free V1 source root Epistemos/JuneAgent/: ${relative_path}" >&2
+                    continue
+                    ;;
+                esac
                 if [[ ! -f "${source_path}" ]]; then
                   echo "error: missing repository source guard input: ${relative_path}" >&2
                   exit 1
@@ -280,13 +179,13 @@ targets:
         ALWAYS_SEARCH_USER_PATHS: false
         BUNDLE_LOADER: "$(TEST_HOST)"
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
-        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
       configs:
         Debug:
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1"
         Release:
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_LINK_SUBSTRATE_RT"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1"
 
 packages:
   GRDB:
@@ -299,14 +198,6 @@ packages:
     path: LocalPackages/KokoroPipeline
   MarkEditCore:
     path: LocalPackages/MarkEdit/MarkEditCore
-  MarkEditKit:
-    path: LocalPackages/MarkEdit/MarkEditKit
-  MarkEditModules:
-    path: LocalPackages/MarkEdit/MarkEditMac/Modules
-  # June selected local models. The pinned, sha256-verified XCFramework is
-  # installed per checkout by scripts/fetch-llama-xcframework.sh.
-  EpistemosLlama:
-    path: LocalPackages/EpistemosLlama
 schemes:
   Epistemos:
     build:

@@ -841,12 +841,12 @@ struct GraphBuilderNestedPageTests {
     }
 }
 
-@Suite("GraphBuilder - Chat Node Building")
+@Suite("GraphBuilder - Free V1 Chat Projection")
 @MainActor
 struct GraphBuilderChatNodeTests {
     
-    @Test("chat creates chat node")
-    func chatCreatesChatNode() {
+    @Test("stored chat does not create a free V1 graph node")
+    func storedChatDoesNotCreateFreeV1GraphNode() {
         let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         
@@ -861,16 +861,14 @@ struct GraphBuilderChatNodeTests {
             let builder = GraphBuilder()
             let result = builder.build(context: context)
             
-            #expect(result.nodes.count == 1)
-            #expect(result.nodes.first?.nodeType == .chat)
-            #expect(result.nodes.first?.label == "My Chat")
+            #expect(result.nodes.isEmpty)
         } catch {
             Issue.record("Test failed: \(error)")
         }
     }
     
-    @Test("multiple chats create multiple nodes")
-    func multipleChatsCreateMultipleNodes() {
+    @Test("multiple stored chats remain outside the free V1 graph")
+    func storedChatsRemainOutsideFreeV1Graph() {
         let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         
@@ -887,7 +885,7 @@ struct GraphBuilderChatNodeTests {
             let builder = GraphBuilder()
             let result = builder.build(context: context)
             
-            #expect(result.nodes.count == 3)
+            #expect(result.nodes.isEmpty)
         } catch {
             Issue.record("Test failed: \(error)")
         }
@@ -938,9 +936,9 @@ struct GraphBuilderComplexScenarioTests {
             let builder = GraphBuilder()
             let result = builder.build(context: context)
             
-            // Tags are metadata-only now and are not emitted as visual graph nodes.
-            // 1 folder + 2 pages + 1 idea + 1 chat = 5 nodes
-            #expect(result.nodes.count == 5)
+            // Stored chats are paid-only graph data in free V1.
+            // 1 folder + 2 pages + 1 idea = 4 nodes
+            #expect(result.nodes.count == 4)
 
             // Only structural edges remain:
             // - folder->page1 (contains)
@@ -1792,8 +1790,8 @@ struct GraphBuilderAdditionalEdgeCaseTests {
         }
     }
     
-    @Test("chat with empty title")
-    func chatWithEmptyTitle() {
+    @Test("stored chat with empty title remains outside the free V1 graph")
+    func storedChatWithEmptyTitleRemainsOutsideFreeV1Graph() {
         let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         
@@ -1808,8 +1806,7 @@ struct GraphBuilderAdditionalEdgeCaseTests {
             let builder = GraphBuilder()
             let result = builder.build(context: context)
             
-            #expect(result.nodes.count == 1)
-            #expect(result.nodes.first?.label == "Untitled Chat")
+            #expect(result.nodes.isEmpty)
         } catch {
             Issue.record("Test failed: \(error)")
         }

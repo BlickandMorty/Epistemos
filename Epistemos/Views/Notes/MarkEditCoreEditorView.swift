@@ -3,7 +3,7 @@ import SwiftUI
 import WebKit
 import MarkEditCore
 
-#if canImport(MarkEditKit)
+#if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
 import MarkEditKit
 #endif
 
@@ -79,6 +79,7 @@ struct MarkEditMarkdownEditorRepresentable: View {
     var isEditable: Bool = true
     var onContentDirty: (@MainActor () -> Void)?
     var liveTextQueryKey: UUID?
+    var contentWidthMode: NoteWidthMode = .normal
     // Security (bridge audit 2026-07-03, latent HIGH): default FALSE. The `true`
     // branch installs MarkEdit's full native file/service/clipboard API on a
     // page-world "bridge" handler (arbitrary file read/write/delete, runService,
@@ -87,7 +88,7 @@ struct MarkEditMarkdownEditorRepresentable: View {
     var allowsMarkEditWindowToolbar: Bool = false
 
     var body: some View {
-        #if canImport(MarkEditKit)
+        #if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
         if allowsMarkEditWindowToolbar {
             MarkEditVerbatimMarkdownChromeRepresentable(
                 text: $text,
@@ -122,12 +123,53 @@ struct MarkEditMarkdownEditorRepresentable: View {
             isEditable: isEditable,
             selectionRequest: selectionRequest,
             onContentDirty: onContentDirty,
-            liveTextQueryKey: liveTextQueryKey
+            liveTextQueryKey: liveTextQueryKey,
+            contentWidthMode: contentWidthMode
         )
     }
 }
 
-#if canImport(MarkEditKit)
+/// Raw-Markdown CodeMirror canvas for the Epdoc surface. The surrounding
+/// window, toolbar, title controls, palette, and native overlays remain owned
+/// by `EpdocEditorChromeView`; this view replaces only the editing engine.
+struct MarkEditEpdocEditorRepresentable: View {
+    @Bindable var controller: EpdocEditorChromeController
+    var theme: EpistemosTheme
+
+    @State private var cursorLine = 1
+    @State private var cursorColumn = 1
+    @State private var totalLines = 1
+    @State private var liveTextQueryKey = UUID()
+
+    var body: some View {
+        MarkEditCoreEditorRepresentable(
+            mode: .epdocMarkdown,
+            text: Binding(
+                get: { controller.latestMarkdownSnapshot ?? "" },
+                set: { controller.acceptCodeMirrorMarkdownSnapshot($0) }
+            ),
+            cursorLine: $cursorLine,
+            cursorColumn: $cursorColumn,
+            totalLines: $totalLines,
+            theme: theme,
+            fontSize: 17,
+            wrapLines: true,
+            showLineNumbers: false,
+            showInvisibles: false,
+            useSpaces: true,
+            tabWidth: 2,
+            isEditable: controller.editorIsEditable,
+            selectionRequest: nil,
+            onContentDirty: {
+                controller.markCodeMirrorContentDirty()
+            },
+            liveTextQueryKey: liveTextQueryKey,
+            epdocController: controller
+        )
+    }
+}
+
+#if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
 private struct MarkEditVerbatimMarkdownChromeRepresentable: NSViewControllerRepresentable {
     @Binding var text: String
     @Binding var cursorLine: Int
@@ -400,21 +442,6 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
 
 private extension AppTheme {
     static func epistemosSourceTheme(for theme: EpistemosTheme) -> AppTheme {
-        // #14: When a user-defined CUSTOM palette is active the `EpistemosTheme`
-        // enum value no longer describes the on-screen colors, so the static
-        // case→palette map below would pin a fixed CodeMirror syntax palette
-        // (e.g. XcodeDark) while the markdown chrome overrides
-        // `webBackgroundColor` to the custom background — the fixed syntax
-        // colors then clash with the custom canvas. Until the CoreEditor JS
-        // bundle grows a real "generate a CodeMirror theme from tokens" entry
-        // point, synthesize the *closest* built-in palette: match dark/light and
-        // then minimize the distance between the custom background and each
-        // candidate palette's own background, so the (fixed) syntax colors were
-        // at least authored for a similar canvas. Additive — only the
-        // custom-palette branch changes; every preset keeps its exact mapping.
-        if AppCustomTheme.isActive {
-            return closestSourceTheme(for: theme)
-        }
         return presetSourceTheme(for: theme)
     }
 
@@ -433,34 +460,13 @@ private extension AppTheme {
         }
     }
 
-    static func closestSourceTheme(for theme: EpistemosTheme) -> AppTheme {
-        let resolved = theme.resolved
-        let target = resolved.background.nsColor
-        let wantDark = resolved.isDark
-        let matching = AppTheme.allCases.filter { $0.isDark == wantDark }
-        let pool = matching.isEmpty ? AppTheme.allCases : matching
-        return pool.min {
-            backgroundDistance($0.windowBackground, target)
-                < backgroundDistance($1.windowBackground, target)
-        } ?? presetSourceTheme(for: theme)
-    }
-
-    static func backgroundDistance(_ lhs: NSColor, _ rhs: NSColor) -> CGFloat {
-        guard let a = lhs.usingColorSpace(.sRGB),
-              let b = rhs.usingColorSpace(.sRGB) else {
-            return .greatestFiniteMagnitude
-        }
-        let dr = a.redComponent - b.redComponent
-        let dg = a.greenComponent - b.greenComponent
-        let db = a.blueComponent - b.blueComponent
-        return dr * dr + dg * dg + db * db
-    }
 }
 #endif
 
 enum MarkEditCoreEditorMode: Equatable {
     case code(language: String)
     case markdownChrome
+    case epdocMarkdown
 
     var configMode: String {
         switch self {
@@ -468,6 +474,8 @@ enum MarkEditCoreEditorMode: Equatable {
             return "code"
         case .markdownChrome:
             return "markdown"
+        case .epdocMarkdown:
+            return "epdoc"
         }
     }
 
@@ -475,7 +483,7 @@ enum MarkEditCoreEditorMode: Equatable {
         switch self {
         case .code(let language):
             return language
-        case .markdownChrome:
+        case .markdownChrome, .epdocMarkdown:
             return nil
         }
     }
@@ -486,6 +494,17 @@ enum MarkEditCoreEditorMode: Equatable {
             return language
         case .markdownChrome:
             return "markdown"
+        case .epdocMarkdown:
+            return "markdown"
+        }
+    }
+
+    var usesMarkdownTypography: Bool {
+        switch self {
+        case .code:
+            return false
+        case .markdownChrome, .epdocMarkdown:
+            return true
         }
     }
 }
@@ -508,6 +527,8 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
     var selectionRequest: CoreEditorSelectionRequest?
     var onContentDirty: (@MainActor () -> Void)?
     var liveTextQueryKey: UUID?
+    var epdocController: EpdocEditorChromeController? = nil
+    var contentWidthMode: NoteWidthMode = .wide
 
     func makeCoordinator() -> MarkEditCoreEditorCoordinator {
         MarkEditCoreEditorCoordinator(
@@ -524,6 +545,9 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+        #if EPISTEMOS_FREE_V1
+        configuration.writingToolsBehavior = .none
+        #endif
         configuration.setURLSchemeHandler(
             MarkEditCoreEditorChunkLoader(),
             forURLScheme: MarkEditCoreEditorBridge.chunkScheme
@@ -541,8 +565,10 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = false
-        webView.setValue(false, forKey: "drawsBackground")
+        webView.underPageBackgroundColor = .clear
         context.coordinator.webView = webView
+        context.coordinator.attachEpdocController(epdocController)
+        context.coordinator.updateContentWidth(contentWidthMode, in: webView)
         context.coordinator.loadEditor(into: webView, initialState: state)
         context.coordinator.registerLiveTextQuery(key: liveTextQueryKey, webView: webView)
         return webView
@@ -554,6 +580,8 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
         context.coordinator.cursorColumn = $cursorColumn
         context.coordinator.totalLines = $totalLines
         context.coordinator.onContentDirty = onContentDirty
+        context.coordinator.attachEpdocController(epdocController)
+        context.coordinator.updateContentWidth(contentWidthMode, in: webView)
         context.coordinator.registerLiveTextQuery(key: liveTextQueryKey, webView: webView)
         context.coordinator.update(
             webView: webView,
@@ -610,33 +638,52 @@ private struct MarkEditCoreEditorSourceDefaults: Equatable {
     }
 
     private static func themeName(for theme: EpistemosTheme) -> String {
-        #if canImport(MarkEditKit)
+        #if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
         AppTheme.epistemosSourceTheme(for: theme).editorTheme
         #else
-        theme.isDark ? "xcode-dark" : "xcode-light"
+        switch theme {
+        case .tan, .sunset:
+            "solarized-light"
+        case .ember:
+            "solarized-dark"
+        case .nocturne:
+            "night-owl"
+        case .oled, .oledSoft, .systemDark, .platinumVioletDark:
+            "xcode-dark"
+        case .systemLight, .light, .sunny, .platinumViolet:
+            "github-light"
+        }
         #endif
     }
 
     private static func fontFace(for mode: MarkEditCoreEditorMode) -> WebFontFace {
-        #if canImport(MarkEditKit)
-        if mode == .markdownChrome {
+        #if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
+        if mode.usesMarkdownTypography {
             return AppPreferences.Editor.fontStyle.webFontFace
         }
         #endif
+        if mode.usesMarkdownTypography {
+            return WebFontFace(family: "ui-monospace", weight: nil, style: nil)
+        }
         return WebFontFace(family: "SF Mono", weight: nil, style: nil)
     }
 
     private static func fontSize(for mode: MarkEditCoreEditorMode, fallbackFontSize: Double) -> Double {
-        #if canImport(MarkEditKit)
-        if mode == .markdownChrome {
+        #if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
+        if mode.usesMarkdownTypography {
             return AppPreferences.Editor.fontSize
         }
         #endif
-        return max(8, min(fallbackFontSize, 32))
+        switch mode {
+        case .markdownChrome:
+            return 15
+        case .epdocMarkdown, .code:
+            return max(8, min(fallbackFontSize, 32))
+        }
     }
 
     private static var lineHeight: Double {
-        #if canImport(MarkEditKit)
+        #if EPISTEMOS_MARKEDIT_FULL_SHELL && canImport(MarkEditKit)
         AppPreferences.Editor.lineHeight.multiplier
         #else
         1.5

@@ -22,8 +22,23 @@ struct WelcomeBackInfo {
     }
 
     var sanitizedIntentSummary: String {
-        UserFacingModelOutput.finalVisibleText(from: intentSummary)
+        guard ProductCapabilityPolicy.allowsAIOutputPresentation else { return "" }
+        return UserFacingModelOutput.finalVisibleText(from: intentSummary)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var presentedChatCount: Int? {
+        ProductCapabilityPolicy.allowsChatPresentation ? chatCount : nil
+    }
+
+    var spokenSessionSummary: String {
+        var parts = ["\(noteCount) notes"]
+        if let presentedChatCount {
+            parts.append("\(presentedChatCount) chats")
+        }
+        parts.append("graph \(graphWasOpen ? "open" : "off")")
+        parts.append("\(sessionMinutes) minute session")
+        return parts.joined(separator: ", ") + "."
     }
 
     /// Structured display text for the typewriter animation.
@@ -97,8 +112,8 @@ struct WelcomeBackInfo {
         if noteCount > 0 {
             lines.append("\(noteCount) note\(noteCount == 1 ? "" : "s") restored")
         }
-        if chatCount > 0 {
-            lines.append("\(chatCount) chat\(chatCount == 1 ? "" : "s") restored")
+        if let presentedChatCount, presentedChatCount > 0 {
+            lines.append("\(presentedChatCount) chat\(presentedChatCount == 1 ? "" : "s") restored")
         }
         if graphWasOpen {
             lines.append("Knowledge graph was open")
@@ -186,6 +201,19 @@ struct WorkspaceDiffSummary {
     var hasChanges: Bool {
         notesOpened > 0 || notesClosed > 0 || !wordCountDeltas.isEmpty
             || chatsStarted > 0 || chatMessagesSent > 0 || graphNodesAdded > 0
+    }
+
+    var presentedChatActivity: (started: Int, messagesSent: Int) {
+        guard ProductCapabilityPolicy.allowsChatPresentation else {
+            return (started: 0, messagesSent: 0)
+        }
+        return (started: chatsStarted, messagesSent: chatMessagesSent)
+    }
+
+    var hasPresentedChanges: Bool {
+        notesOpened > 0 || notesClosed > 0 || !wordCountDeltas.isEmpty
+            || presentedChatActivity.started > 0 || presentedChatActivity.messagesSent > 0
+            || graphNodesAdded > 0
     }
 }
 
@@ -291,8 +319,8 @@ final class WorkspaceService {
     private static let skipNextAutoSaveDefaultsKey = "epistemos.skipWorkspaceAutoSaveOnce"
 
     var restoreLastSession: Bool {
-        get { UserDefaults.standard.bool(forKey: Self.restoreDefaultsKey) }
-        set { UserDefaults.standard.set(newValue, forKey: Self.restoreDefaultsKey) }
+        get { FoundationSafety.runtimeUserDefaults.bool(forKey: Self.restoreDefaultsKey) }
+        set { FoundationSafety.runtimeUserDefaults.set(newValue, forKey: Self.restoreDefaultsKey) }
     }
 
     /// Set after auto-restore — read by LandingView to show welcome-back overlay.
@@ -310,8 +338,8 @@ final class WorkspaceService {
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
         // Default to true on first launch
-        if UserDefaults.standard.object(forKey: Self.restoreDefaultsKey) == nil {
-            UserDefaults.standard.set(true, forKey: Self.restoreDefaultsKey)
+        if FoundationSafety.runtimeUserDefaults.object(forKey: Self.restoreDefaultsKey) == nil {
+            FoundationSafety.runtimeUserDefaults.set(true, forKey: Self.restoreDefaultsKey)
         }
     }
 
@@ -399,7 +427,9 @@ final class WorkspaceService {
         // Graph overlay state
         let holo = HologramController.shared
         let graphVisibility: GraphOverlaySnapshot.Visibility
-        if holo.isVisible {
+        if noteManager.isGraphTabOpen {
+            graphVisibility = .full
+        } else if holo.isVisible {
             graphVisibility = holo.isMinimized ? .minimized : .full
         } else {
             graphVisibility = .hidden
@@ -631,21 +661,12 @@ final class WorkspaceService {
             UtilityWindowManager.shared.show(.settings)
         }
 
-        // 7. Graph overlay
+        // 7. Legacy graph-overlay snapshots migrate to the explicit
+        // Multitask Graph tab. The retired floating overlay is no longer a
+        // user-facing destination.
         switch snapshot.graphOverlay.visibility {
-        case .full:
-            HologramController.shared.show()
-        case .minimized:
-            HologramController.shared.show()
-            // Slight delay to let the overlay initialize before minimizing
-            Task { @MainActor in
-                do {
-                    try await Task.sleep(for: .milliseconds(200))
-                } catch {
-                    return
-                }
-                HologramController.shared.minimize()
-            }
+        case .full, .minimized:
+            KnowledgeGraphShortcutDispatcher.openMultitaskGraph()
         case .hidden:
             break
         }
@@ -838,14 +859,14 @@ final class WorkspaceService {
     }
 
     func prepareSkipRestoreRelaunch() {
-        UserDefaults.standard.set(true, forKey: Self.skipNextRestoreDefaultsKey)
-        UserDefaults.standard.set(true, forKey: Self.skipNextAutoSaveDefaultsKey)
+        FoundationSafety.runtimeUserDefaults.set(true, forKey: Self.skipNextRestoreDefaultsKey)
+        FoundationSafety.runtimeUserDefaults.set(true, forKey: Self.skipNextAutoSaveDefaultsKey)
         clearAutoSavedWorkspace()
         welcomeBack = nil
     }
 
     func consumeSkipRestoreRequest() -> Bool {
-        let defaults = UserDefaults.standard
+        let defaults = FoundationSafety.runtimeUserDefaults
         let shouldSkip = defaults.bool(forKey: Self.skipNextRestoreDefaultsKey)
         if shouldSkip {
             defaults.removeObject(forKey: Self.skipNextRestoreDefaultsKey)
@@ -854,7 +875,7 @@ final class WorkspaceService {
     }
 
     func consumeSkipAutoSaveRequest() -> Bool {
-        let defaults = UserDefaults.standard
+        let defaults = FoundationSafety.runtimeUserDefaults
         let shouldSkip = defaults.bool(forKey: Self.skipNextAutoSaveDefaultsKey)
         if shouldSkip {
             defaults.removeObject(forKey: Self.skipNextAutoSaveDefaultsKey)

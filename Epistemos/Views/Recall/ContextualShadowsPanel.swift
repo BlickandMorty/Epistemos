@@ -3,13 +3,11 @@ import SwiftUI
 
 enum ContextualShadowsPresentation: Equatable {
     case note
-    case chat
     case landing
 
     var compactTitle: String {
         switch self {
         case .note: return "Related"
-        case .chat: return "Related Evidence"
         case .landing: return "Instant Recall"
         }
     }
@@ -17,7 +15,6 @@ enum ContextualShadowsPresentation: Equatable {
     var compactWidth: CGFloat {
         switch self {
         case .note: return 390
-        case .chat: return 520
         case .landing: return 680
         }
     }
@@ -25,7 +22,6 @@ enum ContextualShadowsPresentation: Equatable {
     var workspaceWidth: CGFloat {
         switch self {
         case .note: return 690
-        case .chat: return 740
         case .landing: return 780
         }
     }
@@ -33,7 +29,6 @@ enum ContextualShadowsPresentation: Equatable {
     var maxPanelHeight: CGFloat {
         switch self {
         case .note: return 530
-        case .chat: return 610
         case .landing: return 540
         }
     }
@@ -41,7 +36,6 @@ enum ContextualShadowsPresentation: Equatable {
     var compactMinHeight: CGFloat {
         switch self {
         case .note: return 200
-        case .chat: return 260
         case .landing: return 320
         }
     }
@@ -49,7 +43,6 @@ enum ContextualShadowsPresentation: Equatable {
     var compactMaxHeight: CGFloat {
         switch self {
         case .note: return 430
-        case .chat: return 500
         case .landing: return 480
         }
     }
@@ -57,7 +50,6 @@ enum ContextualShadowsPresentation: Equatable {
     var compactSnippetLineLimit: Int {
         switch self {
         case .note: return 2
-        case .chat: return 4
         case .landing: return 5
         }
     }
@@ -75,20 +67,18 @@ struct ContextualShadowsPanel: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Scope the visible payload to the host surface. Without this, a recall
-    /// from landing/chat can bleed into an unrelated note window.
+    /// from another host surface can bleed into an unrelated note window.
     var scopeKind: RecallContextKind?
     var scopeID: String?
     var presentation: ContextualShadowsPresentation = .note
 
     /// Caller-provided open routing — the host knows whether to open in the
-    /// current window, push a chat thread, etc.
+    /// current note window.
     var onOpen: (ContextualShadowsState.RecallHit) -> Void = { _ in }
 
-    /// Optional editor insertion hook. Note surfaces provide this; chat and
-    /// landing can still copy/drag/open without mutating their draft text.
+    /// Optional editor insertion hook for the current note surface.
     var onInsert: (String) -> Void = { _ in }
 
-    @State private var selectedTab: RecallContextKind = .note
     @State private var expandedHitID: String?
     @State private var isWorkspaceMode = false
     @State private var selectedPreviewID: String?
@@ -103,34 +93,14 @@ struct ContextualShadowsPanel: View {
         state.payload(kind: scopeKind, originDocId: scopeID)
     }
 
-    private var noteHits: [ContextualShadowsState.RecallHit] {
-        payload.results.filter { $0.kind == .note }
-    }
-
-    private var chatHits: [ContextualShadowsState.RecallHit] {
-        payload.results.filter { $0.kind == .chat }
-    }
-
-    private var effectiveSelectedTab: RecallContextKind {
-        if selectedTab == .chat, !chatHits.isEmpty {
-            return .chat
-        }
-        if noteHits.isEmpty, !chatHits.isEmpty {
-            return .chat
-        }
-        return .note
-    }
-
     private var activeHits: [ContextualShadowsState.RecallHit] {
-        (effectiveSelectedTab == .note) ? noteHits : chatHits
+        payload.results.filter { $0.kind == .note }
     }
 
     var body: some View {
         if state.isEnabled, state.isPanelVisible(kind: scopeKind, originDocId: scopeID) {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                Divider().opacity(theme.isDark ? 0.38 : 0.28)
-                tabPicker
                 Divider().opacity(theme.isDark ? 0.38 : 0.28)
                 content
             }
@@ -193,67 +163,6 @@ struct ContextualShadowsPanel: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-    }
-
-    // MARK: - Tabs
-
-    private var tabPicker: some View {
-        HStack(spacing: 0) {
-            tabButton(.note, label: "Notes", count: noteHits.count)
-            if !chatHits.isEmpty {
-                tabButton(.chat, label: "Chats", count: chatHits.count)
-            }
-            Spacer(minLength: 0)
-            if isWorkspaceMode, let preview {
-                Text("\(preview.paragraphs.count) passages")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(theme.textTertiary)
-                    .lineLimit(1)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-    }
-
-    private func tabButton(_ kind: RecallContextKind, label: String, count: Int) -> some View {
-        Button {
-            selectedTab = kind
-            if isWorkspaceMode {
-                selectFirstHitIfNeeded(force: true)
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Text(label)
-                    .font(.system(size: 11.5, weight: effectiveSelectedTab == kind ? .semibold : .regular, design: .rounded))
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.system(size: 10, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(theme.textTertiary)
-                }
-            }
-            .foregroundStyle(effectiveSelectedTab == kind ? theme.textPrimary : theme.textSecondary)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .background(
-                Rectangle()
-                    .fill(effectiveSelectedTab == kind
-                          ? theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.12)
-                          : Color.clear)
-            )
-            .overlay {
-                Rectangle()
-                    .stroke(
-                        effectiveSelectedTab == kind
-                            ? theme.resolved.accent.color.opacity(theme.isDark ? 0.36 : 0.24)
-                            : Color.clear,
-                        lineWidth: 1
-                    )
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(label) tab, \(count) results")
     }
 
     // MARK: - Content
@@ -349,7 +258,7 @@ struct ContextualShadowsPanel: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
-                                Image(systemName: hit.kind == .note ? "note.text" : "message")
+                                Image(systemName: "note.text")
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundStyle(theme.resolved.accent.color)
                                 Text(hit.title)
@@ -473,18 +382,13 @@ struct ContextualShadowsPanel: View {
     }
 
     private func loadPreview(for hit: ContextualShadowsState.RecallHit) {
+        guard hit.kind == .note else { return }
         let hitID = Self.key(for: hit)
         selectedPreviewID = hitID
         preview = nil
         previewTask?.cancel()
         previewTask = Task { @MainActor in
-            let body: String
-            switch hit.kind {
-            case .note:
-                body = NoteWindowManager.shared.currentBody(for: hit.id, mapped: true)
-            case .chat:
-                body = hit.snippet
-            }
+            let body = NoteWindowManager.shared.currentBody(for: hit.id, mapped: true)
             guard !Task.isCancelled else { return }
             preview = RecallDocumentPreview(hit: hit, hitID: hitID, body: body)
             previewTask = nil
@@ -721,7 +625,7 @@ private struct RecallHitRow: View {
                     Button {
                         onOpen()
                     } label: {
-                        Label(hit.kind == .note ? "Open Note" : "Open Chat", systemImage: "arrow.up.forward.square")
+                        Label("Open Note", systemImage: "arrow.up.forward.square")
                             .font(.system(size: 11, weight: .semibold))
                     }
                     .buttonStyle(.bordered)

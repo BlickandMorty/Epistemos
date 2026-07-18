@@ -3,7 +3,12 @@
 // Provides: vault analysis, auto-tuning, scheduling, BM25 retrieval, skill generation.
 
 pub mod adaptation;
+#[cfg(not(feature = "free-v1"))]
 pub mod agent_runtime;
+#[cfg(feature = "free-v1")]
+pub mod agent_runtime_free_v1;
+#[cfg(feature = "free-v1")]
+pub use agent_runtime_free_v1 as agent_runtime;
 pub mod auto_tuner;
 pub mod compute_steering;
 pub mod fsrs_decay;

@@ -1,6 +1,14 @@
 # Source Map
 
-This map classifies every extracted source file from the 18 input archives. Active agents should read the 00-10 canon docs first; this file is for provenance lookup and audits.
+This map classifies every extracted source file from the 18 input archives. Active agents should read the active canon documents declared by `manifest.json` first; this file is for provenance lookup and audits.
+
+Live (non-archive) reference registry: `14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md`,
+`15_OWNER_DIRECTIVE_COVERAGE_AND_HARDENING_CHECKPOINT_2026_07_15.md`, and
+`16_TWO_LANE_REMOVAL_AND_REBUILD_DIRECTIVE_2026_07_15.md` control current
+execution and disposition. Documents 12 and 13 retain the vendored
+MarkEdit source and pinned quarantined Reckoner source evidence as historical
+reference; Reckoner is now parked. Do not add live vendor files to this
+historical 733-file archive map.
 
 ## Classification Counts
 

@@ -78,7 +78,7 @@ nonisolated struct EpdocMarkdownWriteThroughTests {
         #expect(frontMatter["_epdoc_content_json_hash"] == "json-hash")
         #expect(frontMatter["_epdoc_metadata_display_mode"] == "wide")
         #expect(frontMatter["_width"] == nil)
-        #expect(body == "# Heading\n\nBody")
+        #expect(body == "# Heading\n\nBody\n")
         #expect(written.hasSuffix("Body\n"))
     }
 
@@ -104,7 +104,7 @@ nonisolated struct EpdocMarkdownWriteThroughTests {
         let written = try String(contentsOf: targetURL, encoding: .utf8)
         let (frontMatter, body) = VaultIndexActor.parseFrontMatter(written)
         #expect(frontMatter["_width"] == "1040px")
-        #expect(body == "# Heading\n\nBody")
+        #expect(body == "# Heading\n\nBody\n")
     }
 
     @Test("Dual-write skips when the JS markdown snapshot is unavailable")

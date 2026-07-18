@@ -15,9 +15,18 @@ struct ProjectInclusionTests {
         #expect(appSection.contains("Engine/ClaudeManagedRuntime.swift"))
         #expect(!appSection.contains("Engine/LocalRustRuntime.swift"))
         #expect(!appSection.contains("KnowledgeFusion/"))
-        #expect(appSection.contains("Omega/Knowledge/ODIATraceGenerator.swift"))
-        #expect(appSection.contains("Omega/Knowledge/TraceDataMixer.swift"))
-        #expect(appSection.contains("Vault/KnowledgeGraphService.swift"))
+        let sourceRootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos")
+        for retiredSource in [
+            "Omega/Knowledge/ODIATraceGenerator.swift",
+            "Omega/Knowledge/TraceDataMixer.swift",
+            "Vault/KnowledgeGraphService.swift",
+        ] {
+            #expect(!FileManager.default.fileExists(atPath: sourceRootURL.appendingPathComponent(retiredSource).path))
+            #expect(!appSection.contains(retiredSource))
+        }
 
         #expect(testsSection.contains("type: syncedFolder"))
 
@@ -48,6 +57,7 @@ struct ProjectInclusionTests {
         #expect(bindingRoot.contains("path = \"build-rust/swift-bindings\""))
         #expect(!appSection.contains("KnowledgeFusion/"))
         #expect(!appExceptions.contains { $0.contains("KnowledgeFusion/") })
+        #expect(!appExceptions.contains("Vault/KnowledgeGraphService.swift"))
         #expect(appExceptions.contains(where: { $0.contains("__pycache__") }))
         #expect(!appExceptions.contains("Resources/LaunchAgents/com.epistemos.nightbrain.plist"))
         #expect(bindingExceptions.contains("omega_ax.swift"))

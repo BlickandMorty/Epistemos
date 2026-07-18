@@ -1,28 +1,47 @@
-//! Shadow backend trait and production `RealBackend`.
+//! Shadow backend trait and edition-selected production backend.
 //!
-//! The production backend owns Model2Vec encoding, usearch HNSW,
-//! tantivy BM25, and RRF fusion. The module also keeps the trait used
-//! by the C ABI surface so pre-open/test callers can use the
-//! explicitly labeled in-memory fallback from `state.rs`.
-//!
-//! `shadow_warm()` pre-initialises the embedder off the search hot path.
+//! Free V1 compiles only the deterministic Tantivy/BM25 note backend.
+//! A semantic backend remains separately selectable for a future edition,
+//! but is mutually exclusive with the Free feature.
 
+#[cfg(all(feature = "free-lexical", feature = "semantic"))]
+compile_error!("free-lexical and semantic are mutually exclusive epistemos-shadow features");
+
+#[cfg(not(any(feature = "free-lexical", feature = "semantic")))]
+compile_error!("select exactly one epistemos-shadow backend feature");
+
+#[cfg(feature = "semantic")]
 pub mod embedder;
+pub mod free_semantic;
 pub mod lexical_index;
+#[cfg(feature = "semantic")]
 pub mod rrf;
+#[cfg(feature = "semantic")]
 pub mod vector_index;
 
+#[cfg(feature = "free-lexical")]
+mod free_backend;
+#[cfg(feature = "free-lexical")]
+pub use free_backend::RealBackend;
+
+#[cfg(feature = "semantic")]
 use std::path::{Path, PathBuf};
+#[cfg(feature = "semantic")]
 use std::sync::{Mutex, RwLock};
+#[cfg(feature = "semantic")]
 use std::time::Instant;
 
+#[cfg(feature = "semantic")]
 use rustc_hash::FxHashMap;
 
 use crate::error::ShadowError;
 use crate::{ShadowDocument, ShadowHit, ShadowStats};
 
+#[cfg(feature = "semantic")]
 use embedder::Embedder;
+#[cfg(feature = "semantic")]
 use lexical_index::LexicalIndex;
+#[cfg(feature = "semantic")]
 use vector_index::VectorIndex;
 
 /// Pluggable backend for the Shadow engine. The FFI surface
@@ -39,6 +58,9 @@ use vector_index::VectorIndex;
 pub trait ShadowBackend: Send + Sync {
     fn insert_document(&self, doc: ShadowDocument) -> Result<(), ShadowError>;
     fn remove_document(&self, doc_id: &str) -> Result<(), ShadowError>;
+    #[cfg(feature = "free-lexical")]
+    fn search_notes(&self, query: &str, limit: usize) -> Result<Vec<ShadowHit>, ShadowError>;
+    #[cfg(feature = "semantic")]
     fn search(
         &self,
         query: &str,
@@ -47,14 +69,6 @@ pub trait ShadowBackend: Send + Sync {
     ) -> Result<Vec<ShadowHit>, ShadowError>;
     fn flush(&self) -> Result<(), ShadowError>;
     fn stats(&self) -> Result<ShadowStats, ShadowError>;
-
-    /// Per-stage timings of the most recent search call. Returns
-    /// `SearchTimings::default()` (all-zero) for backends that don't
-    /// track timings — Swift treats all-zero as "no signal" and skips
-    /// signpost emission. The in-memory fallback uses this default.
-    fn last_timings(&self) -> SearchTimings {
-        SearchTimings::default()
-    }
 }
 
 // MARK: - RealBackend (W8.4.e — the production implementor)
@@ -68,25 +82,7 @@ pub trait ShadowBackend: Send + Sync {
 // hops through `Mutex` / `RwLock` guards before touching the index
 // state. Reads are concurrent (RwLock::read).
 
-/// Per-stage timings of the most recent `RealBackend::search()` call.
-/// Exposed via `RealBackend::last_timings()` and surfaced through the
-/// `shadow_handle_last_timings_json` FFI so Swift can emit the
-/// AMBIENT_RECALL_HALO_MASTER_PLAN §4 OSSignposter intervals
-/// (`shadow.embed.ms` / `shadow.ann.ms` / `shadow.bm25.ms` /
-/// `shadow.fusion.ms`) without changing the existing search FFI shape.
-///
-/// The struct is `Default::default()` ⇒ all-zero, which means "no search
-/// has run yet on this handle" — Swift treats that as "no signal" and
-/// skips emission for the cold call.
-#[derive(Debug, Clone, Copy, Default, serde::Serialize)]
-pub struct SearchTimings {
-    pub embed_us: u64,
-    pub ann_us: u64,
-    pub bm25_us: u64,
-    pub fusion_us: u64,
-    pub total_us: u64,
-}
-
+#[cfg(feature = "semantic")]
 pub struct RealBackend {
     embedder: &'static Embedder,
     lexical: LexicalIndex,
@@ -95,9 +91,6 @@ pub struct RealBackend {
     /// emit `snippet` + `title` without re-querying tantivy.
     docs: RwLock<FxHashMap<String, ShadowDocument>>,
     last_flush: Mutex<Instant>,
-    /// Per-stage timings of the most recent search. Last-write-wins under
-    /// concurrent search; this is diagnostic data, not a strict barrier.
-    last_timings: Mutex<SearchTimings>,
     /// Optional persistence root. `None` for the in-memory variant
     /// (test fixtures + the `new()` constructor). When set, `flush()`
     /// writes the tantivy + usearch sidecars under this path so the
@@ -105,6 +98,7 @@ pub struct RealBackend {
     persistence_root: Option<PathBuf>,
 }
 
+#[cfg(feature = "semantic")]
 impl RealBackend {
     /// Construct a fresh in-memory RealBackend. Triggers HuggingFace
     /// download on first call (~30 MB cached at
@@ -120,7 +114,6 @@ impl RealBackend {
             vectors: RwLock::new(FxHashMap::default()),
             docs: RwLock::new(FxHashMap::default()),
             last_flush: Mutex::new(Instant::now()),
-            last_timings: Mutex::new(SearchTimings::default()),
             persistence_root: None,
         })
     }
@@ -187,16 +180,8 @@ impl RealBackend {
             vectors: RwLock::new(vectors),
             docs: RwLock::new(docs),
             last_flush: Mutex::new(Instant::now()),
-            last_timings: Mutex::new(SearchTimings::default()),
             persistence_root: Some(path.to_path_buf()),
         })
-    }
-
-    /// Per-stage timings of the most recent `search()` call. Returns
-    /// `SearchTimings::default()` (all-zero) when no search has run yet
-    /// on this handle.
-    pub fn last_timings(&self) -> SearchTimings {
-        *self.last_timings.lock().expect("last_timings lock poisoned")
     }
 
     fn ensure_vector_index(&self, domain: &str) -> Result<(), ShadowError> {
@@ -215,6 +200,7 @@ impl RealBackend {
     }
 }
 
+#[cfg(feature = "semantic")]
 impl ShadowBackend for RealBackend {
     fn insert_document(&self, doc: ShadowDocument) -> Result<(), ShadowError> {
         if doc.doc_id.is_empty() {
@@ -299,48 +285,31 @@ impl ShadowBackend for RealBackend {
             return Ok(Vec::new());
         }
 
-        // Per-stage timings for the AMBIENT_RECALL_HALO_MASTER_PLAN §4
-        // OSSignposter surface. Recorded into self.last_timings on
-        // success so Swift can read them via the
-        // shadow_handle_last_timings_json FFI.
-        let total_start = Instant::now();
-        let mut embed_us: u64 = 0;
-        let mut ann_us: u64 = 0;
-
         // Encode + dense search through the per-domain VectorIndex.
         let dense_hits: Vec<(String, f32)> = {
             let vectors = self.vectors.read().expect("vectors lock poisoned");
             match vectors.get(domain) {
                 Some(index) => {
-                    let embed_start = Instant::now();
                     let q_vec = self.embedder.encode_one(query);
-                    embed_us = embed_start.elapsed().as_micros() as u64;
                     if q_vec.is_empty() {
                         Vec::new()
                     } else {
-                        let ann_start = Instant::now();
-                        let hits = index.search(&q_vec, limit * 2);
-                        ann_us = ann_start.elapsed().as_micros() as u64;
-                        hits
+                        index.search(&q_vec, limit * 2)
                     }
                 }
                 None => Vec::new(),
             }
         };
 
-        let bm25_start = Instant::now();
         let lexical_hits: Vec<(String, f32)> = self
             .lexical
             .search(query, domain, limit * 2)?
             .into_iter()
             .map(|h| (h.doc_id, h.score))
             .collect();
-        let bm25_us = bm25_start.elapsed().as_micros() as u64;
 
         // RRF fuse the two channels.
-        let fusion_start = Instant::now();
         let fused = rrf::rrf_fuse(&dense_hits, &lexical_hits, rrf::RRF_K_DEFAULT, limit);
-        let fusion_us = fusion_start.elapsed().as_micros() as u64;
 
         // Hydrate with snippet + title from the docs side map.
         let docs = self.docs.read().expect("docs lock poisoned");
@@ -376,16 +345,6 @@ impl ShadowBackend for RealBackend {
             })
             .collect();
 
-        let total_us = total_start.elapsed().as_micros() as u64;
-        if let Ok(mut slot) = self.last_timings.lock() {
-            *slot = SearchTimings {
-                embed_us,
-                ann_us,
-                bm25_us,
-                fusion_us,
-                total_us,
-            };
-        }
         Ok(hits)
     }
 
@@ -442,17 +401,12 @@ impl ShadowBackend for RealBackend {
             last_flush_ms_ago: last_flush.elapsed().as_millis() as u64,
         })
     }
-
-    fn last_timings(&self) -> SearchTimings {
-        // Trait override so the FFI can read RealBackend's per-stage
-        // timing accumulator without downcasting.
-        RealBackend::last_timings(self)
-    }
 }
 
 /// Pre-truncated snippet centred on the query match (or doc head when
 /// no match). Mirrors the in-memory fallback algorithm so the Swift
 /// inspector's snippet display is unchanged.
+#[cfg(feature = "semantic")]
 fn build_snippet(body: &str, query: &str) -> String {
     const MAX: usize = 160;
     if body.len() <= MAX {
@@ -474,7 +428,7 @@ fn build_snippet(body: &str, query: &str) -> String {
     body[safe_start..safe_end].to_string()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "semantic"))]
 mod tests {
     use super::*;
     use crate::state::ShadowState;

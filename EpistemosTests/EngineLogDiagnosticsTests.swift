@@ -10,34 +10,33 @@ struct EngineLogDiagnosticsTests {
             domain: "NSCocoaErrorDomain\n/Users/jojo/PrivateVault",
             code: 260,
             userInfo: [
-                NSLocalizedDescriptionKey: "/Users/jojo/PrivateVault/knowledge_index.md missing"
+                NSLocalizedDescriptionKey: "/Users/jojo/PrivateVault/index record missing"
             ]
         )
 
         let message = EngineLogDiagnostics.logMessage(
             for: error,
-            fallback: "KnowledgeIndexBuilder: failed to write knowledge index"
+            fallback: "Vault persistence write failed"
         )
 
-        #expect(message.contains("KnowledgeIndexBuilder: failed to write knowledge index"))
+        #expect(message.contains("Vault persistence write failed"))
         #expect(message.contains("domain=Error"))
         #expect(message.contains("code=260"))
         #expect(message.count <= EngineLogDiagnostics.maxLogMessageCharacters)
         #expect(!message.contains("/Users/jojo"))
         #expect(!message.contains("PrivateVault"))
-        #expect(!message.contains("knowledge_index.md"))
+        #expect(!message.contains("index record"))
     }
 
-    @Test("Dataview and KnowledgeIndex logs route through redacted diagnostics")
-    func dataviewAndKnowledgeIndexLogsRouteThroughRedactedDiagnostics() throws {
+    @Test("Dataview logs route through redacted diagnostics")
+    func dataviewLogsRouteThroughRedactedDiagnostics() throws {
         let diagnostics = try loadMirroredSourceTextFile("Epistemos/Engine/EngineLogDiagnostics.swift")
         #expect(diagnostics.contains("String(message.prefix(maxLogMessageCharacters + 32))"))
         #expect(diagnostics.contains("String(domain.prefix(maxDomainCharacters + 32))"))
 
         let dataview = try loadMirroredSourceTextFile("Epistemos/Engine/DataviewService.swift")
-        let knowledgeIndex = try loadMirroredSourceTextFile("Epistemos/Engine/KnowledgeIndexBuilder.swift")
 
-        for source in [dataview, knowledgeIndex] {
+        for source in [dataview] {
             #expect(source.contains("EngineLogDiagnostics.logMessage"))
             #expect(!source.contains("error.localizedDescription"))
             #expect(!source.contains("String(describing: error)"))
@@ -47,7 +46,6 @@ struct EngineLogDiagnosticsTests {
     @Test("engine persistence logs route through redacted diagnostics")
     func enginePersistenceLogsRouteThroughRedactedDiagnostics() throws {
         let paths = [
-            "Epistemos/Engine/CapabilityManifestBuilder.swift",
             "Epistemos/Engine/MutationOpLogProjectionWorker.swift",
             "Epistemos/Engine/QuarantineArchive.swift",
         ]
@@ -66,7 +64,6 @@ struct EngineLogDiagnosticsTests {
             "Epistemos/Engine/RustAnswerPacketProducerClient.swift",
             "Epistemos/Engine/RustProvenanceLedgerClient.swift",
             "Epistemos/Engine/RustCognitiveDagClient.swift",
-            "Epistemos/Engine/ResonanceService.swift",
             "Epistemos/Engine/FSRSDecayState.swift",
         ]
 

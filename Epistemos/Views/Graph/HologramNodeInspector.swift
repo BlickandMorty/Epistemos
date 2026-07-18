@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
+#if !EPISTEMOS_FREE_V1
 import NaturalLanguage
+#endif
 
 private enum HologramInspectorPreviewPolicy {
     static let maxBodyCharacters = 24_000
@@ -108,7 +110,7 @@ struct HologramNodeInspector: View {
         size: CGFloat,
         weight: Font.Weight = .regular
     ) -> Font {
-        ClaudeAppTypography.assistantFont(size: size, weight: weight)
+        AssistantTextTypography.assistantFont(size: size, weight: weight)
     }
 
     private func inspectorContent(_ node: GraphNodeRecord) -> some View {

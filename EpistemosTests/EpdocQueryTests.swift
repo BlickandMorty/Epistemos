@@ -187,7 +187,6 @@ nonisolated struct EpdocQueryTests {
             "has-property", "is-empty",
             "recently-updated", "older-than",
             "has-attached-thoughts",
-            "complexity-above", "complexity-below",
         ]
         #expect(names == expected,
                 "the slash-menu + parser MUST see the same rule list; got \(names.sorted())")
@@ -239,34 +238,6 @@ nonisolated struct EpdocQueryTests {
         #expect(!EpdocQueryEvaluator.evaluate(q, row: bare))
     }
 
-    @Test(".rule complexity-above + complexity-below read the W7.12 metadata key")
-    func ruleComplexityThresholds() throws {
-        let mAt08 = EpdocManifest(
-            id: "x",
-            createdAt: 0,
-            updatedAt: 0,
-            title: "x",
-            contentHash: "",
-            provenance: EpdocProvenance(producer: .human),
-            metadata: ["complexity": "0.8"]
-        )
-        let highComplexity = EpdocDatabaseRow(manifest: mAt08)
-
-        let above05: EpdocQueryAST = .rule(name: "complexity-above",
-                                           args: [.titleContains("0.5")])
-        #expect(EpdocQueryEvaluator.evaluate(above05, row: highComplexity))
-
-        let below05: EpdocQueryAST = .rule(name: "complexity-below",
-                                           args: [.titleContains("0.5")])
-        #expect(!EpdocQueryEvaluator.evaluate(below05, row: highComplexity))
-
-        // Missing complexity metadata → both rules return false (rule
-        // failure, NOT a panic; the user expects "no match" not a crash)
-        let bare = try Self.row(id: "b", title: "b", props: [:])
-        #expect(!EpdocQueryEvaluator.evaluate(above05, row: bare))
-        #expect(!EpdocQueryEvaluator.evaluate(below05, row: bare))
-    }
-
     @Test("Built-in rules tolerate malformed args by returning false (defensive evaluation)")
     func ruleArgCoercionDefensive() throws {
         let row = try Self.row(id: "x", title: "x", props: [:])
@@ -280,10 +251,6 @@ nonisolated struct EpdocQueryTests {
             .rule(name: "recently-updated", args: [.titleContains("forever")]),
             row: row))
 
-        // complexity-above with non-numeric threshold → false
-        #expect(!EpdocQueryEvaluator.evaluate(
-            .rule(name: "complexity-above", args: [.titleContains("zero")]),
-            row: row))
     }
 
     // MARK: - End-to-end via EpdocDatabase

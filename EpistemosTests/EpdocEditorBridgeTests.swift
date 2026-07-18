@@ -1232,8 +1232,8 @@ nonisolated struct EpdocEditorBridgeTests {
     }
 
     @MainActor
-    @Test("chrome controller reports user note-width changes to the host")
-    func chromeControllerReportsUserWidthChanges() {
+    @Test("chrome controller keeps user note-width changes presentation-only")
+    func chromeControllerKeepsUserWidthChangesPresentationOnly() {
         let controller = EpdocEditorChromeController()
         var commands: [EpdocEditorCommand] = []
         var persistedWidthChanges: [NoteWidthMode] = []
@@ -1245,9 +1245,8 @@ nonisolated struct EpdocEditorBridgeTests {
         controller.dispatch(.setContentWidth(mode: .wide))
 
         #expect(controller.toolbarModel.widthMode == .wide)
-        #expect(controller.canonicalWidthMode == .wide)
         #expect(commands == [.setContentWidth(mode: .wide)])
-        #expect(persistedWidthChanges == [.wide])
+        #expect(persistedWidthChanges.isEmpty)
     }
 
     @MainActor
@@ -1270,8 +1269,8 @@ nonisolated struct EpdocEditorBridgeTests {
     }
 
     @MainActor
-    @Test("chrome controller computes status counters from loaded document JSON before JS emits updates")
-    func chromeControllerComputesInitialStatusFromLoadedJSON() {
+    @Test("chrome controller computes bounded initial status from loaded document JSON before JS emits updates")
+    func chromeControllerComputesBoundedInitialStatusFromLoadedJSON() {
         let controller = EpdocEditorChromeController()
         let json = """
         {
@@ -1288,9 +1287,6 @@ nonisolated struct EpdocEditorBridgeTests {
 
         #expect(controller.toolbarModel.wordCount > 0)
         #expect(controller.toolbarModel.characterCount > 0)
-        #expect(controller.complexityBreakdown?.mermaidCount == 1)
-        #expect(controller.complexityBreakdown?.embedCount == 1)
-        #expect(controller.complexity > 0)
     }
 
     @MainActor
@@ -1698,7 +1694,7 @@ nonisolated struct EpdocEditorBridgeTests {
     func tiptapUpdatePathDefersHeavyWork() throws {
         let source = try loadMirroredSourceTextFile("js-editor/src/index.ts")
 
-        guard let updateStart = source.range(of: "onUpdate: ({ editor: ed }) => {"),
+        guard let updateStart = source.range(of: "onUpdate: ({ editor: ed, transaction }) => {"),
               let createStart = source.range(of: "  onCreate:", range: updateStart.upperBound..<source.endIndex) else {
             #expect(Bool(false), "must find the Tiptap onUpdate block in js-editor/src/index.ts")
             return
@@ -1715,6 +1711,9 @@ nonisolated struct EpdocEditorBridgeTests {
                 "full-document JSON serialization must not run in the live update callback.")
         #expect(!updateBlock.contains("postDocumentStats(ed)"),
                 "CharacterCount word/character scans must not run in the live update callback.")
+        #expect(source.contains("markdownProjectionMode"))
+        #expect(source.contains("postMarkdownDidChange(editor, { preferWriteback: true })"))
+        #expect(source.contains("LARGE_DOCUMENT_NODE_SIZE"))
     }
 
     @Test("document editor exposes immediate snapshot flush for native saves")

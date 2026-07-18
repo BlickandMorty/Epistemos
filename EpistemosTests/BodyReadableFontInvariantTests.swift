@@ -4,7 +4,7 @@ import AppKit
 
 @testable import Epistemos
 
-// Regression guard (2026-06-21) for the body-vs-display font split that the custom-theme-font
+// Regression guard (2026-06-21) for the body-vs-display font split that the display-font
 // items (L1160 / L1163) deliberately hinge on. AppDisplayTypography.regularUIFont(...) backs the
 // note-editor BODY and chat body; the custom/display faces (displayFontName) are pixel-art display
 // faces used only for headings + display chrome. The deliberate decision is: picking a custom display

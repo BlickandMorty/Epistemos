@@ -42,17 +42,6 @@ struct LandingOptimizationTests {
         #expect(LiquidGreetingTiming.untypingDelay(forStep: 0) != LiquidGreetingTiming.untypingDelay(forStep: 1))
     }
 
-    @Test("session intelligence landing feature is detached from the live landing path")
-    func sessionIntelligenceLandingFeatureIsDetachedFromLivePath() throws {
-        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
-        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
-
-        #expect(!app.contains("toggleSessionIntelligence"))
-        #expect(!root.contains("SessionIntelligenceOverlay"))
-        #expect(!landing.contains("SessionIntelligenceOverlay"))
-    }
-
     @Test("landing does not carry the retired native search composer")
     func landingDoesNotCarryRetiredSearchComposer() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
@@ -121,7 +110,6 @@ struct LandingOptimizationTests {
             "Epistemos/Views/Landing/QuitSavePanelController.swift",
             "Epistemos/Views/Landing/LandingView.swift",
             "Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift",
-            "Epistemos/Views/Landing/SessionIntelligenceOverlay.swift",
         ]
 
         for path in paths {

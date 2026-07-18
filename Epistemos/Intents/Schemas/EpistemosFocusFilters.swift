@@ -1,6 +1,8 @@
-import AppIntents
 import Foundation
+#if !EPISTEMOS_FREE_V1
+import AppIntents
 import OSLog
+#endif
 
 // MARK: - EpistemosFocusFilter (W14.3)
 //
@@ -23,10 +25,13 @@ import OSLog
 // `EpistemosFocusKeys` constants below; the rest of the app reads
 // these to honour the focus.
 
+#if !EPISTEMOS_FREE_V1
+
 private let focusLog = Logger(
     subsystem: "com.epistemos",
     category: "EpistemosFocusFilter"
 )
+#endif
 
 // MARK: - UserDefaults bridge
 
@@ -47,13 +52,15 @@ public enum EpistemosFocusKeys {
     /// turns off the Focus mode; macOS doesn't always invoke a
     /// "filter off" hook).
     public static func clearAll() {
-        let d = UserDefaults.standard
+        let d = FoundationSafety.runtimeUserDefaults
         d.removeObject(forKey: agentInterruptsDisabled)
         d.removeObject(forKey: forceLocalModelsOnly)
         d.removeObject(forKey: muteHaloRecallChip)
         d.removeObject(forKey: lowDistraction)
     }
 }
+
+#if !EPISTEMOS_FREE_V1
 
 // MARK: - Mode enum
 
@@ -139,7 +146,7 @@ struct EpistemosFocusFilter: SetFocusFilterIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        let d = UserDefaults.standard
+        let d = FoundationSafety.runtimeUserDefaults
         switch mode {
         case .deepWork:
             d.set(true, forKey: EpistemosFocusKeys.agentInterruptsDisabled)
@@ -164,3 +171,4 @@ struct EpistemosFocusFilter: SetFocusFilterIntent {
         return .result()
     }
 }
+#endif

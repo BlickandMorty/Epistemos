@@ -12,8 +12,26 @@ private func makeQueryResultNode(
         from: record,
         score: score,
         snippet: snippet,
-        connectionCount: graphStore.linkCount(for: record.id)
+        connectionCount: currentProductProjectionLinkCount(for: record, in: graphStore)
     )
+}
+
+@MainActor
+private func currentProductProjectionLinkCount(
+    for record: GraphNodeRecord,
+    in graphStore: GraphStore
+) -> UInt32 {
+    guard ProductCapabilityPolicy.allowsGraphProjection(of: record) else { return 0 }
+    return UInt32(graphStore.edges(for: record.id).reduce(into: 0) { count, edge in
+        guard let source = graphStore.nodes[edge.sourceNodeId],
+              let target = graphStore.nodes[edge.targetNodeId],
+              ProductCapabilityPolicy.allowsGraphProjection(of: source),
+              ProductCapabilityPolicy.allowsGraphProjection(of: target)
+        else {
+            return
+        }
+        count += 1
+    })
 }
 
 nonisolated enum BTKQueryPageIDBufferDecoder {
@@ -343,38 +361,10 @@ final class RetrievalRuntime {
     }
 
     func fullText(query: String, scope: SearchScope, limit: Int = 50) -> [QueryResultNode] {
+        guard let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit) else { return [] }
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return [] }
         var seen = Set<String>()
         var candidates: [RetrievalCandidate] = []
-
-        // Wiring #1 (T10 Eidos → QueryRuntime). Prefer the production
-        // vault-bound retriever when AppBootstrap has opened it; otherwise
-        // keep the fixture helper as a diagnostic/back-compat path. Empty
-        // or unmapped Eidos packets fall through to RRF/legacy retrieval.
-        if EidosFlags.isEnabled {
-            let eidosStartedAt = Date()
-            if let packet = Self.eidosPacket(query: query, limit: limit) {
-                VaultRecallContract.recordEidosPacket(
-                    query: query,
-                    packet: packet,
-                    latencyMs: Date().timeIntervalSince(eidosStartedAt) * 1000
-                )
-                for hit in packet.hits {
-                    appendNoteResult(
-                        pageId: hit.documentId.raw,
-                        score: hit.confidence,
-                        snippet: "",
-                        source: .pageSearch,
-                        seen: &seen,
-                        candidates: &candidates
-                    )
-                }
-                if !candidates.isEmpty {
-                    return graphEventHintedCandidates(
-                        scoredCandidates(query: query, candidates: candidates)
-                    ).map(\.node)
-                }
-            }
-        }
 
         // RRF Fusion Phase 4 wiring site §3 — Epdoc Slash menu / @-mention
         // block-link autocomplete. When the env flag is set AND the caller
@@ -385,8 +375,8 @@ final class RetrievalRuntime {
         if RRFFusionFlags.isEnabled && scope == .all {
             do {
                 let fused = try searchIndex.fusedSearch(
-                    query: query,
-                    weights: FusionWeights(maxResults: limit)
+                    query: checkedQuery,
+                    weights: FusionWeights(maxResults: checkedLimit)
                 )
                 for result in fused {
                     let resolvedSource: RetrievalCandidateSource =
@@ -401,11 +391,11 @@ final class RetrievalRuntime {
                     )
                 }
                 return graphEventHintedCandidates(
-                    scoredCandidates(query: query, candidates: candidates)
+                    scoredCandidates(query: checkedQuery, candidates: candidates)
                 ).map(\.node)
             } catch {
                 Log.ffiBoundary.error(
-                    "QueryRuntime: fusedSearch failed for '\(query, privacy: .private)': \(error.localizedDescription, privacy: .public). Falling back to legacy per-index dispatch."
+                    "QueryRuntime: fused note search failed; falling back to bounded per-index search."
                 )
                 // Fall through to legacy path below.
             }
@@ -413,7 +403,7 @@ final class RetrievalRuntime {
 
         if scope != .blocks {
             do {
-                let results = try searchIndex.search(query: query, limit: limit)
+                let results = try searchIndex.search(query: checkedQuery, limit: checkedLimit)
                 for result in results {
                     appendNoteResult(
                         pageId: result.pageId,
@@ -426,14 +416,14 @@ final class RetrievalRuntime {
                 }
             } catch {
                 Log.ffiBoundary.error(
-                    "QueryRuntime: failed to search note index for '\(query, privacy: .private)': \(error.localizedDescription, privacy: .public)"
+                    "QueryRuntime: note index search failed."
                 )
             }
         }
 
         if scope == .blocks || scope == .all {
             do {
-                let blockResults = try searchIndex.searchBlocks(query: query, limit: limit)
+                let blockResults = try searchIndex.searchBlocks(query: checkedQuery, limit: checkedLimit)
                 for result in blockResults {
                     appendNoteResult(
                         pageId: result.pageId,
@@ -446,32 +436,26 @@ final class RetrievalRuntime {
                 }
             } catch {
                 Log.ffiBoundary.error(
-                    "QueryRuntime: failed to search block index for '\(query, privacy: .private)': \(error.localizedDescription, privacy: .public)"
+                    "QueryRuntime: block index search failed."
                 )
             }
         }
 
         return graphEventHintedCandidates(
-            scoredCandidates(query: query, candidates: candidates)
+            scoredCandidates(query: checkedQuery, candidates: candidates)
         ).map(\.node)
     }
 
-    private nonisolated static func eidosPacket(query: String, limit: Int) -> EidosContextPacket? {
-        let topK = UInt32(max(1, limit))
-        if EidosBridge.vaultStatus()?.isOpen == true {
-            return EidosBridge.retrieve(query: query, topK: topK)
-        }
-        return EidosBridge.search(query: query, topK: topK)
-    }
-
     func semantic(query: String, limit: Int) -> [QueryResultNode] {
-        let candidates = graphState.semanticSearch(query: query, limit: limit).map {
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query) else { return [] }
+        guard let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit) else { return [] }
+        let candidates = graphState.semanticSearch(query: checkedQuery, limit: checkedLimit).map {
             RetrievalCandidate(
                 node: makeQueryResultNode(from: $0.node, in: graphStore, score: $0.score),
                 source: .semanticGraph
             )
         }
-        return scoredCandidates(query: query, candidates: candidates).map(\.node)
+        return scoredCandidates(query: checkedQuery, candidates: candidates).map(\.node)
     }
 
     private func appendNoteResult(
@@ -536,11 +520,13 @@ final class RetrievalRuntime {
 ///
 /// `QueryRuntime` is the only conformer today; a knowledge-core-backed
 /// executor is introduced in a later slice behind a default-OFF flag. This is
-/// behavior-preserving: every existing caller passes a `QueryRuntime`, which
-/// already satisfies `any QueryExecutor`. No logic changes here.
+/// behavior-preserving for execution: every existing caller passes a
+/// `QueryRuntime`. Executors also identify their concrete Search source so
+/// reactive consumers can reject delayed events from a retired vault.
 @MainActor
 protocol QueryExecutor: AnyObject {
     func execute(_ plan: QueryPlan) -> QueryResult
+    func matchesSearchNotificationSource(_ source: SearchIndexService) -> Bool
 }
 
 extension QueryRuntime: QueryExecutor {}
@@ -553,6 +539,7 @@ final class QueryRuntime {
 
     private let graphStore: GraphStore
     private let graphState: GraphState
+    private let searchIndex: SearchIndexService
     private let retrieval: RetrievalRuntime
 
     init(
@@ -564,6 +551,7 @@ final class QueryRuntime {
     ) {
         self.graphStore = graphStore
         self.graphState = graphState
+        self.searchIndex = searchIndex
         retrieval = RetrievalRuntime(
             graphStore: graphStore,
             graphState: graphState,
@@ -571,6 +559,10 @@ final class QueryRuntime {
             scorer: scorer,
             graphEventProjectionSnapshotProvider: graphEventProjectionSnapshotProvider
         )
+    }
+
+    func matchesSearchNotificationSource(_ source: SearchIndexService) -> Bool {
+        searchIndex === source
     }
 
     func execute(_ plan: QueryPlan) -> QueryResult {
@@ -583,8 +575,12 @@ final class QueryRuntime {
             raw = executeCombined(plan)
         }
 
+        // Sanitize before projection so a hidden record cannot affect paging,
+        // ordering, graph traversal, or a caller's direct compiled plan.
+        let sanitizedRaw = sanitizeForCurrentProduct(raw)
+
         // Apply projection (limit/offset/orderBy)
-        var nodes = raw.nodes
+        var nodes = sanitizedRaw.nodes
         if let orderBy = plan.orderBy {
             nodes = applyOrdering(nodes, orderBy: orderBy)
         }
@@ -598,10 +594,39 @@ final class QueryRuntime {
         let elapsed = (CACurrentMediaTime() - start) * 1000
         return QueryResult(
             nodes: nodes,
-            edges: raw.edges,
-            aggregation: raw.aggregation,
+            edges: sanitizedRaw.edges,
+            aggregation: sanitizedRaw.aggregation,
             executionTimeMs: elapsed
         )
+    }
+
+    private func sanitizeForCurrentProduct(_ result: QueryResult) -> QueryResult {
+        QueryResult(
+            nodes: result.nodes.compactMap { resultNode in
+                guard let record = graphStore.nodes[resultNode.id],
+                      ProductCapabilityPolicy.allowsGraphProjection(of: record)
+                else {
+                    return nil
+                }
+                return makeQueryResultNode(
+                    from: record,
+                    in: graphStore,
+                    score: resultNode.score,
+                    snippet: resultNode.snippet
+                )
+            },
+            // QueryResultEdge omits endpoint IDs. Every edge result is therefore
+            // validated before its labels are constructed in executeEdgeFilter.
+            edges: result.edges,
+            // An aggregation without record identities cannot be proven to have
+            // been derived from the allowed induced subgraph.
+            aggregation: currentProductAggregation(from: result.aggregation),
+            executionTimeMs: result.executionTimeMs
+        )
+    }
+
+    private func currentProductAggregation(from aggregation: QueryAggregation?) -> QueryAggregation? {
+        ProductCapabilityPolicy.currentEdition == .freeV1 ? nil : aggregation
     }
 
     private func applyOrdering(_ nodes: [QueryResultNode], orderBy: OrderBy) -> [QueryResultNode] {
@@ -815,6 +840,9 @@ final class QueryRuntime {
         updatedAfter: Date?,
         updatedBefore: Date?
     ) -> Bool {
+        guard ProductCapabilityPolicy.allowsGraphProjection(of: node) else {
+            return false
+        }
         if let types, !types.contains(node.type) {
             return false
         }
@@ -887,11 +915,18 @@ final class QueryRuntime {
             )
         }
 
-        let edgeResults = results.map { edge -> QueryResultEdge in
-            QueryResultEdge(
+        let edgeResults = results.compactMap { edge -> QueryResultEdge? in
+            guard let source = graphStore.nodes[edge.sourceNodeId],
+                  let target = graphStore.nodes[edge.targetNodeId],
+                  ProductCapabilityPolicy.allowsGraphProjection(of: source),
+                  ProductCapabilityPolicy.allowsGraphProjection(of: target)
+            else {
+                return nil
+            }
+            return QueryResultEdge(
                 id: edge.id,
-                sourceLabel: graphStore.nodes[edge.sourceNodeId]?.label ?? "?",
-                targetLabel: graphStore.nodes[edge.targetNodeId]?.label ?? "?",
+                sourceLabel: source.label,
+                targetLabel: target.label,
                 type: edge.type,
                 weight: edge.weight
             )
@@ -917,6 +952,13 @@ final class QueryRuntime {
         types: [GraphEdgeType]?,
         involvingNodeID: String?
     ) -> Bool {
+        guard let source = graphStore.nodes[edge.sourceNodeId],
+              let target = graphStore.nodes[edge.targetNodeId],
+              ProductCapabilityPolicy.allowsGraphProjection(of: source),
+              ProductCapabilityPolicy.allowsGraphProjection(of: target)
+        else {
+            return false
+        }
         if let types, !types.contains(edge.type) {
             return false
         }
@@ -949,10 +991,99 @@ final class QueryRuntime {
         }
     }
 
+    private func allowedNeighborIDs(
+        from nodeID: String,
+        edgeTypes: Set<GraphEdgeType>?
+    ) -> [String] {
+        guard let source = graphStore.nodes[nodeID],
+              ProductCapabilityPolicy.allowsGraphProjection(of: source)
+        else {
+            return []
+        }
+
+        var seen = Set<String>()
+        return graphStore.edges(for: nodeID)
+            .compactMap { edge -> String? in
+                guard edgeTypes?.contains(edge.type) ?? true else { return nil }
+                let otherID = edge.sourceNodeId == nodeID ? edge.targetNodeId : edge.sourceNodeId
+                guard let other = graphStore.nodes[otherID],
+                      ProductCapabilityPolicy.allowsGraphProjection(of: other),
+                      seen.insert(otherID).inserted
+                else {
+                    return nil
+                }
+                return otherID
+            }
+    }
+
+    private func allowedReachableNodeIDs(from nodeID: String, maxDepth: Int) -> [String] {
+        guard maxDepth > 0,
+              let source = graphStore.nodes[nodeID],
+              ProductCapabilityPolicy.allowsGraphProjection(of: source)
+        else {
+            return []
+        }
+
+        var visited: Set<String> = [nodeID]
+        var queue: [(id: String, depth: Int)] = [(nodeID, 0)]
+        var queueIndex = 0
+        var result: [String] = []
+
+        while queueIndex < queue.count {
+            let current = queue[queueIndex]
+            queueIndex += 1
+            guard current.depth < maxDepth else { continue }
+
+            for neighborID in allowedNeighborIDs(from: current.id, edgeTypes: nil)
+            where visited.insert(neighborID).inserted {
+                result.append(neighborID)
+                queue.append((neighborID, current.depth + 1))
+            }
+        }
+        return result
+    }
+
+    private func allowedPath(from startID: String, to endID: String, maxHops: Int) -> [GraphNodeRecord] {
+        guard maxHops >= 0,
+              let start = graphStore.nodes[startID],
+              let end = graphStore.nodes[endID],
+              ProductCapabilityPolicy.allowsGraphProjection(of: start),
+              ProductCapabilityPolicy.allowsGraphProjection(of: end)
+        else {
+            return []
+        }
+        if startID == endID { return [start] }
+
+        var visited: Set<String> = [startID]
+        var parent: [String: String] = [:]
+        var queue: [(id: String, depth: Int)] = [(startID, 0)]
+        var queueIndex = 0
+
+        while queueIndex < queue.count {
+            let current = queue[queueIndex]
+            queueIndex += 1
+            guard current.depth < maxHops else { continue }
+
+            for neighborID in allowedNeighborIDs(from: current.id, edgeTypes: nil)
+            where visited.insert(neighborID).inserted {
+                parent[neighborID] = current.id
+                if neighborID == endID {
+                    var pathIDs = [endID]
+                    while let previous = parent[pathIDs.last!] {
+                        pathIDs.append(previous)
+                    }
+                    return pathIDs.reversed().compactMap { graphStore.nodes[$0] }
+                }
+                queue.append((neighborID, current.depth + 1))
+            }
+        }
+        return []
+    }
+
     private func executePath(from: NodeRef, to: NodeRef, maxHops: Int) -> QueryResult {
         guard let fromId = resolveNodeRef(from),
               let toId = resolveNodeRef(to) else { return .empty }
-        let path = graphStore.query(.pathBetween(from: fromId, to: toId, maxHops: maxHops))
+        let path = allowedPath(from: fromId, to: toId, maxHops: maxHops)
         let nodes = path.map { makeQueryResultNode(from: $0, in: graphStore) }
         return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
     }
@@ -960,19 +1091,14 @@ final class QueryRuntime {
     private func executeNeighbors(of nodeRef: NodeRef, edgeTypes: [GraphEdgeType]?, depth: Int) -> QueryResult {
         guard let nodeId = resolveNodeRef(nodeRef) else { return .empty }
         if let edgeTypes {
-            var allNeighbors: [GraphNodeRecord] = []
-            for edgeType in edgeTypes {
-                allNeighbors.append(contentsOf: graphStore.query(.nodesWithEdgeType(edgeType, from: nodeId)))
-            }
-            var seen = Set<String>()
-            let unique = allNeighbors.filter { seen.insert($0.id).inserted }
-            let nodes = unique.map { makeQueryResultNode(from: $0, in: graphStore) }
+            let permittedTypes = Set(edgeTypes)
+            let nodes = allowedNeighborIDs(from: nodeId, edgeTypes: permittedTypes)
+                .compactMap { graphStore.nodes[$0] }
+                .map { makeQueryResultNode(from: $0, in: graphStore) }
             return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
         } else {
-            let connectedIds = graphStore.connected(to: nodeId, maxDepth: depth)
-            let nodes = connectedIds
+            let nodes = allowedReachableNodeIDs(from: nodeId, maxDepth: depth)
                 .compactMap { graphStore.nodes[$0] }
-                .filter { $0.id != nodeId }
                 .map { makeQueryResultNode(from: $0, in: graphStore) }
             return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
         }
@@ -1026,7 +1152,11 @@ final class QueryRuntime {
     private func pageIdsToQueryResult(_ buffer: GraphEngineByteBuffer) -> QueryResult {
         let pageIds = BTKQueryPageIDBufferDecoder.decode(buffer)
         let nodes = pageIds.compactMap { pageId -> QueryResultNode? in
-            guard let node = graphStore.node(bySourceId: pageId, type: .note) else { return nil }
+            guard let node = graphStore.node(bySourceId: pageId, type: .note),
+                  ProductCapabilityPolicy.allowsGraphProjection(of: node)
+            else {
+                return nil
+            }
             return makeQueryResultNode(from: node, in: graphStore)
         }
         return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
@@ -1034,15 +1164,38 @@ final class QueryRuntime {
 
     private func executeLabelFilter(_ text: String) -> QueryResult {
         let matches = graphStore.nodes(matchingLabelContains: text)
+            .filter(ProductCapabilityPolicy.allowsGraphProjection(of:))
         let nodes = matches.map { makeQueryResultNode(from: $0, in: graphStore) }
         return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
     }
 
     private func resolveNodeRef(_ ref: NodeRef) -> String? {
         switch ref {
-        case .id(let id): return graphStore.nodes[id] != nil ? id : nil
-        case .label(let label): return graphStore.fuzzySearch(query: label, limit: 1).first?.id
-        case .type(let type): return graphStore.firstNode(ofType: type)?.id
+        case .id(let id):
+            guard let node = graphStore.nodes[id],
+                  ProductCapabilityPolicy.allowsGraphProjection(of: node)
+            else {
+                return nil
+            }
+            return id
+        case .label(let label):
+            return graphStore.fuzzySearchForCurrentProductProjection(
+                query: label,
+                limit: 1
+            ).first?.id
+        case .type(let type):
+            guard ProductCapabilityPolicy.allowsGraphProjection(of: type) else {
+                return nil
+            }
+            var match: String?
+            graphStore.forEachNodeNewestFirst(ofTypes: [type]) { node in
+                guard ProductCapabilityPolicy.allowsGraphProjection(of: node) else {
+                    return true
+                }
+                match = node.id
+                return false
+            }
+            return match
         }
     }
 }

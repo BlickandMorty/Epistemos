@@ -20,7 +20,11 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     case localSkill
     case rawSkill
     case context7
+    #if EPISTEMOS_FREE_V1
+    case paidSkills
+    #else
     case anthropicSkills
+    #endif
     case smithery
     case mcpSO
     case glama
@@ -35,7 +39,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     case provenance
     case extensions
     case vaultMCP
-    case browser
     case meetingNote
     case voice
     case appleNative
@@ -57,7 +60,11 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .localSkill: "Local Skill"
         case .rawSkill: "Raw Skill"
         case .context7: "Context7"
+        #if EPISTEMOS_FREE_V1
+        case .paidSkills: "Paid Skills"
+        #else
         case .anthropicSkills: "Anthropic Skills"
+        #endif
         case .smithery: "Smithery"
         case .mcpSO: "mcp.so"
         case .glama: "Glama"
@@ -72,7 +79,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .provenance: "Provenance"
         case .extensions: "Extensions"
         case .vaultMCP: "Vault MCP"
-        case .browser: "Browser"
         case .meetingNote: "Meeting Note"
         case .voice: "Voice"
         case .appleNative: "Apple Native"
@@ -100,7 +106,11 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .localSkill: "folder"
         case .rawSkill: "doc.plaintext"
         case .context7: "book.pages"
+        #if EPISTEMOS_FREE_V1
+        case .paidSkills: "sparkles"
+        #else
         case .anthropicSkills: "sparkles"
+        #endif
         case .smithery: "hammer"
         case .mcpSO: "m.circle"
         case .glama: "sparkle.magnifyingglass"
@@ -114,7 +124,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .arxiv: "doc.text.magnifyingglass"
         case .provenance: "checkmark.seal"
         case .extensions: "puzzlepiece.extension"
-        case .browser: "safari"
         case .meetingNote: "waveform"
         case .voice: "waveform.and.mic"
         case .appleNative: "apple.logo"
@@ -125,7 +134,11 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     var monogram: String {
         switch self {
         case .context7: "C7"
+        #if EPISTEMOS_FREE_V1
+        case .paidSkills: "PS"
+        #else
         case .anthropicSkills: "AS"
+        #endif
         case .smithery: "SM"
         case .mcpSO: "SO"
         case .glama: "GL"
@@ -148,10 +161,17 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
 
     var usesMonogramFallback: Bool {
         switch self {
+        #if EPISTEMOS_FREE_V1
+        case .context7, .paidSkills, .smithery, .mcpSO, .glama, .github,
+             .bundledSkills, .localSkill, .rawSkill,
+             .slack, .gmail, .googleDrive, .huggingFace, .notion:
+            return true
+        #else
         case .context7, .anthropicSkills, .smithery, .mcpSO, .glama, .github,
              .bundledSkills, .localSkill, .rawSkill,
              .slack, .gmail, .googleDrive, .huggingFace, .notion:
             return true
+        #endif
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .codexSkills:
             return true
@@ -207,7 +227,11 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     static func bestOfPreset(kind: String, id: String, displayName: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(id, displayName)
         if haystack.contains("context7") { return .context7 }
+        #if EPISTEMOS_FREE_V1
+        if haystack.contains("skill") { return .paidSkills }
+        #else
         if haystack.contains("anthropic") && haystack.contains("skill") { return .anthropicSkills }
+        #endif
         if isHuggingFace(haystack) { return .huggingFace }
         if haystack.contains("vault") { return .vault }
         if haystack.contains("eidos") { return .eidos }
@@ -237,7 +261,11 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     static func skillDiscovery(source: String, identifier: String, category: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(identifier, category)
         if isHuggingFace(normalizedHaystack(source, identifier, category)) { return .huggingFace }
+        #if EPISTEMOS_FREE_V1
+        if haystack.contains("skill") { return .paidSkills }
+        #else
         if haystack.contains("anthropic") { return .anthropicSkills }
+        #endif
         if haystack.contains("github") { return .github }
 
         switch normalized(source) {
@@ -268,7 +296,11 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     static func skillInventory(identifier: String, description: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(identifier, description)
         if isHuggingFace(haystack) { return .huggingFace }
+        #if EPISTEMOS_FREE_V1
+        if haystack.contains("skill") { return .paidSkills }
+        #else
         if haystack.contains("anthropic") { return .anthropicSkills }
+        #endif
         if haystack.contains("github") { return .github }
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         if haystack.contains("codex") { return .codexSkills }
@@ -283,8 +315,6 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case "provenance": .provenance
         case "extensions": .extensions
         case "vaultMCP": .vaultMCP
-        case "browser": .browser
-        case "browserUsePro": .browser
         case "meetingNote": .meetingNote
         case "voice": .voice
         default: .generic

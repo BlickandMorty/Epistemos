@@ -111,6 +111,7 @@ nonisolated public enum EpdocCopilotTransform: String, CaseIterable, Sendable, H
 
 // MARK: - EpdocCopilotDockView
 
+#if !EPISTEMOS_FREE_V1
 @MainActor
 public struct EpdocCopilotDockView: View {
     public let wordCount: Int
@@ -158,7 +159,7 @@ public struct EpdocCopilotDockView: View {
         VStack(alignment: .trailing, spacing: 8) {
             if isAssistOpen {
                 HStack(spacing: 8) {
-                    TextField("Ask June", text: $assistPrompt)
+                    TextField("Ask Epdoc", text: $assistPrompt)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12))
                         .frame(width: 260)
@@ -168,16 +169,16 @@ public struct EpdocCopilotDockView: View {
                         .onSubmit(submitAssistPrompt)
                     iconButton(
                         symbol: "paperplane.fill",
-                        label: "Ask June",
-                        help: "Send the note-scoped prompt to June."
+                        label: "Ask Epdoc",
+                        help: "Send the note-scoped prompt to the paid Epdoc assistant."
                     ) {
                         submitAssistPrompt()
                     }
                     if assistSessionID != nil {
                         iconButton(
                             symbol: "sparkles",
-                            label: "Stage June suggestion",
-                            help: "Stage the latest structured June suggestion for review."
+                            label: "Stage assistant suggestion",
+                            help: "Stage the latest structured assistant suggestion for review."
                         ) {
                             stageLatestAssistSuggestion()
                         }
@@ -198,14 +199,14 @@ public struct EpdocCopilotDockView: View {
                             .lineLimit(1)
                         iconButton(
                             symbol: "checkmark",
-                            label: "Accept June suggestion",
+                            label: "Accept assistant suggestion",
                             help: assistSuggestionDraft.summary
                         ) {
                             acceptAssistSuggestion()
                         }
                         iconButton(
                             symbol: "xmark",
-                            label: "Reject June suggestion",
+                            label: "Reject assistant suggestion",
                             help: assistSuggestionDraft.summary
                         ) {
                             rejectAssistSuggestion()
@@ -374,4 +375,5 @@ public struct EpdocCopilotDockView: View {
     .padding()
     .frame(width: 460)
 }
+#endif
 #endif

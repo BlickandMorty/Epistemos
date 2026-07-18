@@ -304,9 +304,6 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     nonisolated var resolved: ResolvedTheme {
-        if AppCustomTheme.isActive {
-            return AppCustomTheme.resolved(isDark: presetResolved.isDark)
-        }
         return presetResolved
     }
 
@@ -357,9 +354,6 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     ///   dark grey 0x08080A background).
     /// - Every other theme is identity.
     nonisolated func surfaceVariant(_ surface: ThemeSurface) -> EpistemosTheme {
-        if AppCustomTheme.isActive {
-            return self
-        }
         switch self {
         case .platinumVioletDark:
             switch surface {
@@ -406,17 +400,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// Display (hero/H1) font name resolved by theme pair.
     /// Classic intentionally no longer uses the legacy RetroGaming face:
     /// it now uses the distinct Matrix Type Bold identity while retaining
-    /// Classic's stable custom light/dark color pair.
+    /// Classic's stable light/dark color pair.
     nonisolated var displayFontName: String {
-        if AppCustomTheme.isActive {
-            return AppDisplayTypography.headingFontOverride(level: 1) ?? AppDisplayTypography.matrixDisplayFontName
-        }
         switch themePair {
-        // Owner request 2026-07-03: all non-custom themes share Ember's typography
-        // (same font faces); each theme keeps its own palette/colors. Custom is
-        // unchanged (it drives its own font via AppCustomTheme override above).
+        // All preset themes share Ember's typography while retaining their own palettes.
         case .classic, .platinumViolet, .ember: return "ColorBasic-Regular"
-        case .custom:         return AppDisplayTypography.matrixDisplayFontName
         }
     }
 
@@ -429,22 +417,12 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// H1-H3 heading font name resolved by markdown level.
     /// Classic uses MatrixTypeDisplay-Bold for H1/H2/H3 title surfaces.
     nonisolated func headingFontName(level: Int) -> String {
-        if AppCustomTheme.isActive {
-            let defaultName = level <= 1
-                ? AppDisplayTypography.matrixDisplayFontName
-                : AppDisplayTypography.matrixBoldDisplayFontName
-            return AppDisplayTypography.headingFontOverride(level: level) ?? defaultName
-        }
         let defaultName = switch themePair {
         // Classic/Platinum share Ember's heading face (ChonkyPixels) per owner request.
         case .classic, .platinumViolet, .ember:
             AppDisplayTypography.chonkyDisplayFontName
-        case .custom:
-            level <= 1
-                ? AppDisplayTypography.matrixDisplayFontName
-                : AppDisplayTypography.matrixBoldDisplayFontName
         }
-        return AppDisplayTypography.headingFontOverride(level: level) ?? defaultName
+        return defaultName
     }
 
     /// CSS `font-family` value injected into the Tiptap notes editor as
@@ -473,13 +451,9 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// demo face remains registered only as a dormant asset because it
     /// visibly stamps "DEMO FONT" in active text.
     nonisolated var nodeTitleFontName: String {
-        if AppCustomTheme.isActive {
-            return headingFontName
-        }
         switch themePair {
-        // Share Ember's node-title face (ChonkyPixels) across non-custom themes.
+        // Share Ember's node-title face (ChonkyPixels) across presets.
         case .classic, .platinumViolet, .ember: return AppDisplayTypography.chonkyDisplayFontName
-        case .custom:         return headingFontName
         }
     }
 
@@ -492,7 +466,6 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .classic:        return AppDisplayTypography.matrixDisplayFontName
         case .platinumViolet: return AppDisplayTypography.matrixDisplayFontName
         case .ember:          return AppDisplayTypography.matrixDisplayFontName
-        case .custom:         return AppDisplayTypography.matrixDisplayFontName
         }
     }
 
@@ -507,13 +480,9 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// stays on MatrixTypeDisplay here; Matrix Dots is reserved for
     /// H1-style Platinum title surfaces with a Matrix Type glyph fallback.
     nonisolated var panelFontName: String {
-        if AppCustomTheme.isActive {
-            return headingFontName
-        }
         switch themePair {
-        // Share Ember's panel face (ColorBasic-Regular) across non-custom themes.
+        // Share Ember's panel face (ColorBasic-Regular) across presets.
         case .classic, .platinumViolet, .ember: return "ColorBasic-Regular"
-        case .custom:         return headingFontName
         }
     }
 
@@ -568,10 +537,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// still shrinks, while Classic H2/H3 keep Ember Tan's heading
     /// scale on the MatrixTypeDisplay-Bold face.
     nonisolated func headingSizeMultiplier(level: Int) -> CGFloat {
-        if AppCustomTheme.isActive {
-            return AppDisplayTypography.headingSizeScaleOverride(level: level)
-        }
-        let base = switch themePair {
+        switch themePair {
         case .classic:
             (2...3).contains(level) ? 1.0 : 0.72
         // Platinum matched Ember's heading sizes (owner request 2026-07-03): it was
@@ -580,9 +546,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         // switching themes no longer shifts heading layout.
         case .platinumViolet: 1.0
         case .ember: 1.0
-        case .custom: 1.0
         }
-        return base * AppDisplayTypography.headingSizeScaleOverride(level: level)
     }
 
     /// Notes-matching H2/H3 typography. Classic keeps Ember Tan's
@@ -592,7 +556,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     nonisolated func notesMatchingHeadingSpec(
         level: Int
     ) -> NotesMatchingHeadingSpec? {
-        guard (AppCustomTheme.isActive || [.classic, .ember].contains(themePair)), (2...3).contains(level) else {
+        guard [.classic, .ember].contains(themePair), (2...3).contains(level) else {
             return nil
         }
         let size: CGFloat = level == 2 ? 27 : 17
@@ -614,7 +578,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         if isDark { return true }
         switch themePair {
         case .platinumViolet: return true
-        case .classic, .custom, .ember: return false
+        case .classic, .ember: return false
         }
     }
 
@@ -1311,14 +1275,12 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 
 enum ThemePair: String, CaseIterable, Codable, Sendable {
     case platinumViolet = "platinumViolet"
-    case custom = "custom"
     case classic = "classic"
     case ember   = "ember"
 
     var displayName: String {
         switch self {
         case .platinumViolet: "Platinum Violet"
-        case .custom: "Custom"
         case .classic: "Classic"
         case .ember:   "Ember"
         }
@@ -1327,7 +1289,6 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
     var description: String {
         switch self {
         case .platinumViolet: "Platinum Violet · Platinum Violet Dark"
-        case .custom: "Your colors · Your heading fonts"
         case .classic: "White · OLED Soft"
         case .ember:   "Tan · Ember"
         }
@@ -1336,7 +1297,6 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
     var lightTheme: EpistemosTheme {
         switch self {
         case .platinumViolet: .platinumViolet
-        case .custom: .platinumViolet
         case .classic: .light
         case .ember:   .tan
         }
@@ -1345,7 +1305,6 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
     var darkTheme: EpistemosTheme {
         switch self {
         case .platinumViolet: .platinumVioletDark
-        case .custom: .platinumVioletDark
         case .classic: .oledSoft
         case .ember:   .ember
         }
@@ -1358,339 +1317,6 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
     /// Dock icon selection is handled by the AppIcon asset catalog variants.
     func dockIconResourceName(isDark _: Bool) -> String? {
         nil
-    }
-}
-
-enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
-    case background
-    case text
-    case accent
-    case heading
-    case card
-    case noteSurface
-    case chatSurface
-    case userBubble
-    // SS-TC (owner 2026-06-20): granular accessory/text slots. Each ADDITIVE +
-    // DEFAULTED — unset → inherit the prior derived value (see buildResolved), so
-    // existing custom themes are byte-identical and presets are untouched.
-    case userBubbleText
-    case secondaryText
-    case link
-    case assistantBubbleBg
-    case border
-
-    nonisolated var id: String { rawValue }
-
-    nonisolated var title: String {
-        switch self {
-        case .background: "Background"
-        case .text: "Text"
-        case .accent: "Accent"
-        case .heading: "Headings"
-        case .card: "Cards"
-        case .noteSurface: "Note Surface"
-        case .chatSurface: "Chat Surface"
-        case .userBubble: "User Bubble"
-        case .userBubbleText: "User Bubble Text"
-        case .secondaryText: "Secondary Text"
-        case .link: "Links"
-        case .assistantBubbleBg: "Assistant Bubble"
-        case .border: "Borders"
-        }
-    }
-
-    nonisolated var detail: String {
-        switch self {
-        case .background: "Window and page field"
-        case .text: "Primary reading color"
-        case .accent: "Buttons, links, active states"
-        case .heading: "Markdown and title emphasis"
-        case .card: "Panels and raised surfaces"
-        case .noteSurface: "Editor canvas and note windows"
-        case .chatSurface: "Conversation backdrop"
-        case .userBubble: "Your message bubble"
-        case .userBubbleText: "Text inside your message bubble"
-        case .secondaryText: "Captions and secondary labels"
-        case .link: "Markdown and inline links"
-        case .assistantBubbleBg: "Assistant message bubble fill"
-        case .border: "Dividers and outlines"
-        }
-    }
-
-    nonisolated var defaultsKey: String {
-        "epistemos.customTheme.\(rawValue)"
-    }
-
-    nonisolated func defaultsKey(isDark: Bool) -> String {
-        "epistemos.customTheme.\(isDark ? "dark" : "light").\(rawValue)"
-    }
-
-    nonisolated func fallbackHex(isDark: Bool) -> UInt32 {
-        if isDark {
-            return darkFallbackHex
-        }
-        return lightFallbackHex
-    }
-
-    nonisolated private var lightFallbackHex: UInt32 {
-        switch self {
-        case .background: 0xF8F6FF
-        case .text: 0x161421
-        case .accent: 0x735CFF
-        case .heading: 0x3326A5
-        case .card: 0xFFFFFF
-        case .noteSurface: 0xFFFFFF
-        case .chatSurface: 0xF0EEF9
-        case .userBubble: 0xE4DFFF
-        case .userBubbleText: 0x161421   // inherits .text
-        case .secondaryText: 0x161421    // inherits .text
-        case .link: 0x735CFF             // inherits .accent
-        case .assistantBubbleBg: 0xFFFFFF // inherits .card (nil → no fill until set)
-        case .border: 0x735CFF           // inherits .accent
-        }
-    }
-
-    nonisolated private var darkFallbackHex: UInt32 {
-        switch self {
-        case .background: 0x101014
-        case .text: 0xF3F0FF
-        case .accent: 0x9B7DFF
-        case .heading: 0xFFFFFF
-        case .card: 0x1C1C24
-        case .noteSurface: 0x1C1C24
-        case .chatSurface: 0x141418
-        case .userBubble: 0x35304E
-        case .userBubbleText: 0xF3F0FF   // inherits .text
-        case .secondaryText: 0xF3F0FF    // inherits .text
-        case .link: 0x9B7DFF             // inherits .accent
-        case .assistantBubbleBg: 0x1C1C24 // inherits .card (nil → no fill until set)
-        case .border: 0x9B7DFF           // inherits .accent
-        }
-    }
-}
-
-extension Notification.Name {
-    /// Posted when the custom theme palette changes (any color-slot write or a reset). Lets
-    /// surfaces that re-tint imperatively refresh live,
-    /// since a custom-palette edit never changes the `EpistemosTheme` enum value they observe.
-    nonisolated static let epistemosCustomThemeDidChange = Notification.Name("epistemos.customTheme.didChange")
-}
-
-enum AppCustomTheme: Sendable {
-    nonisolated static var isActive: Bool {
-        isActive(defaults: .standard)
-    }
-
-    nonisolated static func isActive(defaults: UserDefaults) -> Bool {
-        // Custom themes are EXPERIMENTAL + OFF by default (owner request 2026-07-03):
-        // never active unless the user has explicitly enabled the experimental flag.
-        guard isExperimentalEnabled(defaults: defaults) else { return false }
-        return ThemePair(rawValue: defaults.string(forKey: UIState.themePairDefaultsKey) ?? "") == .custom
-    }
-
-    /// EXPERIMENTAL custom-theme gate. Off by default — the custom palette (and its
-    /// web-surface CSS) engages only after the user flips this toggle in Settings.
-    /// Because it is modular by design it can break surfaces if half-applied, so it
-    /// stays behind this flag until the user opts in.
-    nonisolated static let experimentalDefaultsKey = "epistemos.theme.customExperimentalEnabled"
-
-    nonisolated static func isExperimentalEnabled(defaults: UserDefaults = .standard) -> Bool {
-        defaults.bool(forKey: experimentalDefaultsKey)
-    }
-
-    nonisolated static func setExperimentalEnabled(_ enabled: Bool, defaults: UserDefaults = .standard) {
-        defaults.set(enabled, forKey: experimentalDefaultsKey)
-    }
-
-    nonisolated static func hex(
-        for slot: AppCustomThemeColorSlot,
-        isDark: Bool,
-        defaults: UserDefaults = .standard
-    ) -> UInt32 {
-        let toneKey = slot.defaultsKey(isDark: isDark)
-        let key = defaults.object(forKey: toneKey) != nil ? toneKey : slot.defaultsKey
-        guard defaults.object(forKey: key) != nil else {
-            return slot.fallbackHex(isDark: isDark)
-        }
-        let value = defaults.integer(forKey: key)
-        guard (0...0xFFFFFF).contains(value) else {
-            return slot.fallbackHex(isDark: isDark)
-        }
-        return UInt32(value)
-    }
-
-    nonisolated static func hex(
-        for slot: AppCustomThemeColorSlot,
-        defaults: UserDefaults = .standard
-    ) -> UInt32 {
-        hex(for: slot, isDark: SystemAppearanceState.isDark(), defaults: defaults)
-    }
-
-    /// Dedicated note/editor surface token. When a user has older custom
-    /// settings from before this slot existed, keep the previous behavior by
-    /// inheriting the Cards value until Note Surface is explicitly set.
-    nonisolated static func noteSurfaceHex(
-        isDark: Bool,
-        defaults: UserDefaults = .standard
-    ) -> UInt32 {
-        let slot = AppCustomThemeColorSlot.noteSurface
-        if defaults.object(forKey: slot.defaultsKey(isDark: isDark)) != nil
-            || defaults.object(forKey: slot.defaultsKey) != nil {
-            return hex(for: slot, isDark: isDark, defaults: defaults)
-        }
-        return hex(for: .card, isDark: isDark, defaults: defaults)
-    }
-
-    /// SS-TC: a granular slot added after the original 8. When the user hasn't set
-    /// it, return `fallback` (the prior derived value) so existing custom themes are
-    /// byte-identical. Same inherit-until-set shape as `noteSurfaceHex`.
-    nonisolated static func inheritedHex(
-        for slot: AppCustomThemeColorSlot,
-        fallback: UInt32,
-        isDark: Bool,
-        defaults: UserDefaults = .standard
-    ) -> UInt32 {
-        if defaults.object(forKey: slot.defaultsKey(isDark: isDark)) != nil
-            || defaults.object(forKey: slot.defaultsKey) != nil {
-            return hex(for: slot, isDark: isDark, defaults: defaults)
-        }
-        return fallback
-    }
-
-    /// SS-TC: the assistant-bubble fill is `nil` (no fill) by default; only when the
-    /// user explicitly sets it does a fill appear. Preserves today's exact behavior.
-    nonisolated static func assistantBubbleBackgroundHex(
-        isDark: Bool,
-        defaults: UserDefaults = .standard
-    ) -> UInt32? {
-        let slot = AppCustomThemeColorSlot.assistantBubbleBg
-        if defaults.object(forKey: slot.defaultsKey(isDark: isDark)) != nil
-            || defaults.object(forKey: slot.defaultsKey) != nil {
-            return hex(for: slot, isDark: isDark, defaults: defaults)
-        }
-        return nil
-    }
-
-    nonisolated static func setHex(
-        _ hex: UInt32,
-        for slot: AppCustomThemeColorSlot,
-        isDark: Bool,
-        defaults: UserDefaults = .standard
-    ) {
-        defaults.set(Int(hex & 0xFFFFFF), forKey: slot.defaultsKey(isDark: isDark))
-        // SS-THX: invalidate the memoized resolve so the change repaints (and exactly once).
-        if defaults === UserDefaults.standard { bumpThemeRevision() }
-    }
-
-    nonisolated static func setHex(
-        _ hex: UInt32,
-        for slot: AppCustomThemeColorSlot,
-        defaults: UserDefaults = .standard
-    ) {
-        setHex(hex, for: slot, isDark: SystemAppearanceState.isDark(), defaults: defaults)
-    }
-
-    nonisolated static func reset(defaults: UserDefaults = .standard) {
-        for slot in AppCustomThemeColorSlot.allCases {
-            defaults.removeObject(forKey: slot.defaultsKey)
-            defaults.removeObject(forKey: slot.defaultsKey(isDark: false))
-            defaults.removeObject(forKey: slot.defaultsKey(isDark: true))
-        }
-        // SS-THX: invalidate the memoized resolve so the reset repaints.
-        if defaults === UserDefaults.standard { bumpThemeRevision() }
-    }
-
-    // SS-THX (owner 2026-06-20): memoize the custom-theme resolve to kill the theme-switch
-    // HANG. Without this, the resolve rebuilt the whole ResolvedTheme from ~15-20 synchronous
-    // UserDefaults reads on EVERY `theme.resolved.*` access (dozens per view body × the whole
-    // tree per toggle = thousands of rebuilds on the MainActor). The cache is keyed on
-    // (revision, isDark): the revision is bumped by EVERY color writer (setHex + reset — the
-    // only writers of the slot keys, verified), so a flip recomputes ONCE per appearance, then
-    // every read is a dict hit. Only the live `.standard` store is cached; a custom UserDefaults
-    // (tests) bypasses so it always reflects the passed-in store. Prerequisite for SS-TC.
-    // SAFETY: `_revision` / `_cache` are mutated only while holding `_cacheLock`.
-    nonisolated(unsafe) private static var _revision: UInt64 = 0
-    nonisolated(unsafe) private static var _cache: [Bool: (revision: UInt64, theme: EpistemosTheme.ResolvedTheme)] = [:]
-    nonisolated private static let _cacheLock = NSLock()
-    /// Best-effort test instrumentation: how many times the UNCACHED build ran (the SS-THX
-    /// memoization test asserts that N reads do NOT trigger N rebuilds).
-    nonisolated(unsafe) static var resolveBuildCount: UInt64 = 0
-
-    /// Invalidate the memoized custom-theme resolve. Called by every color writer (setHex,
-    /// reset) so the next read rebuilds exactly once per appearance.
-    nonisolated static func bumpThemeRevision() {
-        _cacheLock.lock()
-        _revision &+= 1
-        _cacheLock.unlock()
-        // Live signal for surfaces that re-tint imperatively: a custom-palette edit changes
-        // no `EpistemosTheme` enum value, so their
-        // `onChange(of: theme)` can't see it. Post AFTER unlocking to avoid observer re-entrancy.
-        NotificationCenter.default.post(name: .epistemosCustomThemeDidChange, object: nil)
-    }
-
-    nonisolated static func resolved(
-        isDark: Bool,
-        defaults: UserDefaults = .standard
-    ) -> EpistemosTheme.ResolvedTheme {
-        guard defaults === UserDefaults.standard else {
-            return buildResolved(isDark: isDark, defaults: defaults)
-        }
-        _cacheLock.lock()
-        defer { _cacheLock.unlock() }
-        let revision = _revision
-        if let entry = _cache[isDark], entry.revision == revision {
-            return entry.theme
-        }
-        let built = buildResolved(isDark: isDark, defaults: defaults)
-        _cache[isDark] = (revision, built)
-        return built
-    }
-
-    nonisolated private static func buildResolved(
-        isDark: Bool,
-        defaults: UserDefaults
-    ) -> EpistemosTheme.ResolvedTheme {
-        resolveBuildCount &+= 1
-        let background = hex(for: .background, isDark: isDark, defaults: defaults)
-        let text = hex(for: .text, isDark: isDark, defaults: defaults)
-        let accent = hex(for: .accent, isDark: isDark, defaults: defaults)
-        let heading = hex(for: .heading, isDark: isDark, defaults: defaults)
-        let card = hex(for: .card, isDark: isDark, defaults: defaults)
-        let chatSurface = hex(for: .chatSurface, isDark: isDark, defaults: defaults)
-        let userBubble = hex(for: .userBubble, isDark: isDark, defaults: defaults)
-
-        return EpistemosTheme.ResolvedTheme(
-            isDark: isDark,
-            isPlatinum: false,
-            usesNativeWindowBlur: false,
-            background: .hex(background),
-            foregroundHex: text,
-            accent: .hex(accent),
-            headingAccentHex: heading,
-            markdownHeadingAccentHex: heading,
-            preferredMarkdownLinkHex: inheritedHex(for: .link, fallback: accent, isDark: isDark, defaults: defaults),
-            uiAccent: .hex(accent),
-            muted: .hex(card),
-            mutedForegroundHex: inheritedHex(for: .secondaryText, fallback: text, isDark: isDark, defaults: defaults),
-            assistantBubbleForegroundHex: text,
-            assistantBubbleBackgroundHex: assistantBubbleBackgroundHex(isDark: isDark, defaults: defaults),
-            userBubbleBackgroundHex: userBubble,
-            border: .hex(inheritedHex(for: .border, fallback: accent, isDark: isDark, defaults: defaults), opacity: 0.28),
-            codeType: .hex(accent),
-            glassBg: .hex(card, opacity: 0.88),
-            glassBorder: .hex(accent, opacity: 0.22),
-            glassHover: .hex(card, opacity: 0.76),
-            floatingSurfaceTint: .hex(card),
-            navPillBg: .hex(card, opacity: 0.90),
-            navBubbleActiveBg: .hex(accent, opacity: 0.92),
-            navBubbleActiveText: .hex(text, opacity: 0.96),
-            navBubbleInactiveText: .hex(text, opacity: 0.62),
-            card: .hex(card, opacity: 0.92),
-            chatSurface: .hex(chatSurface),
-            userBubbleBg: .hex(userBubble),
-            userBubbleText: .hex(inheritedHex(for: .userBubbleText, fallback: text, isDark: isDark, defaults: defaults), opacity: 0.96),
-            nsBackground: .hex(background)
-        )
     }
 }
 
@@ -1800,9 +1426,7 @@ enum AppHeadingRole: Sendable {
     }
 
     nonisolated var font: Font {
-        let resolvedSize = headingLevel
-            .map { fontSize * AppDisplayTypography.headingSizeScaleOverride(level: $0) }
-            ?? fontSize
+        let resolvedSize = fontSize
         switch self {
         case .pageTitle, .h1, .chatTitle:
             return AppDisplayTypography.font(name: fontName, size: resolvedSize, weight: .heavy)
@@ -1857,14 +1481,6 @@ enum AppDisplayTypography: Sendable {
     nonisolated static let readableFontBoldName = "AvenirNext-Bold"
     nonisolated static let coralDisplayFontScale: CGFloat = 1.1
     nonisolated static let legacyDisplayFontScale: CGFloat = 1.0
-    nonisolated static let headingLevel1FontDefaultsKey = "epistemos.typography.heading.h1.fontName"
-    nonisolated static let headingLevel2FontDefaultsKey = "epistemos.typography.heading.h2.fontName"
-    nonisolated static let headingLevel3FontDefaultsKey = "epistemos.typography.heading.h3.fontName"
-    nonisolated static let headingLevel1ScaleDefaultsKey = "epistemos.typography.heading.h1.scale"
-    nonisolated static let headingLevel2ScaleDefaultsKey = "epistemos.typography.heading.h2.scale"
-    nonisolated static let headingLevel3ScaleDefaultsKey = "epistemos.typography.heading.h3.scale"
-    nonisolated static let minimumHeadingSizeScale: CGFloat = 0.75
-    nonisolated static let maximumHeadingSizeScale: CGFloat = 1.35
 
     nonisolated static let displayFontOptions: [AppBundledDisplayFont] = [
         AppBundledDisplayFont(displayName: "Matrix Type", postScriptName: matrixDisplayFontName, resourceName: "MatrixtypeDisplay-9MyE5", resourceExtension: "ttf"),
@@ -1904,105 +1520,6 @@ enum AppDisplayTypography: Sendable {
         displayFontOptions.first { $0.postScriptName == postScriptName }
     }
 
-    nonisolated static func headingFontDefaultsKey(level: Int) -> String {
-        switch level {
-        case 1: headingLevel1FontDefaultsKey
-        case 2: headingLevel2FontDefaultsKey
-        default: headingLevel3FontDefaultsKey
-        }
-    }
-
-    nonisolated static func headingSizeScaleDefaultsKey(level: Int) -> String {
-        switch level {
-        case 1: headingLevel1ScaleDefaultsKey
-        case 2: headingLevel2ScaleDefaultsKey
-        default: headingLevel3ScaleDefaultsKey
-        }
-    }
-
-    nonisolated static func headingFontOverride(
-        level: Int,
-        defaults: UserDefaults = .standard
-    ) -> String? {
-        guard activeThemePair(defaults: defaults) == .custom else {
-            return nil
-        }
-        return storedHeadingFontOverride(level: level, defaults: defaults)
-    }
-
-    nonisolated static func storedHeadingFontOverride(
-        level: Int,
-        defaults: UserDefaults = .standard
-    ) -> String? {
-        guard (1...3).contains(level),
-              let raw = defaults.string(forKey: headingFontDefaultsKey(level: level)),
-              !raw.isEmpty,
-              displayFontOption(postScriptName: raw) != nil else {
-            return nil
-        }
-        return raw
-    }
-
-    nonisolated static func setHeadingFontOverride(
-        _ fontName: String?,
-        level: Int,
-        defaults: UserDefaults = .standard
-    ) {
-        guard (1...3).contains(level) else { return }
-        if let fontName, !fontName.isEmpty, displayFontOption(postScriptName: fontName) != nil {
-            defaults.set(fontName, forKey: headingFontDefaultsKey(level: level))
-        } else {
-            defaults.removeObject(forKey: headingFontDefaultsKey(level: level))
-        }
-    }
-
-    nonisolated static func headingSizeScaleOverride(
-        level: Int,
-        defaults: UserDefaults = .standard
-    ) -> CGFloat {
-        guard activeThemePair(defaults: defaults) == .custom else {
-            return 1.0
-        }
-        return storedHeadingSizeScale(level: level, defaults: defaults)
-    }
-
-    nonisolated static func storedHeadingSizeScale(
-        level: Int,
-        defaults: UserDefaults = .standard
-    ) -> CGFloat {
-        guard (1...3).contains(level) else { return 1.0 }
-        let key = headingSizeScaleDefaultsKey(level: level)
-        guard defaults.object(forKey: key) != nil else { return 1.0 }
-        let value = defaults.double(forKey: key)
-        guard value.isFinite else { return 1.0 }
-        return min(max(CGFloat(value), minimumHeadingSizeScale), maximumHeadingSizeScale)
-    }
-
-    nonisolated static func setHeadingSizeScale(
-        _ scale: CGFloat,
-        level: Int,
-        defaults: UserDefaults = .standard
-    ) {
-        guard (1...3).contains(level) else { return }
-        guard scale.isFinite else {
-            defaults.removeObject(forKey: headingSizeScaleDefaultsKey(level: level))
-            return
-        }
-        let clamped = min(max(scale, minimumHeadingSizeScale), maximumHeadingSizeScale)
-        if abs(clamped - 1.0) < 0.001 {
-            defaults.removeObject(forKey: headingSizeScaleDefaultsKey(level: level))
-        } else {
-            defaults.set(Double(clamped), forKey: headingSizeScaleDefaultsKey(level: level))
-        }
-    }
-
-    nonisolated static func resetHeadingTypography(defaults: UserDefaults = .standard) {
-        for level in 1...3 {
-            defaults.removeObject(forKey: headingFontDefaultsKey(level: level))
-            defaults.removeObject(forKey: headingSizeScaleDefaultsKey(level: level))
-        }
-    }
-
     nonisolated static func cssFontFamilyName(forPostScriptName postScriptName: String) -> String {
         switch postScriptName {
         case coralDisplayFontName: return "Coral Pixels"
@@ -2038,50 +1555,26 @@ enum AppDisplayTypography: Sendable {
     nonisolated static func displayFontName(isDark: Bool) -> String {
         _ = isDark
         switch activeThemePair() {
-        // Non-custom themes share Ember's display face (owner request 2026-07-03);
-        // palettes stay per-theme. Custom keeps its own override.
+        // Presets share Ember's display face while keeping their own palettes.
         case .platinumViolet, .ember, .classic: return "ColorBasic-Regular"
-        case .custom:         return headingFontOverride(level: 1) ?? matrixDisplayFontName
         }
     }
 
-    nonisolated static func headingFontName(for role: AppHeadingRole) -> String {
-        if let level = role.headingLevel,
-           let override = headingFontOverride(level: level) {
-            return override
-        }
+    nonisolated static func headingFontName(for _: AppHeadingRole) -> String {
         switch activeThemePair() {
         // Classic/Platinum share Ember's heading face (ChonkyPixels) per owner request.
         case .classic, .platinumViolet, .ember:
             return chonkyDisplayFontName
-        case .custom:
-            switch role {
-            case .h1:
-                return headingFontOverride(level: 1) ?? matrixDisplayFontName
-            case .h2:
-                return headingFontOverride(level: 2) ?? matrixBoldDisplayFontName
-            case .h3:
-                return headingFontOverride(level: 3) ?? matrixBoldDisplayFontName
-            default:
-                return matrixDisplayFontName
-            }
         }
     }
 
     nonisolated private static func activeThemePair() -> ThemePair {
-        activeThemePair(defaults: .standard)
+        activeThemePair(defaults: FoundationSafety.runtimeUserDefaults)
     }
 
     nonisolated private static func activeThemePair(defaults: UserDefaults) -> ThemePair {
         let raw = defaults.string(forKey: UIState.themePairDefaultsKey) ?? ""
-        let pair = ThemePair(rawValue: raw) ?? .platinumViolet
-        // Custom is experimental + off by default: a stored .custom selection
-        // resolves to the default theme until the experimental flag is enabled,
-        // so custom fonts/tokens never engage app-wide when the feature is off.
-        if pair == .custom, !AppCustomTheme.isExperimentalEnabled(defaults: defaults) {
-            return .platinumViolet
-        }
-        return pair
+        return ThemePair(rawValue: raw) ?? .platinumViolet
     }
 
     nonisolated static func graphLabelAtlasResourceName(isDark: Bool) -> String {
@@ -2100,7 +1593,7 @@ enum AppDisplayTypography: Sendable {
         return legacyDisplayFontScale
     }
 
-    nonisolated static func readableFontsEnabled(defaults: UserDefaults = .standard) -> Bool {
+    nonisolated static func readableFontsEnabled(defaults: UserDefaults = FoundationSafety.runtimeUserDefaults) -> Bool {
         if defaults.object(forKey: readableFontsDefaultsKey) != nil {
             return defaults.bool(forKey: readableFontsDefaultsKey)
         }
@@ -2109,7 +1602,7 @@ enum AppDisplayTypography: Sendable {
 
     nonisolated static func setReadableFontsEnabled(
         _ enabled: Bool,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = FoundationSafety.runtimeUserDefaults
     ) {
         defaults.set(enabled, forKey: readableFontsDefaultsKey)
         defaults.removeObject(forKey: legacyDisplayModeDefaultsKey)
@@ -2446,11 +1939,18 @@ enum AppDisplayTypography: Sendable {
     }
 }
 
-enum ClaudeAppTypography: Sendable {
+enum AssistantTextTypography: Sendable {
+    #if EPISTEMOS_FREE_V1
+    private nonisolated static let anthropicSansRegularName = "InterVariable"
+    private nonisolated static let anthropicSansMediumName = "InterVariable"
+    private nonisolated static let anthropicSansSemiboldName = "InterVariable"
+    private nonisolated static let anthropicSansBoldName = "InterVariable"
+    #else
     private nonisolated static let anthropicSansRegularName = "AnthropicSansVariable-TextRegular"
     private nonisolated static let anthropicSansMediumName = "AnthropicSansVariable-TextMedium"
     private nonisolated static let anthropicSansSemiboldName = "AnthropicSansVariable-TextSemibold"
     private nonisolated static let anthropicSansBoldName = "AnthropicSansVariable-TextBold"
+    #endif
 
     static func assistantFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         Font(assistantUIFont(size: size, weight: nsWeight(for: weight)))

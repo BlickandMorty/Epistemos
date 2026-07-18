@@ -6,7 +6,6 @@ PROJECT_YML="${ROOT_DIR}/project.yml"
 DEFAULT_SCHEME="${ROOT_DIR}/Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos.xcscheme"
 APPSTORE_APP=""
 SEED_HIGH_FINDING="${KEELSTONE_SEED_HIGH_FINDING:-0}"
-FREE_V1=0
 failures=0
 
 usage() {
@@ -15,8 +14,8 @@ Usage: scripts/keelstone-release-gate.sh [--appstore-app /path/Epistemos.app]
 
 MAS-only KEELSTONE gate:
   - one application target: Epistemos-AppStore
-  - Free V1 keeps June, models, Browser, and ResearchHub hidden and inert
-  - future paid agent work remains MAS June plus the in-process agent_core bridge
+  - Free V1 retains Kokoro read-aloud and deterministic local note search
+  - Free V1 rejects paid June, Goose, agent, and inference artifacts
   - retired Experimental/OpenChamber/external-Goose/MCP/Work paths are absent
   - supplied application bundles carry the App Sandbox entitlement
 USAGE
@@ -75,16 +74,6 @@ require_not_contains() {
   fi
 }
 
-require_existing_file() {
-  local path="$1"
-  local label="$2"
-  if [[ -f "${path}" ]]; then
-    pass "${label}"
-  else
-    fail "${label} missing ${path}"
-  fi
-}
-
 require_app_absent() {
   local app="$1"
   local relative_path="$2"
@@ -96,50 +85,48 @@ require_app_absent() {
   fi
 }
 
-require_tree_contains() {
-  local root="$1"
-  local pattern="$2"
-  local label="$3"
-  if [[ ! -d "${root}" ]]; then
-    fail "${label} missing tree ${root}"
-  elif grep -aERq -- "${pattern}" "${root}"; then
-    pass "${label}"
-  else
-    fail "${label} missing pattern ${pattern}"
-  fi
-}
-
-require_tree_not_contains() {
-  local root="$1"
-  local pattern="$2"
-  local label="$3"
-  if [[ ! -d "${root}" ]]; then
-    fail "${label} missing tree ${root}"
-  elif grep -aERq -- "${pattern}" "${root}"; then
-    fail "${label} contains forbidden pattern ${pattern}"
-  else
-    pass "${label}"
-  fi
-}
-
-require_appstore_local_gguf_runtime() {
+require_appstore_free_v1_without_paid_inference_or_agent_runtimes() {
   local app="$1"
-  local runtime="${app}/Contents/Frameworks/llama.framework/Versions/A/llama"
   local executable="${app}/Contents/MacOS/Epistemos"
 
-  if [[ -f "${runtime}" ]]; then
-    pass "Built App Store artifact embeds June's in-process llama runtime"
-  else
-    fail "Built App Store artifact embeds June's in-process llama runtime missing ${runtime}"
-  fi
+  require_app_absent "${app}" "Contents/Frameworks/llama.framework" "Built free V1 artifact omits the local inference runtime"
+  require_app_absent "${app}" "Contents/Frameworks/libagent_core.dylib" "Built free V1 artifact omits agent_core"
+  require_app_absent "${app}" "Contents/Frameworks/libomega_mcp.dylib" "Built free V1 artifact omits omega_mcp"
 
   if [[ ! -f "${executable}" ]]; then
-    fail "Built App Store executable links June's in-process llama runtime missing ${executable}"
-  elif otool -L "${executable}" 2>/dev/null | grep -Fq 'llama.framework/Versions/A/llama'; then
-    pass "Built App Store executable links June's in-process llama runtime"
+    fail "Built free V1 executable missing ${executable}"
+  elif otool -L "${executable}" 2>/dev/null | grep -Eq 'llama\.framework|libagent_core\.dylib|libomega_mcp\.dylib'; then
+    fail "Built free V1 executable links a forbidden paid inference or agent runtime"
   else
-    fail "Built App Store executable links June's in-process llama runtime"
+    pass "Built free V1 executable has no paid inference or agent linkage"
   fi
+}
+
+require_appstore_free_v1_without_paid_identity_strings() {
+  local app="$1"
+  local executable="${app}/Contents/MacOS/Epistemos"
+  local strings_file
+  strings_file="$(mktemp)"
+
+  if [[ ! -f "${executable}" ]]; then
+    fail "Built free V1 executable missing ${executable}"
+    rm -f "${strings_file}"
+    return
+  fi
+
+  LC_ALL=C strings -a "${executable}" >"${strings_file}"
+  if grep -E -x -q \
+    '(_claudeManagedSessionsEnabled|epistemos\.kimiModel|gguf|openai|anthropic|claude|agent_core|InferenceState|inferenceState|Local GGUF|EPISTEMOS_GGUF_TOOL_GRAMMAR_V0|June )' \
+    "${strings_file}"; then
+    fail "Built free V1 executable contains paid provider, June, inference, or agent identity"
+    grep -E -x \
+      '(_claudeManagedSessionsEnabled|epistemos\.kimiModel|gguf|openai|anthropic|claude|agent_core|InferenceState|inferenceState|Local GGUF|EPISTEMOS_GGUF_TOOL_GRAMMAR_V0|June )' \
+      "${strings_file}" | sort -u >&2
+  else
+    pass "Built free V1 executable omits paid provider, June, inference, and agent identity"
+  fi
+
+  rm -f "${strings_file}"
 }
 
 require_appstore_no_parked_account_runtime_markers() {
@@ -196,8 +183,10 @@ else
   require_contains "${PROJECT_YML}" "ENABLE_APP_SANDBOX: true" "App Store target enables sandboxing"
   require_contains "${PROJECT_YML}" "EPISTEMOS_PRODUCT_EDITION: FREE_V1" "App Store target selects the free V1 edition"
   require_contains "${PROJECT_YML}" "EPISTEMOS_FREE_V1" "App Store target compiles the free V1 boundary"
-  require_contains "${PROJECT_YML}" "build-agent-core.sh" "App Store target builds the in-process agent core"
-  require_contains "${PROJECT_YML}" 'if [ "${EPISTEMOS_PRODUCT_EDITION:-}" != "FREE_V1" ]; then' "Free V1 build skips paid June web staging"
+  require_contains "${PROJECT_YML}" "KokoroPipeline" "App Store target retains Kokoro read-aloud"
+  require_not_contains "${PROJECT_YML}" "build-june-web.sh" "Free App Store target has no June web prebuild"
+  require_not_contains "${PROJECT_YML}" "build-agent-core.sh" "Free App Store target has no agent-core prebuild"
+  require_not_contains "${PROJECT_YML}" "build-omega-mcp.sh" "Free App Store target has no Omega prebuild"
   require_not_contains "${PROJECT_YML}" "Epistemos-LegacyDev" "Project topology"
   require_not_contains "${PROJECT_YML}" "Epistemos-Experimental" "Project topology"
   require_not_contains "${PROJECT_YML}" "EPISTEMOS_EXPERIMENTAL" "Project topology"
@@ -205,23 +194,13 @@ else
   require_not_contains "${PROJECT_YML}" "build-experimental-web.sh" "App Store prebuild phase"
 fi
 
-if [[ -f "${PROJECT_YML}" ]] && grep -Fq "EPISTEMOS_PRODUCT_EDITION: FREE_V1" "${PROJECT_YML}"; then
-  FREE_V1=1
-fi
-
 require_file "Epistemos/App/ProductCapabilityPolicy.swift" "Central free/paid product capability policy"
-require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" "is_free_v1_build" "Runtime asset bundler recognizes free V1"
-require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" 'rm -rf "$JUNE_WEB_BUNDLE_DIR"' "Runtime asset bundler removes JuneWeb from free V1"
-require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" 'rm -f "$MODEL_MANIFEST_DEST"' "Runtime asset bundler removes model manifests from free V1"
-require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" 'rm -rf "$DEFAULT_SKILLS_DIR"' "Runtime asset bundler removes agent skills from free V1"
-
-require_file "Epistemos/JuneAgent/JuneAgentGateway.swift" "June gateway source"
-require_file "Epistemos/Goose/GooseMASAgentCoreRunner.swift" "In-process MAS Goose runner"
-require_file "agent_core/src/lib.rs" "In-process agent core source"
-require_contains "${ROOT_DIR}/Epistemos/JuneAgent/JuneAgentGateway.swift" "GooseMASAgentCoreRunner" "June routes through the in-process runner"
-require_contains "${ROOT_DIR}/Epistemos/AgentWorkspace/AgentWorkspaceSession.swift" "GooseMASAgentCoreRunner" "Agent Workspace routes through the in-process runner"
-require_not_contains "${ROOT_DIR}/agent_core/src/lib.rs" "cli_passthrough" "agent_core module surface"
-require_not_contains "${ROOT_DIR}/agent_core/src/lib.rs" "pub mod work;" "agent_core module surface"
+require_absent "Epistemos/JuneAgent" "Free V1 source tree omits JuneAgent"
+require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" "bundle_editor_resources" "Free runtime asset path keeps the editor"
+require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" "bundle_coreeditor_resources" "Free runtime asset path keeps CoreEditor"
+require_contains "${ROOT_DIR}/bundle-app-runtime-assets.sh" "remove_free_v1_forbidden_resources" "Free runtime asset path removes forbidden resources"
+require_contains "${ROOT_DIR}/Epistemos/App/EpistemosApp.swift" "EpistemosAgentReadAloud" "Free app retains Kokoro read-aloud"
+require_contains "${ROOT_DIR}/build-epistemos-shadow.sh" "--no-default-features --features free-lexical" "Free note search uses the deterministic lexical shadow"
 
 if [[ -f "${DEFAULT_SCHEME}" ]]; then
   pass "Normal Epistemos scheme exists"
@@ -255,66 +234,25 @@ do
   require_absent "${retired_path}" "Retired lane"
 done
 
-STAGED_JUNEWEB="${ROOT_DIR}/.june-web-stage"
-STAGED_JUNEWEB_DIST="${STAGED_JUNEWEB}/dist"
-STAGED_JUNEWEB_SHIM="${STAGED_JUNEWEB}/tauri-internals-shim.js"
-
-if [[ "${FREE_V1}" == "1" ]]; then
-  pass "Free V1 does not require or rebuild staged JuneWeb"
-elif [[ -f "${STAGED_JUNEWEB_DIST}/index.html" && -f "${STAGED_JUNEWEB_SHIM}" ]]; then
-  pass "Source checkout includes staged JuneWeb index"
-  pass "Source checkout includes staged JuneWeb shim"
-  require_tree_contains "${STAGED_JUNEWEB_DIST}" 'June models' "Staged JuneWeb visibly identifies the MAS model catalog as June models"
-  require_tree_not_contains "${STAGED_JUNEWEB_DIST}" 'system_prompt_forge|prompt\.forge_preview|Sharpening prompt locally|agent-composer-forge' "Staged JuneWeb omits prompt-upgrade UI and send-review hooks"
-  require_tree_not_contains "${STAGED_JUNEWEB_DIST}" 'Hermes is not running|Hermes RPC failed|Raw Hermes trace' "Staged JuneWeb omits Hermes-branded send/session failure copy"
-  require_contains "${STAGED_JUNEWEB_SHIM}" "MAS uses June" "Staged JuneWeb shim identifies the MAS in-process June gateway"
-  require_not_contains "${STAGED_JUNEWEB_SHIM}" '"configured":true' "Staged JuneWeb fallback does not pretend a provider is configured"
-  require_not_contains "${STAGED_JUNEWEB_SHIM}" "Echo from the Epistemos in-process gateway bridge" "Staged JuneWeb shim has no canned prompt.submit success path"
-  require_not_contains "${STAGED_JUNEWEB_SHIM}" "hermes_home" "Staged JuneWeb shim does not advertise a Hermes home"
-  require_contains "${STAGED_JUNEWEB_SHIM}" "5030" "Staged JuneWeb shim fails visibly if MAS host mode is absent"
-else
-  require_existing_file "${STAGED_JUNEWEB_DIST}/index.html" "Source checkout includes staged JuneWeb index"
-  require_existing_file "${STAGED_JUNEWEB_SHIM}" "Source checkout includes staged JuneWeb shim"
-fi
-
 if [[ -n "${APPSTORE_APP}" ]]; then
   if [[ ! -d "${APPSTORE_APP}" ]]; then
     fail "Supplied App Store app does not exist: ${APPSTORE_APP}"
   else
-    entitlements="$(codesign -d --entitlements :- "${APPSTORE_APP}" 2>/dev/null || true)"
-    if printf '%s' "${entitlements}" | grep -A1 -F 'com.apple.security.app-sandbox' | grep -Fq '<true/>'; then
+    entitlements_file="$(mktemp)"
+    if codesign -d --entitlements :- "${APPSTORE_APP}" >"${entitlements_file}" 2>/dev/null &&
+      /usr/libexec/PlistBuddy -c 'Print :com.apple.security.app-sandbox' "${entitlements_file}" 2>/dev/null | grep -Fq true; then
       pass "Built App Store app has the App Sandbox entitlement"
     else
       fail "Built App Store app is missing the App Sandbox entitlement"
     fi
+    rm -f "${entitlements_file}"
 
-    if [[ "${FREE_V1}" == "1" ]]; then
-      require_app_absent "${APPSTORE_APP}" "Contents/Resources/JuneWeb" "Built free V1 artifact omits JuneWeb"
-      require_app_absent "${APPSTORE_APP}" "Contents/Resources/model_manifest.json" "Built free V1 artifact omits the model manifest"
-      require_app_absent "${APPSTORE_APP}" "Contents/Resources/DefaultSkills" "Built free V1 artifact omits agent skills"
-    else
-      BUILT_JUNEWEB_DIST="${APPSTORE_APP}/Contents/Resources/JuneWeb/dist"
-      BUILT_JUNEWEB_SHIM="${APPSTORE_APP}/Contents/Resources/JuneWeb/tauri-internals-shim.js"
-      if [[ -f "${BUILT_JUNEWEB_DIST}/index.html" && -f "${BUILT_JUNEWEB_SHIM}" ]]; then
-        pass "Built App Store artifact includes JuneWeb/dist/index.html"
-        pass "Built App Store artifact includes JuneWeb/tauri-internals-shim.js"
-        require_tree_contains "${BUILT_JUNEWEB_DIST}" 'June models' "Built App Store JuneWeb visibly identifies the MAS model catalog as June models"
-        require_tree_not_contains "${BUILT_JUNEWEB_DIST}" 'system_prompt_forge|prompt\.forge_preview|Sharpening prompt locally|agent-composer-forge' "Built App Store JuneWeb omits prompt-upgrade UI and send-review hooks"
-        require_tree_not_contains "${BUILT_JUNEWEB_DIST}" 'Hermes is not running|Hermes RPC failed|Raw Hermes trace' "Built App Store JuneWeb omits Hermes-branded send/session failure copy"
-        require_contains "${BUILT_JUNEWEB_SHIM}" "MAS uses June" "Built App Store JuneWeb shim identifies the MAS in-process June gateway"
-        require_not_contains "${BUILT_JUNEWEB_SHIM}" '"configured":true' "Built App Store JuneWeb fallback does not pretend a provider is configured"
-        require_not_contains "${BUILT_JUNEWEB_SHIM}" "Echo from the Epistemos in-process gateway bridge" "Built App Store JuneWeb shim has no canned prompt.submit success path"
-        require_contains "${BUILT_JUNEWEB_SHIM}" "5030" "Built App Store JuneWeb shim fails visibly if MAS host mode is absent"
-        require_not_contains "${BUILT_JUNEWEB_SHIM}" "hermes.invoke" "Built App Store JuneWeb shim does not advertise a generic in-process Hermes command"
-      else
-        require_existing_file "${BUILT_JUNEWEB_DIST}/index.html" "Built App Store artifact includes JuneWeb/dist/index.html"
-        require_existing_file "${BUILT_JUNEWEB_SHIM}" "Built App Store artifact includes JuneWeb/tauri-internals-shim.js"
-      fi
-    fi
+    require_app_absent "${APPSTORE_APP}" "Contents/Resources/JuneWeb" "Built free V1 artifact omits JuneWeb"
+    require_app_absent "${APPSTORE_APP}" "Contents/Resources/model_manifest.json" "Built free V1 artifact omits the model manifest"
+    require_app_absent "${APPSTORE_APP}" "Contents/Resources/DefaultSkills" "Built free V1 artifact omits agent skills"
+    require_appstore_free_v1_without_paid_inference_or_agent_runtimes "${APPSTORE_APP}"
+    require_appstore_free_v1_without_paid_identity_strings "${APPSTORE_APP}"
     require_appstore_no_parked_account_runtime_markers "${APPSTORE_APP}"
-    if [[ "${FREE_V1}" != "1" ]]; then
-      require_appstore_local_gguf_runtime "${APPSTORE_APP}"
-    fi
   fi
 fi
 

@@ -50,13 +50,6 @@ public struct VoicePreferencesSection: View {
                     binding: $prefs.dictationAutoStop,
                     preview: nil
                 )
-                // SS-QC / DONE-RE-AUDIT (owner 2026-06-21): agent-response TTS,
-                // brain-dump dictation, and per-model voice persona controls are
-                // hidden until they have a real behavior consumer. Per wire-OR-remove, a shown
-                // do-nothing toggle is fake. agentResponseTTS has no assistant-stream completion
-                // consumer yet; brainDumpHotkeyDictate has no dictation-start seam to gate;
-                // perModelVoicePersona is superseded by the SS-QC global default voice.
-                // The VoicePreferences keys/defaults remain (harmless) for any future wiring.
                 row(
                     title: "Read each sentence aloud in Quick Capture",
                     key: VoicePreferenceKeys.quickCaptureReadBack,
@@ -204,7 +197,7 @@ public struct VoicePreferencesSection: View {
             showingKokoroInstallPrompt = true
             return
         }
-        let utteranceID = EpistemosAgentReadAloud.speak(preview)
+        let utteranceID = EpistemosReadAloud.speak(preview)
         if utteranceID == nil {
             EpistemosReadAloudDiagnostics.showFailureToast("Kokoro voice preview could not start. Check Settings > Voice.")
         }

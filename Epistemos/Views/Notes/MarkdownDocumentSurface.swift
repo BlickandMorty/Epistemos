@@ -3,7 +3,7 @@ import SwiftUI
 
 enum MarkdownDocumentSurfacePerformancePolicy {
     static let autosaveQuietWindow: Duration = .seconds(2)
-    static let reloadSamePageExternalMarkdown = false
+    static let reloadSamePageExternalMarkdown = true
 }
 
 @MainActor
@@ -92,6 +92,14 @@ struct MarkdownDocumentSurface: View {
     @State private var coordinator = MarkdownDocumentSurfaceCoordinator()
 
     var body: some View {
+        Group {
+        #if EPISTEMOS_FREE_V1
+        EpdocEditorChromeView(
+            controller: coordinator.controller,
+            surfaceToolbarAccessory: surfaceToolbarAccessory,
+            canvasEngine: .codeMirror
+        )
+        #else
         EpdocEditorChromeView(
             controller: coordinator.controller,
             surfaceToolbarAccessory: surfaceToolbarAccessory,
@@ -104,8 +112,11 @@ struct MarkdownDocumentSurface: View {
                     markdown: coordinator.markdownForAssistContext(hostMarkdown: markdown),
                     selection: JuneEpdocAssistSelection(coordinator.controller.latestSelection)
                 )
-            }
-            )
+            },
+            canvasEngine: .codeMirror
+        )
+        #endif
+        }
             .onAppear {
                 coordinator.beginSurfaceAppearance()
                 configureCoordinator()
@@ -169,6 +180,11 @@ final class MarkdownDocumentSurfaceCoordinator {
     private var markdownWriteTail: Task<Bool, Never>?
     private var markdownFlushGeneration: UInt64 = 0
     private var markdownFlushTask: Task<Bool, Never>?
+    private var deferredPageSwitchGeneration: UInt64 = 0
+    private var codeMirrorCheckpointGeneration: UInt64 = 0
+    private var codeMirrorCheckpointWorkerGeneration: UInt64 = 0
+    private var codeMirrorCheckpointTask: Task<Void, Never>?
+    private var isCodeMirrorEditSessionActive = false
     private var isEditable = true
     private var isActive = true
     private var pendingExternalMarkdownReload: String?
@@ -194,18 +210,26 @@ final class MarkdownDocumentSurfaceCoordinator {
         let wasActive = self.isActive
         let becameActive = !wasActive && isActive
         let isSwitchingConfiguredPage = configuredPageId != nil && configuredPageId != pageId
+        if isSwitchingConfiguredPage, hasPendingMarkdownWork {
+            deferPageSwitchUntilCurrentPageIsSaved(
+                pageId: pageId,
+                title: title,
+                markdown: markdown,
+                theme: theme,
+                noteRelativePath: noteRelativePath,
+                isEditable: isEditable,
+                isActive: isActive,
+                provenanceStore: provenanceStore,
+                onEditStarted: onEditStarted,
+                saveMarkdown: saveMarkdown
+            )
+            return
+        }
         if isSwitchingConfiguredPage {
-            let hadPendingDebounce = saveTask != nil
-            cancelMarkdownSaveWorker()
-            if hadPendingDebounce
-                || markdownWriteCompletedGeneration < markdownWriteGeneration
-                || latestMarkdown != lastFlushedMarkdown
-                || controller.toolbarModel.isDirty {
-                _ = enqueueMarkdownWrite(latestMarkdown, revision: markdownRevision)
-            }
             markdownRevision &+= 1
         }
         controller.theme = theme
+        controller.editorIsEditable = isEditable
         self.isEditable = isEditable
         self.isActive = isActive
         self.provenanceBridgeSink = provenanceStore.map {
@@ -241,7 +265,21 @@ final class MarkdownDocumentSurfaceCoordinator {
                 return
             }
             self.onEditStarted()
+            self.controller.toolbarModel.isDirty = true
             self.scheduleMarkdownSave(markdown, writeback: writeback)
+        }
+        controller.onCodeMirrorContentDirty = { [weak self] in
+            guard let self else { return }
+            guard self.isEditable else {
+                self.controller.toolbarModel.isDirty = false
+                return
+            }
+            if !self.isCodeMirrorEditSessionActive {
+                self.onEditStarted()
+            }
+            self.isCodeMirrorEditSessionActive = true
+            self.markdownRevision &+= 1
+            self.scheduleCodeMirrorCheckpointSave()
         }
         controller.onSuggestionApplied = { [weak self] payload in
             self?.enqueueProvenanceWrite(
@@ -273,6 +311,13 @@ final class MarkdownDocumentSurfaceCoordinator {
 
         guard configuredPageId != pageId else {
             updateTitle(title)
+            if synchronizeCleanSyncedTitleChange(
+                title: title,
+                markdown: markdown,
+                isActive: isActive
+            ) {
+                return
+            }
             if isActive, let pending = pendingExternalMarkdownReload {
                 pendingExternalMarkdownReload = nil
                 latestMarkdown = pending
@@ -347,6 +392,7 @@ final class MarkdownDocumentSurfaceCoordinator {
         }
 
         configuredPageId = pageId
+        isCodeMirrorEditSessionActive = false
         pendingExternalMarkdownReload = nil
         latestMarkdown = markdown
         lastFlushedMarkdown = markdown
@@ -357,12 +403,80 @@ final class MarkdownDocumentSurfaceCoordinator {
         )
     }
 
+    private func deferPageSwitchUntilCurrentPageIsSaved(
+        pageId: String,
+        title: String,
+        markdown: String,
+        theme: EpistemosTheme,
+        noteRelativePath: String,
+        isEditable: Bool,
+        isActive: Bool,
+        provenanceStore: (any EditorProvenanceStoring)?,
+        onEditStarted: @escaping @MainActor () -> Void,
+        saveMarkdown: @escaping @Sendable @MainActor (String) async -> Bool
+    ) {
+        guard let sourcePageId = configuredPageId else { return }
+        deferredPageSwitchGeneration &+= 1
+        let generation = deferredPageSwitchGeneration
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let saved = await self.flushPendingSurfaceWrites()
+            guard saved,
+                  self.deferredPageSwitchGeneration == generation,
+                  self.configuredPageId == sourcePageId else {
+                return
+            }
+            self.configure(
+                pageId: pageId,
+                title: title,
+                markdown: markdown,
+                theme: theme,
+                noteRelativePath: noteRelativePath,
+                isEditable: isEditable,
+                isActive: isActive,
+                provenanceStore: provenanceStore,
+                onEditStarted: onEditStarted,
+                saveMarkdown: saveMarkdown
+            )
+        }
+    }
+
+    private func synchronizeCleanSyncedTitleChange(
+        title: String,
+        markdown: String,
+        isActive: Bool
+    ) -> Bool {
+        guard isActive,
+              markdown != latestMarkdown,
+              markdownSurfaceIsCleanForHostReload,
+              latestMarkdown == lastFlushedMarkdown,
+              controller.latestMarkdownSnapshot == latestMarkdown,
+              let mutation = ProseEditorView.syncedNoteTitleMutation(
+                in: latestMarkdown,
+                with: title
+              ),
+              mutation.applying(to: latestMarkdown) == markdown else {
+            return false
+        }
+
+        guard controller.synchronizeCleanHostTitle(title, markdown: markdown) else {
+            pendingExternalMarkdownReload = markdown
+            return true
+        }
+        latestMarkdown = markdown
+        lastFlushedMarkdown = markdown
+        if pendingExternalMarkdownReload == markdown {
+            pendingExternalMarkdownReload = nil
+        }
+        return true
+    }
+
     private func shouldRecoverVisibleBlankOnReactivation(
         markdown: String,
         becameActive: Bool
     ) -> Bool {
         guard becameActive,
-              !controller.toolbarModel.isDirty,
+              markdownSurfaceIsCleanForHostReload,
               controller.toolbarModel.characterCount == 0,
               !Self.markdownBodyIsEmpty(markdown) else {
             return false
@@ -379,7 +493,7 @@ final class MarkdownDocumentSurfaceCoordinator {
         becameActive: Bool
     ) -> Bool {
         guard becameActive,
-              !controller.toolbarModel.isDirty,
+              markdownSurfaceIsCleanForHostReload,
               !Self.markdownBodyIsEmpty(markdown) else {
             return false
         }
@@ -443,6 +557,7 @@ final class MarkdownDocumentSurfaceCoordinator {
         )
         if configuredPageId == registration.pageId,
            registryToken == registration.token {
+            cancelCodeMirrorCheckpointWorker()
             registryToken = nil
         }
     }
@@ -486,10 +601,19 @@ final class MarkdownDocumentSurfaceCoordinator {
     private var hasPendingMarkdownWork: Bool {
         saveTask != nil
             || markdownWriteCompletedGeneration < markdownWriteGeneration
+            || latestMarkdown != lastFlushedMarkdown
             || controller.toolbarModel.isDirty
     }
 
+    private var markdownSurfaceIsCleanForHostReload: Bool {
+        saveTask == nil
+            && markdownWriteCompletedGeneration >= markdownWriteGeneration
+            && latestMarkdown == lastFlushedMarkdown
+            && !controller.toolbarModel.isDirty
+    }
+
     private func performPendingMarkdownFlush() async -> Bool {
+        cancelCodeMirrorCheckpointWorker()
         let hadPendingSave = saveTask != nil
         cancelMarkdownSaveWorker()
         let hadOutstandingWrite = markdownWriteCompletedGeneration < markdownWriteGeneration
@@ -498,7 +622,7 @@ final class MarkdownDocumentSurfaceCoordinator {
         }
         let hasPendingMarkdownSnapshot = latestMarkdown != lastFlushedMarkdown
         if !hasPendingMarkdownSnapshot {
-            let usedDirectSnapshot = await requestCurrentMarkdownSnapshotFromEditor()
+            let usedDirectSnapshot = await requestStableCurrentMarkdownSnapshotFromEditor()
             let receivedBridgeSnapshot = usedDirectSnapshot ? false : await requestFreshMarkdownSnapshotIfPossible()
             cancelMarkdownSaveWorker()
             guard usedDirectSnapshot || receivedBridgeSnapshot || !controller.toolbarModel.isDirty else {
@@ -557,13 +681,24 @@ final class MarkdownDocumentSurfaceCoordinator {
             return false
         }
         if freshMarkdown != latestMarkdown {
-            if controller.toolbarModel.isDirty {
+            if controller.toolbarModel.isDirty, !isCodeMirrorEditSessionActive {
                 onEditStarted()
             }
             markdownRevision &+= 1
         }
         latestMarkdown = freshMarkdown
         return true
+    }
+
+    private func requestStableCurrentMarkdownSnapshotFromEditor() async -> Bool {
+        for _ in 0..<3 {
+            let checkpointGeneration = codeMirrorCheckpointGeneration
+            guard await requestCurrentMarkdownSnapshotFromEditor() else { return false }
+            if checkpointGeneration == codeMirrorCheckpointGeneration {
+                return true
+            }
+        }
+        return false
     }
 
     private func requestFreshMarkdownSnapshotIfPossible() async -> Bool {
@@ -608,9 +743,23 @@ final class MarkdownDocumentSurfaceCoordinator {
     }
 
     private func scheduleMarkdownSave(_ markdown: String, writeback: EpdocMarkdownWritebackRegion?) {
-        let markdownToSave = writeback
-            .flatMap { Self.apply(writeback: $0, to: latestMarkdown) }
-            ?? markdown
+        let markdownToSave: String
+        if let writeback {
+            if let splicedMarkdown = Self.apply(writeback: writeback, to: latestMarkdown) {
+                markdownToSave = splicedMarkdown
+            } else {
+                guard !Self.markdownBodyIsEmpty(markdown)
+                        || Self.markdownBodyIsEmpty(latestMarkdown) else {
+                    Log.notes.error(
+                        "MarkdownDocumentSurface: ignored empty minimal-writeback fallback over non-empty Markdown source"
+                    )
+                    return
+                }
+                markdownToSave = markdown
+            }
+        } else {
+            markdownToSave = markdown
+        }
         markdownRevision &+= 1
         latestMarkdown = markdownToSave
         markdownDebounceGeneration &+= 1
@@ -649,6 +798,37 @@ final class MarkdownDocumentSurfaceCoordinator {
         saveTask = nil
     }
 
+    private func scheduleCodeMirrorCheckpointSave() {
+        codeMirrorCheckpointGeneration &+= 1
+        guard codeMirrorCheckpointTask == nil else { return }
+        codeMirrorCheckpointWorkerGeneration &+= 1
+        let workerGeneration = codeMirrorCheckpointWorkerGeneration
+        codeMirrorCheckpointTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                if self.codeMirrorCheckpointWorkerGeneration == workerGeneration {
+                    self.codeMirrorCheckpointTask = nil
+                }
+            }
+            while !Task.isCancelled {
+                let checkpointGeneration = self.codeMirrorCheckpointGeneration
+                try? await Task.sleep(for: MarkdownDocumentSurfacePerformancePolicy.autosaveQuietWindow)
+                guard !Task.isCancelled else { return }
+                guard checkpointGeneration == self.codeMirrorCheckpointGeneration else { continue }
+                self.codeMirrorCheckpointTask = nil
+                _ = await self.flushPendingMarkdown()
+                return
+            }
+        }
+    }
+
+    private func cancelCodeMirrorCheckpointWorker() {
+        codeMirrorCheckpointGeneration &+= 1
+        codeMirrorCheckpointWorkerGeneration &+= 1
+        codeMirrorCheckpointTask?.cancel()
+        codeMirrorCheckpointTask = nil
+    }
+
     @discardableResult
     private func enqueueMarkdownWrite(
         _ markdown: String,
@@ -679,6 +859,7 @@ final class MarkdownDocumentSurfaceCoordinator {
             self.lastFlushedMarkdown = markdown
             if self.markdownRevision == revision {
                 self.controller.toolbarModel.isDirty = false
+                self.isCodeMirrorEditSessionActive = false
             } else {
                 self.controller.toolbarModel.isDirty = true
             }

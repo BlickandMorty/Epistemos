@@ -282,9 +282,9 @@ private struct WorkspaceRow: View {
                         .foregroundStyle(theme.textTertiary)
                         .lineLimit(1)
 
-                    // AI summary
-                    if !workspace.summary.isEmpty {
-                        Text(workspace.summary)
+                    let summary = workspace.presentedSummary
+                    if !summary.isEmpty {
+                        Text(summary)
                             .font(.system(size: 11, weight: .regular, design: .rounded))
                             .foregroundStyle(theme.textSecondary.opacity(0.8))
                             .lineLimit(2)
@@ -369,7 +369,7 @@ private struct WorkspaceRow: View {
     private var driftIndicator: some View {
         if shouldShowDriftIndicator,
            let diff = cachedDiff,
-           diff.hasChanges {
+           diff.hasPresentedChanges {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.triangle.branch")
@@ -418,10 +418,11 @@ private struct WorkspaceRow: View {
 
     private func buildDiffParts(_ diff: WorkspaceDiffSummary) -> [String] {
         var parts: [String] = []
+        let chatActivity = diff.presentedChatActivity
         if diff.notesOpened > 0 { parts.append("+\(diff.notesOpened) opened") }
         if diff.notesClosed > 0 { parts.append("-\(diff.notesClosed) closed") }
-        if diff.chatsStarted > 0 { parts.append("+\(diff.chatsStarted) chats") }
-        if diff.chatMessagesSent > 0 { parts.append("\(diff.chatMessagesSent) msgs") }
+        if chatActivity.started > 0 { parts.append("+\(chatActivity.started) chats") }
+        if chatActivity.messagesSent > 0 { parts.append("\(chatActivity.messagesSent) msgs") }
         if diff.graphNodesAdded > 0 { parts.append("+\(diff.graphNodesAdded) nodes") }
         return parts
     }

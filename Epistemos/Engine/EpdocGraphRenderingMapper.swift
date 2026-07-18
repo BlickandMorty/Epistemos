@@ -5,37 +5,11 @@ import Foundation
 // Wave 7.16 of the Extended Program Plan
 // (`docs/audits/EXTENDED_PROGRAM_PLAN_2026_04_25.md` Wave 7.16).
 //
-// Translates an `EpdocGraphProjection` (W7.14) into the per-node /
-// per-edge scalar multipliers the Metal renderer
-// (`graph-engine/src/renderer.rs`) needs to make complexity-weighted
-// rendering happen.
+// Translates an `EpdocGraphProjection` (W7.14) into renderer scalars.
+// Document nodes stay visually neutral; semantic graph structure and edge
+// kinds carry the hierarchy without rescanning the live editor document.
 //
-// Why a Swift mapping layer instead of editing `renderer.rs` directly:
-//   - The Metal renderer is large (~3000 LOC) with tight perf invariants
-//     + an existing `bench_tests.rs` 60Hz/10K-node budget gate.
-//   - Multiplier values (radius 0.5×–1.5×, label-font 1.0×–1.4×, halo
-//     alpha 0–0.4) are V1 design choices that may iterate. Putting them
-//     in Swift keeps the iteration loop cheap (no Rust rebuild).
-//   - The Rust renderer already accepts `radius` + `alpha` per node
-//     instance (cross-ref `NodeInstance` struct in renderer.rs); the
-//     consumer just multiplies the base shape by what this mapper
-//     returns and the renderer is none the wiser.
-//
-// Per the user's 2026-04-26 direction:
-//
-//     "the graph reflects the complexity of the documents"
-//
-// Mapping curves (linear interpolation against the W7.12 complexity
-// scalar `c ∈ [0, 1]`):
-//
-//     radiusMultiplier = lerp(0.7, 1.6, c)   simple notes feel small;
-//                                            complex docs hub the layout
-//     labelFontScale   = lerp(1.0, 1.4, c)   small docs keep stock font;
-//                                            complex docs read clearly
-//     haloAlpha        = lerp(0.0, 0.40, c)  simple = no halo; complex
-//                                            = luminous (caps at 40%
-//                                            so we don't blow out blend)
-//     edgeWeightMultiplier = per-kind table, decoupled from complexity:
+//     edgeWeightMultiplier = per-kind table:
 //        .derivedFrom = 1.6  (provenance edges read as load-bearing)
 //        .reference   = 1.0  (wikilinks / outputs sit at the visual base)
 //        .contains    = 1.4
@@ -55,14 +29,14 @@ nonisolated struct EpdocGraphRenderAttributes: Sendable, Hashable {
 
 nonisolated enum EpdocGraphRenderingMapper {
 
-    /// Map a projection's complexity scalar to per-node render
-    /// attributes. Pure function; no allocations.
+    /// Epdoc nodes use neutral render attributes. The projection argument is
+    /// intentionally retained so callers keep one stable mapping contract.
     static func attributes(for projection: EpdocGraphProjection) -> EpdocGraphRenderAttributes {
-        let c = clampUnit(projection.nodeWeight)
+        _ = projection
         return EpdocGraphRenderAttributes(
-            radiusMultiplier: lerp(0.7, 1.6, t: c),
-            labelFontScale:   lerp(1.0, 1.4, t: c),
-            haloAlpha:        lerp(0.0, 0.40, t: c)
+            radiusMultiplier: 1.0,
+            labelFontScale: 1.0,
+            haloAlpha: 0.0
         )
     }
 
@@ -77,15 +51,5 @@ nonisolated enum EpdocGraphRenderingMapper {
         case .tagged:           return 0.7
         default:                return 1.0
         }
-    }
-
-    // MARK: - Helpers
-
-    private static func lerp(_ a: Double, _ b: Double, t: Double) -> Double {
-        a + (b - a) * t
-    }
-
-    private static func clampUnit(_ value: Double) -> Double {
-        max(0.0, min(1.0, value))
     }
 }

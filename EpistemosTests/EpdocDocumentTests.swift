@@ -8,6 +8,31 @@ import Testing
 @MainActor
 @Suite("EpdocDocument (Wave 7.1 follow-up)")
 struct EpdocDocumentTests {
+    private static func canonicalContent(
+        documentID: String,
+        text: String = "",
+        revision: UInt64 = 0
+    ) throws -> Data {
+        try JSONEncoder.epdocCanonical.encode(
+            EpdocContentEnvelope(
+                documentID: documentID,
+                revision: revision,
+                root: EpdocRichNode(
+                    id: "\(documentID):root",
+                    type: .document,
+                    children: [
+                        EpdocRichNode(
+                            id: "\(documentID):block:0",
+                            type: .paragraph,
+                            children: text.isEmpty
+                                ? []
+                                : [EpdocRichNode(type: .text, text: text)]
+                        ),
+                    ]
+                )
+            )
+        )
+    }
 
     // MARK: - Class metadata
 
@@ -38,15 +63,12 @@ struct EpdocDocumentTests {
         let doc = EpdocDocument()
         #expect(doc.package.manifest.title == "Untitled")
         #expect(doc.package.manifest.kind == .document)
-        // The default contentJSON must parse as a valid empty
-        // ProseMirror doc so the Tiptap bridge (W7.2) can consume it
-        // immediately on first edit.
-        let parsed = try? JSONSerialization.jsonObject(with: doc.package.contentJSON)
-        #expect(parsed != nil,
-                "default contentJSON must parse as JSON so Tiptap can setContent it")
-        let text = String(data: doc.package.contentJSON, encoding: .utf8) ?? ""
-        #expect(text.contains(#""type":"paragraph""#),
-                "new .epdoc packages should include an empty paragraph so Tiptap shows a caret + placeholder instead of a blank web view.")
+        let envelope = try? JSONDecoder.epdocCanonical.decode(
+            EpdocContentEnvelope.self,
+            from: doc.package.contentJSON
+        )
+        #expect(envelope?.documentID == doc.package.manifest.id)
+        #expect(envelope?.root.children.map(\.type) == [.paragraph])
     }
 
     // MARK: - read / write round-trip via FileWrapper
@@ -68,7 +90,7 @@ struct EpdocDocumentTests {
         )
         let original = EpdocPackage(
             manifest: manifest,
-            contentJSON: #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!,
+            contentJSON: try Self.canonicalContent(documentID: manifest.id),
             shadowMarkdown: "# Imported\n".data(using: .utf8)
         )
         let wrapper = try original.makeFileWrapper()
@@ -112,7 +134,11 @@ struct EpdocDocumentTests {
     func writeRoundTrips() throws {
         let doc = EpdocDocument()
         doc.setTitle("Round Trip")
-        doc.setContentJSON(#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"hello"}]}]}"#.data(using: .utf8)!)
+        #expect(
+            doc.setContentJSON(
+                try Self.canonicalContent(documentID: doc.package.manifest.id, text: "hello")
+            )
+        )
 
         let wrapper = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
         // Decode via the same EpdocPackage bridge to verify byte-equal.
@@ -143,8 +169,11 @@ struct EpdocDocumentTests {
                 "fresh EpdocDocument should start with empty contentHash; first save populates it")
 
         // Mutate to a known body so we can assert the exact hex.
-        let body = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
-        doc.setContentJSON(body)
+        let body = try Self.canonicalContent(
+            documentID: doc.package.manifest.id,
+            text: "first"
+        )
+        #expect(doc.setContentJSON(body))
 
         let wrapper = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
         let decoded = try EpdocPackage(fileWrapper: wrapper)
@@ -163,15 +192,23 @@ struct EpdocDocumentTests {
                 "saving the same bytes twice MUST produce the same hash")
 
         // Sensitivity — changing the body produces a different hash.
-        doc.setContentJSON(#"{"type":"doc","content":[]}"#.data(using: .utf8)!)
+        #expect(
+            doc.setContentJSON(
+                try Self.canonicalContent(
+                    documentID: doc.package.manifest.id,
+                    text: "second",
+                    revision: 1
+                )
+            )
+        )
         let wrapper3 = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
         let decoded3 = try EpdocPackage(fileWrapper: wrapper3)
         #expect(decoded.manifest.contentHash != decoded3.manifest.contentHash,
                 "changing the content body MUST change contentHash")
     }
 
-    @Test("fileWrapper(ofType:) writes complexity metadata and preserves existing metadata")
-    func writePersistsComplexityMetadata() throws {
+    @Test("fileWrapper(ofType:) strips retired complexity metadata and preserves supported metadata")
+    func writeStripsRetiredComplexityMetadata() throws {
         let doc = EpdocDocument()
         let manifest = doc.package.manifest
         doc.package.manifest = EpdocManifest(
@@ -183,22 +220,21 @@ struct EpdocDocumentTests {
             title: manifest.title,
             contentHash: manifest.contentHash,
             provenance: manifest.provenance,
-            metadata: ["theme": "solarized-dark"]
+            metadata: ["theme": "solarized-dark", "complexity": "0.75"]
         )
-        doc.setContentJSON(#"""
-        {"type":"doc","content":[
-          {"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Complexity"}]},
-          {"type":"paragraph","content":[{"type":"text","text":"A document with enough structure and prose should write a non-zero complexity scalar into manifest metadata."}]}
-        ]}
-        """#.data(using: .utf8)!)
+        #expect(
+            doc.setContentJSON(
+                try Self.canonicalContent(
+                    documentID: doc.package.manifest.id,
+                    text: "Canonical content remains independent of retired complexity chrome."
+                )
+            )
+        )
 
         let wrapper = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
         let decoded = try EpdocPackage(fileWrapper: wrapper)
         #expect(decoded.manifest.metadata?["theme"] == "solarized-dark")
-        let raw = try #require(decoded.manifest.metadata?["complexity"])
-        let value = try #require(Double(raw))
-        #expect(value > 0.0 && value <= 1.0,
-                "Saved manifest complexity metadata must be a queryable W7.12 scalar; got \(raw)")
+        #expect(decoded.manifest.metadata?["complexity"] == nil)
     }
 
     @Test("fileWrapper(ofType:) rejects unknown UTI")
@@ -218,7 +254,14 @@ struct EpdocDocumentTests {
     func setContentMarksDirty() {
         let doc = EpdocDocument()
         #expect(doc.isDocumentEdited == false, "fresh doc starts clean")
-        doc.setContentJSON("{}".data(using: .utf8)!)
+        #expect(
+            doc.setContentJSON(
+                try! Self.canonicalContent(
+                    documentID: doc.package.manifest.id,
+                    text: "dirty"
+                )
+            )
+        )
         #expect(doc.isDocumentEdited,
                 "setContentJSON must call updateChangeCount(.changeDone) so autosave fires")
     }
@@ -236,11 +279,12 @@ struct EpdocDocumentTests {
             title: manifest.title,
             contentHash: manifest.contentHash,
             provenance: manifest.provenance,
-            metadata: ["complexity": "0.5"]
+            metadata: ["theme": "oled", "complexity": "0.5"]
         )
         doc.setTitle("Renamed")
         #expect(doc.package.manifest.title == "Renamed")
-        #expect(doc.package.manifest.metadata?["complexity"] == "0.5")
+        #expect(doc.package.manifest.metadata?["theme"] == "oled")
+        #expect(doc.package.manifest.metadata?["complexity"] == nil)
         #expect(doc.isDocumentEdited)
     }
 

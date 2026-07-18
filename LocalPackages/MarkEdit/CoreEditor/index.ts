@@ -10,9 +10,6 @@ import { WebModuleSelectionImpl } from './src/bridge/web/selection';
 import { WebModuleFormatImpl } from './src/bridge/web/format';
 import { WebModuleSearchImpl } from './src/bridge/web/search';
 import { WebModuleTableOfContentsImpl } from './src/bridge/web/toc';
-import { WebModuleAPIImpl } from './src/bridge/web/api';
-import { WebModuleWritingToolsImpl } from './src/bridge/web/writingTools';
-import { WebModuleFoundationModelsImpl } from './src/bridge/web/foundationModels';
 
 import { pseudoDocument } from './test/utils/mock';
 import { createNativeModule } from './src/bridge/nativeModule';
@@ -20,9 +17,6 @@ import { NativeModuleCore } from './src/bridge/native/core';
 import { NativeModuleCompletion } from './src/bridge/native/completion';
 import { NativeModulePreview } from './src/bridge/native/preview';
 import { NativeModuleTokenizer } from './src/bridge/native/tokenizer';
-import { NativeModuleAPI } from './src/bridge/native/api';
-import { NativeModuleFoundationModels } from './src/bridge/native/foundationModels';
-import { NativeModuleTranslation } from './src/bridge/native/translation';
 
 import { resetEditor } from './src/core';
 import { initThemeExtractors, initMarkEditModules } from './src/api/modules';
@@ -69,9 +63,6 @@ window.webModules = {
   format: new WebModuleFormatImpl(),
   search: new WebModuleSearchImpl(),
   toc: new WebModuleTableOfContentsImpl(),
-  api: new WebModuleAPIImpl(),
-  writingTools: new WebModuleWritingToolsImpl(),
-  foundationModels: new WebModuleFoundationModelsImpl(),
 };
 
 window.nativeModules = {
@@ -79,9 +70,6 @@ window.nativeModules = {
   completion: createNativeModule<NativeModuleCompletion>('completion'),
   preview: createNativeModule<NativeModulePreview>('preview'),
   tokenizer: createNativeModule<NativeModuleTokenizer>('tokenizer'),
-  api: createNativeModule<NativeModuleAPI>('api'),
-  foundationModels: createNativeModule<NativeModuleFoundationModels>('foundationModels'),
-  translation: createNativeModule<NativeModuleTranslation>('translation'),
 };
 
 // In release mode, override window APIs to bridge to native

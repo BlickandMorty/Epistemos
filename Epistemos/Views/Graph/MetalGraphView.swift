@@ -1086,6 +1086,7 @@ final class MetalGraphNSView: NSView {
         lastLiteModeVersion = graphState.liteModeVersion
         lastPushedQualityLevel = graphState.qualityLevel
         graph_engine_set_quality_level(engine, graphState.qualityLevel)
+        activeDisplayLink?.preferredFrameRateRange = framePolicyRange()
         pushForceParams()
         pushExtendedForceParams()
         needsRender = true
@@ -1129,11 +1130,13 @@ final class MetalGraphNSView: NSView {
     /// Lives at instance scope so the live-reconfig path in renderFrame()
     /// can call it without restarting the display link.
     private func framePolicyRange() -> CAFrameRateRange {
-        // MASTER OVERRIDE — when `graphForceMaximumFPS` is on, ignore
-        // the cap picker, ignore PowerGuard, ignore thermal state, and
-        // pin to ProMotion's top rate. The 120/120/120 tight range
-        // tells the OS to NEVER drop below 120; the display link will
-        // skip rather than slow.
+        // Automatic emergency protections always win over the normal
+        // maximum-performance policy.
+        if PowerGuard.shared.shouldThrottleRendering {
+            return CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+        }
+
+        // Normal policy: request ProMotion's top rate.
         if graphState?.graphForceMaximumFPS == true {
             return CAFrameRateRange(minimum: 120, maximum: 120, preferred: 120)
         }

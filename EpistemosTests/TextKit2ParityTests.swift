@@ -786,21 +786,12 @@ struct ParagraphTests {
 @MainActor
 struct TK2CenteringTests {
 
-    @Test("TK2 horizontal inset recenters wide prose while keeping compact and table notes stable")
+    @Test("TK2 horizontal inset is centered, mode-driven, and content-independent")
     func horizontalInsetRecentersWideProse() {
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 900, markdown: "Body") == 60)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000, markdown: "Body") == 60)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200, markdown: "Body") == 120)
-        #expect(
-            ProseEditorRepresentable2.horizontalInset(
-                for: 1000,
-                markdown: """
-                    | Name | Count |
-                    | --- | --- |
-                    | Pens | 12 |
-                    """
-            ) == 60
-        )
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 900, mode: .normal) == 90)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000, mode: .normal) == 140)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200, mode: .normal) == 240)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000, mode: .wide) == 60)
     }
 }
 

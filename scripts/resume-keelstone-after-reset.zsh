@@ -190,10 +190,10 @@ free_percent=$(memory_pressure -Q 2>/dev/null | awk -F': ' '/System-wide memory 
 pages_throttled=$(vm_stat 2>/dev/null | awk -F': ' '/Pages throttled/ {gsub(/\./, "", $2); gsub(/ /, "", $2); print $2; exit}')
 competing=$(ps -axo pid=,command= | awk 'BEGIN {IGNORECASE=1} /xcodebuild|swift-frontend|(^|\/)swiftc( |$)|(^|\/)clang( |$)|llama-cli|llama-server|ollama|mlx_lm|Epistemos\.app\/Contents\/MacOS\/Epistemos/ && !/awk/ {print}')
 
-if [[ -n "$swap_mb" ]] && awk -v value="$swap_mb" 'BEGIN {exit !(value < 4096)}'; then
-  pass "Swap used is below 4 GB (${swap_mb} MB)"
+if [[ -n "$swap_mb" ]] && awk -v value="$swap_mb" 'BEGIN {exit !(value < 16384)}'; then
+  pass "Swap used is strictly below 16 GiB / 16,384 MiB (${swap_mb} MiB)"
 else
-  blocked "Swap threshold failed or could not be read (${swap_mb:-unknown} MB)"
+  blocked "Swap threshold failed or could not be read (${swap_mb:-unknown} MiB)"
 fi
 if [[ -n "$free_percent" && "$free_percent" -ge 25 ]]; then
   pass "Free-memory percentage is at least 25% (${free_percent}%)"

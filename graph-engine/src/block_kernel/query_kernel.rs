@@ -1221,6 +1221,56 @@ mod tests {
     }
 
     #[test]
+    fn outline_subscription_roundtrips_rows_through_cozo_memory_db() {
+        let (tree, log, root, child) = seed_page();
+        let root_id = root.to_uuid_string();
+        let child_id = child.to_uuid_string();
+        let mut kernel = BtkQueryKernel::new();
+
+        kernel.sync_page("page-a", &tree, &log);
+
+        let subscription_id = kernel.subscribe_outline("page-a");
+        let initial = kernel
+            .take_update(subscription_id)
+            .expect("initial outline payload should exist");
+        let payload = decode(&initial);
+
+        assert_eq!(payload.version, kernel.latest_seq());
+        assert_eq!(payload.kind, 0);
+        assert!(payload.updated.is_empty());
+        assert!(payload.removed.is_empty());
+
+        let rows = payload
+            .added
+            .into_iter()
+            .map(|row| (row.block_id.clone(), row))
+            .collect::<HashMap<_, _>>();
+        assert_eq!(rows.len(), 2);
+
+        let root_row = rows.get(&root_id).expect("root outline row should exist");
+        assert_eq!(
+            (
+                root_row.page_id.as_str(),
+                root_row.parent_id.as_str(),
+                root_row.content.as_str(),
+                root_row.depth,
+            ),
+            ("page-a", "", "TODO Root [[child-ref]]", 0),
+        );
+
+        let child_row = rows.get(&child_id).expect("child outline row should exist");
+        assert_eq!(
+            (
+                child_row.page_id.as_str(),
+                child_row.parent_id.as_str(),
+                child_row.content.as_str(),
+                child_row.depth,
+            ),
+            ("page-a", root_id.as_str(), "child @tag=research", 1),
+        );
+    }
+
+    #[test]
     fn property_subscription_only_reruns_for_matching_keys() {
         let (mut tree, mut log, _, child) = seed_page();
         let mut kernel = BtkQueryKernel::new();

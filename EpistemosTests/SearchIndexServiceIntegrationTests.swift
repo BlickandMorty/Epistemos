@@ -206,29 +206,50 @@ struct SearchIndexServiceIntegrationTests {
         #expect(try tableExists(databaseURL: databaseURL, name: "block_search"))
     }
 
-    @Test("delete removes page from FTS results")
+    @Test("delete atomically removes page and owned blocks")
     func deleteRemovesPage() throws {
         let setup = try makeService()
         let service = setup.service
         let pageId = uniqueId()
-        let token = uniqueToken("delete")
+        let blockId = uniqueId("delete-block")
+        let pageToken = uniqueToken("delete-page")
+        let blockToken = uniqueToken("delete-block")
         defer { cleanup(service, ids: [pageId]) }
 
         try withRetry {
             try service.upsert(
-            id: pageId,
-            title: token,
-            body: "Body",
-            tags: "",
-            updatedAt: .now
-        )
+                id: pageId,
+                title: pageToken,
+                body: "Body",
+                tags: "",
+                updatedAt: .now,
+                notifyObservers: false
+            )
         }
-        let beforeDelete = try withRetry { try service.search(query: token) }
+        try withRetry {
+            try service.replaceBlocksForPage(
+                pageId: pageId,
+                blocks: [(blockId: blockId, content: blockToken)],
+                notifyObservers: false
+            )
+        }
+        let beforeDelete = try withRetry { try service.search(query: pageToken) }
+        let blocksBeforeDelete = try withRetry { try service.searchBlocks(query: blockToken) }
         #expect(beforeDelete.contains { $0.pageId == pageId })
+        #expect(blocksBeforeDelete.contains {
+            $0.blockId == blockId
+        })
 
-        try withRetry { try service.delete(pageId: pageId) }
-        let afterDelete = try withRetry { try service.search(query: token) }
+        let receipt = try withRetry {
+            try service.delete(pageId: pageId, notifyObservers: false)
+        }
+        let afterDelete = try withRetry { try service.search(query: pageToken) }
+        let blocksAfterDelete = try withRetry { try service.searchBlocks(query: blockToken) }
+        #expect(receipt.deletedPageCount == 1)
+        #expect(receipt.deletedBlockCount == 1)
+        #expect(receipt.changedDependencies == [.searchPages, .searchBlocks])
         #expect(!afterDelete.contains { $0.pageId == pageId })
+        #expect(!blocksAfterDelete.contains { $0.blockId == blockId })
     }
 
     @Test("upsert conflict updates indexed content")

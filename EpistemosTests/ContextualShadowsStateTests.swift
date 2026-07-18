@@ -188,8 +188,8 @@ struct ContextualShadowsStateTests {
     }
 
     @MainActor
-    @Test("configured Shadow backend feeds the production V0 recall state")
-    func configuredShadowBackendFeedsV0Recall() async {
+    @Test("configured Shadow backend presents note results only")
+    func configuredShadowBackendFeedsNotesOnlyRecall() async {
         let state = ContextualShadowsState(isEnabledOverride: true)
         let recall = InstantRecallService()
         let noteHit = ShadowHit(
@@ -216,17 +216,17 @@ struct ContextualShadowsStateTests {
 
         let snapshot = RecallContextSnapshot(
             text: "durable shadow backend query",
-            kind: .chat,
+            kind: .note,
             originId: UUID()
         )
         state.requestRecall(snapshot: snapshot, instantRecall: recall)
 
-        await Self.waitForResults(state, expectedCount: 2)
-        #expect(shadow.callCount == 2)
+        await Self.waitForResults(state, expectedCount: 1)
+        #expect(shadow.callCount == 1)
         #expect(shadow.lastQuery == "durable shadow backend query")
-        #expect(Set(shadow.domains) == Set([.chats, .notes]))
+        #expect(shadow.domains == [.notes])
         #expect(state.currentResults.map(\.id).contains("shadow-note-1"))
-        #expect(state.currentResults.map(\.id).contains("shadow-chat-1"))
+        #expect(!state.currentResults.map(\.id).contains("shadow-chat-1"))
         #expect(state.currentResults.allSatisfy { $0.source == "stub-shadow" })
         #expect(state.hasPanelPayload)
         #expect(!state.isPanelVisible)
@@ -235,18 +235,10 @@ struct ContextualShadowsStateTests {
     }
 
     @MainActor
-    @Test("chat recall is note-first when chat and note hits are near ties")
-    func chatRecallPrefersNoteHitsOverNearTieChatHits() async {
+    @Test("chat-origin recall is fail-closed before it reaches a backend")
+    func chatOriginRecallIsFailClosed() async {
         let state = ContextualShadowsState(isEnabledOverride: true)
         let recall = InstantRecallService()
-        let noteHit = ShadowHit(
-            id: "near-tie-note",
-            title: "Related Note",
-            snippet: "Vault note about the active topic.",
-            score: 0.77,
-            domain: .notes,
-            source: "stub-shadow"
-        )
         let chatHit = ShadowHit(
             id: "near-tie-chat",
             title: "Old Conversation",
@@ -256,10 +248,12 @@ struct ContextualShadowsStateTests {
             source: "stub-shadow"
         )
         let shadow = ContextualShadowsMockSearch(resultsByDomain: [
-            .notes: [noteHit],
             .chats: [chatHit],
         ])
         state.configureShadowSearch(shadow)
+        state.currentResults = [
+            .init(id: "stale-note", title: "Stale", snippet: "old", kind: .note, similarity: 0.4),
+        ]
 
         state.requestRecall(
             snapshot: RecallContextSnapshot(
@@ -271,10 +265,10 @@ struct ContextualShadowsStateTests {
             instantRecall: recall
         )
 
-        await Self.waitForResults(state, expectedCount: 2)
-        #expect(Set(shadow.domains.prefix(2)) == Set([.notes, .chats]))
-        #expect(state.currentResults.first?.id == "near-tie-note")
-        #expect(state.currentResults.first?.kind == .note)
+        await Task.yield()
+        #expect(shadow.callCount == 0)
+        #expect(state.currentResults.isEmpty)
+        #expect(!state.hasPanelPayload)
     }
 
     @MainActor
@@ -331,14 +325,13 @@ struct ContextualShadowsStateTests {
             resultsByDomain: [:],
             errorsByDomain: [
                 .notes: "Search backend unavailable. Try reopening the vault.",
-                .chats: "Search backend unavailable. Try reopening the vault.",
             ]
         )
         state.configureShadowSearch(shadow)
 
         let snapshot = RecallContextSnapshot(
             text: "shadow backend failure query",
-            kind: .chat,
+            kind: .note,
             originId: UUID()
         )
         state.requestRecall(snapshot: snapshot, instantRecall: recall)
@@ -359,7 +352,6 @@ struct ContextualShadowsStateTests {
         let recall = InstantRecallService()
         let shadow = ContextualShadowsMockSearch(resultsByDomain: [
             .notes: [],
-            .chats: [],
         ])
         state.configureShadowSearch(shadow)
 
@@ -377,7 +369,7 @@ struct ContextualShadowsStateTests {
 
         let snapshot = RecallContextSnapshot(
             text: "autobiographical memory meaning anchors",
-            kind: .chat,
+            kind: .note,
             originId: UUID()
         )
         state.requestRecall(
@@ -387,7 +379,7 @@ struct ContextualShadowsStateTests {
         )
 
         await Self.waitForResults(state, expectedCount: 1)
-        #expect(shadow.callCount == 2)
+        #expect(shadow.callCount == 1)
         #expect(state.currentResults.first?.id == "vault-note-autobiography")
         #expect(state.currentResults.first?.title == "My Autobiography")
         #expect(state.currentResults.first?.source == "vault-search")
@@ -424,7 +416,7 @@ struct ContextualShadowsStateTests {
 
         let snapshot = RecallContextSnapshot(
             text: "look for a note titled All Things Must Go",
-            kind: .chat,
+            kind: .note,
             originId: UUID()
         )
         state.requestRecall(
@@ -508,8 +500,8 @@ struct ContextualShadowsStateTests {
         #expect(hits.first?.title == "Some plain body.")
     }
 
-    @Test("chat-origin V0 recall classifies InstantRecall hits as note results")
-    func chatOriginV0HitsRemainNoteResults() {
+    @Test("instant recall conversion produces note results")
+    func instantRecallHitsRemainNoteResults() {
         let raw: [InstantRecallResult] = [
             .init(id: "note-1", text: "# Related Note\nBody", score: 0.74),
         ]
@@ -595,6 +587,19 @@ struct ContextualShadowsStateTests {
 
     // MARK: - Fusion source guards
 
+    @Test("mounted recall source contains no stale chat-ranking implementation")
+    func mountedRecallSourceHasNoStaleChatRankingImplementation() throws {
+        let stateSource = try repoText("Epistemos/State/ContextualShadowsState.swift")
+
+        #expect(!stateSource.contains("noteFirstBoost"),
+                "Free note-only mounted recall must not retain the deleted note-versus-chat ranking boost.")
+        #expect(stateSource.components(separatedBy: "func closePanel() {").count == 2,
+                "Mounted recall must declare exactly one unscoped closePanel implementation.")
+        #expect(stateSource.contains("let baseTerms = Set(")
+                && stateSource.contains("let keywordValues = rankedKeywords"),
+                "The bounded recall query must retain one syntactically complete title/base-term preparation step.")
+    }
+
     @Test("Contextual Shadows V0 is the production-mounted recall surface")
     func contextualShadowsProductionMountsArePresent() throws {
         let appBootstrap = try repoText("Epistemos/App/AppBootstrap.swift")
@@ -622,8 +627,8 @@ struct ContextualShadowsStateTests {
                 "Note recall should not include text after the cursor; trailing note context can dominate the active sentence.")
     }
 
-    @Test("Chat recall and evidence surfaces avoid native bracket frame chrome")
-    func chatRecallAndEvidenceAvoidNativeBracketFrameChrome() throws {
+    @Test("Contextual Shadows avoids native bracket frame chrome")
+    func contextualShadowsAvoidNativeBracketFrameChrome() throws {
         let contextualPanel = try repoText("Epistemos/Views/Recall/ContextualShadowsPanel.swift")
 
         #expect(!repoFileExists("Epistemos/Views/Chat/ChatInputBar.swift"))
@@ -655,18 +660,22 @@ struct ContextualShadowsStateTests {
                 "A cold/empty Shadow route must fall back to the app-owned vault search index before going silent.")
         #expect(stateSource.contains("VaultRecallBridge.recordProductionTrace"),
                 "The app-search fallback should leave VaultRecall metrics/provenance for the visible recall surface.")
-        #expect(stateSource.contains("shadowDomains(for: snapshot.kind)"),
-                "Any typing surface should search both note and chat Shadow domains so Halo suggestions are not surface-fragmented.")
+        #expect(!stateSource.contains("shadowDomains(for: snapshot.kind)"),
+                "Free V1 must not restore the generic note-and-chat domain fan-out.")
+        #expect(stateSource.contains("let outcome = await shadowSearch.searchReportingErrors("),
+                "Mounted recall must use the notes-only Shadow service contract.")
+        #expect(stateSource.contains("allowsContextualShadowPresentation"),
+                "Free V1 must reject chat-origin recall before scheduling backend work.")
         #expect(stateSource.contains("publishPayload(")
                 && stateSource.contains("isVisible: !hits.isEmpty"),
                 "Contextual Shadows must publish payloads when a live typing query produces hits.")
-        #expect(stateSource.contains("isPanelVisible = isVisible && isPanelVisible")
-                && stateSource.contains("scopedPanelVisibility[scopeKey] = isVisible && scopeWasOpen"),
+        #expect(stateSource.contains("hasVisiblePayload")
+                && stateSource.contains("scopedPanelVisibility[scopeKey] = isVisible && hasVisiblePayload && scopeWasOpen"),
                 "Contextual Shadows must light the recall affordance without auto-opening the panel mid-typing.")
         #expect(stateSource.contains("recallQuery(from: snapshot.text)"),
                 "Contextual Shadows must query from the active typed sentence/topic, not the whole note body.")
         #expect(stateSource.contains("rankedUniqueHits("),
-                "Contextual Shadows must dedupe and rank cross-channel recall results.")
+                "Contextual Shadows must dedupe and rank note recall results.")
         #expect(stateSource.contains("pendingTask = scopedPendingTasks.values.first"),
                 "Completed or closed scoped recall tasks must not leave stale global searching state behind.")
         #expect(stateSource.contains("scopedPendingTasks[scopeKey]?.cancel()"),
@@ -793,7 +802,7 @@ private final class ContextualShadowsMockSearch: ShadowSearchServicing, @uncheck
         self.delayNanoseconds = delayNanoseconds
     }
 
-    nonisolated func search(text: String, domain: ShadowDomain, limit: Int) async -> [ShadowHit] {
+    nonisolated func search(text: String, limit: Int) async -> [ShadowHit] {
         let delayNanoseconds = await MainActor.run { self.delayNanoseconds }
         if delayNanoseconds > 0 {
             try? await Task.sleep(nanoseconds: delayNanoseconds)
@@ -801,19 +810,18 @@ private final class ContextualShadowsMockSearch: ShadowSearchServicing, @uncheck
         await MainActor.run {
             self.callCount += 1
             self.lastQuery = text
-            self.lastDomain = domain
-            self.domains.append(domain)
+            self.lastDomain = .notes
+            self.domains.append(.notes)
         }
-        return await MainActor.run { Array((self.resultsByDomain[domain] ?? []).prefix(limit)) }
+        return await MainActor.run { Array((self.resultsByDomain[.notes] ?? []).prefix(limit)) }
     }
 
     nonisolated func searchReportingErrors(
         text: String,
-        domain: ShadowDomain,
         limit: Int
     ) async -> (hits: [ShadowHit], errorMessage: String?) {
-        let hits = await search(text: text, domain: domain, limit: limit)
-        let error = await MainActor.run { self.errorsByDomain[domain] }
+        let hits = await search(text: text, limit: limit)
+        let error = await MainActor.run { self.errorsByDomain[.notes] }
         return (hits: hits, errorMessage: error)
     }
 }

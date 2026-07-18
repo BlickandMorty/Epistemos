@@ -24,9 +24,10 @@ final class StatusBar {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
         if let button = item.button {
-            // Try the custom book icon from the asset catalog, fall back to SF Symbol
+            // Prefer the template-safe Epistemos E asset; keep a semantic E fallback
+            // if an asset-catalog integration issue prevents it from loading.
             let img = NSImage(named: "MenuBarIcon")
-                ?? NSImage(systemSymbolName: "book", accessibilityDescription: "Epistemos")
+                ?? NSImage(systemSymbolName: "e.circle", accessibilityDescription: "Epistemos")
             img?.size = NSSize(width: 18, height: 18)
             img?.isTemplate = true
             button.image = img

@@ -113,8 +113,8 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(preview.contains("consoleHandlerInstalled = false"))
     }
 
-    @Test("App Store HTML Workspace hides Goose-backed regenerate toolbar action")
-    func appStoreHTMLWorkspaceHidesGooseBackedRegenerateToolbarAction() throws {
+    @Test("Free V1 HTML Workspace hides and disables Goose-backed regenerate")
+    func freeV1HTMLWorkspaceHidesAndDisablesGooseBackedRegenerate() throws {
         let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
         let regeneration = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorRegeneration.swift")
         let appStoreGuard = try #require(editor.range(of: "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
@@ -129,11 +129,14 @@ struct HTMLWorkspaceConsoleBridgeTests {
 
         #expect(regenerateAction.lowerBound < appStoreGuardEnd.lowerBound)
         #expect(editor.contains(#"Label("Regenerate", systemImage: isRegenerating ? "hourglass" : "wand.and.sparkles")"#))
-        #expect(regeneration.contains("private static let appStoreRegenerateParkedStatus"))
-        #expect(regeneration.contains("Use MAS June / Epdoc Assist."))
+        #expect(editor.contains("if ProductCapabilityPolicy.allowsHTMLWorkspaceRegeneration {"))
+        #expect(editor.contains("private var regenerateSheetBinding: Binding<Bool>"))
+        #expect(regeneration.contains("private static let unavailableEditionRegenerateStatus"))
+        #expect(regeneration.contains("HTML Workspace regenerate is reserved for a future paid edition."))
+        #expect(!regeneration.contains("Use MAS June / Epdoc Assist."))
         #expect(regeneration.contains("regenerateSheetPresented = false"))
         #expect(regeneration.components(separatedBy: "#if EPISTEMOS_APP_STORE || MAS_SANDBOX").count >= 5)
-        #expect(regeneration.components(separatedBy: "parkRegenerateForAppStoreBuild()").count >= 5)
+        #expect(regeneration.components(separatedBy: "parkRegenerateForUnavailableEdition()").count >= 5)
     }
 
     @Test("the capability ledger honestly notes the bridge is wired but not live-proven")

@@ -6,8 +6,7 @@ import Foundation
 // JSON envelope (`{"ok":true,"markdown":…}` on success, `{"ok":false,"error":…}` on
 // failure); this decodes it into a typed result the note-sidebar import surface renders
 // HONESTLY — never a fake/empty note. The live importer calls the Plan 3 Rust parser
-// stack through this same FFI envelope when `agent_coreFFI` is linked; test hosts without
-// that binding fall back to the inert importer.
+// stack through the local importer envelope; unsupported imports remain inert.
 
 /// The honest outcome of a PDF→Markdown import.
 nonisolated enum LiteParseImportResult: Equatable, Sendable {
@@ -461,7 +460,7 @@ nonisolated protocol LiteParsePDFImporter: Sendable {
     func importToMarkdown(pdfPath: String) -> LiteParseImportResult
 }
 
-/// INERT importer — for the unit-test host (which doesn't link `agent_coreFFI`) and as
+/// INERT importer — used when no local PDF importer is available.
 /// the honest default before the binding has the FFI. A PDF → `.notWired`, a non-PDF →
 /// `.unsupported` (never shelled out).
 nonisolated struct InertLiteParsePDFImporter: LiteParsePDFImporter {
@@ -473,19 +472,12 @@ nonisolated struct InertLiteParsePDFImporter: LiteParsePDFImporter {
     }
 }
 
-/// LIVE importer — calls the Rust `liteparse_pdf_to_markdown` FFI and decodes its
-/// envelope with the same `LiteParseImportEnvelope.decode`. PDF-only scope is enforced
-/// BEFORE the FFI (a non-PDF is never passed down). On a test host without
-/// `agent_coreFFI` it falls back to the inert behavior so it still compiles + runs.
+/// PDF import is intentionally unavailable in the local-only build.
 nonisolated struct LiveLiteParsePDFImporter: LiteParsePDFImporter {
     func importToMarkdown(pdfPath: String) -> LiteParseImportResult {
         if let failure = LiteParsePDFSignature.validationFailure(forPath: pdfPath) {
             return failure
         }
-        #if canImport(agent_coreFFI)
-        return LiteParseImportEnvelope.decode(liteparsePdfToMarkdown(pdfPath: pdfPath))
-        #else
         return .notWired
-        #endif
     }
 }

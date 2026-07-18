@@ -112,28 +112,6 @@ enum CodeEditorPerformancePolicy {
         }
     }
 
-    static func insightRefreshDelay(characterCount: Int) -> Duration {
-        switch characterCount {
-        case ..<2_000:
-            .milliseconds(180)
-        case ..<10_000:
-            .milliseconds(320)
-        default:
-            .milliseconds(520)
-        }
-    }
-
-    static func insightRefreshDelayMilliseconds(characterCount: Int) -> Int {
-        switch characterCount {
-        case ..<2_000:
-            180
-        case ..<10_000:
-            320
-        default:
-            520
-        }
-    }
-
     static let semanticRefreshDelay: Duration = .milliseconds(220)
     static let textSnapshotPublishDelay: Duration = .milliseconds(140)
     static let scrollGuideRefreshDelay: Duration = .milliseconds(50)
@@ -314,13 +292,7 @@ nonisolated enum CodeEditorSemanticLSP {
     private static let supportedLanguages: Set<String> = ["rust", "swift"]
     private static let pollIntervalNanos: UInt64 = 1_000_000
 
-    static var runtimeAvailable: Bool {
-        #if canImport(agent_coreFFI)
-        true
-        #else
-        false
-        #endif
-    }
+    static var runtimeAvailable: Bool { false }
 
     static func supportsLanguage(language: String) -> Bool {
         supportedLanguages.contains(language.lowercased())
@@ -522,7 +494,7 @@ nonisolated enum CodeEditorSemanticLSP {
 
     static func userFacingError(_ error: any Error) -> String {
         let description = String(describing: error)
-        if description.contains("agent_coreFFI not linked") {
+        if description.contains("Editor runtime bridge unavailable") {
             return "Semantic LSP unavailable: in-process Rust runtime is not linked in this build."
         }
         return "Semantic LSP unavailable: \(description)"
@@ -860,573 +832,6 @@ actor MetalComputeEngine {
     // setupGPU() path above loads from there via makeDefaultLibrary().
 }
 
-// MARK: - Concurrent Analysis Queue
-
-/// Thread-safe queue for background AI operations with priority
-actor AnalysisQueue {
-    static let shared = AnalysisQueue()
-    
-    private var taskQueue: [AnalysisTask] = []
-    private var isProcessing = false
-    private let maxConcurrentTasks = 3
-    private var activeTasks = 0
-    
-    struct AnalysisTask: Identifiable {
-        let id = UUID()
-        let priority: TaskPriority
-        let operation: @Sendable () async -> Void
-        let timestamp = Date()
-    }
-    
-    enum TaskPriority: Int, Comparable {
-        case low = 0
-        case normal = 1
-        case high = 2
-        case immediate = 3
-        
-        static func < (lhs: TaskPriority, rhs: TaskPriority) -> Bool {
-            lhs.rawValue < rhs.rawValue
-        }
-    }
-    
-    func enqueue(priority: TaskPriority = .normal, operation: @escaping @Sendable () async -> Void) {
-        let task = AnalysisTask(priority: priority, operation: operation)
-        taskQueue.append(task)
-        taskQueue.sort { $0.priority > $1.priority }
-        processQueue()
-    }
-    
-    func cancelAll() {
-        taskQueue.removeAll()
-    }
-    
-    private func processQueue() {
-        guard !isProcessing else { return }
-        isProcessing = true
-        
-        Task {
-            while !taskQueue.isEmpty && activeTasks < maxConcurrentTasks {
-                let task = taskQueue.removeFirst()
-                activeTasks += 1
-                
-                Task {
-                    await task.operation()
-                    activeTasks -= 1
-                    processQueue()
-                }
-            }
-            isProcessing = false
-        }
-    }
-}
-
-// MARK: - Performance Monitor
-
-@Observable
-final class ComputePerformanceMonitor {
-    static let shared = ComputePerformanceMonitor()
-    
-    private(set) var gpuUtilization: Double = 0
-    private(set) var averageLatencyMs: Double = 0
-    private(set) var operationsPerSecond: Double = 0
-    
-    private var latencyHistory: [Double] = []
-    private let maxHistorySize = 100
-    private var lastUpdate = Date()
-    
-    func recordOperation(latencyMs: Double) {
-        latencyHistory.append(latencyMs)
-        if latencyHistory.count > maxHistorySize {
-            latencyHistory.removeFirst()
-        }
-        
-        let now = Date()
-        let elapsed = now.timeIntervalSince(lastUpdate)
-        
-        if elapsed >= 1.0 {
-            averageLatencyMs = latencyHistory.reduce(0, +) / Double(latencyHistory.count)
-            operationsPerSecond = Double(latencyHistory.count) / elapsed
-            lastUpdate = now
-            latencyHistory.removeAll(keepingCapacity: true)
-        }
-    }
-}
-
-// MARK: - AI Code Companion (Metal-Optimized)
-
-/// Proactive coding assistant with GPU-accelerated semantic search
-/// and multi-threaded analysis pipeline
-@MainActor
-@Observable
-final class CodeCompanionService {
-
-    private(set) var currentMessage: CompanionMessage?
-    private(set) var isAnalyzing = false
-    var isEnabled = true
-    var mode: CompanionMode = .balanced
-    
-    // Graph state for semantic search (injected from view)
-    private weak var graphState: GraphState?
-    
-    enum CompanionMode: String, CaseIterable, Sendable {
-        case passive = "Passive"
-        case balanced = "Balanced"
-        case proactive = "Proactive"
-        
-        var interval: TimeInterval {
-            switch self {
-            case .passive: return 0
-            case .balanced: return 30
-            case .proactive: return 10
-            }
-        }
-    }
-    
-    // Services
-    private let appleIntelligence = AppleIntelligenceService.shared
-    private let metalEngine = MetalComputeEngine.shared
-    private let analysisQueue = AnalysisQueue.shared
-    
-    // State (thread-safe via MainActor)
-    private var currentCode: String = ""
-    private var currentLanguage: String = ""
-    private var lastAnalysisHash: Int = 0
-    private var lastMessageTime: Date = .distantPast
-    private let minimumMessageInterval: TimeInterval = 15
-    
-    // Concurrent processing
-    private var analysisTask: Task<Void, Never>?
-    private var periodicTimer: Timer?
-    private let feedbackGenerator = NSHapticFeedbackManager.defaultPerformer
-    
-    // Performance tuning (actor-based synchronization)
-    private var isProcessing = false
-    
-    func configure(graphState: GraphState?) {
-        self.graphState = graphState
-    }
-    
-    func startSession(code: String, language: String) {
-        guard isEnabled, ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
-        currentCode = code
-        currentLanguage = language
-        
-        // Initial analysis on background queue
-        Task.detached(priority: .utility) { [weak self] in
-            await self?.performAnalysisAsync()
-        }
-        
-        schedulePeriodicAnalysis()
-    }
-    
-    func updateCode(_ code: String) {
-        currentCode = code
-        
-        if mode == .proactive {
-            // Debounced analysis on background queue
-            analysisTask?.cancel()
-            analysisTask = Task.detached(priority: .utility) { [weak self] in
-                try? await Task.sleep(nanoseconds: 2 * 1_000_000_000)
-                guard !Task.isCancelled else { return }
-                await self?.performAnalysisAsync()
-            }
-        }
-    }
-    
-    func endSession() {
-        periodicTimer?.invalidate()
-        periodicTimer = nil
-        analysisTask?.cancel()
-        
-        Task {
-            await analysisQueue.cancelAll()
-        }
-        
-        currentMessage = nil
-    }
-    
-    private func schedulePeriodicAnalysis() {
-        periodicTimer?.invalidate()
-        guard mode != .passive else { return }
-        
-        periodicTimer = Timer.scheduledTimer(withTimeInterval: mode.interval, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            Task { @MainActor in
-                await self.performAnalysisAsync()
-            }
-        }
-    }
-    
-    /// Main analysis pipeline with GPU acceleration
-    private func performAnalysisAsync() async {
-        // Actor-based synchronization - prevents concurrent analyses
-        guard !isProcessing else { return }
-        isProcessing = true
-        defer { isProcessing = false }
-        
-        // Check preconditions
-        let codeHash = currentCode.hashValue
-        guard codeHash != lastAnalysisHash else { return }
-        
-        let timeSinceLastMessage = Date().timeIntervalSince(lastMessageTime)
-        guard timeSinceLastMessage >= minimumMessageInterval else { return }
-        
-        await MainActor.run { isAnalyzing = true }
-        defer { Task { @MainActor in isAnalyzing = false } }
-        
-        // Parallel analysis pipeline
-        async let complexityTask = analyzeComplexityAsync(currentCode)
-        async let semanticTask = performSemanticAnalysisAsync()
-        
-        let (complexity, semanticContext) = await (complexityTask, semanticTask)
-        
-        // Route to appropriate AI
-        let message = await generateInsight(
-            complexity: complexity,
-            semanticContext: semanticContext
-        )
-        
-        guard let msg = message else { return }
-        
-        lastAnalysisHash = codeHash
-        lastMessageTime = Date()
-        
-        await MainActor.run {
-            self.currentMessage = msg
-            self.presentMessage()
-        }
-    }
-    
-    /// GPU-accelerated semantic analysis with parallel result building
-    private func performSemanticAnalysisAsync() async -> SemanticContext {
-        // Get embedding for current code
-        let embeddingService = graphState?.embeddingService ?? EmbeddingService()
-        guard let codeEmbedding = embeddingService.queryEmbedding(for: currentCode) else {
-            return SemanticContext.empty
-        }
-        
-        // Fetch candidate documents from graph
-        guard let graphState = self.graphState else {
-            return SemanticContext.empty
-        }
-        
-        let candidates = graphState.semanticSearch(query: "semantic:", limit: 100)
-        guard !candidates.isEmpty else { return SemanticContext.empty }
-        
-        // Collect embeddings (embeddingService is MainActor-isolated)
-        var documentEmbeddings: [[Float]] = []
-        var documentIds: [String] = []
-        var labels: [String] = []
-        var snippets: [String] = []
-        documentEmbeddings.reserveCapacity(candidates.count)
-        documentIds.reserveCapacity(candidates.count)
-        labels.reserveCapacity(candidates.count)
-        snippets.reserveCapacity(candidates.count)
-        
-        for candidate in candidates {
-            if let embedding = embeddingService.embedding(for: candidate.id) {
-                documentEmbeddings.append(embedding)
-                documentIds.append(candidate.id)
-                labels.append(candidate.node.label)
-                snippets.append(candidate.node.metadata.quoteText ?? candidate.node.metadata.abstract ?? "")
-            }
-        }
-        
-        guard !documentEmbeddings.isEmpty else { return SemanticContext.empty }
-        
-        // GPU-accelerated top-k similarity (includes batch compute + threshold filter)
-        let startTime = CFAbsoluteTimeGetCurrent()
-        let topKResults = await metalEngine.topKSimilarity(
-            query: codeEmbedding,
-            documents: documentEmbeddings,
-            k: 10,
-            threshold: 0.55
-        )
-        
-        // Record performance
-        let latency = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-        ComputePerformanceMonitor.shared.recordOperation(latencyMs: latency)
-        
-        // Build results (topK is small, sequential is fine)
-        var matches: [SemanticMatch] = []
-        matches.reserveCapacity(topKResults.count)
-        for result in topKResults {
-            matches.append(SemanticMatch(
-                id: documentIds[result.index],
-                title: labels[result.index],
-                snippet: snippets[result.index],
-                score: result.score
-            ))
-        }
-        
-        matches.sort { $0.score > $1.score }
-        
-        return SemanticContext(
-            topMatches: Array(matches.prefix(5)),
-            averageScore: matches.prefix(5).map { $0.score }.reduce(0, +) / Float(min(matches.count, 5))
-        )
-    }
-    
-    /// Async complexity analysis
-    private func analyzeComplexityAsync(_ code: String) async -> Double {
-        // Run on background queue
-        await Task.detached(priority: .utility) {
-            let factors: [Double] = [
-                Double(code.count) / 1000.0,
-                Double(code.components(separatedBy: "func ").count - 1) * 0.2,
-                Double(code.components(separatedBy: "class ").count - 1) * 0.3,
-                Double(code.components(separatedBy: "if ").count - 1) * 0.1,
-                code.contains("async") || code.contains("await") ? 0.3 : 0,
-                code.contains("Task") || code.contains("Actor") ? 0.2 : 0,
-            ]
-            return min(factors.reduce(0, +), 1.0)
-        }.value
-    }
-    
-    /// Generate insight with context
-    private func generateInsight(
-        complexity: Double,
-        semanticContext: SemanticContext
-    ) async -> CompanionMessage? {
-        
-        let vaultContext = semanticContext.topMatches.prefix(2)
-            .map { "- \($0.title)" }
-            .joined(separator: "\n")
-        
-        let prompt = """
-        Quick insight about this \(currentLanguage) code (1 sentence max):
-        
-        ```\(currentLanguage)
-        \(currentCode.prefix(500))
-        ```
-        
-        \(semanticContext.averageScore > 0.7 ? "Strong semantic match with vault." : "")
-        \(vaultContext.isEmpty ? "" : "Related notes:\n\(vaultContext)")
-        
-        Provide a brief observation, pattern, or suggestion.
-        """
-        
-        do {
-            let response = try await appleIntelligence.generate(
-                prompt: prompt,
-                systemPrompt: "You are a helpful coding assistant. Be concise and actionable."
-            )
-            
-            return CompanionMessage(
-                source: .hybrid,
-                type: semanticContext.averageScore > 0.7 ? .connection : .insight,
-                content: response.trimmingCharacters(in: .whitespacesAndNewlines),
-                timestamp: Date(),
-                actions: generateActions(for: semanticContext),
-                context: CompanionMessage.MessageContext(
-                    codeSnippet: String(currentCode.prefix(200)),
-                    language: currentLanguage
-                )
-            )
-        } catch {
-            return nil
-        }
-    }
-    
-    private func generateActions(for context: SemanticContext) -> [CompanionMessage.MessageAction] {
-        var actions: [CompanionMessage.MessageAction] = [
-            .init(id: "explain", title: "Explain More", icon: "text.bubble", type: .explainMore),
-            .init(id: "dismiss", title: "Dismiss", icon: "xmark", type: .dismiss)
-        ]
-        
-        if let topMatch = context.topMatches.first {
-            actions.insert(.init(
-                id: "open-note",
-                title: "Open Note",
-                icon: "doc.text",
-                type: .openNote(topMatch.id)
-            ), at: 0)
-        }
-        
-        return actions
-    }
-    
-    private func presentMessage() {
-        feedbackGenerator.perform(.levelChange, performanceTime: .default)
-    }
-    
-    func dismissCurrentMessage() {
-        currentMessage = nil
-    }
-}
-
-// MARK: - Semantic Context
-
-struct SemanticContext: Sendable {
-    let topMatches: [SemanticMatch]
-    let averageScore: Float
-    
-    static let empty = SemanticContext(topMatches: [], averageScore: 0)
-}
-
-struct SemanticMatch: Sendable {
-    let id: String
-    let title: String
-    let snippet: String
-    let score: Float
-}
-
-/// Message from the AI companion
-struct CompanionMessage: Identifiable {
-    let id = UUID()
-    let source: Source
-    let type: MessageType
-    let content: String
-    let timestamp: Date
-    let actions: [MessageAction]
-    let context: MessageContext
-    
-    struct MessageContext: Sendable {
-        let codeSnippet: String
-        let language: String
-    }
-    
-    enum Source: String, Sendable {
-        case appleIntelligence = "Apple Intelligence"
-        case qwenLocal = "Provider Assist"
-        case hybrid = "AI Fusion"
-        
-        var icon: String {
-            switch self {
-            case .appleIntelligence: return "apple.logo"
-            case .qwenLocal: return "cpu"
-            case .hybrid: return "sparkles"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .appleIntelligence: return .gray
-            case .qwenLocal: return .blue
-            case .hybrid: return .purple
-            }
-        }
-    }
-    
-    enum MessageType: Sendable {
-        case insight
-        case suggestion
-        case question
-        case connection
-        case completion
-        case summary
-        
-        var description: String {
-            switch self {
-            case .insight: return "Insight"
-            case .suggestion: return "Suggestion"
-            case .question: return "Question"
-            case .connection: return "Connection"
-            case .completion: return "Completion"
-            case .summary: return "Summary"
-            }
-        }
-    }
-    
-    struct MessageAction: Sendable {
-        let id: String
-        let title: String
-        let icon: String
-        let type: ActionType
-        
-        enum ActionType: Sendable {
-            case openNote(String)
-            case applyEdit(String)
-            case explainMore
-            case dismiss
-            case generateTests
-            case createNote
-        }
-    }
-}
-
-/// Toast notification view for companion messages
-struct CodeCompanionToast: View {
-    let message: CompanionMessage
-    let onAction: (CompanionMessage.MessageAction) -> Void
-    let onDismiss: () -> Void
-
-    @State private var isHovered = false
-
-    @ScaledMetric(relativeTo: .body) private var toastWidth: CGFloat = 320
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: message.source.icon)
-                    .foregroundStyle(message.source.color)
-                    .font(.body)
-
-                Text(message.source.rawValue)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Text(message.type.description)
-                    .font(.caption)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(message.source.color.opacity(0.15))
-                    .foregroundStyle(message.source.color)
-                    .cornerRadius(4)
-
-                Button {
-                    onDismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Text(message.content)
-                .font(.body)
-                .lineSpacing(1.5)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 8) {
-                ForEach(message.actions.prefix(2), id: \.id) { action in
-                    Button {
-                        onAction(action)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: action.icon)
-                                .font(.caption)
-                            Text(action.title)
-                                .font(.subheadline)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.accentColor.opacity(0.1))
-                        .foregroundStyle(Color.accentColor)
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding()
-        .frame(width: toastWidth)
-        .background(.ultraThinMaterial)
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(message.source.color.opacity(0.3), lineWidth: 1)
-        )
-        .onHover { hovering in
-            isHovered = hovering
-        }
-    }
-}
-
 // MARK: - CodeEditorView
 
 struct CodeEditorView: View {
@@ -1440,6 +845,8 @@ struct CodeEditorView: View {
     let allowsMarkEditWindowToolbar: Bool
     let externalSelectionRequest: CoreEditorSelectionRequest?
     let liveTextQueryKey: UUID?
+    let sourceLineWrapping: Bool
+    let contentWidthMode: NoteWidthMode
     /// SS-GC (owner 2026-06-20): when the code editor is mounted inside the embedded
     /// home-graph surface, its top bar must paint the GRAPH backdrop so it isn't a white
     /// card slab against the darker landing surround. nil = the standalone / notes /
@@ -1449,7 +856,6 @@ struct CodeEditorView: View {
 
     @Environment(UIState.self) private var ui
     @Environment(GraphState.self) private var graphState: GraphState?
-    @Environment(TriageService.self) private var triageService: TriageService?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @ScaledMetric(relativeTo: .body) private var toolbarMenuWidth: CGFloat = 20
@@ -1472,18 +878,18 @@ struct CodeEditorView: View {
     
     // MARK: - Editor Preferences (persisted via AppStorage)
     
-    @AppStorage("codeEditor.wrapLines") private var wrapLines = false
+    @AppStorage("codeEditor.wrapLines", store: FoundationSafety.runtimeUserDefaults) private var wrapLines = false
     // Minimap removed — outline navigator replaces it
-    @AppStorage("codeEditor.showInvisibles") private var showInvisibles = false
-    @AppStorage("codeEditor.invisiblesDefaultReset.20260702") private var didResetInvisiblesDefault = false
+    @AppStorage("codeEditor.showInvisibles", store: FoundationSafety.runtimeUserDefaults) private var showInvisibles = false
+    @AppStorage("codeEditor.invisiblesDefaultReset.20260702", store: FoundationSafety.runtimeUserDefaults) private var didResetInvisiblesDefault = false
     // Keep the code surface at the native-editor scale by default. The
     // CoreEditor owns rendering now, but code notes should still feel like
     // a Mac code editor rather than a compact web preview panel.
-    @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
-    @AppStorage("codeEditor.useSpaces") private var useSpaces = true
-    @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
-    @AppStorage("codeEditor.useLegacyV1Editor") private var useLegacyV1Editor = false
-    @AppStorage("epistemos.codeEditor.showLineGutter") private var showLineGutter = true
+    @AppStorage("codeEditor.fontSize", store: FoundationSafety.runtimeUserDefaults) private var fontSize: Double = 15
+    @AppStorage("codeEditor.useSpaces", store: FoundationSafety.runtimeUserDefaults) private var useSpaces = true
+    @AppStorage("codeEditor.tabWidth", store: FoundationSafety.runtimeUserDefaults) private var tabWidth = 4
+    @AppStorage("codeEditor.useLegacyV1Editor", store: FoundationSafety.runtimeUserDefaults) private var useLegacyV1Editor = false
+    @AppStorage("epistemos.codeEditor.showLineGutter", store: FoundationSafety.runtimeUserDefaults) private var showLineGutter = true
 
     private var isMarkdownDocument: Bool {
         CodeLanguage.isMarkdownDocument(filePath: filePath, language: language)
@@ -1540,6 +946,8 @@ struct CodeEditorView: View {
         allowsMarkEditWindowToolbar: Bool = false,
         externalSelectionRequest: CoreEditorSelectionRequest? = nil,
         liveTextQueryKey: UUID? = nil,
+        sourceLineWrapping: Bool = true,
+        contentWidthMode: NoteWidthMode = .normal,
         themeOverride: EpistemosTheme? = nil
     ) {
         self.initialContent = content
@@ -1552,6 +960,8 @@ struct CodeEditorView: View {
         self.allowsMarkEditWindowToolbar = allowsMarkEditWindowToolbar
         self.externalSelectionRequest = externalSelectionRequest
         self.liveTextQueryKey = liveTextQueryKey
+        self.sourceLineWrapping = sourceLineWrapping
+        self.contentWidthMode = contentWidthMode.normalized
         self.themeOverride = themeOverride
         _text = State(initialValue: content)
         _totalLines = State(initialValue: CodeEditorLineMetrics.lineCount(content))
@@ -1753,7 +1163,7 @@ struct CodeEditorView: View {
                 totalLines: $totalLines,
                 theme: codeEditorTheme,
                 fontSize: fontSize,
-                wrapLines: wrapLines,
+                wrapLines: sourceLineWrapping,
                 showLineNumbers: showLineGutter,
                 showInvisibles: showInvisibles,
                 useSpaces: useSpaces,
@@ -1763,6 +1173,7 @@ struct CodeEditorView: View {
                 isEditable: isEditable,
                 onContentDirty: onEditStarted,
                 liveTextQueryKey: liveTextQueryKey,
+                contentWidthMode: .wide,
                 allowsMarkEditWindowToolbar: allowsMarkEditWindowToolbar
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1804,8 +1215,6 @@ struct CodeEditorView: View {
 
     private var codeEditorTopBar: some View {
         HStack(spacing: 10) {
-            CodeFileIdentityChip(filePath: filePath, language: language, theme: codeEditorTheme)
-
             Text("Ln \(cursorLine), Col \(cursorCol)")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(codeEditorTheme.resolved.mutedForeground.color.opacity(0.92))
@@ -2550,7 +1959,6 @@ struct CodeEditorView: View {
             CodeSemanticSidebar(
                 bridge: bridge,
                 codeContent: text,
-                language: language,
                 onOpenNote: { nodeId in
                     openNoteInWorkspace(nodeId: nodeId)
                 },
@@ -2824,8 +2232,7 @@ struct CodeEditorView: View {
         guard codeContextBridge == nil else { return }
         
         let bridge = CodeContextBridge(
-            graphState: graphState,
-            triageService: triageService
+            graphState: graphState
         )
         codeContextBridge = bridge
     }
@@ -3381,38 +2788,31 @@ struct CodeSemanticMatch: Identifiable, Sendable, Equatable {
 
 // MARK: - Code Context Bridge
 
-/// Bridges code editor content with Epistemos semantic infrastructure.
-/// Provides: similarity search, AI context enrichment, code-to-graph linking.
+/// Bridges code editor content with direct local semantic retrieval.
 @MainActor
 @Observable
 final class CodeContextBridge {
 
     private(set) var relatedNotes: [CodeSemanticMatch] = []
     private(set) var isSearching = false
-    private(set) var lastQuery: String = ""
-    private(set) var aiContextSummary: String = ""
     
     private let embeddingService: EmbeddingService
     private let graphState: GraphState?
-    private let triageService: TriageService?
     
     struct Configuration {
         var similarityThreshold: Float = 0.55
         var maxResults: Int = 10
         var debounceInterval: Duration = .milliseconds(500)
-        var enableAIContext: Bool = true
     }
     
     var configuration = Configuration()
     
     private var searchTask: Task<Void, Never>?
-    private var aiContextTask: Task<Void, Never>?
     private var lastCodeHash: Int = 0
     
     init(
         embeddingService: EmbeddingService? = nil,
-        graphState: GraphState? = nil,
-        triageService: TriageService? = nil
+        graphState: GraphState? = nil
     ) {
         if let service = embeddingService {
             self.embeddingService = service
@@ -3422,11 +2822,18 @@ final class CodeContextBridge {
             self.embeddingService = EmbeddingService()
         }
         self.graphState = graphState
-        self.triageService = triageService
     }
     
     func findRelatedNotes(for codeContent: String) {
-        let codeHash = codeContent.hashValue
+        guard let checkedCodeContent = try? SearchRequestBounds.validatedQuery(codeContent),
+              let checkedLimit = try? SearchRequestBounds.validatedResultLimit(configuration.maxResults) else {
+            searchTask?.cancel()
+            lastCodeHash = 0
+            relatedNotes = []
+            return
+        }
+
+        let codeHash = checkedCodeContent.hashValue
         guard codeHash != lastCodeHash else { return }
         lastCodeHash = codeHash
         
@@ -3438,52 +2845,46 @@ final class CodeContextBridge {
             try? await Task.sleep(for: configuration.debounceInterval)
             guard !Task.isCancelled else { return }
             
-            guard let codeEmbedding = await computeEmbedding(for: codeContent) else {
-                relatedNotes = []
-                return
-            }
-            
             let matches = await performSemanticSearch(
-                queryEmbedding: codeEmbedding,
-                limit: configuration.maxResults
+                query: checkedCodeContent,
+                limit: checkedLimit
             )
             
             guard !Task.isCancelled else { return }
             relatedNotes = matches
-            
-            if configuration.enableAIContext && !matches.isEmpty {
-                await generateAIContextSummary(code: codeContent, matches: matches)
-            }
         }
     }
     
-    private func computeEmbedding(for code: String) async -> [Float]? {
-        return await Task.detached(priority: .utility) { [weak self] in
-            guard let self = self else { return nil }
-            return self.embeddingService.queryEmbedding(for: code)
-        }.value
-    }
-    
     private func performSemanticSearch(
-        queryEmbedding: [Float],
+        query: String,
         limit: Int
     ) async -> [CodeSemanticMatch] {
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query),
+              let checkedLimit = try? SearchRequestBounds.validatedResultLimit(limit),
+              let checkedCandidateLimit = try? SearchRequestBounds.validatedResultLimit(50) else {
+            return []
+        }
         guard let graphState = graphState else { return [] }
         
-        // Fetch candidate documents from graph
-        let searchHits = graphState.semanticSearch(
-            query: "semantic:",
-            limit: 50  // Fetch more for GPU batch processing
-        )
+        // Fetch candidate documents and the one graph-owned query vector.
+        guard let semanticResult = graphState.semanticSearchWithQueryEmbedding(
+            query: checkedQuery,
+            limit: checkedCandidateLimit
+        ) else { return [] }
+        let searchHits = semanticResult.hits
+        let queryEmbedding = semanticResult.queryEmbedding
         
         guard !searchHits.isEmpty else { return [] }
         
         // Collect embeddings for GPU batch processing
         var documentEmbeddings: [[Float]] = []
         var documentMetadata: [(id: String, label: String, snippet: String)] = []
+        documentEmbeddings.reserveCapacity(searchHits.count)
+        documentMetadata.reserveCapacity(searchHits.count)
         
         for hit in searchHits {
             guard let embedding = embeddingService.embedding(for: hit.id) else { continue }
+            guard embedding.count == queryEmbedding.count else { continue }
             let snippet = hit.node.metadata.quoteText ?? hit.node.metadata.abstract ?? ""
             documentEmbeddings.append(embedding)
             documentMetadata.append((hit.id, hit.node.label, String(snippet.prefix(200))))
@@ -3500,11 +2901,11 @@ final class CodeContextBridge {
         
         // Build matches from GPU results (already filtered by threshold)
         var matches: [CodeSemanticMatch] = []
-        matches.reserveCapacity(limit)
+        matches.reserveCapacity(checkedLimit)
         
         for (index, score) in similarities.enumerated() {
             guard score >= configuration.similarityThreshold else { continue }
-            guard matches.count < limit else { break }
+            guard matches.count < checkedLimit else { break }
             
             let metadata = documentMetadata[index]
             let matchType: CodeSemanticMatch.MatchType
@@ -3529,86 +2930,19 @@ final class CodeContextBridge {
         return matches.sorted { $0.similarityScore > $1.similarityScore }
     }
     
-    private func generateAIContextSummary(
-        code: String,
-        matches: [CodeSemanticMatch]
-    ) async {
-        guard let triageService = triageService else { return }
-        
-        aiContextTask?.cancel()
-        aiContextTask = Task {
-            let context = matches.prefix(3).map {
-                "\($0.title): \($0.snippet)"
-            }.joined(separator: "\n\n")
-            
-            let prompt = """
-            This code appears in my vault. Based on my related notes, provide a one-sentence summary of what this code does and how it connects to my knowledge:
-            
-            Code (first 500 chars): \(code.prefix(500))
-            
-            Related notes:\n\(context)
-            """
-            
-            var summary = ""
-            do {
-                for try await chunk in triageService.streamGeneral(
-                    prompt: prompt,
-                    systemPrompt: "You are a helpful assistant. Respond with one concise sentence.",
-                    operation: .brainstorm,
-                    contentLength: prompt.count
-                ) {
-                    guard !Task.isCancelled else { break }
-                    summary += chunk
-                    aiContextSummary = summary
-                }
-            } catch {
-                aiContextSummary = ""
-            }
-        }
-    }
-    
-    func explainCodeWithVaultContext(
-        code: String,
-        language: String
-    ) -> AsyncThrowingStream<String, Error>? {
-        guard let triageService = triageService else { return nil }
-        
-        let topNotes = relatedNotes.prefix(5)
-        let notesContext = topNotes.map {
-            "Note '\($0.title)' (similarity: \($0.similarityScore.isFinite ? Int($0.similarityScore * 100) : 0)%): \($0.snippet)"
-        }.joined(separator: "\n\n")
-        
-        let prompt = """
-        Explain this \(language) code using my personal notes as context:
-        
-        ```\(language)
-        \(code)
-        ```
-        
-        My related notes:
-        \(notesContext.isEmpty ? "No directly related notes found." : notesContext)
-        """
-        
-        return triageService.streamGeneral(
-            prompt: prompt,
-            systemPrompt: """
-            You are explaining code to the user, incorporating insights from their personal knowledge base.
-            Connect the code concepts to their notes when relevant.
-            Be concise but thorough.
-            """,
-            operation: .chatResponse(query: "Explain code"),
-            contentLength: prompt.count
-        )
-    }
-    
     func semanticCodeSearch(query: String) async -> [CodeSemanticMatch] {
-        findRelatedNotes(for: query)
-        return relatedNotes
+        guard let checkedQuery = try? SearchRequestBounds.validatedQuery(query),
+              let checkedLimit = try? SearchRequestBounds.validatedResultLimit(configuration.maxResults) else {
+            return []
+        }
+        return await performSemanticSearch(
+            query: checkedQuery,
+            limit: checkedLimit
+        )
     }
     
     func cancelPendingWork() {
         searchTask?.cancel()
-        aiContextTask?.cancel()
     }
 }
 
@@ -3616,39 +2950,22 @@ final class CodeContextBridge {
 
 struct CodeSemanticSidebar: View {
     @State private var bridge: CodeContextBridge
-    @State private var insightGenerator: CodeInsightGenerator
-    @State private var selectedMatch: CodeSemanticMatch?
-    @State private var aiExplanation: String = ""
-    @State private var isExplaining = false
     @State private var showSemanticSearch = false
-    @State private var selectedTab: SidebarTab = ProductCapabilityPolicy.isAvailable(.generativeActions)
-        ? .insights
-        : .related
-    @State private var insightRefreshTask: Task<Void, Never>?
 
     @ScaledMetric(relativeTo: .body) private var sidebarWidth: CGFloat = 300
     
-    enum SidebarTab {
-        case insights, related
-    }
-    
     let codeContent: String
-    let language: String
     let onOpenNote: (String) -> Void
     let onCreateNoteFromCode: () -> Void
     
     init(
         bridge: CodeContextBridge? = nil,
-        insightGenerator: CodeInsightGenerator? = nil,
         codeContent: String,
-        language: String,
         onOpenNote: @escaping (String) -> Void,
         onCreateNoteFromCode: @escaping () -> Void
     ) {
         self._bridge = State(initialValue: bridge ?? CodeContextBridge())
-        self._insightGenerator = State(initialValue: insightGenerator ?? CodeInsightGenerator())
         self.codeContent = codeContent
-        self.language = language
         self.onOpenNote = onOpenNote
         self.onCreateNoteFromCode = onCreateNoteFromCode
     }
@@ -3657,23 +2974,7 @@ struct CodeSemanticSidebar: View {
         VStack(spacing: 0) {
             sidebarHeader
             Divider()
-            
-            // Tab selector
-            tabSelector
-            Divider()
-            
-            // Content based on tab
-            switch selectedTab {
-            case .insights:
-                if ProductCapabilityPolicy.isAvailable(.generativeActions) {
-                    insightsSection
-                } else {
-                    relatedNotesSection
-                }
-            case .related:
-                relatedNotesSection
-            }
-            
+            relatedNotesSection
             Divider()
             actionsSection
         }
@@ -3683,128 +2984,22 @@ struct CodeSemanticSidebar: View {
             if bridge.relatedNotes.isEmpty {
                 bridge.findRelatedNotes(for: codeContent)
             }
-            scheduleInsights(for: codeContent, immediate: true)
         }
         .onChange(of: codeContent) { _, newContent in
-            scheduleInsights(for: newContent)
-        }
-        .onChange(of: bridge.relatedNotes) { _, _ in
-            scheduleInsights(for: codeContent)
+            bridge.findRelatedNotes(for: newContent)
         }
         .onDisappear {
-            insightRefreshTask?.cancel()
             bridge.cancelPendingWork()
-            insightGenerator.cancelGeneration()
         }
     }
 
-    private func scheduleInsights(for code: String, immediate: Bool = false) {
-        insightRefreshTask?.cancel()
-        guard ProductCapabilityPolicy.isAvailable(.generativeActions) else { return }
-        insightRefreshTask = Task {
-            if !immediate {
-                try? await Task.sleep(
-                    for: CodeEditorPerformancePolicy.insightRefreshDelay(characterCount: code.count)
-                )
-            }
-            guard !Task.isCancelled else { return }
-            insightGenerator.generateInsights(
-                code: code,
-                language: language,
-                relatedMatches: bridge.relatedNotes,
-                immediate: true
-            )
-        }
-    }
-    
-    private var tabSelector: some View {
-        HStack(spacing: 0) {
-            if ProductCapabilityPolicy.isAvailable(.generativeActions) {
-                TabButton(
-                    title: "Insights",
-                    icon: "sparkles",
-                    isSelected: selectedTab == .insights
-                ) {
-                    selectedTab = .insights
-                }
-            }
-            
-            TabButton(
-                title: "Related",
-                icon: "link",
-                isSelected: selectedTab == .related
-            ) {
-                selectedTab = .related
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-    }
-    
-    private var insightsSection: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                // AI Insights
-                if insightGenerator.insights.isEmpty && !insightGenerator.isGenerating {
-                    insightsEmptyState
-                } else {
-                    ForEach(insightGenerator.insights) { insight in
-                        InsightCard(insight: insight, onOpenNote: onOpenNote)
-                            .padding(.horizontal)
-                    }
-                }
-                
-                // Context summary from bridge
-                if !bridge.aiContextSummary.isEmpty {
-                    vaultContextCard
-                        .padding(.horizontal)
-                }
-            }
-            .padding(.vertical)
-        }
-    }
-    
-    private var insightsEmptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "brain.head.profile")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-
-            Text("Analyzing code...")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
-    }
-    
-    private var vaultContextCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "archivebox")
-                    .foregroundStyle(.green)
-                Text("Vault Context")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Text(bridge.aiContextSummary)
-                .font(.caption)
-                .foregroundStyle(.primary)
-                .lineLimit(4)
-        }
-        .padding()
-        .background(Color.green.opacity(0.05))
-        .cornerRadius(8)
-    }
-    
     private var sidebarHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: "brain.head.profile")
+                Image(systemName: "link")
                     .foregroundStyle(Color.accentColor)
                 
-                Text("Semantic Context")
+                Text("Related Notes")
                     .font(.headline)
                 
                 Spacer()
@@ -3822,31 +3017,11 @@ struct CodeSemanticSidebar: View {
         .padding()
     }
     
-    private var aiContextSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "sparkles")
-                    .foregroundStyle(.yellow)
-                Text("AI Insight")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Text(bridge.aiContextSummary)
-                .font(.caption)
-                .foregroundStyle(.primary)
-                .lineLimit(3)
-        }
-        .padding()
-        .background(Color.yellow.opacity(0.05))
-    }
-    
     private var relatedNotesSection: some View {
         List(bridge.relatedNotes) { match in
             RelatedNoteRow(match: match)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    selectedMatch = match
                     onOpenNote(match.nodeId)
                 }
                 .contextMenu {
@@ -3892,20 +3067,6 @@ struct CodeSemanticSidebar: View {
     
     private var actionsSection: some View {
         VStack(spacing: 8) {
-            if ProductCapabilityPolicy.isAvailable(.generativeActions) {
-                Button {
-                    explainWithAI()
-                } label: {
-                    HStack {
-                        Image(systemName: "sparkles")
-                        Text(isExplaining ? "Explaining..." : "Explain with AI")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isExplaining)
-            }
-            
             Button {
                 showSemanticSearch = true
             } label: {
@@ -3931,31 +3092,6 @@ struct CodeSemanticSidebar: View {
         .padding()
         .sheet(isPresented: $showSemanticSearch) {
             SemanticCodeSearchSheet(bridge: bridge)
-        }
-    }
-    
-    private func explainWithAI() {
-        isExplaining = true
-        aiExplanation = ""
-        
-        Task {
-            guard let stream = bridge.explainCodeWithVaultContext(
-                code: codeContent,
-                language: language
-            ) else {
-                isExplaining = false
-                return
-            }
-            
-            do {
-                for try await chunk in stream {
-                    aiExplanation += chunk
-                }
-            } catch {
-                aiExplanation = "Error: \(error.localizedDescription)"
-            }
-            
-            isExplaining = false
         }
     }
 }
@@ -4111,527 +3247,6 @@ struct SemanticCodeSearchSheet: View {
     }
 }
 
-
-// MARK: - Apple Intelligence Code Insights
-
-/// AI-powered insights about code, grounded in the user's knowledge vault.
-struct CodeInsight: Identifiable, Sendable {
-    let id = UUID()
-    let type: InsightType
-    let title: String
-    let content: String
-    let confidence: InsightConfidence
-    let relatedNoteIds: [String]
-    let generatedAt: Date
-    
-    enum InsightType: Sendable {
-        case summary          // What this code does
-        case pattern          // Design patterns used
-        case vaultConnection  // How it connects to your notes
-        case suggestion       // Improvement suggestions
-        case security         // Security considerations
-        case performance      // Performance notes
-        
-        var icon: String {
-            switch self {
-            case .summary: return "doc.text"
-            case .pattern: return "flowchart"
-            case .vaultConnection: return "link.circle"
-            case .suggestion: return "lightbulb"
-            case .security: return "shield"
-            case .performance: return "gauge.with.dots.needle.67percent"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .summary: return .blue
-            case .pattern: return .purple
-            case .vaultConnection: return .green
-            case .suggestion: return .orange
-            case .security: return .red
-            case .performance: return .cyan
-            }
-        }
-    }
-    
-    enum InsightConfidence: String, Sendable {
-        case high = "High"
-        case medium = "Medium"
-        case tentative = "Tentative"
-        
-        var color: Color {
-            switch self {
-            case .high: return .green
-            case .medium: return .orange
-            case .tentative: return .gray
-            }
-        }
-    }
-}
-
-// MARK: - Code Insight Generator
-
-/// Generates AI insights about code using Apple Intelligence + vault context.
-@MainActor
-@Observable
-final class CodeInsightGenerator {
-
-    private(set) var insights: [CodeInsight] = []
-    private(set) var isGenerating = false
-    private(set) var currentAnalysis: String = ""
-    
-    private let appleIntelligence: AppleIntelligenceService
-    private let embeddingService: EmbeddingService
-    private var generationTask: Task<Void, Never>?
-    
-    init(
-        appleIntelligence: AppleIntelligenceService = .shared,
-        embeddingService: EmbeddingService? = nil
-    ) {
-        self.appleIntelligence = appleIntelligence
-        self.embeddingService = embeddingService ?? EmbeddingService()
-    }
-    
-    /// Generate comprehensive insights about code using Apple Intelligence.
-    func generateInsights(
-        code: String,
-        language: String,
-        relatedMatches: [CodeSemanticMatch],
-        immediate: Bool = false
-    ) {
-        generationTask?.cancel()
-        generationTask = Task { @MainActor in
-            if !immediate {
-                try? await Task.sleep(
-                    for: CodeEditorPerformancePolicy.insightRefreshDelay(characterCount: code.count)
-                )
-            }
-            guard !Task.isCancelled else { return }
-            isGenerating = true
-            defer { isGenerating = false }
-            
-            var newInsights: [CodeInsight] = []
-            
-            // Generate different types of insights in parallel
-            async let summaryInsight = generateSummary(code: code, language: language)
-            async let patternInsight = generatePatternAnalysis(code: code, language: language)
-            async let vaultInsight = generateVaultConnection(code: code, matches: relatedMatches)
-            async let suggestionInsight = generateSuggestions(code: code, language: language, matches: relatedMatches)
-            
-            if let summary = await summaryInsight {
-                newInsights.append(summary)
-            }
-            if let pattern = await patternInsight {
-                newInsights.append(pattern)
-            }
-            if let vault = await vaultInsight {
-                newInsights.append(vault)
-            }
-            if let suggestion = await suggestionInsight {
-                newInsights.append(suggestion)
-            }
-            
-            guard !Task.isCancelled else { return }
-            insights = newInsights.sorted { $0.confidence.rawValue > $1.confidence.rawValue }
-        }
-    }
-    
-    /// Generate a concise summary of what the code does.
-    private func generateSummary(code: String, language: String) async -> CodeInsight? {
-        let prompt = """
-        Analyze this \(language) code and provide a one-sentence summary of what it does:
-        
-        ```\(language)
-        \(code.prefix(2000))
-        ```
-        
-        Respond with ONLY the summary, no markdown, no bullet points.
-        """
-        
-        do {
-            let response = try await appleIntelligence.generate(
-                prompt: prompt,
-                systemPrompt: "You are a code analysis expert. Provide clear, concise summaries."
-            )
-            
-            return CodeInsight(
-                type: .summary,
-                title: "Code Summary",
-                content: response.trimmingCharacters(in: .whitespacesAndNewlines),
-                confidence: .high,
-                relatedNoteIds: [],
-                generatedAt: Date()
-            )
-        } catch {
-            return nil
-        }
-    }
-    
-    /// Identify design patterns and architectural approaches.
-    private func generatePatternAnalysis(code: String, language: String) async -> CodeInsight? {
-        let prompt = """
-        Identify the main design patterns or architectural approaches used in this \(language) code:
-        
-        ```\(language)
-        \(code.prefix(2000))
-        ```
-        
-        List 1-3 patterns you recognize. Be specific (e.g., "Observer Pattern", "Dependency Injection", "Factory Method").
-        If no clear patterns, say "No dominant patterns detected."
-        """
-        
-        do {
-            let response = try await appleIntelligence.generate(
-                prompt: prompt,
-                systemPrompt: "You are a software architecture expert. Identify design patterns accurately."
-            )
-            
-            let content = response.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !content.contains("No dominant") else { return nil }
-            
-            return CodeInsight(
-                type: .pattern,
-                title: "Design Patterns",
-                content: content,
-                confidence: .medium,
-                relatedNoteIds: [],
-                generatedAt: Date()
-            )
-        } catch {
-            return nil
-        }
-    }
-    
-    /// Connect code to vault knowledge.
-    private func generateVaultConnection(
-        code: String,
-        matches: [CodeSemanticMatch]
-    ) async -> CodeInsight? {
-        guard !matches.isEmpty else { return nil }
-        
-        let topMatches = matches.prefix(3)
-        let context = topMatches.map { "- \($0.title): \($0.snippet.prefix(150))" }.joined(separator: "\n")
-        
-        let prompt = """
-        This code appears to relate to these notes in my vault:
-        
-        \(context)
-        
-        Briefly explain (1-2 sentences) how this code conceptually connects to my existing notes.
-        Focus on the conceptual link, not implementation details.
-        """
-        
-        do {
-            let response = try await appleIntelligence.generate(
-                prompt: prompt,
-                systemPrompt: "You help connect code to existing knowledge. Be insightful but concise."
-            )
-            
-            return CodeInsight(
-                type: .vaultConnection,
-                title: "Vault Connection",
-                content: response.trimmingCharacters(in: .whitespacesAndNewlines),
-                confidence: matches.first?.similarityScore ?? 0 > 0.8 ? .high : .medium,
-                relatedNoteIds: topMatches.map { $0.id },
-                generatedAt: Date()
-            )
-        } catch {
-            return nil
-        }
-    }
-    
-    /// Generate improvement suggestions.
-    private func generateSuggestions(
-        code: String,
-        language: String,
-        matches: [CodeSemanticMatch]
-    ) async -> CodeInsight? {
-        let vaultContext = matches.isEmpty ? "" : "\n\nRelated vault notes may suggest: \(matches.prefix(2).map { $0.title }.joined(separator: ", "))"
-        
-        let prompt = """
-        Review this \(language) code and suggest 1-2 specific improvements:
-        
-        ```\(language)
-        \(code.prefix(2000))
-        ```
-        \(vaultContext)
-        
-        Focus on: readability, best practices, or potential bugs. Be specific and actionable.
-        If no improvements needed, say "No suggestions - code looks good."
-        """
-        
-        do {
-            let response = try await appleIntelligence.generate(
-                prompt: prompt,
-                systemPrompt: "You are a senior code reviewer. Provide actionable, specific suggestions."
-            )
-            
-            let content = response.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !content.contains("No suggestions") && !content.contains("looks good") else { return nil }
-            
-            return CodeInsight(
-                type: .suggestion,
-                title: "Suggestions",
-                content: content,
-                confidence: .medium,
-                relatedNoteIds: [],
-                generatedAt: Date()
-            )
-        } catch {
-            return nil
-        }
-    }
-    
-    func cancelGeneration() {
-        generationTask?.cancel()
-    }
-}
-
-// MARK: - Code Insights Panel
-
-struct CodeInsightsPanel: View {
-    @State private var generator: CodeInsightGenerator
-    let code: String
-    let language: String
-    let relatedMatches: [CodeSemanticMatch]
-    let onOpenNote: (String) -> Void
-
-    @ScaledMetric(relativeTo: .body) private var panelWidth: CGFloat = 320
-
-    init(
-        generator: CodeInsightGenerator? = nil,
-        code: String,
-        language: String,
-        relatedMatches: [CodeSemanticMatch],
-        onOpenNote: @escaping (String) -> Void
-    ) {
-        self._generator = State(initialValue: generator ?? CodeInsightGenerator())
-        self.code = code
-        self.language = language
-        self.relatedMatches = relatedMatches
-        self.onOpenNote = onOpenNote
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: "sparkles")
-                    .foregroundStyle(.yellow)
-                
-                Text("Apple Intelligence Insights")
-                    .font(.headline)
-                
-                Spacer()
-                
-                if generator.isGenerating {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                } else {
-                    Button {
-                        generator.generateInsights(
-                            code: code,
-                            language: language,
-                            relatedMatches: relatedMatches,
-                            immediate: true
-                        )
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding()
-            
-            Divider()
-            
-            // Insights list
-            if generator.insights.isEmpty && !generator.isGenerating {
-                emptyState
-            } else {
-                ScrollView {
-                    VStack(spacing: 12) {
-                        ForEach(generator.insights) { insight in
-                            InsightCard(insight: insight, onOpenNote: onOpenNote)
-                        }
-                    }
-                    .padding()
-                }
-            }
-        }
-        .frame(width: panelWidth)
-        .background(.ultraThinMaterial)
-        .onAppear {
-            generator.generateInsights(
-                code: code,
-                language: language,
-                relatedMatches: relatedMatches,
-                immediate: true
-            )
-        }
-        .onChange(of: code) { _, newCode in
-            generator.generateInsights(
-                code: newCode,
-                language: language,
-                relatedMatches: relatedMatches
-            )
-        }
-        .onDisappear {
-            generator.cancelGeneration()
-        }
-    }
-    
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "brain.head.profile")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-
-            Text("No insights yet")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-            Text("Tap refresh to analyze this code with Apple Intelligence")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-        }
-        .padding()
-    }
-}
-
-// MARK: - Insight Card
-
-struct InsightCard: View {
-    let insight: CodeInsight
-    let onOpenNote: (String) -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isExpanded = true
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Header
-            HStack(spacing: 8) {
-                Image(systemName: insight.type.icon)
-                    .foregroundStyle(insight.type.color)
-                    .font(.body)
-
-                Text(insight.title)
-                    .font(.body.weight(.semibold))
-
-                Spacer()
-
-                // Confidence badge
-                Text(insight.confidence.rawValue)
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(insight.confidence.color.opacity(0.15))
-                    .foregroundStyle(insight.confidence.color)
-                    .cornerRadius(4)
-
-                Button {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                        isExpanded.toggle()
-                    }
-                } label: {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            if isExpanded {
-                Text(insight.content)
-                    .font(.callout)
-                    .foregroundStyle(.primary)
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // Related notes chips
-                if !insight.relatedNoteIds.isEmpty {
-                    CodeInsightFlowLayout(spacing: 6) {
-                        ForEach(insight.relatedNoteIds, id: \.self) { noteId in
-                            Button {
-                                onOpenNote(noteId)
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "doc.text")
-                                        .font(.caption2)
-                                    Text("Related Note")
-                                        .font(.caption)
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.accentColor.opacity(0.1))
-                                .foregroundStyle(Color.accentColor)
-                                .cornerRadius(12)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-        }
-        .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(insight.type.color.opacity(0.2), lineWidth: 1)
-        )
-    }
-}
-
-// MARK: - Code Insight Flow Layout
-
-struct CodeInsightFlowLayout: Layout {
-    var spacing: CGFloat = 8
-    
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = CodeInsightFlowResult(in: proposal.width ?? 0, subviews: subviews, spacing: spacing)
-        return result.size
-    }
-    
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = CodeInsightFlowResult(in: bounds.width, subviews: subviews, spacing: spacing)
-        for (index, subview) in subviews.enumerated() {
-            subview.place(at: CGPoint(x: bounds.minX + result.positions[index].x,
-                                      y: bounds.minY + result.positions[index].y),
-                         proposal: .unspecified)
-        }
-    }
-    
-    struct CodeInsightFlowResult {
-        var size: CGSize = .zero
-        var positions: [CGPoint] = []
-        
-        init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
-            var x: CGFloat = 0
-            var y: CGFloat = 0
-            var lineHeight: CGFloat = 0
-            
-            for subview in subviews {
-                let size = subview.sizeThatFits(.unspecified)
-                
-                if x + size.width > maxWidth && x > 0 {
-                    x = 0
-                    y += lineHeight + spacing
-                    lineHeight = 0
-                }
-                
-                positions.append(CGPoint(x: x, y: y))
-                lineHeight = max(lineHeight, size.height)
-                x += size.width + spacing
-            }
-            
-            self.size = CGSize(width: maxWidth, height: y + lineHeight)
-        }
-    }
-}
 
 
 // MARK: - Search Bar

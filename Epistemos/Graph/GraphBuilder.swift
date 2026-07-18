@@ -324,15 +324,10 @@ final class GraphBuilder: Sendable {
         }
 
         // ────────────────────────────────────────────
-        // 6. Chats — standalone nodes (no page link yet)
+        // 6. Chats — standalone nodes (no page link yet). The free V1 build
+        // keeps chat records durable but does not project them into the graph.
         // ────────────────────────────────────────────
-        let chats: [SDChat]
-        do {
-            chats = try context.fetch(FetchDescriptor<SDChat>())
-        } catch {
-            recordGraphBuilderFailure("Fetch chats", error: error)
-            chats = []
-        }
+        let chats: [SDChat] = []
 
         for chat in chats {
             let chatKey = "chat-\(chat.id)"

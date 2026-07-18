@@ -120,7 +120,7 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(!button.contains("service.latestTranscript"))
 
         #expect(facade.contains("EpistemosSpeechAnalyzer.shared.startLive"))
-        #expect(facade.contains("EpistemosSpeechAnalyzer.shared.stop()"))
+        #expect(facade.contains("EpistemosSpeechAnalyzer.shared.stop(sessionID:"))
         #expect(facade.contains("@available(macOS 26.0, *)"))
         #expect(facade.contains("modelDownloadProgress"))
     }
@@ -290,15 +290,12 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(!flags.graphEdgePrefetch)
     }
 
-    @Test("code editor policy increases debounce windows for larger files")
-    func codeEditorPolicyScalesForLargeFiles() {
+    @Test("code editor outline policy increases debounce windows for larger files")
+    func codeEditorOutlinePolicyScalesForLargeFiles() {
         let smallOutline = CodeEditorPerformancePolicy.outlineRefreshDelayMilliseconds(characterCount: 1_200)
         let largeOutline = CodeEditorPerformancePolicy.outlineRefreshDelayMilliseconds(characterCount: 48_000)
-        let smallInsight = CodeEditorPerformancePolicy.insightRefreshDelayMilliseconds(characterCount: 1_200)
-        let largeInsight = CodeEditorPerformancePolicy.insightRefreshDelayMilliseconds(characterCount: 48_000)
 
         #expect(largeOutline > smallOutline)
-        #expect(largeInsight > smallInsight)
     }
 
     @Test("code editor line metrics counts edge cases without splitting buffers")
@@ -477,14 +474,14 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(source.contains("private nonisolated final class SemanticEmbeddingSlots"))
     }
 
-    @Test("vault lifecycle does not re-add redundant unchecked FFI Sendable shims")
-    func vaultLifecycleAvoidsRedundantUncheckedFfiSendableShims() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Vault/VaultLifecycleService.swift")
+    @Test("retired vault lifecycle agent maintenance service remains physically absent")
+    func retiredVaultLifecycleAgentMaintenanceServiceRemainsPhysicallyAbsent() {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Epistemos/Vault/VaultLifecycleService.swift")
 
-        #expect(!source.contains("extension VaultFactFfi: @unchecked Sendable"))
-        #expect(!source.contains("extension ContradictionFfi: @unchecked Sendable"))
-        #expect(!source.contains("extension SessionFolderInfoFfi: @unchecked Sendable"))
-        #expect(!source.contains("extension SkillRegistryEntryFfi: @unchecked Sendable"))
+        #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
     }
 
     @Test("LSP routing task does not await synchronous actor helpers")

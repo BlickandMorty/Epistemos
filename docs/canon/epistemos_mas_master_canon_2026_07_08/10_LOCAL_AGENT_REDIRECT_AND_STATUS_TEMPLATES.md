@@ -1,13 +1,36 @@
 # 10 - Local Agent Redirect and Status Templates
 
+## July 15 sequential-lane execution override
+
+Read `16_TWO_LANE_REMOVAL_AND_REBUILD_DIRECTIVE_2026_07_15.md`. Run Lane R
+first using the Free V1 removal prompt. Do not start Lane B until Lane R records
+a stable source checkpoint. Lane R owns canceled/parked removal and fail-closed
+boundaries; its “notebook removal” applies only to the retired
+Chat/Sheet/Body-strip workspace, not a future Epdoc-native notebook. Lane B
+then owns rich native Epdoc recovery and the blank Multitask Graph repair.
+Preserve their disjoint file maps, leave Settings to its separate owner, and
+defer Xcode/app evidence until both source checkpoints are stable and one
+integration owner runs the single verification artifact.
+
+## July 15 redirect override
+
+Prepend this to every local prompt: read
+`14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md` and
+`15_OWNER_DIRECTIVE_COVERAGE_AND_HARDENING_CHECKPOINT_2026_07_15.md`; cancel LumenLens
+and all AI/agent/model/provider/generative work; park Reckoner and all sheet/
+dataset/grid/database-product work; retain non-AI Editor Core, KEELSTONE,
+Kokoro, and the remaining non-AI capability ring. Do not execute the old Prompt
+3 or Prompt 4. The current state is paused for owner review; after resumption,
+continue the existing KEELSTONE key and do not start another execution key.
+
 ## Paste-ready local coding agent prompt
 
 ```text
-Read before editing: 00_READ_FIRST.md, 01_OWNER_LOCK_AND_CANONICAL_THESIS.md, 02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md, 11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md, 08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md, then the specific feature doc for your task.
+Read before editing: 00_READ_FIRST.md, 14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md, 15_OWNER_DIRECTIVE_COVERAGE_AND_HARDENING_CHECKPOINT_2026_07_15.md, 01_OWNER_LOCK_AND_CANONICAL_THESIS.md, 02_MASTER_BUILD_ORDER_AND_DEPENDENCY_GRAPH.md, 11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md, 12_LIVE_REFERENCE_AND_FREE_V1_SURFACE_REGISTRY_2026_07_13.md, 08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md, then the specific surviving feature doc for your task.
 
-Treat MAS-ONLY-SHIP-LOCK-2026-07-07 as active. Epistemos is one Mac App Store product. Free V1 has no active agent. June remains the sole future paid agent; Browser and ResearchHub are also future paid. All are hidden and inert in free V1. Keep Kokoro, KEELSTONE, LUMENLENS/Epdoc planner/tasks/calendar, RECKONER, Meeting, Sync, Quick Capture, PDF/import, graph/search, workspace, and export active through native Swift/AppKit/SwiftUI, bundled approved assets, security-scoped bookmarks, sandbox-safe storage, and vault file/artifact truth.
+Treat MAS-ONLY-SHIP-LOCK-2026-07-07 as active. Epistemos is one Mac App Store product. Free V1 has no active agent or AI surface; June/LumenLens/AI are canceled. Browser and ResearchHub are deferred deterministic paid possibilities and absent from Free V1. Reckoner is parked. Keep Kokoro, KEELSTONE, non-AI Editor Core/Epdoc planner/tasks/calendar, Meeting, Sync, Quick Capture, PDF/import, graph/search, deterministic HTML workspace, and export active through native Swift/AppKit/SwiftUI, bundled approved assets, security-scoped bookmarks, sandbox-safe storage, and vault file/artifact truth.
 
-Use one centralized free-V1 capability policy across navigation, settings, Epdoc chrome, shortcuts, deep links, restoration, provider startup, and background jobs. Preserve paid source but do not implement StoreKit/payment/signing or execute the deferred June prompt.
+Use one centralized free-V1 capability policy across navigation, settings, Epdoc chrome, shortcuts, deep links, restoration, provider startup, queries, and background jobs. Preserve compatibility data and provenance, but do not compile/initialize canceled AI source, implement StoreKit/payment/signing, execute Prompt 3/4, or revive Reckoner.
 
 Do not revive Pro, Developer-ID, Experimental, 1Code, OpenChamber, Goose runtime, Kindred runtime, browser-use/Chromium, terminal/code-exec, stdio MCP, local server, subprocess, hidden sidecar, second chat runtime, second transcript database, second tool authority, or second data room.
 
@@ -23,6 +46,16 @@ If you are already in flight and your current free-V1 plan assumes June, Browser
 
 If a required local fact is not proven, mark REQUIRES LOCAL VERIFICATION and give the exact command.
 ```
+
+## Delegation and one-edit-owner protocol
+
+Read-only investigations may run in parallel for canon, dependency provenance,
+call sites, tests, visual references, or release evidence. A single named owner
+must make each edit batch, regenerate each build/archive, and consolidate all
+subtask findings into the intent/evidence ledger. Never let two agents edit the
+same workspace paths or run competing builds. A delegated finding is evidence
+only after the edit owner rechecks the cited local files and records the
+result; agents may not convert uncertainty into a new product direction.
 
 ## Paste-ready cloud research auditor prompt
 

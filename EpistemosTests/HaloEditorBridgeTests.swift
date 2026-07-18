@@ -46,14 +46,14 @@ struct HaloEditorBridgeTests {
                 "disconnect() must release the delegate so the editor doesn't drive the (gone) bridge")
     }
 
-    @Test("feed forwards text + domain to the controller")
+    @Test("feed forwards text to the notes-only controller")
     func feedForwards() async {
         let (ctrl, mock) = Self.makeController()
         mock.nextResults = [
             ShadowHit(id: "n1", title: "kant", snippet: "duty", score: 0.9, domain: .notes, source: "stub")
         ]
         let view = NSTextView()
-        let bridge = HaloEditorBridge(controller: ctrl, textView: view, domain: .notes)
+        let bridge = HaloEditorBridge(controller: ctrl, textView: view)
 
         bridge.feed(text: "kant on duty")
         await Self.waitForState(ctrl) { state in
@@ -62,7 +62,6 @@ struct HaloEditorBridgeTests {
         }
         #expect(mock.callCount == 1)
         #expect(mock.lastQuery == "kant on duty")
-        #expect(mock.lastDomain == .notes)
     }
 
     @Test("notifyFocusLost transitions the controller back to .dormant")
@@ -89,7 +88,7 @@ struct HaloEditorBridgeTests {
             ShadowHit(id: "n1", title: "kant", snippet: "duty", score: 0.9, domain: .notes, source: "stub")
         ]
         let view = NSTextView()
-        let bridge = HaloEditorBridge(controller: ctrl, textView: view, domain: .notes)
+        let bridge = HaloEditorBridge(controller: ctrl, textView: view)
         view.string = "kant on duty"
 
         // Synthesise the notification the way NSTextView does.
@@ -110,13 +109,11 @@ final class HaloEditorMockSearch: ShadowSearchServicing, @unchecked Sendable {
     var nextResults: [ShadowHit] = []
     private(set) var callCount = 0
     private(set) var lastQuery = ""
-    private(set) var lastDomain: ShadowDomain = .notes
 
-    nonisolated func search(text: String, domain: ShadowDomain, limit: Int) async -> [ShadowHit] {
+    nonisolated func search(text: String, limit: Int) async -> [ShadowHit] {
         await MainActor.run {
             self.callCount += 1
             self.lastQuery = text
-            self.lastDomain = domain
         }
         return await MainActor.run { self.nextResults }
     }

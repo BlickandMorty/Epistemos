@@ -22,7 +22,7 @@ struct SubstrateHealthPanelTests {
         #expect(panel.contains("SearchFusionHealthRow()"))
         #expect(panel.contains("EditorBundleHealthRow()"))
         #expect(panel.contains("FrictionHealthRow()"))
-        #expect(panel.contains("FalsifierArtifactsHealthRow()"))
+        #expect(!panel.contains("FalsifierArtifactsHealthRow()"))
         #expect(panel.contains("AnswerPacketHealthRow()"))
         #expect(panel.contains("JuneAgentHealthRow()"))
         #expect(panel.contains("LiteParseImportHealthRow()"))
@@ -284,7 +284,6 @@ struct SubstrateHealthPanelTests {
             "                VaultRecallHealthRow()",
             "                SearchFusionHealthRow()",
             "                EditorBundleHealthRow()",
-            "                FalsifierArtifactsHealthRow()",
             "                AnswerPacketHealthRow()",
             "                WorkOpenCodeShellHealthRow()",
             "                WorkBackendHealthRow()",

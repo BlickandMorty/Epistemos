@@ -26,7 +26,7 @@ nonisolated final class RRFFusionRecencyHalfLifeXCTests: XCTestCase {
             let sqliteRetention = try XCTUnwrap(Double.fetchOne(
                 db,
                 sql: "SELECT epistemos_exp(-:recency_ln_2 * 30.0 / 30.0)",
-                arguments: RRFFusionQuery.bindArguments(query: "half-life")
+                arguments: try RRFFusionQuery.bindArguments(query: "half-life")
             ))
             XCTAssertEqual(sqliteRetention, 0.5, accuracy: 0.000000000001)
         }
@@ -242,7 +242,7 @@ nonisolated struct RRFFusionQueryTests {
             let rows = try Row.fetchAll(
                 db,
                 sql: "EXPLAIN QUERY PLAN " + RRFFusionQuery.sql,
-                arguments: RRFFusionQuery.bindArguments(query: "test")
+                arguments: try RRFFusionQuery.bindArguments(query: "test")
             )
             let details: [String] = rows.compactMap { $0["detail"] as String? }
             #expect(!details.isEmpty,

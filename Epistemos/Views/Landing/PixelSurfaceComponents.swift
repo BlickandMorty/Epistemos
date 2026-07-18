@@ -10,9 +10,6 @@ enum LandingCommandThemeTreatment: Equatable {
     case emberHybrid
 
     static func resolve(for theme: EpistemosTheme) -> Self {
-        if AppCustomTheme.isActive {
-            return .classicNative
-        }
         switch theme.themePair {
         case .platinumViolet:
             return .platinumBlock
@@ -20,8 +17,6 @@ enum LandingCommandThemeTreatment: Equatable {
             return .classicNative
         case .ember:
             return .emberHybrid
-        case .custom:
-            return .classicNative
         }
     }
 
@@ -46,10 +41,6 @@ enum LandingCommandThemeTreatment: Equatable {
 // Residency: ResidencyTier::CurrentApp
 enum LandingCommandTypography {
     static func heroFontName(for theme: EpistemosTheme) -> String {
-        if AppCustomTheme.isActive {
-            return AppDisplayTypography.storedHeadingFontOverride(level: 1)
-                ?? AppDisplayTypography.matrixDisplayFontName
-        }
         switch theme.themePair {
         // Owner request 2026-07-03 (revised): Ember, Classic AND Platinum all share
         // Ember's landing-greeting hero font + the uppercase/lowercase case combo.
@@ -57,9 +48,6 @@ enum LandingCommandTypography {
         // to match the others in both light and dark.)
         case .classic, .ember, .platinumViolet:
             return theme.displayFontName
-        case .custom:
-            return AppDisplayTypography.storedHeadingFontOverride(level: 1)
-                ?? AppDisplayTypography.matrixDisplayFontName
         }
     }
 
@@ -89,7 +77,6 @@ enum PixelGlyphKind {
     case code
     case html
     case graph
-    case agent
 
     var systemImageName: String {
         switch self {
@@ -104,7 +91,6 @@ enum PixelGlyphKind {
         case .code: "chevron.left.forwardslash.chevron.right"
         case .html: "curlybraces.square"
         case .graph: "network"
-        case .agent: "person.crop.circle.badge.checkmark"
         }
     }
 }
@@ -158,13 +144,6 @@ struct PixelPanelBackground: View {
             }
         }
 
-        var customLightenFraction: CGFloat {
-            switch self {
-            case .panel: 0.18
-            case .action: 0.12
-            case .hover: 0.24
-            }
-        }
     }
 
     private static func tunedSurface(for theme: EpistemosTheme, role: SurfaceRole) -> Color {
@@ -191,8 +170,6 @@ struct PixelPanelBackground: View {
             case .action: return Color(hex: 0xC99A62).opacity(0.98)
             case .hover: return Color(hex: 0xE1BE88).opacity(0.98)
             }
-        case .custom:
-            return blendedSurface(for: theme, fraction: role.customLightenFraction, target: .white)
         }
     }
 
@@ -667,6 +644,26 @@ struct PixelGlyph: View {
     }
 }
 
+enum LandingShortcutDisplay {
+    static let fontSize: CGFloat = 12
+    static let keyHorizontalPadding: CGFloat = 7
+    static let keyVerticalPadding: CGFloat = 4
+    static let keyCornerRadius: CGFloat = 7
+    static let multiCharacterKeyMinWidth: CGFloat = 48
+
+    static func font(weight: Font.Weight = .medium) -> Font {
+        AppDisplayTypography.font(
+            size: fontSize,
+            weight: weight,
+            allowDisplayFont: false
+        )
+    }
+
+    static func keyMinWidth(for text: String) -> CGFloat? {
+        text.count > 1 ? multiCharacterKeyMinWidth : nil
+    }
+}
+
 struct PixelLandingCommandTile: View {
     let title: String
     let shortcut: String?
@@ -681,167 +678,65 @@ struct PixelLandingCommandTile: View {
     var help: String? = nil
     let action: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isHovered = false
-    @State private var pressFrame = 0
-
-    private var lowercasedTitle: String {
-        title.lowercased()
-    }
-
-    private var isLit: Bool {
-        isHovered || isActive
-    }
-
-    private var treatment: LandingCommandThemeTreatment {
-        LandingCommandThemeTreatment.resolve(for: theme)
-    }
-
-    private var commandFont: Font {
-        LandingCommandTypography.commandFont(size: 12, treatment: treatment, theme: theme)
-    }
-
-    private var restingCommandTextColor: Color {
-        switch treatment {
-        case .classicNative:
-            return theme.textPrimary.opacity(theme.isDark ? 0.84 : 0.72)
-        case .platinumBlock:
-            return theme.textPrimary.opacity(theme.isDark ? 0.78 : 0.72)
-        case .emberHybrid:
-            return theme.textPrimary.opacity(theme.isDark ? 0.82 : 0.76)
-        }
-    }
-
-    private var activeCommandTextColor: Color {
-        switch treatment {
-        case .classicNative:
-            return theme.textPrimary.opacity(theme.isDark ? 0.96 : 0.88)
-        case .platinumBlock:
-            return theme.fontAccent
-        case .emberHybrid:
-            return accent.opacity(theme.isDark ? 0.96 : 0.90)
-        }
-    }
-
-    private var typewriterAccentColor: Color {
-        switch treatment {
-        case .classicNative, .emberHybrid:
-            return accent
-        case .platinumBlock:
-            return theme.resolved.accent.color
-        }
-    }
-
     var body: some View {
         Button(action: triggerAction) {
-            dormantCommandLabel
-                .opacity(isLit ? 1 : (treatment == .classicNative ? 0.78 : 0.62))
+            HStack(spacing: 2) {
+                if let shortcut {
+                    Text(shortcut)
+                        .font(LandingShortcutDisplay.font())
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, LandingShortcutDisplay.keyHorizontalPadding)
+                        .padding(.vertical, LandingShortcutDisplay.keyVerticalPadding)
+                        .frame(minWidth: LandingShortcutDisplay.keyMinWidth(for: shortcut))
+                        .background {
+                            RoundedRectangle(
+                                cornerRadius: LandingShortcutDisplay.keyCornerRadius,
+                                style: .continuous
+                            )
+                            .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.08 : 0.06))
+                        }
+                } else {
+                    Image(systemName: glyph.systemImageName)
+                        .font(.system(size: 10, weight: .medium))
+                }
+
+                Text(title.lowercased())
+                    .font(LandingShortcutDisplay.font())
+                    .padding(.leading, shortcut == nil ? 4 : 6)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                if let brand {
+                    IntegrationBrandMarkView(brand: brand, size: 15)
+                        .foregroundStyle(accent.opacity(0.88))
+                        .frame(width: 18, height: 18)
+                        .padding(.leading, 4)
+                }
+
+                Spacer(minLength: 0)
+            }
+                .foregroundStyle(
+                    isActive
+                        ? accent
+                        : theme.resolved.foreground.color.opacity(theme.isDark ? 0.86 : 0.76)
+                )
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 52, alignment: .leading)
+                .frame(minHeight: 32, alignment: .leading)
                 .contentShape(Rectangle())
-                .scaleEffect(PixelStepMotion.scale(for: pressFrame == 0 ? 3 : pressFrame))
-                .offset(y: PixelStepMotion.yOffset(for: pressFrame == 0 ? 3 : pressFrame))
-                .animation(reduceMotion ? nil : treatment.hoverAnimation, value: isLit)
         }
         .buttonStyle(.plain)
-        .zIndex(isActive || isHovered ? 10 : 0)
-        .onHover(perform: handleHover)
-        .help(help ?? (shortcut.map { "\(title) (\($0))" } ?? title))
-    }
-
-    private var dormantCommandLabel: some View {
-        HStack(spacing: treatment == .classicNative ? 9 : 8) {
-            commandGlyph
-                .frame(width: 23, height: 23)
-                .opacity(isLit ? 1 : 0.82)
-
-            dormantCommandTitle
-            Spacer(minLength: 6)
-
-            if let brand {
-                IntegrationBrandMarkView(brand: brand, size: 15)
-                    .foregroundStyle(accent.opacity(isLit ? 0.96 : 0.72))
-                    .opacity(isLit ? 1 : 0.86)
-                    .frame(width: 18, height: 18)
-            }
-        }
-        .padding(.horizontal, treatment == .classicNative ? 12 : 10)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        .contentShape(Rectangle())
-        .background {
-            if treatment == .platinumBlock, isLit {
-                ZStack(alignment: .top) {
-                    Rectangle()
-                        .fill(.regularMaterial)
-                    PixelPanelBackground.actionSurface(for: theme)
-                        .opacity(theme.isDark ? 0.88 : 0.92)
-                    accent.opacity(theme.isDark ? 0.12 : 0.08)
-                    Rectangle()
-                        .fill(accent.opacity(theme.isDark ? 0.62 : 0.44))
-                        .frame(height: 3)
-                }
-            }
-        }
-        .overlay {
-            if treatment == .platinumBlock, isLit {
-                Rectangle()
-                    .stroke(theme.textPrimary.opacity(theme.isDark ? 0.22 : 0.30), lineWidth: 1)
-            }
-        }
-        .shadow(
-            color: treatment == .platinumBlock && isLit
-                ? Color.black.opacity(theme.isDark ? 0.24 : 0.14)
-                : Color.clear,
-            radius: 0,
-            x: treatment == .platinumBlock && isLit ? 3 : 0,
-            y: treatment == .platinumBlock && isLit ? 3 : 0
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .hoverGlass(
+            flatBackground: .clear,
+            cornerRadius: LandingShortcutDisplay.keyCornerRadius + 4
         )
-    }
-
-    @ViewBuilder
-    private var commandGlyph: some View {
-        switch treatment {
-        case .classicNative:
-            Image(systemName: glyph.systemImageName)
-                .font(.system(size: 13, weight: .semibold))
-                .symbolRenderingMode(.monochrome)
-                .foregroundStyle(accent.opacity(isLit ? 1 : 0.88))
-        case .platinumBlock:
-            PixelGlyph(kind: glyph, accent: accent)
-        case .emberHybrid:
-            PixelGlyph(kind: glyph, accent: accent)
-        }
-    }
-
-    private var dormantCommandTitle: some View {
-        Group {
-            if isLit {
-                PixelCommandTypewriterText(
-                    text: lowercasedTitle,
-                    font: commandFont,
-                    color: activeCommandTextColor,
-                    accent: typewriterAccentColor
-                )
-            } else {
-                Text(lowercasedTitle)
-                    .font(commandFont)
-                    .foregroundStyle(restingCommandTextColor)
-            }
-        }
-            .lineLimit(1)
-            .minimumScaleFactor(0.82)
+        .help(help ?? (shortcut.map { "\(title) (\($0))" } ?? title))
     }
 
     private func triggerAction() {
         HapticHelper.homeCommand(haptic)
-        pressFrame = 0
         action()
-    }
-
-    private func handleHover(_ hovering: Bool) {
-        withAnimation(reduceMotion ? nil : treatment.hoverAnimation) {
-            isHovered = hovering
-        }
     }
 }

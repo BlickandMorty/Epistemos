@@ -32,13 +32,7 @@ struct TextCapturePipelineTests {
     }
 
     private func makePipeline() -> TextCapturePipeline {
-        let traceDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("epistemos-test-traces-\(UUID().uuidString)")
-        let collector = TraceCollector(baseDir: traceDir)
-        return TextCapturePipeline(
-            traceCollector: collector,
-            sessionId: "test-session-\(UUID().uuidString)"
-        )
+        TextCapturePipeline()
     }
 
     private func makeTestEventStore() throws -> EventStore {
@@ -49,98 +43,6 @@ struct TextCapturePipelineTests {
             throw TestError.eventStoreOpenFailed
         }
         return store
-    }
-
-    private struct TracedPipelineFixture {
-        let pipeline: TextCapturePipeline
-        let collector: TraceCollector
-        let traceDir: URL
-        let sessionId: String
-    }
-
-    private func makeTracedPipeline() -> TracedPipelineFixture {
-        let traceDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("epistemos-test-traces-\(UUID().uuidString)")
-        let collector = TraceCollector(baseDir: traceDir)
-        let sessionId = "test-session-\(UUID().uuidString)"
-        return TracedPipelineFixture(
-            pipeline: TextCapturePipeline(traceCollector: collector, sessionId: sessionId),
-            collector: collector,
-            traceDir: traceDir,
-            sessionId: sessionId
-        )
-    }
-
-    private func traceFileURL(traceDir: URL, sessionId: String) -> URL {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = .current
-        let dateDirectory = formatter.string(from: Date())
-        return traceDir
-            .appendingPathComponent(dateDirectory, isDirectory: true)
-            .appendingPathComponent("\(sessionId).jsonl")
-    }
-
-    private func traceEventTypes(traceDir: URL, sessionId: String) throws -> [String] {
-        let fileURL = traceFileURL(traceDir: traceDir, sessionId: sessionId)
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
-        let contents = try String(contentsOf: fileURL, encoding: .utf8)
-        return contents
-            .split(separator: "\n")
-            .compactMap { line -> String? in
-                guard
-                    let data = line.data(using: .utf8),
-                    let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-                else {
-                    return nil
-                }
-                return object["type"] as? String
-            }
-    }
-
-    private func traceEvents(traceDir: URL, sessionId: String) throws -> [[String: Any]] {
-        let fileURL = traceFileURL(traceDir: traceDir, sessionId: sessionId)
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
-        let contents = try String(contentsOf: fileURL, encoding: .utf8)
-        return contents
-            .split(separator: "\n")
-            .compactMap { line -> [String: Any]? in
-                guard
-                    let data = line.data(using: .utf8),
-                    let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-                else {
-                    return nil
-                }
-                return object
-            }
-    }
-
-    private func waitForTraceEventTypes(
-        traceDir: URL,
-        sessionId: String,
-        minimumCount: Int
-    ) async throws -> [String] {
-        var last: [String] = []
-        for _ in 0..<20 {
-            last = try traceEventTypes(traceDir: traceDir, sessionId: sessionId)
-            if last.count >= minimumCount { return last }
-            try await Task.sleep(nanoseconds: 50_000_000)
-        }
-        return last
-    }
-
-    private func waitForTraceEvents(
-        traceDir: URL,
-        sessionId: String,
-        minimumCount: Int
-    ) async throws -> [[String: Any]] {
-        var last: [[String: Any]] = []
-        for _ in 0..<20 {
-            last = try traceEvents(traceDir: traceDir, sessionId: sessionId)
-            if last.count >= minimumCount { return last }
-            try await Task.sleep(nanoseconds: 50_000_000)
-        }
-        return last
     }
 
     // MARK: - Empty Capture
@@ -401,11 +303,6 @@ struct TextCapturePipelineTests {
     func persistedCaptureWritesMutationEnvelopeToEventStore() async throws {
         let eventStore = try makeTestEventStore()
         let pipeline = TextCapturePipeline(
-            traceCollector: TraceCollector(
-                baseDir: FileManager.default.temporaryDirectory
-                    .appendingPathComponent("epistemos-test-traces-\(UUID().uuidString)")
-            ),
-            sessionId: "event-store-session-\(UUID().uuidString)",
             eventStoreProvider: { eventStore }
         )
         let container = try makeTestContainer()
@@ -815,6 +712,23 @@ struct TextCapturePipelineTests {
         #expect(result.summary.count <= 300)
     }
 
+    @Test("Quick Capture's explicit body cap preserves input above the default summary cap")
+    func quickCaptureBodyCapPreservesFullInput() async throws {
+        let pipeline = makePipeline()
+        let text = String(
+            repeating: "q",
+            count: TextCapturePipeline.maxCleanedTextCharacters + 1
+        )
+
+        let result = try await pipeline.run(
+            rawText: text,
+            maxBodyCharacters: QuickCaptureDraftStore.maxDraftCharacters
+        )
+
+        #expect(result.rawText == text)
+        #expect(result.cleanedText == text)
+    }
+
     @Test("Title extracted from H2 heading")
     func titleFromH2Heading() async throws {
         let pipeline = makePipeline()
@@ -845,9 +759,9 @@ struct TextCapturePipelineTests {
         #expect(completed.count == 1)
     }
 
-    @Test("Pipeline with persistence produces graph and evidence trace events")
+    @Test("Pipeline with persistence produces graph and a durable mutation receipt")
     func fullPipelineWithPersistence() async throws {
-        let fixture = makeTracedPipeline()
+        let pipeline = makePipeline()
         let container = try makeTestContainer()
         let context = ModelContext(container)
 
@@ -860,7 +774,7 @@ struct TextCapturePipelineTests {
         We discussed the new product roadmap with the engineering team.
         """
 
-        let result = try await fixture.pipeline.run(rawText: text, modelContext: context)
+        let result = try await pipeline.run(rawText: text, modelContext: context)
 
         // Note should be persisted
         #expect(result.createdNoteID != nil)
@@ -871,48 +785,9 @@ struct TextCapturePipelineTests {
         #expect(!result.sourceSpans.isEmpty)
         // Tasks should be found
         #expect(result.tasks.count >= 2)
-        // Trace ID present
+        // Correlation ID remains available for the durable mutation receipt.
         #expect(!result.traceID.isEmpty)
-
-        let eventTypes = try await waitForTraceEventTypes(
-            traceDir: fixture.traceDir,
-            sessionId: fixture.sessionId,
-            minimumCount: 5
-        )
-        await fixture.collector.closeSession(fixture.sessionId)
-        #expect(eventTypes.contains(TraceEvent.TraceEventType.captureReceived.rawValue))
-        #expect(eventTypes.contains(TraceEvent.TraceEventType.structureGenerated.rawValue))
-        #expect(eventTypes.contains(TraceEvent.TraceEventType.notePersisted.rawValue))
-        #expect(eventTypes.contains(TraceEvent.TraceEventType.graphWriteAttempted.rawValue))
-        #expect(eventTypes.contains(TraceEvent.TraceEventType.evidenceLinked.rawValue))
-    }
-
-    @Test("Pipeline trace records committed mutation envelope JSON")
-    func traceRecordsCommittedMutationEnvelope() async throws {
-        let fixture = makeTracedPipeline()
-        let container = try makeTestContainer()
-        let context = ModelContext(container)
-
-        let result = try await fixture.pipeline.run(
-            rawText: "Quick capture provenance note",
-            modelContext: context
-        )
-        let noteId = try #require(result.createdNoteID)
-
-        let events = try await waitForTraceEvents(
-            traceDir: fixture.traceDir,
-            sessionId: fixture.sessionId,
-            minimumCount: 6
-        )
-        await fixture.collector.closeSession(fixture.sessionId)
-
-        let mutationEvent = events.first {
-            $0["type"] as? String == TraceEvent.TraceEventType.mutationEnvelopeCommitted.rawValue
-        }
-        let content = try #require(mutationEvent?["content"] as? String)
-        #expect(content.contains("\"status\":\"committed\""))
-        #expect(content.contains("\"artifact_id\":\"\(noteId)\""))
-        #expect(content.contains("\"artifact_kind\":\"prose_note\""))
+        #expect(result.mutationEnvelope != nil)
     }
 
     // MARK: - Quick Capture Wiring
@@ -984,7 +859,7 @@ struct TextCapturePipelineTests {
         let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
 
         #expect(!app.contains(".sheet(isPresented: $showQuickCapture)"))
-        #expect(root.contains("QuickCaptureView(isPresented: $showQuickCapture)"))
+        #expect(root.contains("presentationSlot: .rootOverlay"))
         #expect(root.contains("if showQuickCapture"))
     }
 
@@ -1047,7 +922,8 @@ struct TextCapturePipelineTests {
         #expect(root.contains("enum HomeWindowInputFocus"))
         #expect(root.contains("NSApp.keyWindow?.makeFirstResponder(nil)"))
         #expect(root.contains("HomeWindowIdentity.surfaceHomeWindow()"))
-        #expect(root.contains("showQuickCapture = false; HomeWindowInputFocus.restoreAfterOverlayDismiss()"))
+        #expect(root.contains("name: .requestQuickCaptureDismissal"))
+        #expect(root.contains("object: QuickCapturePresentationSlot.rootOverlay"))
     }
 
     @Test("Shortcut Quick Capture fails rather than claiming success without a persisted note")
@@ -1058,13 +934,16 @@ struct TextCapturePipelineTests {
         #expect(source.contains("throw IntentError.creationFailed"))
     }
 
-    @Test("Quick Capture overlay success requires durable mutation envelope persistence")
-    func quickCaptureSheetRequiresDurableMutationEnvelopeBeforeSuccess() throws {
+    @Test("Quick Capture success requires a persisted note and treats its audit envelope as secondary")
+    func quickCaptureRequiresPersistedNoteBeforeSuccess() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
-        let durableGuards = source.components(separatedBy: "guard result.mutationEnvelopePersisted else").count - 1
 
-        #expect(durableGuards >= 2)
-        #expect(source.contains("mutation envelope was not persisted"))
+        #expect(source.contains("guard result.rawText == submittedDraft.committedText"))
+        #expect(source.contains("result.createdNoteID != nil else"))
+        #expect(source.contains("SECONDARY mutation-envelope audit-log write"))
+        #expect(source.contains("Benign audit degradation"))
+        #expect(!source.contains("guard result.mutationEnvelopePersisted else"))
+        #expect(!source.contains("mutation envelope was not persisted"))
         #expect(source.contains("QuickCaptureDiagnostics.statusMessage"))
         #expect(source.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
         #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
@@ -1138,19 +1017,4 @@ struct TextCapturePipelineTests {
         #expect(source.contains("anchor: Self.activeContextAnchor()"))
     }
 
-    @Test("MEET-7: structureGenerated hashes the title out of the persisted trace content")
-    func structureGeneratedHashesTitleForTracePrivacy() throws {
-        let secret = "Q3 layoffs and the acquisition target"
-        let event = TraceEvent.structureGenerated(
-            sessionId: "s", traceId: "t", entityCount: 3, taskCount: 2, title: secret
-        )
-        let content = try #require(event.content)
-        // The meeting-content-derived title must NOT appear in the persisted trace.
-        #expect(!content.contains(secret))
-        #expect(!content.contains("layoffs"))
-        // A stable correlatable hash + the non-content counts are still present.
-        #expect(content.contains("title_sha256="))
-        #expect(content.contains("entities=3"))
-        #expect(content.contains("tasks=2"))
-    }
 }

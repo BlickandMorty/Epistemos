@@ -44,8 +44,8 @@ struct Stash17LandingWaveCloseoutTests {
         #expect(!ledger.contains("1. `stash@{17}` - landing wave UI and missing Wave view files."))
     }
 
-    @Test("current landing wave donor files stay retired while session intelligence remains")
-    func currentLandingWaveDonorFilesStayRetiredWhileSessionIntelligenceRemains() {
+    @Test("current landing wave donor files stay retired")
+    func currentLandingWaveDonorFilesStayRetired() {
         let retiredFiles = [
             "Epistemos/Views/Landing/Wave/LandingWaveDesign.swift",
             "Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift",
@@ -61,8 +61,6 @@ struct Stash17LandingWaveCloseoutTests {
         for path in retiredFiles {
             #expect(!repoFileExists(path), "\(path) should stay retired from current product source")
         }
-
-        #expect(repoFileExists("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift"))
     }
 
     @Test("current landing surface keeps plain home route")
@@ -78,7 +76,7 @@ struct Stash17LandingWaveCloseoutTests {
         #expect(!landing.contains("ChatBrainPickerMenu("))
         #expect(!landing.contains("title: \"search\""))
         #expect(landing.contains("AmbientFrequencyPlaybackState"))
-        #expect(landing.contains("LandingFarmView("))
+        #expect(!landing.contains("LandingFarmView("))
         #expect(!landing.contains("ContextualShadowsButton(scopeKind: .chat"))
         #expect(!landing.contains("ContextualShadowsPanel("))
         #expect(!landing.contains("LandingWaveOverlay("))

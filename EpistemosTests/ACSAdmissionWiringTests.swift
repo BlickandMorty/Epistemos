@@ -13,24 +13,38 @@ struct ACSAdmissionWiringTests {
     func acsAdmissionBridgeReturnsPolicy() throws {
         ACSAdmissionMetrics.shared.reset()
 
-        let summary = try #require(ACSAdmissionBridge.strictPolicySummary())
-        #expect(summary.policyId == "acs-strict-default")
-        #expect(summary.version >= 1)
-        #expect(summary.capabilityRulesCount >= 5,
+        let summary = ACSAdmissionBridge.strictPolicySummary()
+        #if canImport(agent_coreFFI)
+        let requiredSummary = try #require(summary)
+        #expect(requiredSummary.policyId == "acs-strict-default")
+        #expect(requiredSummary.version >= 1)
+        #expect(requiredSummary.capabilityRulesCount >= 5,
                 "strict default must require at least 5 capabilities")
-        #expect(summary.canonicalVerdicts.count == 5)
-        #expect(summary.canonicalVerdicts.contains("allow"))
-        #expect(summary.canonicalVerdicts.contains("reject"))
+        #expect(requiredSummary.canonicalVerdicts.count == 5)
+        #expect(requiredSummary.canonicalVerdicts.contains("allow"))
+        #expect(requiredSummary.canonicalVerdicts.contains("reject"))
+        #else
+        #expect(summary == nil)
+        #expect(ACSAdmissionMetrics.shared.snapshot().lastErrorDescription != nil)
+        #endif
     }
 
     @Test("ACSAdmissionMetrics records the read")
     func acsAdmissionMetricsRecordsRead() throws {
         ACSAdmissionMetrics.shared.reset()
-        _ = try #require(ACSAdmissionBridge.strictPolicySummary())
+        let summary = ACSAdmissionBridge.strictPolicySummary()
         let snap = ACSAdmissionMetrics.shared.snapshot()
+        #if canImport(agent_coreFFI)
+        _ = try #require(summary)
         #expect(snap.totalReads == 1)
         #expect(snap.lastPolicy != nil)
         #expect(snap.lastReadAt != nil)
+        #else
+        #expect(summary == nil)
+        #expect(snap.totalReads == 0)
+        #expect(snap.lastPolicy == nil)
+        #expect(snap.lastErrorDescription != nil)
+        #endif
     }
 
     @Test("ACSAdmissionFlags reads UserDefaults + env fallback")

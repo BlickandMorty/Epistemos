@@ -1475,6 +1475,23 @@ enum NoteFileStorage {
         return pendingBodyQueue.sync { pendingBodies[key] }
     }
 
+    nonisolated static func pendingBodyForImmediateRead(pageId: String) -> String? {
+        guard isValidPageId(pageId) else { return nil }
+        return pendingBody(for: pageId, directory: storageDirectory())
+    }
+
+    nonisolated static func clearPendingBodyForImmediateRead(
+        pageId: String,
+        matching expectedBody: String
+    ) {
+        guard isValidPageId(pageId) else { return }
+        clearPendingBody(
+            pageId: pageId,
+            directory: storageDirectory(),
+            matching: expectedBody
+        )
+    }
+
     private nonisolated static func setPendingBody(_ body: String, for pageId: String, directory: URL) {
         let key = pendingBodyKey(pageId: pageId, directory: directory)
         pendingBodyQueue.sync {

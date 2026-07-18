@@ -97,59 +97,20 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(!registry.contains(".fill(.quaternary)"))
     }
 
-    @Test("extensibility settings rows use registry-backed brand marks")
-    func extensibilityRowsUseRegistryBackedMarks() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
-
-        for required in [
-            "brand: .installedMCPServer(name: server.name, host: server.host)",
-            "brand: .mcpRegistry(",
-            "source: entry.source.rawValue",
-            "installKind: entry.installKind.rawValue",
-            "brand: .bestOfPreset(",
-            "kind: item.kind.rawValue",
-            "brand: .connector(",
-            "id: status.connector.id",
-            "displayName: status.connector.displayName"
-        ] {
-            #expect(source.contains(required), "ExtensionsDetailView missing registry-backed mark: \(required)")
-        }
-
-        #expect(!source.contains("Image(systemName: status.connector.systemImage)"))
-    }
-
-    @Test("skills settings and Plan 3 utility headers use registry-backed brand marks")
-    func skillsAndUtilityHeadersUseRegistryBackedMarks() throws {
-        let skills = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SkillsSettingsView.swift")
+    @Test("Plan 3 utility headers use registry-backed brand marks")
+    func utilityHeadersUseRegistryBackedMarks() throws {
         let arxiv = try loadMirroredSourceTextFile("Epistemos/Views/Arxiv/ArxivSearchView.swift")
         let browser = try loadMirroredSourceTextFile("Epistemos/Views/Browser/BrowserView.swift")
         let meeting = try loadMirroredSourceTextFile("Epistemos/Views/Meeting/MeetingNoteView.swift")
         let voice = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoiceSettingsDetailView.swift")
-        let provenance = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ProvenanceConsoleView.swift")
-        let extensions = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
         let landingButtons = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingFeatureButtons.swift")
         let pixelComponents = try loadMirroredSourceTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
-
-        for required in [
-            "brand: .skillDiscovery(",
-            "source: skill.source.rawValue",
-            "brand: .skillInstallSource(rawValue: installSource.rawValue)",
-            "brand: .skillInventory(",
-            "identifier: skill.name",
-            "description: skill.description"
-        ] {
-            #expect(skills.contains(required), "SkillsSettingsView missing registry-backed mark: \(required)")
-        }
 
         #expect(arxiv.contains("IntegrationBrandMarkView(brand: .arxiv"))
         #expect(browser.contains("IntegrationBrandMarkView(brand: .browser"))
         #expect(meeting.contains("IntegrationBrandMarkView(brand: .meetingNote"))
         #expect(voice.contains("IntegrationBrandMarkView(brand: .voice"))
         #expect(voice.contains("ui.theme.resolved.mutedForeground.color"))
-        #expect(provenance.contains("IntegrationBrandMarkView(brand: .provenance"))
-        #expect(provenance.contains("ui.theme.resolved.mutedForeground.color"))
-        #expect(extensions.contains("IntegrationBrandMarkView(brand: .extensions"))
-        #expect(extensions.contains("ui.theme.resolved.mutedForeground.color"))
         #expect(landingButtons.contains("var integrationBrand: IntegrationBrand"))
         #expect(landingButtons.contains(".landingFeature(rawValue: rawValue)"))
         #expect(landingButtons.contains("brand: feature.integrationBrand"))

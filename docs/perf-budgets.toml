@@ -12,107 +12,30 @@
 # Parser: scripts/check-perf-budgets.sh (no TOML dependencies; uses awk/grep).
 # CI gate: invoked from .github/workflows/ci.yml after the Patch 9 bundle step.
 #
-# Source-guard test: EpistemosTests/PerfBudgetsTests.swift asserts every
-# canonical key documented here is present at the expected location.
+# The active Free App Store source guard keeps this contract product-scoped.
 
 [binary]
 # Per-dylib release-build ceiling (post fat-LTO + strip = "symbols").
 # These gate REGRESSION — measured against the aarch64 release artifact.
 # Current measurements (2026-04-25): listed in trailing comments.
 #
-# Why per-dylib instead of one combined number: a regression in agent_core
-# (HTTP / inference / tools) should not be masked by a savings in another crate,
-# and vice versa. Each dylib is an independent compilation unit shipped
-# separately into Pro and (where applicable) MAS variants.
-libagent_core_mb_max     = 21   # actual 21; loosened 2026-07-07: fresh release --lib rebuild after agent_core expansion measures 21 MB rounded by du -m
+# The Free MAS product retains only the deterministic epistemos-core dylib.
+# Retired agent, MCP, and model-runtime binaries are validated by artifact
+# absence checks rather than being treated as a performance-budget surface.
 libepistemos_core_mb_max = 6    # actual 3.8
-libomega_mcp_mb_max      = 5    # actual 5; loosened 2026-07-07: fresh release --lib rebuild measures 5 MB rounded by du -m
-libomega_ax_mb_max       = 4
-
-# substrate-rt is the dpp-Sprint-4 carve-out (Wave 5). Until that crate
-# ships, this budget exists as a TARGET only — the parser must not fail
-# when the dylib is absent. dpp §1.1 Task 0.5 canonical value: 12 MB.
-libsubstrate_rt_mb_max   = 12
 
 [appstore]
 # Patch 9 already gates this in CI via env EPISTEMOS_APPSTORE_BUNDLE_SIZE_LIMIT_MB.
 # Recorded here so the budget surface is one document, not split across CI yaml.
-# Includes MLX models + bundled frameworks; NOT comparable to [binary] entries.
+# Includes bundled product resources; NOT comparable to [binary] entries.
 appstore_bundle_mb_max = 600
 
 [runtime]
-# Aspirational targets per dpp §1.1 Task 0.5. These gate REPORTED metrics
-# from `bench/morning-session.swift` (Wave 2.6, not yet shipped). Until that
-# bench produces a JSON results file the CI parser MUST NOT fail on these
-# — it reports them as "no measurement yet" and continues.
-#
-# Once the bench is wired, the parser fails the build if any p99 exceeds
-# its budget. Cross-reference: dpp §1.1 Task 0.5 verbatim values.
+# Free MAS product targets. Until a current product harness writes the
+# measurement file, the parser reports the debt and does not claim a result.
 cold_start_ms_p99    = 800
 frame_ms_p99         = 8.3
-mcp_invoke_ms_p99    = 2.0
 ffi_hot_path_us_p99  = 5.0
-
-[agent_surface]
-# Agent-surface budgets for the 2026-07-03 rebuilds (Experimental = 1Code WKWebView
-# over a supervised localhost server; MAS = native SwiftUI over in-process
-# agent_core). These gate the owner-critical "opens instantly" behaviour PLUS the
-# web-side + app-side optimization mandate in
-# docs/research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md.
-#
-# TARGET ONLY until the surfaces ship + a measurement source exists — mirrors the
-# [runtime] carve-out above. scripts/check-perf-budgets.sh does NOT iterate this
-# section, so it never fails CI today. When a surface lands, the build agent wires
-# a measurement producer (os_signpost / a diagnostic HealthRow / Web Inspector
-# timeline) and extends the parser to enforce these; that wiring IS a phase gate.
-#
-# --- felt-speed (the "instant open" the owner cares about) ---
-warm_reopen_ms_max          = 100    # Agent tab-switch back -> interactive (WebView/runtime kept warm)
-cold_open_ms_max            = 1500   # first-ever open -> interactive
-placeholder_paint_ms_max    = 100    # click -> placeholder/loading visible (never blank/hang)
-first_token_ms_max          = 1200   # send -> first streamed token (cloud); Apple FM lower
-#
-# --- Experimental web-side (vendored SPA served by the local supervisor) ---
-pro_web_bundle_kb_max       = 3500   # gzipped initial JS+CSS; regression ceiling, tighten as measured
-pro_first_paint_ms_max      = 1000   # SPA mount -> first meaningful paint (server already warm)
-#
-# --- interaction smoothness (both) ---
-transcript_frame_ms_p99     = 8.3    # streaming/scroll ~120fps; no full-transcript re-render per token
-#
-# --- MAS native + model warmth (invariant, 1 = required) ---
-mas_model_retained_on_switch = 1     # GGUF model + agent_core session MUST stay resident across Agent tab-switch (0 = regression)
-
-[experimental_surface]
-# Experimental-surface budgets (§16 of the 1Code-embed build spec). The Experimental
-# lane = the vendored 1Code React SPA in a WKWebView over a SUPERVISED HEADLESS Node
-# backend (ExperimentalRuntimeSupervisor), Developer-ID/notarized. Same felt-speed
-# contract as [agent_surface] — mirrors its values verbatim per §16 ("cold-open
-# ≤1500 ms, warm reopen ≤100 ms, first-token ≤1200 ms").
-#
-# TARGET ONLY until a measurement producer exists (same carve-out as [agent_surface]):
-# scripts/check-perf-budgets.sh does NOT iterate this section, so it never fails CI
-# today. The §16 instant-open recipe is the mechanism (eager WebView + placeholder,
-# off-main spawn, keep-alive across tab switches, optional pre-warm at bootstrap). When
-# the surface's measurement lands (OSSignposter around supervisor.start()/first-paint,
-# or a diagnostic HealthRow), the build agent extends the parser to enforce these —
-# that wiring IS the P2/P5 perf phase gate.
-#
-# --- felt-speed (the "instant open" the owner cares about) ---
-warm_reopen_ms_max          = 100    # Agent-room re-entry -> interactive (WebView + backend kept warm)
-cold_open_ms_max            = 1500   # first-ever open -> interactive (incl. tarball unpack + backend spawn on first run)
-placeholder_paint_ms_max    = 100    # click -> "Starting the Experimental agent…" status visible (never blank/hang)
-first_token_ms_max          = 1200   # send -> first streamed token over the ws subscription (cloud provider)
-#
-# --- web-side (the 1Code SPA served by the headless backend) ---
-exp_web_bundle_kb_max       = 4000   # gzipped initial JS+CSS of the 1Code renderer; regression ceiling, tighten as measured
-exp_first_paint_ms_max      = 1000   # SPA mount -> first meaningful paint (backend already warm)
-#
-# --- interaction smoothness ---
-transcript_frame_ms_p99     = 8.3    # streaming/scroll ~120fps; no full-transcript re-render per token
-glass_host_attach_ms        = 16     # NSVisualEffectView host attach -> glass_host_ready signpost
-#
-# --- backend memory (§16: cap the heap; upstream ships 8192, oversized on 16 GB) ---
-backend_heap_mb_max         = 4096   # --max-old-space-size ceiling for the headless node backend (supervisor sets 3072)
 
 [keelstone.reference]
 # KEELSTONE performance floor. Reference hardware: Apple silicon M2 Pro class.
@@ -156,10 +79,10 @@ idle_resident_mb_max = 1200
 wal_file_mb_max = 512
 
 [meta]
-# Where the parser looks for runtime measurement output. Wave 2.6 will
-# write this file from the morning-session benchmark; until it exists
-# the runtime budgets are reported but not enforced.
-runtime_results_path = "build/perf-budgets-runtime.json"
+# Only a current Free MAS product harness may write this measurement. The
+# legacy benchmark path is intentionally distinct so it cannot supply Free
+# runtime evidence by accident.
+runtime_results_path = "build/perf-budgets-free-mas-runtime.json"
 
 # Where the parser looks for KEELSTONE vault-sync durability/perf measurements.
 # CI can prove this gate with KEELSTONE_SEED_PERF_REGRESSION=1.

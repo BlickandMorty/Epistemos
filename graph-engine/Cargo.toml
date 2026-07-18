@@ -14,7 +14,7 @@ shared-position-buffers = []
 [dependencies]
 block = "0.1"
 bytemuck = "1.24"
-cozo = "0.7.6"
+cozo = { version = "0.7.6", default-features = false, features = ["rayon"] }
 libc = "0.2"
 loro = "1.10"
 metal = "0.31"

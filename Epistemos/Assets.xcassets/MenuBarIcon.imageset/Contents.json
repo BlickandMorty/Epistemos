@@ -1,14 +1,9 @@
 {
   "images" : [
     {
-      "filename" : "menubar_icon_18.png",
+      "filename" : "epistemos_e_template.svg",
       "idiom" : "universal",
       "scale" : "1x"
-    },
-    {
-      "filename" : "menubar_icon_36.png",
-      "idiom" : "universal",
-      "scale" : "2x"
     }
   ],
   "info" : {

@@ -439,6 +439,43 @@ struct VaultSyncServiceAuditTests {
         )
     }
 
+    @Test("stable runtime audit defaults survive a second service process boundary")
+    func stableRuntimeAuditDefaultsSurviveSecondServiceProcessBoundary() {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("Epistemos-AuditDefaults-\(UUID().uuidString)", isDirectory: true)
+        let suiteName = "com.epistemos.audit.runtime.\(UUID().uuidString)"
+        let environment = [
+            FoundationSafety.applicationSupportOverrideEnvironmentKey:
+                root.appendingPathComponent("Application Support", isDirectory: true).path,
+            FoundationSafety.auditRuntimeAppGroupRootEnvironmentKey:
+                root.appendingPathComponent("App Group", isDirectory: true).path,
+            FoundationSafety.auditRuntimeDefaultsSuiteEnvironmentKey: suiteName,
+        ]
+        defer {
+            UserDefaults.standard.removePersistentDomain(forName: suiteName)
+            try? fileManager.removeItem(at: root)
+        }
+
+        let firstProcessDefaults = VaultSyncService.makeDefaultUserDefaultsForTesting(
+            processInfoEnvironment: environment
+        )
+        firstProcessDefaults.set("bookmark-sentinel", forKey: "runtime-audit-bookmark-probe")
+
+        let secondProcessDefaults = VaultSyncService.makeDefaultUserDefaultsForTesting(
+            processInfoEnvironment: environment
+        )
+        #expect(
+            secondProcessDefaults.string(forKey: "runtime-audit-bookmark-probe")
+                == "bookmark-sentinel"
+        )
+        #expect(
+            VaultSyncService.shouldRestoreVaultFromBookmark(
+                processInfoEnvironment: environment
+            )
+        )
+    }
+
     @Test("startup bookmark validation rejects stale bookmarks")
     func startupBookmarkValidationRejectsStaleBookmarks() {
         let validation = VaultSyncService.startupBookmarkValidationForTesting(
@@ -2546,8 +2583,8 @@ struct VaultSyncServiceAuditTests {
         #expect(commandLog.value.contains("deletelocalsnapshots 2026-03-01-000001"))
     }
 
-    @Test("power mode changes restart vault maintenance timers when full mode returns")
-    func powerModeChangesRestartVaultMaintenanceTimers() throws {
+    @Test("low power mode pauses vault maintenance timers until full mode returns")
+    func lowPowerModePausesVaultMaintenanceTimers() throws {
         let container = try makeContainer()
         let defaults = makeIsolatedDefaults()
         let service = VaultSyncService(modelContainer: container, userDefaults: defaults)
@@ -2567,7 +2604,7 @@ struct VaultSyncServiceAuditTests {
         #expect(started.versionCaptureActive)
         #expect(started.manifestRefreshActive)
 
-        service.handlePowerModeChangeForTesting(.eco)
+        service.handlePowerModeChangeForTesting(.lowPower)
         let disabled = service.backgroundMaintenanceTimersStateForTesting()
         #expect(!disabled.versionCaptureActive)
         #expect(!disabled.manifestRefreshActive)
@@ -2578,8 +2615,8 @@ struct VaultSyncServiceAuditTests {
         #expect(restarted.manifestRefreshActive)
     }
 
-    @Test("eco mode keeps core vault sync active while background maintenance pauses")
-    func ecoModeKeepsCoreVaultSyncActive() throws {
+    @Test("low power mode keeps core vault sync active while background maintenance pauses")
+    func lowPowerModeKeepsCoreVaultSyncActive() throws {
         let container = try makeContainer()
         let defaults = makeIsolatedDefaults()
         let service = VaultSyncService(modelContainer: container, userDefaults: defaults)
@@ -2600,16 +2637,16 @@ struct VaultSyncServiceAuditTests {
         #expect(startedCore.autoSaveActive)
         #expect(startedCore.fileWatcherActive)
 
-        service.handlePowerModeChangeForTesting(.eco)
+        service.handlePowerModeChangeForTesting(.lowPower)
 
-        let ecoCore = service.vaultCoreSyncStateForTesting()
-        #expect(ecoCore.isWatching)
-        #expect(ecoCore.autoSaveActive)
-        #expect(ecoCore.fileWatcherActive)
+        let lowPowerCore = service.vaultCoreSyncStateForTesting()
+        #expect(lowPowerCore.isWatching)
+        #expect(lowPowerCore.autoSaveActive)
+        #expect(lowPowerCore.fileWatcherActive)
 
-        let ecoMaintenance = service.backgroundMaintenanceTimersStateForTesting()
-        #expect(!ecoMaintenance.versionCaptureActive)
-        #expect(!ecoMaintenance.manifestRefreshActive)
+        let lowPowerMaintenance = service.backgroundMaintenanceTimersStateForTesting()
+        #expect(!lowPowerMaintenance.versionCaptureActive)
+        #expect(!lowPowerMaintenance.manifestRefreshActive)
     }
 
     @Test("file watcher consumes path-level external events instead of non-destructive broad reimport")

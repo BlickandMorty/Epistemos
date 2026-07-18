@@ -35,15 +35,6 @@ struct SettingsWindowPresentationTests {
         #expect(source.contains(".toolbarBackgroundVisibility(.hidden, for: .windowToolbar)"))
     }
 
-    @Test("skills settings source exposes a create skill form with an instruction sheet")
-    func skillsSettingsSourceExposesCreateSkillFormWithInstructionSheet() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Settings/SkillsSettingsView.swift")
-
-        #expect(source.contains("Text(\"Create Skill\")"))
-        #expect(source.contains("Instruction Sheet"))
-        #expect(source.contains("createSkill(vaultPath: vaultPath)"))
-    }
-
     @Test("agent control source exposes a JSON custom tool editor")
     func agentControlSourceExposesCustomToolEditor() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Settings/AgentControlSettingsView.swift")

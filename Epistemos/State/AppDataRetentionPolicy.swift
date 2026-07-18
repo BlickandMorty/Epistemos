@@ -40,7 +40,7 @@ nonisolated enum AppDataRetentionPolicy {
         }
     }
 
-    static func current(defaults: UserDefaults = .standard) -> Snapshot {
+    static func current(defaults: UserDefaults = FoundationSafety.runtimeUserDefaults) -> Snapshot {
         Snapshot(
             timeMachineRetentionDays: boundedDays(
                 defaults.integerOrDefault(forKey: timeMachineRetentionDaysKey, defaultValue: defaultTimeMachineRetentionDays)

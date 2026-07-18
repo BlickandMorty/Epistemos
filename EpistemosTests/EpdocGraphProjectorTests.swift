@@ -78,17 +78,14 @@ nonisolated struct EpdocGraphProjectorTests {
                 ".epdoc packages MUST project as first-class document artifacts, not legacy note nodes")
     }
 
-    // MARK: - Complexity weight
+    // MARK: - Neutral graph weight
 
-    @Test("Node weight equals the W7.12 complexity scalar when contentJSON is supplied; 0 otherwise")
-    func complexityWeight() throws {
+    @Test("Node weight stays neutral with or without content")
+    func neutralNodeWeight() throws {
         let m = Self.manifest(id: "x", title: "x")
-        // Without content
         let pNoContent = EpdocGraphProjector.project(manifest: m)
-        #expect(pNoContent.nodeWeight == 0.0,
-                "projection without contentJSON MUST set weight to 0 (the indexer fills it on the next pass)")
+        #expect(pNoContent.nodeWeight == 1.0)
 
-        // With content
         let body = Self.doc([
             ProseMirrorNode(type: "heading",
                             attrs: ProseMirrorAttrs(level: 2),
@@ -96,8 +93,7 @@ nonisolated struct EpdocGraphProjectorTests {
             Self.para([Self.text("a sentence with words to push the score above zero")]),
         ])
         let pWithContent = EpdocGraphProjector.project(manifest: m, contentJSON: try Self.contentJSON(body))
-        #expect(pWithContent.nodeWeight > 0.0)
-        #expect(pWithContent.nodeWeight <= 1.0)
+        #expect(pWithContent.nodeWeight == 1.0)
     }
 
     // MARK: - Provenance edges

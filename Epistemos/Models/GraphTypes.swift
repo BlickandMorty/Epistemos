@@ -73,11 +73,14 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
 
     /// Node types visible in the Swift graph UI.
     ///
-    /// `allCases` intentionally stays FFI-only, but app-level artifacts must
-    /// remain visible once persisted into SwiftData; otherwise `.epdoc`,
-    /// ProseMirror, raw-thought, and code/output nodes disappear behind the
-    /// default type filter before the user ever sees them.
-    static let visibleCases: [GraphNodeType] = allCases.filter { $0 != .block } + appLevelCases
+    /// `allCases` intentionally stays FFI-only, but app-level document
+    /// artifacts remain visible once persisted into SwiftData. Free V1 removes
+    /// paid chat and agent-execution artifacts from this presentation list
+    /// while preserving their durable vault records for a future paid edition.
+    static var visibleCases: [GraphNodeType] {
+        (allCases.filter { $0 != .block } + appLevelCases)
+            .filter { ProductCapabilityPolicy.allowsGraphProjection(of: $0) }
+    }
 
     /// Default node-type filter applied when the graph first appears
     /// + when the user resets filters. Per user direction 2026-05-15,
@@ -91,7 +94,9 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     /// node-type set. `FilterEngine` reads it for initialization,
     /// reset, and clear-all-filters. Adding or removing a type from
     /// the default set changes all those entry points consistently.
-    static let defaultActiveCases: [GraphNodeType] = visibleCases.filter { $0 != .folder }
+    static var defaultActiveCases: [GraphNodeType] {
+        visibleCases.filter { $0 != .folder }
+    }
 
     /// Semantic entity types — used for Knowledge Index grouping.
     static let entityTypes: [GraphNodeType] = [.person, .project, .topic, .decision, .event, .resource]
@@ -413,7 +418,8 @@ nonisolated struct GraphFilterSnapshot: Sendable {
     }
 
     func isNodeVisible(_ node: GraphNodeRecord) -> Bool {
-        // 1. Type filter
+        // 1. Product projection and type filter
+        guard ProductCapabilityPolicy.allowsGraphProjection(of: node) else { return false }
         guard activeNodeTypes.contains(node.type) else { return false }
 
         // 2. Focus filter

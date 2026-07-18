@@ -240,23 +240,6 @@ final class EventStore: Sendable {
         """)
 
         execute("""
-            CREATE TABLE IF NOT EXISTS agent_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                event_id TEXT NOT NULL UNIQUE,
-                run_id TEXT NOT NULL,
-                trace_id TEXT,
-                sequence INTEGER NOT NULL,
-                kind TEXT NOT NULL,
-                tool_name TEXT,
-                occurred_at REAL NOT NULL,
-                json TEXT NOT NULL
-            );
-        """)
-        execute("CREATE INDEX IF NOT EXISTS idx_agent_events_run ON agent_events(run_id, sequence, occurred_at, id);")
-        execute("CREATE INDEX IF NOT EXISTS idx_agent_events_trace ON agent_events(trace_id);")
-        execute("CREATE INDEX IF NOT EXISTS idx_agent_events_tool ON agent_events(tool_name);")
-
-        execute("""
             CREATE TABLE IF NOT EXISTS graph_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 event_id TEXT NOT NULL UNIQUE,
@@ -322,13 +305,11 @@ final class EventStore: Sendable {
     // Residency: ResidencyTier::EventLog
     nonisolated struct VaultRecallTraceEventPayload: Codable, Sendable, Equatable {
         let messageId: String
-        let answerPacketId: String?
         let trace: VaultRecallTrace
 
         // UAS-EXEMPT: Codable field mapping for the parent trace payload.
         enum CodingKeys: String, CodingKey {
             case messageId = "message_id"
-            case answerPacketId = "answer_packet_id"
             case trace
         }
     }
@@ -372,7 +353,6 @@ final class EventStore: Sendable {
     nonisolated func appendVaultRecallTrace(
         sessionId: String,
         messageId: String,
-        answerPacketId: String?,
         trace: VaultRecallTrace
     ) {
         let cleanSessionId = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -384,7 +364,6 @@ final class EventStore: Sendable {
             let data = try Self.payloadEncoder.encode(
                 VaultRecallTraceEventPayload(
                     messageId: cleanMessageId,
-                    answerPacketId: answerPacketId,
                     trace: trace
                 )
             )
@@ -479,63 +458,6 @@ final class EventStore: Sendable {
         }
     }
 
-    nonisolated func saveSessionMetrics(
-        sessionId: String,
-        metrics: ReasoningTrajectoryMetricsFFI,
-        inputTokens: UInt32 = 0,
-        outputTokens: UInt32 = 0,
-        cacheReadInputTokens: UInt32 = 0,
-        cacheCreationInputTokens: UInt32 = 0
-    ) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            let db = self.db
-            let timestamp = Date().timeIntervalSince1970
-            let sql = """
-                INSERT INTO session_metrics (
-                    session_id, recorded_at, classification, displacement, path_length,
-                    curvature_ratio, loop_count, error_count, total_calls, efficiency,
-                    input_tokens, output_tokens,
-                    cache_read_input_tokens, cache_creation_input_tokens
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(session_id) DO UPDATE SET
-                    recorded_at = excluded.recorded_at,
-                    classification = excluded.classification,
-                    displacement = excluded.displacement,
-                    path_length = excluded.path_length,
-                    curvature_ratio = excluded.curvature_ratio,
-                    loop_count = excluded.loop_count,
-                    error_count = excluded.error_count,
-                    total_calls = excluded.total_calls,
-                    efficiency = excluded.efficiency,
-                    input_tokens = excluded.input_tokens,
-                    output_tokens = excluded.output_tokens,
-                    cache_read_input_tokens = excluded.cache_read_input_tokens,
-                    cache_creation_input_tokens = excluded.cache_creation_input_tokens;
-            """
-
-            var stmt: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
-            defer { sqlite3_finalize(stmt) }
-
-            sqlite3_bind_text(stmt, 1, (sessionId as NSString).utf8String, -1, nil)
-            sqlite3_bind_double(stmt, 2, timestamp)
-            sqlite3_bind_text(stmt, 3, (metrics.classification as NSString).utf8String, -1, nil)
-            sqlite3_bind_double(stmt, 4, metrics.displacement)
-            sqlite3_bind_double(stmt, 5, metrics.pathLength)
-            sqlite3_bind_double(stmt, 6, metrics.curvatureRatio)
-            sqlite3_bind_int(stmt, 7, Int32(metrics.loopCount))
-            sqlite3_bind_int(stmt, 8, Int32(metrics.errorCount))
-            sqlite3_bind_int(stmt, 9, Int32(metrics.totalCalls))
-            sqlite3_bind_double(stmt, 10, metrics.efficiency)
-            sqlite3_bind_int(stmt, 11, Int32(bitPattern: inputTokens))
-            sqlite3_bind_int(stmt, 12, Int32(bitPattern: outputTokens))
-            sqlite3_bind_int(stmt, 13, Int32(bitPattern: cacheReadInputTokens))
-            sqlite3_bind_int(stmt, 14, Int32(bitPattern: cacheCreationInputTokens))
-            sqlite3_step(stmt)
-        }
-    }
-
     /// W9.3 — read back the most recent metrics row for `sessionId`.
     /// Returns nil if no row has been recorded yet (session still in
     /// flight, or run completed before W9.3 wired the persistence path).
@@ -581,7 +503,6 @@ final class EventStore: Sendable {
     nonisolated static let mutationEnvelopeCommittedEventKind = "mutation_envelope_committed"
     nonisolated private static let mutationProjectionOutboxLastErrorMaximum = 512
     nonisolated private static let mutationProjectionOutboxReadLimitMaximum = 500
-    nonisolated private static let agentEventReadLimitMaximum = 500
     nonisolated private static let graphEventReadLimitMaximum = 500
     nonisolated private static let mutationProjectionOutboxSelectColumns = """
         mutation_id, recorded_at, trace_id, event_kind, status,
@@ -740,197 +661,6 @@ final class EventStore: Sendable {
             }
             return Array(envelopes.reversed())
         } ?? []
-    }
-
-    @discardableResult
-    nonisolated func saveAgentEvent(_ event: AgentProvenanceEvent) -> Bool {
-        let eventID = event.eventID.trimmingCharacters(in: .whitespacesAndNewlines)
-        let runID = event.runID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !eventID.isEmpty,
-              !runID.isEmpty,
-              event.sequence <= UInt64(Int64.max) else {
-            return false
-        }
-        let occurredAt = Double(event.occurredAtMs) / 1_000
-        guard occurredAt.isFinite else { return false }
-
-        let json: String
-        do {
-            let data = try Self.payloadEncoder.encode(event)
-            guard let encoded = String(data: data, encoding: .utf8) else {
-                Self.log.error("EventStore: failed to encode AgentProvenanceEvent as UTF-8 text")
-                return false
-            }
-            json = encoded
-        } catch {
-            Self.log.error(
-                "EventStore: failed to encode AgentProvenanceEvent \(event.eventID, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-            return false
-        }
-
-        return withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = """
-                INSERT INTO agent_events (
-                    event_id, run_id, trace_id, sequence, kind,
-                    tool_name, occurred_at, json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(event_id) DO UPDATE SET
-                    run_id = excluded.run_id,
-                    trace_id = excluded.trace_id,
-                    sequence = excluded.sequence,
-                    kind = excluded.kind,
-                    tool_name = excluded.tool_name,
-                    occurred_at = excluded.occurred_at,
-                    json = excluded.json;
-            """
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-                Self.log.error(
-                    "EventStore: failed to prepare AgentProvenanceEvent save: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
-                )
-                return false
-            }
-            defer { sqlite3_finalize(stmt) }
-
-            sqlite3_bind_text(stmt, 1, (eventID as NSString).utf8String, -1, nil)
-            sqlite3_bind_text(stmt, 2, (runID as NSString).utf8String, -1, nil)
-            Self.bindNullableText(event.traceID, to: stmt, index: 3)
-            sqlite3_bind_int64(stmt, 4, Int64(event.sequence))
-            sqlite3_bind_text(stmt, 5, (event.kind.rawValue as NSString).utf8String, -1, nil)
-            Self.bindNullableText(event.tool?.toolName, to: stmt, index: 6)
-            sqlite3_bind_double(stmt, 7, occurredAt)
-            sqlite3_bind_text(stmt, 8, (json as NSString).utf8String, -1, nil)
-
-            guard sqlite3_step(stmt) == SQLITE_DONE else {
-                Self.log.error(
-                    "EventStore: failed to save AgentProvenanceEvent \(event.eventID, privacy: .public): \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
-                )
-                return false
-            }
-            return true
-        } ?? false
-    }
-
-    nonisolated func loadAgentEvent(eventID: String) -> AgentProvenanceEvent? {
-        let eventID = eventID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !eventID.isEmpty else { return nil }
-
-        return withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = "SELECT json FROM agent_events WHERE event_id = ? LIMIT 1;"
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
-            defer { sqlite3_finalize(stmt) }
-            sqlite3_bind_text(stmt, 1, (eventID as NSString).utf8String, -1, nil)
-            guard sqlite3_step(stmt) == SQLITE_ROW,
-                  let json = Self.columnText(stmt, 0) else {
-                return nil
-            }
-            return Self.decodeAgentEventJSON(json, context: eventID)
-        }
-    }
-
-    nonisolated func agentEvents(runID: String, limit: Int = 100) -> [AgentProvenanceEvent] {
-        let runID = runID.trimmingCharacters(in: .whitespacesAndNewlines)
-        let boundedLimit = min(max(limit, 0), Self.agentEventReadLimitMaximum)
-        guard !runID.isEmpty, boundedLimit > 0 else { return [] }
-
-        return withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = """
-                SELECT json
-                FROM agent_events
-                WHERE run_id = ?
-                ORDER BY sequence ASC, occurred_at ASC, id ASC
-                LIMIT ?;
-            """
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
-            defer { sqlite3_finalize(stmt) }
-            sqlite3_bind_text(stmt, 1, (runID as NSString).utf8String, -1, nil)
-            sqlite3_bind_int(stmt, 2, Int32(boundedLimit))
-
-            var events: [AgentProvenanceEvent] = []
-            events.reserveCapacity(boundedLimit)
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                guard let json = Self.columnText(stmt, 0),
-                      let event = Self.decodeAgentEventJSON(json, context: runID) else {
-                    continue
-                }
-                events.append(event)
-            }
-            return events
-        } ?? []
-    }
-
-    nonisolated func recentAgentEvents(limit: Int = 100) -> [AgentProvenanceEvent] {
-        let boundedLimit = min(max(limit, 0), Self.agentEventReadLimitMaximum)
-        guard boundedLimit > 0 else { return [] }
-
-        return withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = """
-                SELECT json
-                FROM agent_events
-                ORDER BY occurred_at DESC, sequence DESC, id DESC
-                LIMIT ?;
-            """
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
-            defer { sqlite3_finalize(stmt) }
-            sqlite3_bind_int(stmt, 1, Int32(boundedLimit))
-
-            var events: [AgentProvenanceEvent] = []
-            events.reserveCapacity(boundedLimit)
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                guard let json = Self.columnText(stmt, 0),
-                      let event = Self.decodeAgentEventJSON(json, context: "recent") else {
-                    continue
-                }
-                events.append(event)
-            }
-            return Array(events.reversed())
-        } ?? []
-    }
-
-    nonisolated struct AgentEventDiagnostics: Equatable, Sendable {
-        let totalRows: Int
-        let distinctRuns: Int
-        let distinctTools: Int
-        let latestEvent: AgentProvenanceEvent?
-
-        var lastKind: AgentProvenanceEventKind? {
-            latestEvent?.kind
-        }
-
-        nonisolated static let empty = AgentEventDiagnostics(
-            totalRows: 0,
-            distinctRuns: 0,
-            distinctTools: 0,
-            latestEvent: nil
-        )
-    }
-
-    nonisolated func agentEventDiagnostics() -> AgentEventDiagnostics {
-        withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = """
-                SELECT COUNT(*), COUNT(DISTINCT run_id), COUNT(DISTINCT tool_name)
-                FROM agent_events;
-            """
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-                return .empty
-            }
-            defer { sqlite3_finalize(stmt) }
-            guard sqlite3_step(stmt) == SQLITE_ROW else {
-                return .empty
-            }
-
-            return AgentEventDiagnostics(
-                totalRows: Self.columnInt(stmt, 0),
-                distinctRuns: Self.columnInt(stmt, 1),
-                distinctTools: Self.columnInt(stmt, 2),
-                latestEvent: Self.latestAgentEvent(db: db)
-            )
-        } ?? .empty
     }
 
     @discardableResult
@@ -1185,7 +915,6 @@ final class EventStore: Sendable {
     }
 
     /// Bounded view of rows that are unprojected and not actively leased.
-    /// RunEventLog/AgentEvent emission remains deferred to later gates.
     nonisolated func pendingMutationProjectionOutboxRows(
         limit: Int = 100,
         now: Date = Date()
@@ -1424,133 +1153,6 @@ final class EventStore: Sendable {
             guard existingSeq >= 0 else { return false }
             return UInt64(existingSeq) == opLogSeq
         } ?? false
-    }
-
-    // MARK: - W10.9 / AR3 — Structured SessionTelemetry persistence
-    //
-    // The Phase 9 @Generable SessionTelemetry classifier produces a
-    // structured distillation of every agent session (decisions made,
-    // unresolved friction, active themes, emotional trajectory).
-    // This pair of methods persists the telemetry as a JSON blob keyed
-    // by sessionId so the chat history surface, the daily-brief
-    // surface, and the agent's continuation context can all read the
-    // typed structure later without re-running AFM.
-    //
-    // Storage shape: a `session_telemetry` table mirroring the JSON
-    // schema. We could split into normalised columns but the schema
-    // evolves with the @Generable definition and JSON-blob storage
-    // keeps migrations cheap.
-
-    /// Persist a structured SessionTelemetry blob as JSON keyed on
-    /// sessionId. Best-effort — failure is logged + swallowed (the
-    /// telemetry pass is opportunistic; losing a row doesn't break
-    /// the chat history).
-    nonisolated func saveSessionTelemetry(
-        sessionId: String,
-        telemetryJSON: String
-    ) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            let db = self.db
-            let timestamp = Date().timeIntervalSince1970
-            // Lazy-create table on first save so we don't need a
-            // migration step in the Time-Machine schema bootstrap.
-            sqlite3_exec(
-                db,
-                """
-                CREATE TABLE IF NOT EXISTS session_telemetry (
-                    session_id   TEXT PRIMARY KEY,
-                    recorded_at  REAL NOT NULL,
-                    json         TEXT NOT NULL
-                );
-                """,
-                nil, nil, nil
-            )
-            let sql = """
-                INSERT INTO session_telemetry (session_id, recorded_at, json)
-                VALUES (?, ?, ?)
-                ON CONFLICT(session_id) DO UPDATE SET
-                    recorded_at = excluded.recorded_at,
-                    json = excluded.json;
-            """
-            var stmt: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
-            defer { sqlite3_finalize(stmt) }
-            sqlite3_bind_text(stmt, 1, (sessionId as NSString).utf8String, -1, nil)
-            sqlite3_bind_double(stmt, 2, timestamp)
-            sqlite3_bind_text(stmt, 3, (telemetryJSON as NSString).utf8String, -1, nil)
-            sqlite3_step(stmt)
-        }
-    }
-
-    /// Read back the structured SessionTelemetry JSON blob for a
-    /// given session. Returns nil if no telemetry has been recorded
-    /// (in-flight or pre-AR3 sessions).
-    nonisolated func loadSessionTelemetryJSON(sessionId: String) -> String? {
-        withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = "SELECT json FROM session_telemetry WHERE session_id = ? LIMIT 1;"
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
-            defer { sqlite3_finalize(stmt) }
-            sqlite3_bind_text(stmt, 1, (sessionId as NSString).utf8String, -1, nil)
-            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
-            return String(cString: sqlite3_column_text(stmt, 0))
-        }
-    }
-
-    // MARK: - W10.16 / AR2 — ConversationState persistence
-
-    /// Persist the current ConversationState JSON blob keyed on
-    /// conversationId. Replaces the naive linear-log compaction with
-    /// the structured projection per master plan Phase 16.
-    nonisolated func saveConversationState(
-        conversationId: String,
-        stateJSON: String
-    ) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            let db = self.db
-            let timestamp = Date().timeIntervalSince1970
-            sqlite3_exec(
-                db,
-                """
-                CREATE TABLE IF NOT EXISTS conversation_state (
-                    conversation_id TEXT PRIMARY KEY,
-                    recorded_at     REAL NOT NULL,
-                    json            TEXT NOT NULL
-                );
-                """,
-                nil, nil, nil
-            )
-            let sql = """
-                INSERT INTO conversation_state (conversation_id, recorded_at, json)
-                VALUES (?, ?, ?)
-                ON CONFLICT(conversation_id) DO UPDATE SET
-                    recorded_at = excluded.recorded_at,
-                    json = excluded.json;
-            """
-            var stmt: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
-            defer { sqlite3_finalize(stmt) }
-            sqlite3_bind_text(stmt, 1, (conversationId as NSString).utf8String, -1, nil)
-            sqlite3_bind_double(stmt, 2, timestamp)
-            sqlite3_bind_text(stmt, 3, (stateJSON as NSString).utf8String, -1, nil)
-            sqlite3_step(stmt)
-        }
-    }
-
-    /// Read back the most-recent ConversationState JSON blob for a
-    /// given conversation. Returns nil if no state has been recorded.
-    nonisolated func loadConversationStateJSON(conversationId: String) -> String? {
-        withDatabaseRead { db in
-            var stmt: OpaquePointer?
-            let sql = "SELECT json FROM conversation_state WHERE conversation_id = ? LIMIT 1;"
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
-            defer { sqlite3_finalize(stmt) }
-            sqlite3_bind_text(stmt, 1, (conversationId as NSString).utf8String, -1, nil)
-            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
-            return String(cString: sqlite3_column_text(stmt, 0))
-        }
     }
 
     // MARK: - Queries (for Time Machine)
@@ -1995,12 +1597,6 @@ final class EventStore: Sendable {
             if let cutoff = Self.cutoffTimestamp(days: policy.auditLogRetentionDays, now: now) {
                 summary.auditRowsDeleted += Self.deleteRows(
                     db: db,
-                    sql: "DELETE FROM agent_events WHERE occurred_at < ?;"
-                ) { stmt in
-                    sqlite3_bind_double(stmt, 1, cutoff)
-                }
-                summary.auditRowsDeleted += Self.deleteRows(
-                    db: db,
                     sql: "DELETE FROM graph_events WHERE occurred_at < ?;"
                 ) { stmt in
                     sqlite3_bind_double(stmt, 1, cutoff)
@@ -2180,20 +1776,6 @@ final class EventStore: Sendable {
         return Date(timeIntervalSince1970: timestamp)
     }
 
-    nonisolated private static func decodeAgentEventJSON(
-        _ json: String,
-        context: String
-    ) -> AgentProvenanceEvent? {
-        do {
-            return try JSONDecoder().decode(AgentProvenanceEvent.self, from: Data(json.utf8))
-        } catch {
-            Self.log.error(
-                "EventStore: failed to decode AgentProvenanceEvent \(context, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-            return nil
-        }
-    }
-
     nonisolated private static func decodeMutationEnvelopeJSON(
         _ json: String,
         context: String
@@ -2332,25 +1914,6 @@ final class EventStore: Sendable {
             return nil
         }
         return decodeGraphEventJSON(json, context: "latest")
-    }
-
-    nonisolated private static func latestAgentEvent(
-        db: OpaquePointer
-    ) -> AgentProvenanceEvent? {
-        var stmt: OpaquePointer?
-        let sql = """
-            SELECT json
-            FROM agent_events
-            ORDER BY occurred_at DESC, sequence DESC, id DESC
-            LIMIT 1;
-        """
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
-        defer { sqlite3_finalize(stmt) }
-        guard sqlite3_step(stmt) == SQLITE_ROW,
-              let json = columnText(stmt, 0) else {
-            return nil
-        }
-        return decodeAgentEventJSON(json, context: "latest")
     }
 
     nonisolated private static func mutationProjectionOutboxRow(

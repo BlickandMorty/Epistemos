@@ -33,7 +33,7 @@ public struct HaloButton: View {
     /// so a SetFocusFilterIntent flip takes effect on the next render
     /// pass without a controller-level subscription.
     private var isMutedByFocus: Bool {
-        UserDefaults.standard.bool(forKey: EpistemosFocusKeys.muteHaloRecallChip)
+        FoundationSafety.runtimeUserDefaults.bool(forKey: EpistemosFocusKeys.muteHaloRecallChip)
     }
 
     public var body: some View {

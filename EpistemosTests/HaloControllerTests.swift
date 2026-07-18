@@ -23,14 +23,12 @@ final class MockShadowSearchService: ShadowSearchServicing, @unchecked Sendable 
     var nextErrorMessage: String?
     private(set) var callCount: Int = 0
     private(set) var lastQuery: String = ""
-    private(set) var lastDomain: ShadowDomain = .notes
     private(set) var lastLimit: Int = 0
 
-    nonisolated func search(text: String, domain: ShadowDomain, limit: Int) async -> [ShadowHit] {
+    nonisolated func search(text: String, limit: Int) async -> [ShadowHit] {
         await MainActor.run {
             self.callCount += 1
             self.lastQuery = text
-            self.lastDomain = domain
             self.lastLimit = limit
         }
         return await MainActor.run { self.nextResults }
@@ -42,13 +40,11 @@ final class MockShadowSearchService: ShadowSearchServicing, @unchecked Sendable 
     /// transitions HaloController to `.errorRecoverable`.
     nonisolated func searchReportingErrors(
         text: String,
-        domain: ShadowDomain,
         limit: Int
     ) async -> (hits: [ShadowHit], errorMessage: String?) {
         let snapshot: (results: [ShadowHit], error: String?) = await MainActor.run {
             self.callCount += 1
             self.lastQuery = text
-            self.lastDomain = domain
             self.lastLimit = limit
             return (self.nextResults, self.nextErrorMessage)
         }
@@ -124,7 +120,6 @@ struct HaloControllerTests {
         let (ctrl, _) = mockController()
         #expect(ctrl.state == .dormant)
         #expect(ctrl.matches.isEmpty)
-        #expect(ctrl.domain == .notes)
     }
 
     // MARK: - SS-IR accuracy-first tuning (owner 2026-06-20: "slower OK, must be accurate")
@@ -139,7 +134,7 @@ struct HaloControllerTests {
     @Test("SS-IR: a search requests the widened limit of 16")
     func searchUsesWidenedLimit() async {
         let (ctrl, mock) = mockController(results: [sampleHit("n1", score: 0.5)])
-        ctrl.editorTextDidChange("hello kant world", domain: .notes)
+        ctrl.editorTextDidChange("hello kant world")
         await Self.waitForState(ctrl) { state in
             if case .available = state { return true }
             return false
@@ -155,7 +150,7 @@ struct HaloControllerTests {
             sampleHit("n1", score: 0.5),
             sampleHit("n2", score: 0.4),
         ])
-        ctrl.editorTextDidChange("hello kant world", domain: .notes)
+        ctrl.editorTextDidChange("hello kant world")
         // Synchronously transitioned to .sensing.
         #expect(ctrl.state == .sensing)
         await Self.waitForState(ctrl, until: { state in
@@ -173,7 +168,7 @@ struct HaloControllerTests {
             results: [sampleHit("n1", score: 0.05)],
             scoreThreshold: 0.2
         )
-        ctrl.editorTextDidChange("hello kant world", domain: .notes)
+        ctrl.editorTextDidChange("hello kant world")
         await Self.waitForState(ctrl, until: { $0 == .dormant })
         #expect(ctrl.state == .dormant)
         #expect(ctrl.matches.isEmpty)
@@ -182,8 +177,8 @@ struct HaloControllerTests {
     @Test("emptying the editor cancels in-flight search and returns to .dormant")
     func emptyTextReturnsToDormant() async {
         let (ctrl, _) = mockController(results: [sampleHit("n1")])
-        ctrl.editorTextDidChange("hello kant world", domain: .notes)
-        ctrl.editorTextDidChange("", domain: .notes)
+        ctrl.editorTextDidChange("hello kant world")
+        ctrl.editorTextDidChange("")
         await Self.waitForState(ctrl, until: { $0 == .dormant })
         #expect(ctrl.state == .dormant)
         #expect(ctrl.matches.isEmpty)
@@ -194,7 +189,7 @@ struct HaloControllerTests {
     @Test("only stop words doesn't trigger search")
     func stopWordsOnlyNoSearch() async {
         let (ctrl, mock) = mockController(results: [sampleHit("n1")])
-        ctrl.editorTextDidChange("the and a or but", domain: .notes)
+        ctrl.editorTextDidChange("the and a or but")
         await Self.waitForState(ctrl, until: { $0 == .dormant })
         #expect(ctrl.state == .dormant)
         #expect(mock.callCount == 0,
@@ -204,7 +199,7 @@ struct HaloControllerTests {
     @Test("query shorter than minQueryChars doesn't trigger search")
     func shortQueryNoSearch() async {
         let (ctrl, mock) = mockController(results: [sampleHit("n1")])
-        ctrl.editorTextDidChange("hi", domain: .notes)
+        ctrl.editorTextDidChange("hi")
         try? await Task.sleep(nanoseconds: 50_000_000)
         #expect(ctrl.state == .dormant)
         #expect(mock.callCount == 0,
@@ -217,9 +212,9 @@ struct HaloControllerTests {
     func rapidTypingCancelsStale() async {
         let (ctrl, mock) = mockController(results: [sampleHit("n1")], debounceMs: 30)
         // Three keystrokes inside the debounce window.
-        ctrl.editorTextDidChange("hello kant once", domain: .notes)
-        ctrl.editorTextDidChange("hello kant twice", domain: .notes)
-        ctrl.editorTextDidChange("hello kant thrice", domain: .notes)
+        ctrl.editorTextDidChange("hello kant once")
+        ctrl.editorTextDidChange("hello kant twice")
+        ctrl.editorTextDidChange("hello kant thrice")
         await Self.waitForState(ctrl, until: { state in
             if case .available = state { return true }
             return false
@@ -234,7 +229,7 @@ struct HaloControllerTests {
     @Test("openPanel transitions Available → Open(domain)")
     func openPanelTransition() async {
         let (ctrl, _) = mockController(results: [sampleHit("n1")])
-        ctrl.editorTextDidChange("hello kant world", domain: .notes)
+        ctrl.editorTextDidChange("hello kant world")
         await Self.waitForState(ctrl, until: { state in
             if case .available = state { return true }
             return false
@@ -268,7 +263,7 @@ struct HaloControllerTests {
             }
         )
 
-        ctrl.editorTextDidChange("hello kant world", domain: .notes)
+        ctrl.editorTextDidChange("hello kant world")
         await Self.waitForState(ctrl, until: { state in
             if case .available = state { return true }
             return false
@@ -291,7 +286,7 @@ struct HaloControllerTests {
     @Test("closePanel from .open returns to .available when matches present")
     func closePanelToAvailable() async {
         let (ctrl, _) = mockController(results: [sampleHit("n1")])
-        ctrl.editorTextDidChange("hello kant", domain: .notes)
+        ctrl.editorTextDidChange("hello kant")
         await Self.waitForState(ctrl, until: { state in
             if case .available = state { return true }
             return false
@@ -304,38 +299,32 @@ struct HaloControllerTests {
     @Test("closePanel from .open returns to .dormant when matches empty")
     func closePanelToDormantWhenEmpty() async {
         let (ctrl, _) = mockController(results: [sampleHit("n1")])
-        ctrl.editorTextDidChange("hello kant", domain: .notes)
+        ctrl.editorTextDidChange("hello kant")
         await Self.waitForState(ctrl, until: { state in
             if case .available = state { return true }
             return false
         })
         ctrl.openPanel()
         // Simulate the editor cleared while panel was open.
-        ctrl.editorTextDidChange("", domain: .notes)
+        ctrl.editorTextDidChange("")
         await Self.waitForState(ctrl, until: { $0 == .dormant })
         // The dormant transition collapses any further closePanel.
         ctrl.closePanel()
         #expect(ctrl.state == .dormant)
     }
 
-    @Test("selectDomain re-runs the current query and keeps an open panel open")
-    func selectDomainRerunsCurrentQueryWhileOpen() async {
-        let (ctrl, mock) = mockController(results: [sampleHit("n1")])
-        ctrl.editorTextDidChange("hello kant", domain: .notes)
+    @Test("chat records are excluded while notes-only retrieval remains available")
+    func chatRecordsAreExcluded() async {
+        let chat = sampleHit("c1", domain: .chats)
+        let note = sampleHit("n1")
+        let (ctrl, mock) = mockController(results: [chat, note])
+        ctrl.editorTextDidChange("hello kant")
         await Self.waitForState(ctrl, until: { state in
             if case .available = state { return true }
             return false
         })
-        ctrl.openPanel()
 
-        mock.nextResults = [sampleHit("c1", domain: .chats)]
-        ctrl.selectDomain(.chats)
-
-        await Self.waitForState(ctrl, until: { $0 == .open(domain: .chats) })
-        #expect(mock.callCount == 2)
-        #expect(mock.lastQuery == "hello kant")
-        #expect(mock.lastDomain == .chats)
-        #expect(ctrl.matches == [sampleHit("c1", domain: .chats)])
+        #expect(ctrl.matches == [note])
     }
 
     // MARK: - Nested action transitions
@@ -343,7 +332,7 @@ struct HaloControllerTests {
     @Test("beginEditingNote transitions Open → EditingNote(id)")
     func beginEditingNote() async {
         let (ctrl, _) = mockController(results: [sampleHit("n1")])
-        ctrl.editorTextDidChange("hello kant", domain: .notes)
+        ctrl.editorTextDidChange("hello kant")
         await Self.waitForState(ctrl, until: { state in
             if case .available = state { return true }
             return false
@@ -356,7 +345,7 @@ struct HaloControllerTests {
     @Test("endNestedAction returns to Open(domain)")
     func endNestedActionReturnsToOpen() async {
         let (ctrl, _) = mockController(results: [sampleHit("n1")])
-        ctrl.editorTextDidChange("hello kant", domain: .notes)
+        ctrl.editorTextDidChange("hello kant")
         await Self.waitForState(ctrl, until: { state in
             if case .available = state { return true }
             return false
@@ -464,7 +453,6 @@ struct HaloControllerTests {
         #expect(HaloState.available(count: 1).isVisible == true)
         #expect(HaloState.open(domain: .notes).isVisible == true)
         #expect(HaloState.editingNote(id: "x").isVisible == true)
-        #expect(HaloState.summarizingChat(id: "x").isVisible == true)
         #expect(HaloState.errorRecoverable("e").isVisible == true)
     }
 
@@ -475,7 +463,6 @@ struct HaloControllerTests {
         #expect(HaloState.available(count: 1).isPanelOpen == false)
         #expect(HaloState.open(domain: .notes).isPanelOpen == true)
         #expect(HaloState.editingNote(id: "x").isPanelOpen == true)
-        #expect(HaloState.summarizingChat(id: "x").isPanelOpen == true)
         #expect(HaloState.errorRecoverable("e").isPanelOpen == false)
     }
 

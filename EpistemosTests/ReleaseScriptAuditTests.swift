@@ -262,7 +262,6 @@ struct ReleaseScriptAuditTests {
             loadReleaseScript("scripts/run_stability_tests.sh"),
             loadReleaseScript("scripts/run_chaos_tests.sh"),
             loadReleaseScript("scripts/run_reliability_quality_gates.sh"),
-            loadReleaseScript("scripts/verify/omega_verify.sh"),
         ]
 
         for script in scripts {

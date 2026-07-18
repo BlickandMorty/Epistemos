@@ -1,5 +1,17 @@
 # 06 - LUMENLENS + RECKONER Workspace Plan
 
+## July 15 status - retired combined plan
+
+Do not execute this plan. LumenLens as a named lane and every AI/suggestion/
+copilot/agent obligation are canceled. Reckoner and spreadsheet/database
+product work are parked reversibly. The only surviving material is non-AI
+editor correctness—load-vs-edit safety, serialization fidelity, save/conflict/
+recovery discipline, stable editor navigation, and user-data compatibility—
+re-owned by the Epistemos Editor Core and KEELSTONE under
+`14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md`. The current
+Epdoc authority is standalone JSON `.epdoc`, not the old shared Markdown-
+derived LumenLens suggestion/object architecture.
+
 ## Product thesis
 
 LUMENLENS and RECKONER are one workspace fabric. LUMENLENS owns note/editor truth, suggestions, provenance, notebooks, and lens-fidelity disclosure. RECKONER owns dataset artifacts, grid/calc behavior, data tools, charts, and dataset embeds/tabs. Neither creates a second room or second chat.
@@ -33,19 +45,52 @@ LUMENLENS active obligations:
 - Free V1 mounts no Epdoc Assist/MiniChat. Kokoro read-aloud remains available
   through a local voice seam that does not expose a general model surface.
 
+### Free-V1 Source surface and notebook projection
+
+- The existing `LocalPackages/MarkEdit` MIT vendor is the source-editor
+  implementation reference. Its Epistemos bridge, not an independently
+  re-cloned shell, owns source editing.
+- Preserve the Epistemos palette while making editor canvas, line-number gutter,
+  and right/minimap strip one coherent field; keep accessible active-line and
+  cursor contrast.
+- Use a readable source default only for users without an explicit saved
+  preference. Do not overwrite user type settings.
+- Notebook controls belong in the native toolbar/accessory seam, not inside
+  note content. In free V1, stored Chat or unimplemented Sheet launcher records
+  are compatibility data and must not become visible tabs or placeholders.
+- Any typing/scroll performance claim requires a fresh serial measurement on
+  representative 4k- and 20k-line files; static debounce settings are not
+  runtime proof.
+
 ## RECKONER dataset truth
 
 RECKONER active obligations:
 
 - Dataset truth is vault artifact: CSV for flat datasets; XLSX/`.icalc` for workbooks; `.dataset.md` for metadata.
 - GRDB is derived working cache.
-- IronCalc is sole calc authority.
-- Univer is renderer only; formula engine silenced.
+- The real IronCalc and Univer source clones are both required RECKONER inputs.
+  IronCalc is the selected free-V1 spreadsheet front end and sole calculation
+  authority.
+- Univer remains a retained, bounded supporting source rather than an optional
+  archival reference. It cannot replace IronCalc as the free-V1 front end or
+  activate a second formula engine.
 - Swift Charts is primary charting path.
 - Dataset tabs open inside the existing note/workspace tab system.
 - Dataset embeds carry references only, never row blobs.
-- Agent data changes stage as TabularSuggestions and require approval.
+- Free V1 makes direct deterministic, user-initiated data edits only.
+  `TabularSuggestions` is future paid-June work and requires separate approval
+  when that lane is explicitly reactivated.
 - No Data room and no data chat.
+
+RECKONER real-source recovery is complete only at the source-checkout stage:
+the actual pinned IronCalc and Univer repositories are in the ignored research
+checkout with recorded refs, license texts, and tracked-file digests. The July
+13 owner clarification supersedes the historical silent-Univer-screen choice:
+IronCalc is the free-V1 front end and sole formula authority; Univer remains a
+required bounded supporting source. Run a small isolated MAS packaging spike
+before installing or wiring either source. Do not silently replace IronCalc
+with an unrelated grid, drop the Univer source, or let Univer displace
+IronCalc. Read `13_EXECUTIVE_CONTINUITY_AND_FREE_V1_REMEDIATION_2026_07_13.md`.
 
 ## Shared suggestion/provenance shape
 
@@ -96,7 +141,7 @@ changes use F6.
 
 ### RECKONER
 
-1. Silent-Univer spike.
+1. IronCalc front-end source-recovery and MAS packaging spike.
 2. Truth/persistence/artifact writeback.
 3. Dataset tab mount.
 4. Dataset embed.
@@ -114,7 +159,8 @@ changes use F6.
 - Two windows cannot silently clobber each other.
 - Dataset embed markdown contains no cell data.
 - Loading dataset emits zero autosave/change events.
-- Univer never persists a computed value; IronCalc does.
+- No secondary spreadsheet formula engine or front end can displace IronCalc
+  or persist computed values outside the vault-artifact transaction path.
 - Agent edit cannot apply without suggestion UI approval.
 - Chart has provenance before render.
 - Prose/Source disclosure can preview/export complex content.

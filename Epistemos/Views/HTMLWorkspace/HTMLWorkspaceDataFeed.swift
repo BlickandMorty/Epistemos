@@ -219,12 +219,14 @@ enum HTMLWorkspaceDataFeedContextSources {
         if requiredKind == "web_clip" || (requiredKind.isEmpty && shouldUseWebClipResults(for: query)) {
             return webClipResults(query: query, modelContainer: modelContainer, limit: limit)
         }
+        #if !EPISTEMOS_FREE_V1
         if requiredKind == "recent_chat" || (requiredKind.isEmpty && shouldUseRecentChatResults(for: query)) {
             return recentChatResults(query: query, modelContainer: modelContainer, limit: limit)
         }
         if requiredKind == "provenance_claim" || (requiredKind.isEmpty && shouldUseProvenanceClaimResults(for: query)) {
             return provenanceClaimResults(query: query, limit: limit)
         }
+        #endif
         if requiredKind == "graph_related_note" || (requiredKind.isEmpty && shouldUseGraphRelatedNoteResults(for: query)) {
             return graphRelatedNoteResults(
                 searchResults: searchResults,
@@ -242,23 +244,33 @@ enum HTMLWorkspaceDataFeedContextSources {
         if shouldUseFolderNoteResults(for: query) { return "folder_note" }
         if shouldUseMeetingNoteResults(for: query) { return "meeting_note" }
         if shouldUseWebClipResults(for: query) { return "web_clip" }
-        if shouldUseRecentChatResults(for: query) { return "recent_chat" }
+        #if !EPISTEMOS_FREE_V1
+        if shouldUseRecentChatResults(for: query),
+           ProductCapabilityPolicy.allowsWorkspaceContextPresentation(kind: "recent_chat") {
+            return "recent_chat"
+        }
         if shouldUseProvenanceClaimResults(for: query) { return "provenance_claim" }
+        #endif
         if shouldUseGraphRelatedNoteResults(for: query) { return "graph_related_note" }
         return nil
     }
 
     static func usesStandaloneContextSource(_ requiredContextKind: String?) -> Bool {
-        [
+        var standaloneContextKinds: Set<String> = [
             "recent_capture",
             "note",
             "pdf_note",
             "folder_note",
             "meeting_note",
             "web_clip",
-            "recent_chat",
-            "provenance_claim",
-        ].contains(normalized(requiredContextKind))
+        ]
+        #if !EPISTEMOS_FREE_V1
+        standaloneContextKinds.formUnion(["recent_chat", "provenance_claim"])
+        #endif
+        return standaloneContextKinds.contains(normalized(requiredContextKind))
+            && ProductCapabilityPolicy.allowsWorkspaceContextPresentation(
+                kind: normalized(requiredContextKind)
+            )
     }
 
     static func recentCaptureResults(
@@ -397,6 +409,61 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         )
     }
 
+    static func presentationDataJSON(from dataJSON: String) -> String {
+        guard ProductCapabilityPolicy.currentEdition == .freeV1,
+              let data = dataJSON.data(using: .utf8),
+              let envelope = try? JSONDecoder.epdocCanonical.decode(HTMLWorkspaceDataFeedEnvelope.self, from: data) else {
+            return dataJSON
+        }
+
+        let visibleResults = envelope.results.filter {
+            ProductCapabilityPolicy.allowsWorkspaceContextPresentation(kind: $0.contextKind)
+        }
+        let visibleContextKinds = HTMLWorkspaceDataFeedMetadata.normalizedContextKinds(
+            envelope.epistemos.contextKinds.filter {
+                ProductCapabilityPolicy.allowsWorkspaceContextPresentation(kind: $0)
+            }
+        )
+        let visibleRequiredContextKind = normalizedRequiredContextKind(
+            envelope.epistemos.requiredContextKind
+        ).flatMap { kind in
+            ProductCapabilityPolicy.allowsWorkspaceContextPresentation(kind: kind) ? kind : nil
+        }
+        let hidesStoredContext = visibleResults.count != envelope.results.count
+            || visibleContextKinds != envelope.epistemos.contextKinds
+            || visibleRequiredContextKind != envelope.epistemos.requiredContextKind
+            || ProductCapabilityPolicy.freeV1HiddenWorkspaceContextKinds.contains { hiddenKind in
+                envelope.epistemos.provenance.contains(hiddenKind)
+            }
+        guard hidesStoredContext else { return dataJSON }
+
+        let metadata = HTMLWorkspaceDataFeedMetadata(
+            source: envelope.epistemos.source,
+            query: envelope.epistemos.query,
+            limit: envelope.epistemos.limit,
+            resultCount: visibleResults.count,
+            contextKinds: visibleContextKinds,
+            refreshedAtMS: envelope.epistemos.refreshedAtMS,
+            provenance: metadataProvenance(
+                contextKinds: visibleContextKinds,
+                requiredContextKind: visibleRequiredContextKind
+            ),
+            stale: envelope.epistemos.stale,
+            status: envelope.epistemos.status,
+            error: visibleRequiredContextKind == nil ? nil : envelope.epistemos.error,
+            requiredContextKind: visibleRequiredContextKind,
+            requiredContextAvailable: visibleRequiredContextKind == nil
+                ? nil
+                : envelope.epistemos.requiredContextAvailable
+        )
+        let presentation = HTMLWorkspaceDataFeedEnvelope(results: visibleResults, epistemos: metadata)
+        guard let encoded = try? JSONEncoder.epdocCanonical.encode(presentation),
+              let json = String(data: encoded, encoding: .utf8) else {
+            return dataJSON
+        }
+        return json
+    }
+
     private static func render(
         feed: HTMLWorkspaceDataFeed,
         results: [HTMLWorkspaceDataFeedResult],
@@ -508,7 +575,7 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
 
     static func requiredContextKind(for package: HTMLWorkspacePackage) -> String? {
         guard let feed = package.manifest.dataFeed,
-              let metadata = metadata(from: package.dataJSON, matching: feed) else {
+              let metadata = presentationMetadata(for: package, matching: feed) else {
             return nil
         }
         let kind = metadata.requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -523,17 +590,22 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
     }
 
     @MainActor
-    static func shouldRefreshForAnswerPacket(for package: HTMLWorkspacePackage) -> Bool {
-        guard let feed = package.manifest.dataFeed else { return false }
-        let requiredKind = requiredContextKind(for: package)
-            ?? HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)
-        return requiredKind == "provenance_claim"
+    static func shouldRefresh(
+        for notification: Notification,
+        activeSearchService: SearchIndexService?
+    ) -> Bool {
+        if let source = notification.object as? SearchIndexService,
+           let activeSearchService,
+           source !== activeSearchService {
+            return false
+        }
+        return shouldRefresh(for: notification)
     }
 
     @MainActor
     static func compactLine(for package: HTMLWorkspacePackage) -> String? {
         guard let feed = package.manifest.dataFeed else { return nil }
-        guard let metadata = metadata(from: package.dataJSON, matching: feed) else { return "Feed pending" }
+        guard let metadata = presentationMetadata(for: package, matching: feed) else { return "Feed pending" }
         let status = metadata.stale ? "Feed stale" : "Feed fresh"
         let requirementSuffix = contextRequirementText(for: metadata).map { " / \($0)" } ?? ""
         return "\(status): \(metadata.resultCount) / \(contextKindsText(for: metadata))\(requirementSuffix)"
@@ -542,13 +614,23 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
     @MainActor
     static func detailLine(for package: HTMLWorkspacePackage) -> String? {
         guard let feed = package.manifest.dataFeed else { return nil }
-        guard let metadata = metadata(from: package.dataJSON, matching: feed) else {
+        guard let metadata = presentationMetadata(for: package, matching: feed) else {
             return "Vault search: \(feed.normalizedQuery)"
         }
         let age = refreshedAgeText(refreshedAtMS: metadata.refreshedAtMS)
         let errorSuffix = metadata.error.map { " / \($0)" } ?? ""
         let requirementSuffix = contextRequirementText(for: metadata).map { " / \($0)" } ?? ""
         return "\(metadata.query) / \(age) / kinds: \(contextKindsText(for: metadata))\(requirementSuffix) / \(metadata.provenance)\(errorSuffix)"
+    }
+
+    private static func presentationMetadata(
+        for package: HTMLWorkspacePackage,
+        matching feed: HTMLWorkspaceDataFeed
+    ) -> HTMLWorkspaceDataFeedMetadata? {
+        metadata(
+            from: HTMLWorkspaceDataFeedRenderer.presentationDataJSON(from: package.dataJSON),
+            matching: feed
+        )
     }
 
     @MainActor
@@ -593,13 +675,11 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
             }
             .onReceive(NotificationCenter.default.publisher(for: .searchIndexDidUpdate)) { notification in
                 guard package.manifest.dataFeed != nil,
-                      HTMLWorkspaceDataFeedStatus.shouldRefresh(for: notification) else { return }
+                      HTMLWorkspaceDataFeedStatus.shouldRefresh(
+                          for: notification,
+                          activeSearchService: AppBootstrap.shared?.vaultSync.searchService
+                      ) else { return }
                 scheduleRefresh(reason: "search index updated")
-            }
-            .onReceive(NotificationCenter.default.publisher(for: AnswerPacketEmitter.didEmitNotification)) { _ in
-                guard package.manifest.dataFeed != nil,
-                      HTMLWorkspaceDataFeedStatus.shouldRefreshForAnswerPacket(for: package) else { return }
-                scheduleRefresh(reason: "answer packet emitted")
             }
             .onDisappear {
                 refreshTask?.cancel()

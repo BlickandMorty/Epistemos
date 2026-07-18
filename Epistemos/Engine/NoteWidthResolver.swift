@@ -98,6 +98,35 @@ nonisolated public enum NoteWidthMode: Sendable, Hashable {
     }
 }
 
+/// Pure presentation geometry shared by the native Epdoc, Prose, and Source
+/// canvases. Width never participates in document serialization or editing.
+nonisolated public enum EditorContentWidthPolicy {
+    public static let minimumHorizontalInset: CGFloat = 60
+
+    public static func readableWidth(
+        availableWidth: CGFloat,
+        mode: NoteWidthMode
+    ) -> CGFloat {
+        let usableWidth = max(0, availableWidth - (minimumHorizontalInset * 2))
+        switch mode.normalized {
+        case .normal:
+            return min(CGFloat(NoteWidthMode.normalPixels), usableWidth)
+        case .wide:
+            return usableWidth
+        case .custom(let pixels):
+            return min(CGFloat(pixels), usableWidth)
+        }
+    }
+
+    public static func horizontalInset(
+        availableWidth: CGFloat,
+        mode: NoteWidthMode
+    ) -> CGFloat {
+        let width = readableWidth(availableWidth: availableWidth, mode: mode)
+        return max(minimumHorizontalInset, (availableWidth - width) / 2)
+    }
+}
+
 @MainActor
 public final class NoteWidthResolver {
     public static let defaultUserDefaultsKey = "epistemos.noteWidth.defaultMode"
@@ -107,7 +136,7 @@ public final class NoteWidthResolver {
     private let defaultKey: String
 
     public init(
-        defaults: UserDefaults = .standard,
+        defaults: UserDefaults = FoundationSafety.runtimeUserDefaults,
         defaultKey: String = NoteWidthResolver.defaultUserDefaultsKey
     ) {
         self.defaults = defaults
@@ -140,25 +169,11 @@ public final class NoteWidthResolver {
         defaults.set(mode.frontmatterValue, forKey: defaultKey)
     }
 
-    /// Returns nil when the markdown has no existing frontmatter block.
-    /// The editor must not create frontmatter solely to store UI width.
+    /// Width is session presentation state. It never rewrites Markdown.
     public func setWidth(_ mode: NoteWidthMode, noteID: String, markdown: String) -> String? {
+        _ = markdown
         setSessionWidth(mode, noteID: noteID)
-        return Self.upsertingFrontmatterWidth(mode.normalized, in: markdown)
-    }
-
-    public static func upsertingFrontmatterWidth(_ mode: NoteWidthMode, in markdown: String) -> String? {
-        guard let block = frontmatterBlock(in: markdown) else { return nil }
-        let replacementLine = "_width: \(mode.frontmatterValue)\(block.lineEnding)"
-        if let existing = widthLineRange(in: markdown, contentRange: block.contentRange) {
-            var output = markdown
-            output.replaceSubrange(existing, with: replacementLine)
-            return output
-        }
-
-        var output = markdown
-        output.insert(contentsOf: replacementLine, at: block.closingDelimiterStart)
-        return output
+        return nil
     }
 
     private struct FrontmatterBlock {

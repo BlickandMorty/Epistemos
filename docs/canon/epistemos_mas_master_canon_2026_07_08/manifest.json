@@ -1,7 +1,7 @@
 {
   "id": "EPISTEMOS-MAS-MASTER-CANON-2026-07-08",
   "created": "2026-07-08",
-  "updated": "2026-07-13",
+  "updated": "2026-07-15",
   "lock": "MAS-ONLY-SHIP-LOCK-2026-07-07",
   "active_docs": [
     "00_READ_FIRST.md",
@@ -15,11 +15,16 @@
     "08_MAS_LEGALITY_PRIVACY_RELEASE_EVIDENCE.md",
     "09_PARKED_PROVENANCE_AND_SUPERSESSION_LEDGER.md",
     "10_LOCAL_AGENT_REDIRECT_AND_STATUS_TEMPLATES.md",
-    "11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md"
+    "11_FREE_V1_EPDOC_PLANNER_AND_CAPABILITY_RING_2026_07_13.md",
+    "12_LIVE_REFERENCE_AND_FREE_V1_SURFACE_REGISTRY_2026_07_13.md",
+    "13_EXECUTIVE_CONTINUITY_AND_FREE_V1_REMEDIATION_2026_07_13.md",
+    "14_OWNER_SCOPE_REDUCTION_AND_PAUSE_CHECKPOINT_2026_07_15.md",
+    "15_OWNER_DIRECTIVE_COVERAGE_AND_HARDENING_CHECKPOINT_2026_07_15.md",
+    "16_TWO_LANE_REMOVAL_AND_REBUILD_DIRECTIVE_2026_07_15.md"
   ],
-  "active_doc_count": 12,
+  "active_doc_count": 17,
   "active_docs_digest_method": "from canon root: find . -maxdepth 1 -type f -name '[0-9][0-9]_*.md' -print0 | LC_ALL=C sort -z | xargs -0 shasum -a 256 | shasum -a 256",
-  "active_docs_sha256": "15cfce8620606ceb0572383c812311bdb2c972ef3cf2d158e42f9d1b9b3d2a44",
+  "active_docs_sha256": "eee9fc7d9267caa863921678f386d1c77f150d858ae103fc1d2a80d8feef7269",
   "input_archive_count": 18,
   "source_files_inventoried": 733,
   "source_archive_originals": [
@@ -48,13 +53,13 @@
     "research3.zip",
     "research4.zip"
   ],
-  "recommended_first_build_prompt": "03_MINIMAL_PROMPT_PACK.md / Prompt 1 - MAS Pivot Program Director, then Prompt 2 - KEELSTONE Storage and MAS Release Gate",
-  "current_free_v1_sequence": "Prompt 2 KEELSTONE, then Prompt 4 LUMENLENS/RECKONER/Epdoc planner, then free portions of Prompt 5; Prompt 3 June plus Browser and ResearchHub are deferred paid-only",
+  "recommended_first_build_prompt": "Read 14, 15, and 16. Start only FREE_V1_REMOVAL_AND_FAIL_CLOSED_PROMPT_2026_07_15.md. After its stable source checkpoint, start RETAINED_BUILD_EPDOC_AND_MULTITASK_GRAPH_PROMPT_2026_07_15.md. After both sequential checkpoints are stable, one integration owner resumes serial KEELSTONE verification.",
+  "current_free_v1_sequence": "Two non-overlapping source lanes run sequentially under the existing Prompt 2 KEELSTONE key. Lane R is current and removes/fail-closes canceled AI/chat/June/LumenLens and parked Reckoner surfaces; its legacy notebook removal does not cancel a future JSON Epdoc-native notebook. Lane B is deferred, then restores rich native JSON/TextKit 2 Epdoc and repairs blank Multitask Graph. Settings stays separately owned. One serial resource-gated integration build follows both stable source checkpoints; KEELSTONE close and retained non-AI capability families follow current evidence. Browser and ResearchHub remain deterministic future paid possibilities only and absent from Free V1.",
   "storage_verdict": "HYBRIDIZE current KEELSTONE: vault files/artifacts as truth plus append-only provenance/op-log, stable IDs, and rebuildable derived projections",
-  "minichat_verdict": "future paid MAS-June owned Epdoc Assist, hidden and inert in free V1; no Goose/1Code/Kindred/separate runtime",
-  "major_contradictions_resolved": 8,
-  "owner_decisions_still_required": 4,
-  "local_verification_items_remaining": 16,
+  "minichat_verdict": "canceled by owner on 2026-07-15; retained only as provenance and a Free V1 absence boundary",
+  "major_contradictions_resolved": 12,
+  "owner_decisions_still_required": 3,
+  "local_verification_items_remaining": 23,
   "adversarial_audit_results": "source_archives/adversarial_audit_results.md",
   "official_sources_checked": [
     "Apple App Review Guidelines",
@@ -86,6 +91,11 @@
     "Readwise API",
     "Things support: Today/Upcoming/Anytime/Someday, calendar context, Quick Entry, projects/areas, reminders, tags, headings",
     "NotePlan official features/knowledge base: Markdown daily and periodic notes, tasks, time blocks, meetings, and sync",
-    "Apple EventKit event-store access and macOS Calendar sandbox entitlement"
+    "Apple EventKit event-store access and macOS Calendar sandbox entitlement",
+    "Apple AVFAudio AVAudioRecorder file-backed recording",
+    "Apple Speech framework dictation and transcription",
+    "Apple WidgetKit native Mac widgets and accessibility",
+    "Apple PDFKit PDFDocument/PDFView content model",
+    "Apple PDFKit PDFAnnotation and write operations"
   ]
 }
