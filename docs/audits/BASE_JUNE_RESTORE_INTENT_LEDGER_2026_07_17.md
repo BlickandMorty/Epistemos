@@ -52,3 +52,22 @@
 - Verification completed without tests per owner direction: fresh Debug builds succeeded for base and Free; the base app launched; bundle/source-membership guards proved June and `agent_core` are base-only, and runtime-path guards found no Goose executable/server, Node, browser-use/Chromium/Playwright/Puppeteer, Ollama, GGUF, or Llama artifact.
 - Remaining verification debt: automated tests were intentionally not run at the owner's explicit request; the local Debug apps were built without code signing because this machine has no signing identities.
 - Next action: inspect the final diff, commit the complete current tree, create the permanent checkpoint tag, and atomically push the identical commit to the feature branch and GitHub `main`.
+
+## Owner checkpoint 7 — June blank-screen correction
+
+- Verbatim owner wording: "june is not loading"
+- Interpreted intent: restore the base app's June surface to a visibly usable loaded state without weakening the already-established June-only ownership, cloud-only model routing, in-process Goose boundary, or Free V1 exclusion.
+- Hard constraints: keep June absent from the Free target; keep June settings inside June; keep local language models, browser automation, subprocesses, local servers, and retired HUD windows absent; do not run the test suite per the owner's standing direction.
+- Non-goals: do not redesign June, change providers, revive deleted standalone HUD entrypoints, or alter unrelated app settings.
+- Acceptance checks: the checked-in June index has no missing referenced asset; a fresh base build succeeds; opening June visibly renders its first screen instead of a blank WKWebView; unified logging shows no missing June bundle asset during the verified load.
+- Contradiction resolved: the pruning rule treated every `agent-hud-*` JavaScript chunk as a standalone HUD entry, but Vite also gave the shared main-surface command/settings module that prefix. The main bundle statically imports that shared module, and the runtime log recorded its 404.
+- Verification result: the narrowed rule regenerated deterministically during both the direct web build and the fresh base-app build; the base build succeeded; the app bundle contains the required shared chunk and none of the retired HUD/server-browser entrypoints; June visibly rendered its session composer and cloud model selector; the verified runtime log contained no June asset 404 or frontend error.
+- Next action: complete the scoped hardening guards, then commit and push the verified correction.
+
+## Owner checkpoint 8 — save and publish the correction
+
+- Verbatim owner wording: "commit and push as wll when ur done"
+- Interpreted intent: once the June runtime proof and hardening checks pass, create a durable Git commit and publish it so GitHub reflects the working June correction.
+- Hard constraints: commit only the scoped script, generated shared asset, and intent evidence; do not include unrelated files; preserve the identical current app checkpoint relationship by updating the current feature branch and `main` without force-pushing or rewriting history.
+- Acceptance checks: the committed tree is clean; the feature branch and GitHub `main` both resolve to the verified fix commit; the running evidence app remains the fresh post-fix base build.
+- Next action: inspect the final staged diff, commit it, push both branch refs, and verify remote object identity.

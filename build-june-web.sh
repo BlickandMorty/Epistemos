@@ -47,6 +47,33 @@ validate_staged_tree() {
   [ -f "$STAGE/dist/index.html" ] || return 1
   [ -f "$STAGE/tauri-internals-shim.js" ] || return 1
 
+  local referenced_asset
+  while IFS= read -r referenced_asset; do
+    referenced_asset="${referenced_asset#./}"
+    [ -f "$STAGE/dist/$referenced_asset" ] || {
+      echo "ERROR: June index references missing asset: $referenced_asset" >&2
+      return 1
+    }
+  done < <(
+    grep -aoE '(src|href)="\./[^"]+"' "$STAGE/dist/index.html" |
+      sed -E 's/^(src|href)="([^"]+)"$/\2/'
+  )
+
+  local javascript_file javascript_dir import_reference import_name
+  for javascript_file in "$STAGE"/dist/assets/*.js; do
+    javascript_dir="${javascript_file%/*}"
+    while IFS= read -r import_reference; do
+      import_name="${import_reference#*\"}"
+      import_name="${import_name%\"*}"
+      [ -f "$javascript_dir/${import_name#./}" ] || {
+        echo "ERROR: June JavaScript references missing module: ${javascript_file##*/} -> $import_name" >&2
+        return 1
+      }
+    done < <(
+      grep -aoE 'from"\./[^"]+\.js"|import\("\./[^"]+\.js"' "$javascript_file" || true
+    )
+  done
+
   local main_count
   main_count="$(find "$STAGE/dist/assets" -maxdepth 1 -type f -name 'main-*.js' 2>/dev/null | wc -l | tr -d ' ')"
   [ "$main_count" = "1" ] || return 1
@@ -188,13 +215,17 @@ rm -f \
   "$STAGE/dist/agent-hud.html" \
   "$STAGE/dist/hud.html" \
   "$STAGE/dist/meeting-hud.html" \
-  "$STAGE"/dist/assets/agent-hud-*.js \
   "$STAGE"/dist/assets/agent-hud-*.css \
   "$STAGE"/dist/assets/hud-*.js \
   "$STAGE"/dist/assets/hud-*.css \
   "$STAGE"/dist/assets/meeting-hud-*.js \
   "$STAGE"/dist/assets/meeting-hud-*.css \
   "$STAGE"/dist/assets/server.browser-*.js
+# Vite names a shared command/settings module `agent-hud-settings-*`, and the
+# main June surface imports it. Delete only the standalone HUD entry chunk;
+# retaining this shared module does not restore a HUD or browser runtime.
+find "$STAGE/dist/assets" -maxdepth 1 -type f \
+  -name 'agent-hud-*.js' ! -name 'agent-hud-settings-*.js' -delete
 
 for font in "${UNLICENSED_FONTS[@]}"; do
   if [ -e "$STAGE/dist/$font" ]; then
