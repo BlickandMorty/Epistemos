@@ -15,6 +15,10 @@ enum LandingViewStateSync {
             .document(selection)
         case .greeting, .graph, .meeting:
             homeContent
+        #if EPISTEMOS_BASE_JUNE
+        case .june:
+            .june
+        #endif
         }
     }
 
@@ -238,6 +242,12 @@ struct LandingView: View {
                 // page in the home window, like the old chat) — not utility windows.
                 HomeEmbeddedPage(title: "Meeting") { MeetingNoteView() }
                     .transition(Self.homePageTransition).zIndex(1)
+            #if EPISTEMOS_BASE_JUNE
+            case .june:
+                HomeEmbeddedPage(title: "June") { JuneAgentSurfaceView() }
+                    .transition(Self.homePageTransition)
+                    .zIndex(1)
+            #endif
             }
 
             if ui.homeContent == .greeting, ambientPlayback.isRunning {
@@ -405,6 +415,10 @@ struct LandingView: View {
             parts.append("Home document view. The selected file is open in the Home workspace.")
         case .meeting:
             parts.append("Meeting notes view. Start recording to capture a live transcript.")
+        #if EPISTEMOS_BASE_JUNE
+        case .june:
+            parts.append("June cloud agent view. Use June Settings here to choose a cloud model and manage provider access.")
+        #endif
         }
 
         if let status = landingFeatureStatusMessage, showingLandingFeatureStatus {
@@ -734,6 +748,12 @@ struct LandingView: View {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
                 ui.homeContent = .meeting
             }
+        #if EPISTEMOS_BASE_JUNE
+        case .june:
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                ui.homeContent = .june
+            }
+        #endif
         }
     }
 

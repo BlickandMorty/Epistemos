@@ -14,6 +14,16 @@ CORE_EDITOR_SOURCE_DIR="$SRCROOT/Epistemos/Resources/CoreEditor"
 CORE_EDITOR_BUNDLE_DIR="$RESOURCES_DIR/CoreEditor"
 CORE_EDITOR_CHUNKS_SOURCE_DIR="$SRCROOT/Epistemos/Resources/CoreEditor/chunks"
 CORE_EDITOR_CHUNKS_BUNDLE_DIR="$RESOURCES_DIR/chunks"
+JUNE_WEB_SOURCE_DIR="$SRCROOT/.june-web-stage"
+JUNE_WEB_BUNDLE_DIR="$RESOURCES_DIR/JuneWeb"
+
+is_free_v1_build() {
+    if [ -n "${EPISTEMOS_PRODUCT_EDITION:-}" ]; then
+        [[ "$EPISTEMOS_PRODUCT_EDITION" == "FREE_V1" ]]
+        return
+    fi
+    [[ "${SWIFT_ACTIVE_COMPILATION_CONDITIONS:-}" == *"EPISTEMOS_FREE_V1"* ]]
+}
 
 bundle_editor_resources() {
     if [ ! -d "$EDITOR_SOURCE_DIR" ]; then
@@ -68,10 +78,26 @@ bundle_required_package_frameworks() {
     done < <(find "$PACKAGE_FRAMEWORKS_DIR" -maxdepth 1 -type d -name 'GRDB_*.framework' -print0)
 }
 
+bundle_june_web() {
+    if is_free_v1_build; then
+        rm -rf "$JUNE_WEB_BUNDLE_DIR"
+        return
+    fi
+    if [ ! -f "$JUNE_WEB_SOURCE_DIR/dist/index.html" ] ||
+       [ ! -f "$JUNE_WEB_SOURCE_DIR/tauri-internals-shim.js" ]; then
+        echo "ERROR: base app requires the staged June web bundle" >&2
+        exit 1
+    fi
+    mkdir -p "$JUNE_WEB_BUNDLE_DIR"
+    rsync -a --delete "$JUNE_WEB_SOURCE_DIR/" "$JUNE_WEB_BUNDLE_DIR/"
+}
+
 remove_free_v1_forbidden_resources() {
     # Defense in depth: retain only the editor inputs copied above and reject
     # stale paid, executable, local-server, or downloaded-code resources.
-    rm -rf "$RESOURCES_DIR/JuneWeb"
+    if is_free_v1_build; then
+        rm -rf "$RESOURCES_DIR/JuneWeb"
+    fi
     rm -rf "$RESOURCES_DIR/DefaultSkills"
     rm -f "$RESOURCES_DIR/model_manifest.json"
     rm -rf "$RESOURCES_DIR/Pyodide"
@@ -102,4 +128,5 @@ remove_free_v1_forbidden_resources() {
 bundle_editor_resources
 bundle_coreeditor_resources
 bundle_required_package_frameworks
+bundle_june_web
 remove_free_v1_forbidden_resources

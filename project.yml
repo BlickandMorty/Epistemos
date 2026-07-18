@@ -5,8 +5,8 @@ options:
     macOS: "26.0"
   xcodeVersion: "16.0"
   defaultConfig: Debug
-# MAS-only build configuration set. The normal `Epistemos` scheme builds the
-# canonical Free V1 `Epistemos-AppStore` target and its deterministic note tools.
+# The App Store target is the physically pruned Free V1 product. The normal
+# `Epistemos` scheme builds the separate sandboxed base app with June.
 configs:
   Debug: debug
   Release: release
@@ -49,6 +49,7 @@ targets:
       - path: Epistemos
         type: syncedFolder
         excludes:
+          - JuneAgent/**
           - Resources/CoreEditor/chunks/**
       - path: build-rust/swift-bindings
         type: syncedFolder
@@ -68,7 +69,6 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "26.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
-        "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Development"
         CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-AppStore.entitlements
         CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
         ENABLE_APP_SANDBOX: true
@@ -103,6 +103,90 @@ targets:
           bash "${SRCROOT}/build-epistemos-code-index.sh"
           bash "${SRCROOT}/build-tiptap-bundle.sh"
           bash "${SRCROOT}/build-coreeditor-bundle.sh"
+        basedOnDependencyAnalysis: false
+    postBuildScripts:
+      - name: Bundle Runtime Assets
+        script: bash "${SRCROOT}/bundle-app-runtime-assets.sh"
+        basedOnDependencyAnalysis: false
+    dependencies:
+      - package: GRDB
+      - package: Grape
+      - package: KokoroPipeline
+        product: KokoroPipeline
+      - package: MarkEditCore
+      - sdk: AppKit.framework
+      - sdk: SwiftUI.framework
+      - sdk: SwiftData.framework
+      - sdk: Foundation.framework
+      - sdk: CryptoKit.framework
+      - sdk: Security.framework
+      - sdk: Network.framework
+      - sdk: AppIntents.framework
+      - sdk: CoreSpotlight.framework
+
+  Epistemos:
+    type: application
+    platform: macOS
+    sources:
+      - path: Epistemos
+        type: syncedFolder
+        excludes:
+          - Resources/CoreEditor/chunks/**
+      - path: build-rust/swift-bindings
+        type: syncedFolder
+        includes:
+          - epistemos_core.swift
+          - agent_core.swift
+    resources:
+      - path: Epistemos/Resources
+        excludes:
+          - CoreEditor/chunks/**
+      - path: Epistemos/Resources/PrivacyInfo.xcprivacy
+    settings:
+      base:
+        PRODUCT_NAME: Epistemos
+        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.app
+        INFOPLIST_FILE: Epistemos-Info.plist
+        GENERATE_INFOPLIST_FILE: false
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-AppStore.entitlements
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
+        ENABLE_APP_SANDBOX: true
+        SWIFT_EMIT_LOC_STRINGS: true
+        ENABLE_PREVIEWS: true
+        EPISTEMOS_PRODUCT_EDITION: BASE_JUNE
+        SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
+        LD_RUNPATH_SEARCH_PATHS:
+          - "@executable_path"
+          - "@executable_path/../Frameworks"
+          - "@loader_path/../Frameworks"
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust/appstore -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lc++
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+          DEVELOPMENT_TEAM: 3BNL2669SL
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1 EPISTEMOS_BASE_JUNE"
+        Release:
+          CODE_SIGN_IDENTITY: "Apple Development"
+          DEVELOPMENT_TEAM: 3BNL2669SL
+          ENABLE_HARDENED_RUNTIME: true
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX EPISTEMOS_FREE_V1 EPISTEMOS_BASE_JUNE"
+    preBuildScripts:
+      - name: Build Rust Engine
+        script: |
+          set -euo pipefail
+          bash "${SRCROOT}/build-rust.sh"
+          bash "${SRCROOT}/build-syntax-core.sh"
+          MAS_SANDBOX=1 bash "${SRCROOT}/build-epistemos-core.sh"
+          MAS_SANDBOX=1 bash "${SRCROOT}/build-agent-core.sh"
+          bash "${SRCROOT}/build-epistemos-shadow.sh"
+          bash "${SRCROOT}/build-epistemos-code-index.sh"
+          bash "${SRCROOT}/build-tiptap-bundle.sh"
+          bash "${SRCROOT}/build-coreeditor-bundle.sh"
+          bash "${SRCROOT}/build-june-web.sh"
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
@@ -202,13 +286,9 @@ schemes:
   Epistemos:
     build:
       targets:
-        Epistemos-AppStore: all
-        EpistemosAppStoreKeelstoneTests: [test]
-    test:
-      targets:
-        - EpistemosAppStoreKeelstoneTests
+        Epistemos: all
     run:
-      executable: Epistemos-AppStore
+      executable: Epistemos
     archive:
       config: Release
   Epistemos-AppStore:

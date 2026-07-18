@@ -239,6 +239,19 @@ struct RootView: View {
         embeddedHomeGraphCanvasVisible
     }
 
+    private var showPrincipalToolbarControls: Bool {
+        #if EPISTEMOS_BASE_JUNE
+        showLandingToolbarControls
+            || showEmbeddedGraphToolbarControls
+            || (ui.homeTab == .home && ui.homeContent == .june)
+            || (!embeddedHomeGraphContentVisible && activeHomeChat)
+        #else
+        showLandingToolbarControls
+            || showEmbeddedGraphToolbarControls
+            || (!embeddedHomeGraphContentVisible && activeHomeChat)
+        #endif
+    }
+
     /// Canonical toolbar glass visibility — deterministic from app state.
     /// For non-Home tabs: always visible.
     /// For Home landing: always hidden.
@@ -302,10 +315,7 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            if showLandingToolbarControls
-                || showEmbeddedGraphToolbarControls
-                || (!embeddedHomeGraphContentVisible && activeHomeChat)
-            {
+            if showPrincipalToolbarControls {
                 ToolbarItem(placement: .principal) {
                     rootToolbarControls
                 }
@@ -452,6 +462,18 @@ struct RootView: View {
 
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
+            #if EPISTEMOS_BASE_JUNE
+            if ui.homeTab == .home && ui.homeContent == .june {
+                JuneAgentNavBar(
+                    theme: ui.theme,
+                    onReturnHome: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                            ui.homeContent = .greeting
+                        }
+                    }
+                )
+            }
+            #endif
             if showLandingToolbarControls || showEmbeddedGraphToolbarControls {
                 // Keep the pill mounted on the graph — a principal ToolbarItem is load-bearing
                 // for the window's curved corners. Settings and greeting controls remain on

@@ -358,6 +358,9 @@ final class UIState {
         case graph
         case document(HomeDocumentSelection)
         case meeting
+        #if EPISTEMOS_BASE_JUNE
+        case june
+        #endif
     }
 
     var homeContent: HomeContent = .greeting

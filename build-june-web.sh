@@ -16,11 +16,26 @@ set -euo pipefail
 
 FORK="${EPISTEMOS_JUNE_FORK:-$HOME/dev/june-epistemos}"
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+MAS_PATCH="$REPO_ROOT/june-mas-cloud-only.patch"
+MAS_TSCONFIG="$REPO_ROOT/june-mas-tsconfig.json"
 # NOT under Epistemos/Resources: the resources glob flattens files into the
 # Resources root ("Multiple commands produce index.html"). The postBuild
-# script bundle-app-runtime-assets.sh copies this stage into the built app
-# at Contents/Resources/JuneWeb (AppStore target only).
+# script bundle-app-runtime-assets.sh copies this stage into the base app
+# at Contents/Resources/JuneWeb (the Free App Store target excludes it).
 STAGE="$REPO_ROOT/.june-web-stage"
+BUILD_ROOT=""
+WORKTREE_PARENT=""
+WORKTREE=""
+
+cleanup() {
+  if [ -n "$WORKTREE" ] && [ -d "$WORKTREE" ]; then
+    git -C "$FORK" worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
+  fi
+  if [ -n "$WORKTREE_PARENT" ] && [ -d "$WORKTREE_PARENT" ]; then
+    rmdir "$WORKTREE_PARENT" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
 
 UNLICENSED_FONTS=(
   "BerkeleyMono-Regular.woff2" "BerkeleyMono-Oblique.woff2"
@@ -43,11 +58,16 @@ validate_staged_tree() {
     "$STAGE"/dist/assets/main-*.js; then
     return 1
   fi
+  if grep -aEqi 'Ollama|GGUF|epistemos-local-chat|local language model|local model|browser-use|puppeteer|playwright|chromium|Drives a browser' \
+    "$STAGE"/dist/assets/*.js; then
+    return 1
+  fi
   grep -Fq 'MAS uses June' "$STAGE/tauri-internals-shim.js" || return 1
 
   if find "$STAGE" -type f \( \
       -name 'sw.js' -o \
       -name 'service-worker*' -o \
+      -name '*browser*' -o \
       -name '*.map' -o \
       -name 'BerkeleyMono-*' -o \
       -name 'ABCDiatype-*' -o \
@@ -65,11 +85,28 @@ if [ ! -f "$FORK/package.json" ]; then
   echo "ERROR: June fork not found at $FORK and checked-in staged JuneWeb is incomplete (set EPISTEMOS_JUNE_FORK)" >&2
   exit 1
 fi
-[ -f "$FORK/epistemos/tauri-internals-shim.js" ] || { echo "ERROR: overlay shim missing in fork"; exit 1; }
-SETTINGS_SOURCE="$FORK/src/components/settings/AppSettings.tsx"
-SIDEBAR_SOURCE="$FORK/src/components/sidebar/Sidebar.tsx"
-AGENT_SOURCE="$FORK/src/components/agent/AgentWorkspace.tsx"
-ACCOUNT_SOURCE="$FORK/src/components/account/AccountSettings.tsx"
+[ -f "$MAS_PATCH" ] || { echo "ERROR: MAS cloud-only June patch is missing"; exit 1; }
+[ -f "$MAS_TSCONFIG" ] || { echo "ERROR: MAS June TypeScript config is missing"; exit 1; }
+if [ -n "$(git -C "$FORK" status --porcelain)" ]; then
+  echo "ERROR: June donor has uncommitted files; refusing to ignore or overwrite them" >&2
+  exit 1
+fi
+[ -d "$FORK/node_modules" ] || { echo "ERROR: June donor dependencies are missing"; exit 1; }
+
+WORKTREE_PARENT="$(mktemp -d "${TMPDIR:-/tmp}/epistemos-june-web.XXXXXX")"
+WORKTREE="$WORKTREE_PARENT/worktree"
+git -C "$FORK" worktree add --detach "$WORKTREE" HEAD >/dev/null
+ln -s "$FORK/node_modules" "$WORKTREE/node_modules"
+git -C "$WORKTREE" apply --check "$MAS_PATCH"
+git -C "$WORKTREE" apply "$MAS_PATCH"
+cp "$MAS_TSCONFIG" "$WORKTREE/tsconfig.epistemos.json"
+BUILD_ROOT="$WORKTREE"
+
+[ -f "$BUILD_ROOT/epistemos/tauri-internals-shim.js" ] || { echo "ERROR: overlay shim missing in fork"; exit 1; }
+SETTINGS_SOURCE="$BUILD_ROOT/src/components/settings/AppSettings.tsx"
+SIDEBAR_SOURCE="$BUILD_ROOT/src/components/sidebar/Sidebar.tsx"
+AGENT_SOURCE="$BUILD_ROOT/src/components/agent/AgentWorkspace.tsx"
+ACCOUNT_SOURCE="$BUILD_ROOT/src/components/account/AccountSettings.tsx"
 [ -f "$SETTINGS_SOURCE" ] || { echo "ERROR: June Settings source missing in fork"; exit 1; }
 [ -f "$SIDEBAR_SOURCE" ] || { echo "ERROR: June Settings sidebar source missing in fork"; exit 1; }
 [ -f "$AGENT_SOURCE" ] || { echo "ERROR: June agent source missing in fork"; exit 1; }
@@ -122,14 +159,12 @@ grep -Fq 'June text models' "$SETTINGS_SOURCE" || {
 command -v bun >/dev/null || { echo "ERROR: bun is required"; exit 1; }
 
 echo "== June fork: $FORK @ $(git -C "$FORK" rev-parse --short HEAD) ($(git -C "$FORK" log -1 --format=%cs))"
-if ! git -C "$FORK" diff --quiet; then
-  echo "WARNING: fork working tree is dirty — staging uncommitted state"
-fi
+echo "== Applying Epistemos MAS cloud-only overlay in an isolated worktree"
 
-echo "== Building (frozen bun install + tsc + vite build --base=./)"
-(cd "$FORK" && bun install --frozen-lockfile --silent && bunx tsc && bunx vite build --base=./ >/dev/null)
+echo "== Building (pinned dependencies + tsc + vite build --base=./)"
+(cd "$BUILD_ROOT" && bunx tsc --project tsconfig.epistemos.json && bunx vite build --base=./ >/dev/null)
 
-if find "$FORK/dist" -name "sw.js" -o -name "service-worker*" | grep -q .; then
+if find "$BUILD_ROOT/dist" -name "sw.js" -o -name "service-worker*" | grep -q .; then
   echo "ERROR: dist contains a service worker — refusing to stage"
   exit 1
 fi
@@ -143,8 +178,23 @@ for font in "${UNLICENSED_FONTS[@]}"; do EXCLUDES+=(--exclude "$font"); done
 # bundle and bloat it. The scheme handler would even serve them as JSON. Exclude
 # defensively so a sourcemap-enabled Vite build can't leak through.
 EXCLUDES+=(--exclude "*.map")
-rsync -a "${EXCLUDES[@]}" "$FORK/dist/" "$STAGE/dist/"
-cp "$FORK/epistemos/tauri-internals-shim.js" "$STAGE/tauri-internals-shim.js"
+rsync -a "${EXCLUDES[@]}" "$BUILD_ROOT/dist/" "$STAGE/dist/"
+cp "$BUILD_ROOT/epistemos/tauri-internals-shim.js" "$STAGE/tauri-internals-shim.js"
+
+# Epistemos embeds only June's main agent surface. The donor's floating agent,
+# dictation, and meeting HUD entrypoints are separate windows in upstream June;
+# they are unreachable here and pull in React's browser-target HTML renderer.
+rm -f \
+  "$STAGE/dist/agent-hud.html" \
+  "$STAGE/dist/hud.html" \
+  "$STAGE/dist/meeting-hud.html" \
+  "$STAGE"/dist/assets/agent-hud-*.js \
+  "$STAGE"/dist/assets/agent-hud-*.css \
+  "$STAGE"/dist/assets/hud-*.js \
+  "$STAGE"/dist/assets/hud-*.css \
+  "$STAGE"/dist/assets/meeting-hud-*.js \
+  "$STAGE"/dist/assets/meeting-hud-*.css \
+  "$STAGE"/dist/assets/server.browser-*.js
 
 for font in "${UNLICENSED_FONTS[@]}"; do
   if [ -e "$STAGE/dist/$font" ]; then
@@ -161,4 +211,4 @@ fi
 FILES=$(find "$STAGE/dist" -type f | wc -l | tr -d ' ')
 MAIN_GZ=$(gzip -c "$STAGE"/dist/assets/main-*.js 2>/dev/null | wc -c | tr -d ' ')
 echo "== Staged $FILES files; main chunk $((MAIN_GZ / 1024)) KB gz"
-echo "== Done. Rebuild the AppStore scheme to bundle (bundle-app-runtime-assets.sh copies the stage)."
+echo "== Done. Rebuild the Epistemos base scheme to bundle (bundle-app-runtime-assets.sh copies the stage)."

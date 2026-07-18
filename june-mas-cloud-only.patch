@@ -1,0 +1,208 @@
+diff --git a/src/components/agent/AgentWorkspace.tsx b/src/components/agent/AgentWorkspace.tsx
+--- a/src/components/agent/AgentWorkspace.tsx
++++ b/src/components/agent/AgentWorkspace.tsx
+@@ -193,7 +193,6 @@ import { HermesTracePanel } from "./HermesTracePanel";
+ import {
+   PROVIDER_MODEL_SETTINGS_CHANGED_EVENT,
+   dispatchProviderModelSettingsChanged,
+-  modelIsEpistemosLocalChat,
+   modelPrivacyBadge,
+   modelReasoningLabel,
+   modelSupportsImageInput,
+@@ -2431,10 +2430,7 @@ export function AgentWorkspace({
+   async function handleSelectGenerationModel(modelId: string) {
+     setComposerModelOpen(false);
+     const chosen = generationModelsRef.current.find((model) => model.id === modelId);
+-    // Defense in depth: regular June cloud-agent models need tool support.
+-    // Epistemos MAS adds explicit local chat-tier rows that are useful without
+-    // tools; do not fake function-calling for them.
+-    if (chosen && !modelSupportsTools(chosen) && !modelIsEpistemosLocalChat(chosen)) {
++    if (chosen && !modelSupportsTools(chosen)) {
+       setError(`${chosen.name} can't run June's tools, so it can't be used for the agent.`);
+       return false;
+     }
+@@ -7008,9 +7004,7 @@ function ComposerModelPicker({
+   // June's agent needs tool calls, so models without tool support can never
+   // be picked — leave them out of the quick-switch list entirely instead of
+   // showing dead rows. (Settings still lists them, greyed, for context.)
+-  const selectable = options.filter(
+-    (option) => !option.provider || modelSupportsTools(option) || modelIsEpistemosLocalChat(option),
+-  );
++  const selectable = options.filter((option) => modelSupportsTools(option));
+   const filteredOptions = query
+     ? selectable.filter((option) => modelMatchesQuery(option, query))
+     : selectable;
+@@ -7225,8 +7219,5 @@ function heroPrivacyFootnote(
+ ): string {
+   if (!model) return "June runs in Epistemos.";
+-  if (modelIsEpistemosLocalChat(model)) {
+-    return `June is running ${model.name} on this Mac. Tools stay on the configured cloud-agent lane.`;
+-  }
+   switch (badge?.mode) {
+     case "e2ee":
+       return `June runs in Epistemos. Calls to ${model.name} are end-to-end encrypted.`;
+diff --git a/src/components/settings/AppSettings.tsx b/src/components/settings/AppSettings.tsx
+--- a/src/components/settings/AppSettings.tsx
++++ b/src/components/settings/AppSettings.tsx
+@@ -72,24 +72,6 @@ import { dispatchProviderModelSettingsChanged } from "../../lib/model-privacy";
+ import { ProviderLogo } from "./ProviderLogo";
+ import { ModelMeta, ModelPickerDialog, modelOptions, selectedModel } from "./ModelPickerDialog";
+ import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from "../../lib/image-models";
+-import { AgentSettingsSection } from "./AgentSettingsSection";
+-import { ExternalDirsSection } from "./ExternalDirsSection";
+-import { InstalledSkillsSection } from "./InstalledSkillsSection";
+-import { SkillReviewSection } from "./SkillReviewSection";
+-import { McpCatalogSection } from "./McpCatalogSection";
+-import { McpDiagnosticsSection } from "./McpDiagnosticsSection";
+-import { McpSecuritySection } from "./McpSecuritySection";
+-import { McpServersSection } from "./McpServersSection";
+-import {
+-  IntegrationsHealthSection,
+-  type IntegrationsHealthTarget,
+-} from "./IntegrationsHealthSection";
+-import { ProfileBuilderSection } from "./ProfileBuilderSection";
+-import { SetupSnapshotSection } from "./SetupSnapshotSection";
+-import { SkillBundlesSection } from "./SkillBundlesSection";
+-import { SkillsHubSection } from "./SkillsHubSection";
+-import { TeamTapsSection } from "./TeamTapsSection";
+-import { ToolsetsSection } from "./ToolsetsSection";
+ import { DictionarySettingsSection } from "./DictionarySettingsSection";
+ import { MicTestControl, type MicTestState } from "./MicTestControl";
+ import { StyleSettingsSection } from "./StyleSettingsSection";
+@@ -1281,9 +1265,7 @@ export function AppSettings({
+                   <ModelRow
+                     title="Text"
+                     description={
+-                      account.localDev
+-                        ? "The selected OpenAI, Anthropic, Apple Intelligence, or local GGUF model June uses for chat."
+-                        : "Used for generated notes and agent responses."
++                      "The selected OpenAI or Anthropic cloud model June uses for chat."
+                     }
+                     value={providerSettings.generationModel}
+                     options={generationOptions}
+@@ -1339,30 +1321,6 @@ export function AppSettings({
+           </>
+         ) : null}
+ 
+-        {activeTab === "agent" ? <AgentSettingsSection /> : null}
+-
+-        {activeTab === "skills" ? <InstalledSkillsSection /> : null}
+-        {activeTab === "external-dirs" ? <ExternalDirsSection /> : null}
+-        {activeTab === "skill-review" ? <SkillReviewSection /> : null}
+-
+-        {activeTab === "mcp" ? <McpServersSection /> : null}
+-        {activeTab === "mcp-catalog" ? <McpCatalogSection /> : null}
+-        {activeTab === "mcp-diagnostics" ? <McpDiagnosticsSection /> : null}
+-        {activeTab === "mcp-security" ? <McpSecuritySection /> : null}
+-        {activeTab === "skills-hub" ? <SkillsHubSection /> : null}
+-        {activeTab === "taps" ? (
+-          <TeamTapsSection onConfigureGithubToken={() => setActiveTab("skills")} />
+-        ) : null}
+-        {activeTab === "toolsets" ? <ToolsetsSection /> : null}
+-        {activeTab === "bundles" ? <SkillBundlesSection onStartChat={onStartBundleChat} /> : null}
+-        {activeTab === "profile-builder" ? <ProfileBuilderSection /> : null}
+-        {activeTab === "integrations-health" ? (
+-          <IntegrationsHealthSection
+-            onNavigate={(target: IntegrationsHealthTarget) => setActiveTab(target)}
+-          />
+-        ) : null}
+-        {activeTab === "import-export" ? <SetupSnapshotSection /> : null}
+-
+         {activeTab === "about" ? (
+           <section className="settings-group" aria-labelledby="about-heading">
+             <h2 id="about-heading" className="settings-group-heading">
+diff --git a/src/components/settings/ProviderLogo.tsx b/src/components/settings/ProviderLogo.tsx
+--- a/src/components/settings/ProviderLogo.tsx
++++ b/src/components/settings/ProviderLogo.tsx
+@@ -6,6 +6,5 @@ import { IconMetaAi } from "central-icons/IconMetaAi";
+ import { IconMistral } from "central-icons/IconMistral";
+ import { IconNvidia } from "central-icons/IconNvidia";
+-import { IconOllama } from "central-icons/IconOllama";
+ import { IconOpenai } from "central-icons/IconOpenai";
+ import { IconPerplexity } from "central-icons/IconPerplexity";
+ 
+@@ -34,8 +33,6 @@ export function ProviderLogo({ provider, id, name = "", size = 18 }: ProviderLogoProps) {
+       return <IconDeepseek size={size} aria-label="DeepSeek" />;
+     case "perplexity":
+       return <IconPerplexity size={size} aria-label="Perplexity" />;
+-    case "ollama":
+-      return <IconOllama size={size} aria-label="Ollama" />;
+     case "xai":
+       return <IconGrok size={size} aria-label="Grok" />;
+     case "nvidia":
+@@ -63,7 +60,6 @@ type ProviderKind =
+   | "mistral"
+   | "deepseek"
+   | "perplexity"
+-  | "ollama"
+   | "xai"
+   | "nvidia"
+   | "elevenlabs"
+@@ -106,6 +102,5 @@ function classifyProvider(provider: string, id: string, name: string): ProviderKind {
+     return "perplexity";
+   }
+-  if (haystack.includes("ollama")) return "ollama";
+   if (normalizedProvider === "xai" || haystack.includes("grok") || haystack.includes("xai/")) {
+     return "xai";
+   }
+diff --git a/src/lib/hermes-admin/mcp-security-view.ts b/src/lib/hermes-admin/mcp-security-view.ts
+--- a/src/lib/hermes-admin/mcp-security-view.ts
++++ b/src/lib/hermes-admin/mcp-security-view.ts
+@@ -210,6 +210,5 @@ export type McpRiskReason = {
+     | "filesystem"
+     | "shell"
+-    | "browser"
+     | "database"
+     | "cloud-admin"
+     | "destructive-tool"
+@@ -270,19 +270,6 @@ const RISK_CATEGORY_MATCHERS: Readonly<
+     ],
+     detail: "Runs shell commands. A shell tool can do anything the running user can do.",
+   },
+-  browser: {
+-    keywords: [
+-      "browser",
+-      "puppeteer",
+-      "playwright",
+-      "chromium",
+-      "chrome",
+-      "webdriver",
+-      "selenium",
+-      "headless",
+-    ],
+-    detail: "Drives a browser. It can reach any site you are signed in to and act there.",
+-  },
+   database: {
+     keywords: [
+       "database",
+diff --git a/src/lib/model-privacy.ts b/src/lib/model-privacy.ts
+--- a/src/lib/model-privacy.ts
++++ b/src/lib/model-privacy.ts
+@@ -37,6 +37,5 @@ export const ANONYMOUS_MODEL_DESCRIPTION =
+ type ModelPrivacySignals = Pick<VeniceModelDto, "privacy" | "traits"> &
+   Partial<Pick<VeniceModelDto, "capabilities" | "provider">>;
+-type EpistemosLocalChatSignals = Partial<Pick<VeniceModelDto, "provider" | "privacy" | "traits">>;
+ 
+ /** The agent drives everything through tool calls, so a text model without
+  * function calling bricks June — prompts run but no file, shell, or memory
+@@ -78,20 +77,6 @@ export function modelReasoningLabel(model: Partial<Pick<VeniceModelDto, "capabilities">>) {
+   return undefined;
+ }
+ 
+-/** Epistemos MAS synthesizes local chat-tier rows for Apple Foundation Models
+- * and embedded GGUF models. They deliberately do NOT advertise tool calling:
+- * local models can chat privately on device, while full tool loops remain a
+- * configured cloud-agent capability. */
+-export function modelIsEpistemosLocalChat(model: EpistemosLocalChatSignals) {
+-  const provider = (model.provider ?? "").trim().toLowerCase();
+-  const privacy = (model.privacy ?? "").trim().toLowerCase();
+-  const traits = (model.traits ?? []).map((trait) => trait.trim().toLowerCase());
+-  return (
+-    provider === "" &&
+-    (privacy === "epistemos-local-chat" || traits.includes("epistemos-local-chat"))
+-  );
+-}
+-
+ /** Whether the model can read image input (vision). Mirrors
+  * `modelSupportsTools`: key off the authoritative capability flag on
+  * `capabilities` only, never `traits`. Venice's backend emits a capability

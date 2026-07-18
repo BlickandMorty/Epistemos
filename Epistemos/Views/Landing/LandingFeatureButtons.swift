@@ -81,6 +81,9 @@ nonisolated enum MeetingNoteLandingGateStatus {
 enum LandingFeatureButton: String, CaseIterable, Identifiable {
     case pdfImport
     case meetingNote
+    #if EPISTEMOS_BASE_JUNE
+    case june
+    #endif
 
     var id: String { rawValue }
 
@@ -92,6 +95,9 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport: "pdf import"
         case .meetingNote: "meeting"
+        #if EPISTEMOS_BASE_JUNE
+        case .june: "June"
+        #endif
         }
     }
 
@@ -99,6 +105,9 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport: .document
         case .meetingNote: .capture
+        #if EPISTEMOS_BASE_JUNE
+        case .june: .chat
+        #endif
         }
     }
 
@@ -112,6 +121,10 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             theme.resolved.accent.color
         case .meetingNote:
             theme.resolved.foreground.color.opacity(theme.isDark ? 0.88 : 0.76)
+        #if EPISTEMOS_BASE_JUNE
+        case .june:
+            theme.resolved.accent.color
+        #endif
         }
     }
 
@@ -119,6 +132,9 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport: .document
         case .meetingNote: .capture
+        #if EPISTEMOS_BASE_JUNE
+        case .june: .agent
+        #endif
         }
     }
 
@@ -132,6 +148,10 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return LiteParseImportGateStatus.status().isActive
         case .meetingNote:
             return MeetingNoteLandingGateStatus.status().isActive
+        #if EPISTEMOS_BASE_JUNE
+        case .june:
+            return true
+        #endif
         }
     }
 
@@ -141,6 +161,10 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return LiteParseImportGateStatus.status().detail
         case .meetingNote:
             return MeetingNoteLandingGateStatus.status().detail
+        #if EPISTEMOS_BASE_JUNE
+        case .june:
+            return "June is available only in the base app."
+        #endif
         }
     }
 
@@ -157,6 +181,10 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return "Import a PDF and turn it into searchable, linked notes in your vault."
         case .meetingNote:
             return "Record a meeting and capture a live, auto-saved transcript."
+        #if EPISTEMOS_BASE_JUNE
+        case .june:
+            return "Open June, powered by Goose's in-process agent_core with cloud models only."
+        #endif
         }
     }
 
