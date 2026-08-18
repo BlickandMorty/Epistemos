@@ -4,6 +4,33 @@ I started Epistemos because I wanted one serious local research workspace instea
 
 It is a native macOS project with a Swift/AppKit/SwiftUI shell, Rust cores, a TypeScript editor, local vault/search infrastructure, and explicit cloud-assisted paths. It is still in development. I would rather say that plainly than make the README sound like every old research document is already a shipped feature.
 
+## What it looks like
+
+The first three images are raw development captures I preserved from the working app. They show real work in progress, including rough edges and experimental surfaces; they are not release screenshots or proof that every visible control belongs to the current Free V1 target.
+
+### Notes and theme-performance investigation
+
+![Epistemos note documenting a theme-switching performance investigation](docs/showcase/development-theme-audit.png)
+
+### Structured HTML workspace
+
+![Epistemos HTML workspace with source and rendered preview](docs/showcase/development-html-workspace.png)
+
+### Experimental note-run record
+
+![Epistemos development note recording an experimental multi-step run](docs/showcase/development-note-agent-run.png)
+
+### Additional recovered product views
+
+These captures came from the companion site repository. I keep them as an honest visual record of the product's development rather than presenting every surface as current.
+
+| Landing and local context | Research document view |
+| --- | --- |
+| ![Dark Epistemos greeting screen](docs/showcase/landing-greeting-dark.jpg) | ![Dark Epistemos research report](docs/showcase/research-report-dark.jpg) |
+| ![Epistemos contextual note search](docs/showcase/context-search-light.jpg) | ![Autoresearch experiment progress plot](docs/showcase/autoresearch-progress.jpg) |
+
+The older gray graph screenshots are intentionally omitted because they do not represent the current graph design. I will add the red/yellow pixel-art graph when I have the genuine current capture.
+
 ## What I am building
 
 The current direction is:
@@ -68,14 +95,15 @@ I separated that material so it can be judged on its own:
 
 - [epistemos-research-canon](https://github.com/BlickandMorty/epistemos-research-canon) — the long lattice explainer and recovered research record
 - [epistemos-formal-primitives](https://github.com/BlickandMorty/epistemos-formal-primitives) — Lean source with an exact proof/candidate ledger
-- [primitive-ir-lab](https://github.com/BlickandMorty/primitive-ir-lab) — the executable EML and typed primitive floor
-- [deterministic-agent-kernel](https://github.com/BlickandMorty/deterministic-agent-kernel) — deterministic decisions and replay receipts
-- [scope-rex-admission](https://github.com/BlickandMorty/scope-rex-admission) — bounded, evidence-carrying admission
-- [eidos-closed-citation](https://github.com/BlickandMorty/eidos-closed-citation) — a small closed-citation honesty layer
-- [f-ulp-oracle](https://github.com/BlickandMorty/f-ulp-oracle) — binary16 ULP witnesses
-- [lattice-wbo-ledger](https://github.com/BlickandMorty/lattice-wbo-ledger) — explicit weighted-bound accounting
-- [hyperdynamic-schema-repair](https://github.com/BlickandMorty/hyperdynamic-schema-repair) — bounded witnessed repair
-- [vault-recall-benchmark](https://github.com/BlickandMorty/vault-recall-benchmark) — deterministic recall evaluation
+- [epistemos-labs](https://github.com/BlickandMorty/epistemos-labs) — the tested Rust monorepo for the executable experiments below
+  - [primitive-ir-lab](https://github.com/BlickandMorty/epistemos-labs/tree/main/experiments/primitive-ir-lab) — the executable EML and typed primitive floor
+  - [deterministic-agent-kernel](https://github.com/BlickandMorty/epistemos-labs/tree/main/experiments/deterministic-agent-kernel) — deterministic decisions and replay receipts
+  - [scope-rex-admission](https://github.com/BlickandMorty/epistemos-labs/tree/main/experiments/scope-rex-admission) — bounded, evidence-carrying admission
+  - [eidos-closed-citation](https://github.com/BlickandMorty/epistemos-labs/tree/main/experiments/eidos-closed-citation) — a small closed-citation honesty layer
+  - [f-ulp-oracle](https://github.com/BlickandMorty/epistemos-labs/tree/main/experiments/f-ulp-oracle) — binary16 ULP witnesses
+  - [lattice-wbo-ledger](https://github.com/BlickandMorty/epistemos-labs/tree/main/experiments/lattice-wbo-ledger) — explicit weighted-bound accounting
+  - [hyperdynamic-schema-repair](https://github.com/BlickandMorty/epistemos-labs/tree/main/experiments/hyperdynamic-schema-repair) — bounded witnessed repair
+  - [vault-recall-benchmark](https://github.com/BlickandMorty/epistemos-labs/tree/main/experiments/vault-recall-benchmark) — deterministic recall evaluation
 
 I kept the unfinished claims too. They are just labeled as unfinished.
 
