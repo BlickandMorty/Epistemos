@@ -6,7 +6,7 @@ It is a native macOS project with a Swift/AppKit/SwiftUI shell, Rust cores, a Ty
 
 ## What it looks like
 
-The first three images are raw development captures I preserved from the working app. They show real work in progress, including rough edges and experimental surfaces; they are not release screenshots or proof that every visible control belongs to the current Free V1 target.
+The first three images are isolated crops of development captures I preserved from the working app. They show real work in progress, including rough edges and experimental surfaces; they are not release screenshots or proof that every visible control belongs to the current Free V1 target.
 
 ### Notes and theme-performance investigation
 
@@ -24,12 +24,13 @@ The first three images are raw development captures I preserved from the working
 
 These captures came from the companion site repository. I keep them as an honest visual record of the product's development rather than presenting every surface as current.
 
-| Landing and local context | Research document view |
+| Landing surfaces | Context and research |
 | --- | --- |
-| ![Dark Epistemos greeting screen](docs/showcase/landing-greeting-dark.jpg) | ![Dark Epistemos research report](docs/showcase/research-report-dark.jpg) |
-| ![Epistemos contextual note search](docs/showcase/context-search-light.jpg) | ![Autoresearch experiment progress plot](docs/showcase/autoresearch-progress.jpg) |
+| ![Light Epistemos greeting screen](docs/showcase/landing-greeting-light.jpg) | ![Dark Epistemos greeting screen](docs/showcase/landing-greeting-dark.jpg) |
+| ![Epistemos contextual note search with the owner's name redacted](docs/showcase/context-search-light.jpg) | ![Dark Epistemos research report with the owner's name redacted](docs/showcase/research-report-dark.jpg) |
+| ![Autoresearch experiment progress plot](docs/showcase/autoresearch-progress.jpg) | |
 
-The older gray graph screenshots are intentionally omitted because they do not represent the current graph design. I will add the red/yellow pixel-art graph when I have the genuine current capture.
+The personal white-chat and 2025/2026-plan captures are intentionally excluded. The older gray graph screenshots are also omitted because they do not represent the current graph design. I will add the red/yellow pixel-art graph when I have the genuine current capture.
 
 ## What I am building
 

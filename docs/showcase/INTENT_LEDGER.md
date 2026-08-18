@@ -28,4 +28,11 @@
 - Preservation rule: retain byte-identical copies of all three originals. Never replace or delete an original when creating a presentation crop.
 - Presentation derivatives: the owner approved keeping the focused notes crop after clarifying that the concern was fabricated UI, not cropping. Label any derivative separately from the raw original and never present it as additional evidence.
 - Selection rule: continue reviewing genuine screenshots, but keep obsolete graph visuals, June, agent, and chat out of the default public showcase unless the owner explicitly reverses that boundary.
+
+## 2026-08-17 cropped and redacted gallery update
+
+- Owner steer: use the isolated theme-audit crop at the top; include the HTML workspace, note-run record, both light and dark greeting surfaces, contextual retrieval, research-note view, and autoresearch record.
+- Privacy boundary: exclude the white personal-chat image and the 2025/2026-plan chat. Redact the owner's name from both the research-note capture and the contextual-search result snippet.
+- Presentation boundary: every selected asset must be an isolated crop rather than a full-desktop screenshot. Preserve the source files separately; update only the gallery copies.
+- Final selected set: eight images. No obsolete graph, June, or unrelated chat capture is included.
 - Privacy rule: screenshots containing personal college, financial-aid, or account details may be preserved in the local review archive but must not be published by default.
