@@ -42,7 +42,6 @@ jobs:
           workspaces: |
             graph-engine -> target
             epistemos-core -> target
-            omega-ax -> target
             omega-mcp -> target
             agent_core -> target
           cache-on-failure: true
@@ -53,9 +52,6 @@ jobs:
 
       - name: Build epistemos-core (UniFFI dylib)
         run: cd epistemos-core && cargo build --target aarch64-apple-darwin --release
-
-      - name: Build omega-ax (UniFFI static lib)
-        run: cd omega-ax && cargo build --target aarch64-apple-darwin --release
 
       - name: Build omega-mcp (UniFFI dylib)
         run: cd omega-mcp && cargo build --target aarch64-apple-darwin --release
@@ -69,9 +65,6 @@ jobs:
 
       - name: Test epistemos-core
         run: cd epistemos-core && cargo test --target aarch64-apple-darwin
-
-      - name: Test omega-ax
-        run: cd omega-ax && cargo test --target aarch64-apple-darwin
 
       - name: Test omega-mcp
         run: cd omega-mcp && cargo test --target aarch64-apple-darwin
@@ -176,7 +169,7 @@ jobs:
       # Rust lints
       - name: Clippy (all crates)
         run: |
-          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+          for crate in graph-engine epistemos-core omega-mcp agent_core; do
             echo "::group::Clippy $crate"
             cd "$crate"
             cargo clippy --target aarch64-apple-darwin -- -D warnings
@@ -186,7 +179,7 @@ jobs:
 
       - name: Check Rust formatting
         run: |
-          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+          for crate in graph-engine epistemos-core omega-mcp agent_core; do
             cd "$crate" && cargo fmt --check && cd ..
           done
 
@@ -202,7 +195,6 @@ jobs:
       - name: Generate UniFFI bindings
         run: |
           bash build-epistemos-core.sh
-          bash build-omega-ax.sh
           bash build-omega-mcp.sh
 
       - name: Generate Xcode project

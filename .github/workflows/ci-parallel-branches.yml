@@ -54,7 +54,6 @@ jobs:
           workspaces: |
             graph-engine -> target
             epistemos-core -> target
-            omega-ax -> target
             omega-mcp -> target
             agent_core -> target
             epistemos-research -> target

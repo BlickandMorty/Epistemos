@@ -23,19 +23,18 @@ jobs:
           workspaces: |
             graph-engine -> target
             epistemos-core -> target
-            omega-ax -> target
             omega-mcp -> target
             agent_core -> target
 
       - name: Clippy (all crates)
         run: |
-          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+          for crate in graph-engine epistemos-core omega-mcp agent_core; do
             cd "$crate" && cargo clippy --target aarch64-apple-darwin -- -D warnings && cd ..
           done
 
       - name: rustfmt check
         run: |
-          for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core; do
+          for crate in graph-engine epistemos-core omega-mcp agent_core; do
             cd "$crate" && cargo fmt --check && cd ..
           done
 
