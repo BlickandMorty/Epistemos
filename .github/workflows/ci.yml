@@ -21,7 +21,10 @@ env:
 jobs:
   build-and-test:
     runs-on: macos-15
-    timeout-minutes: 45
+    # A cold macOS build of agent_core alone can exceed 40 minutes. Keep the
+    # full native, Swift, and release-gate suite intact instead of cancelling
+    # it before tests begin.
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
