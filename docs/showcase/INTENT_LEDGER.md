@@ -36,3 +36,10 @@
 - Presentation boundary: every selected asset must be an isolated crop rather than a full-desktop screenshot. Preserve the source files separately; update only the gallery copies.
 - Final selected set: eight images. No obsolete graph, June, or unrelated chat capture is included.
 - Privacy rule: screenshots containing personal college, financial-aid, or account details may be preserved in the local review archive but must not be published by default.
+
+## 2026-08-17 full-width isolated presentation
+
+- Owner steer: keep the first three captures, then stack the redacted research note, light greeting, dark greeting, redacted context attachment, and autoresearch record in that order.
+- Layout rule: no Markdown table, site grid, or compact gallery cards for these screenshots. Each capture should read as a full-width item like the first three.
+- Image rule: crop to the exact application or panel edge, remove the original shadow/white canvas, and use transparent rounded corners. The light greeting remains white because white is its actual app surface.
+- Product description: describe Epistemos as a minimal, pixel-art-inspired macOS notes and research app spanning Markdown, rich text, code/source work, HTML workspaces, Xcode-project files, local retrieval, and knowledge-graph views.
