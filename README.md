@@ -1,5 +1,12 @@
 # Epistemos
 
+> **Project status:** AI-assisted research and product-development project
+>
+> **AI assistance:** substantial
+> `████████░░` AI helped scaffold, revise, and connect parts of the implementation and documentation.
+>
+> **My role:** I set the research-workspace direction, chose the problems the project is trying to solve, reviewed development work, ran and inspected the app, and shaped the evidence/retrieval workflow. I can explain the product ideas, the working surfaces, and the limits of the current build. I am still learning the deeper Swift, Rust, and TypeScript code beneath it.
+
 I started Epistemos because I wanted one serious local research workspace instead of a notes app, a retrieval system, an editor, and an agent bolted together after the fact.
 
 It is a native macOS project with a Swift/AppKit/SwiftUI shell, Rust cores, a TypeScript editor, local vault/search infrastructure, and explicit cloud-assisted paths. It is still in development. I would rather say that plainly than make the README sound like every old research document is already a shipped feature.
